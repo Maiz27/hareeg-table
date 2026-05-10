@@ -1,0 +1,29 @@
+name: Rule clarification
+description: Capture an open Classic Hareeg rule question.
+title: "❓ "
+labels: ["❓ question", "📏 rules", "🧭 needs triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Rule question
+      description: What rule or edge case needs a decision?
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      description: Describe the cards, players, table state, and turn state.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommended ruling
+      description: If known, propose the rule and why.
+  - type: textarea
+    id: impact
+    attributes:
+      label: Implementation impact
+      description: Which gameplay, UI, AI, or scoring behavior depends on this?

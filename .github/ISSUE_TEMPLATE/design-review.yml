@@ -1,0 +1,31 @@
+name: Design review / HITL
+description: Request human review for visual, naming, UX, or product feel.
+title: "🙋 "
+labels: ["🙋 hitl", "🎨 design", "🧭 needs triage"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What needs human judgment?
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: List the viable options and tradeoffs.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+      description: State the recommended decision.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshots, mockups, links, or runnable demo notes.

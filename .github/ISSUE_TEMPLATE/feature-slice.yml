@@ -1,0 +1,38 @@
+name: Feature slice
+description: A vertical slice of playable or user-visible behavior.
+title: "[HT-##]: "
+labels: ["🧩 feature", "🧭 needs triage"]
+body:
+  - type: textarea
+    id: parent
+    attributes:
+      label: Parent
+      description: Link the parent PRD or blocking issue.
+      placeholder: "Parent: #1"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What to build
+      description: Describe the end-to-end behavior, not only a layer or file.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use checkboxes. Include tests and verification.
+      value: |
+        - [ ] 
+        - [ ] `flutter analyze` passes.
+        - [ ] Relevant tests pass.
+    validations:
+      required: true
+  - type: textarea
+    id: blocked
+    attributes:
+      label: Blocked by
+      placeholder: "None - can start immediately"
+    validations:
+      required: true
