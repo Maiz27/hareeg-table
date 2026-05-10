@@ -15,8 +15,8 @@ flutter test
 Use issue-prefixed branch names:
 
 ```text
-ht-01-app-architecture
-ht-07-opening-benchmark
+HT-01
+HT-07
 ```
 
 ## Commits
@@ -37,3 +37,7 @@ Every PR should link an issue and list tests run. UI changes should include scre
 ## Rule Accuracy
 
 Do not put game-rule decisions directly in widgets. Rule behavior belongs in the pure Dart rules engine and should be covered by tests.
+
+## Workflows
+
+See [Issue To PR](docs/workflows/issue-to-pr.md) for how to pick up an HT issue, branch, open a PR, and update the parent PRD checklist.
