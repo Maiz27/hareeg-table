@@ -143,3 +143,28 @@ The implementation should center on a deep, pure-Dart Classic Hareeg rules modul
 - Product naming is currently Hareeg Table, with the public repository named `hareeg-table`.
 - The launch language is English, but Arabic terminology should be preserved where it matters, especially Fifty / Khamsin.
 - The visual system should avoid copying existing Hareeg app icons while still communicating cards, fire, and the 50 mechanic.
+
+## Implementation Issue Tracker
+
+- [ ] #2 [HT-01]: Set up app architecture and quality gates
+- [ ] #3 [HT-02]: Create main menu and app navigation shell
+- [ ] #4 [HT-03]: Create game setup flow for Classic Hareeg
+- [ ] #5 [HT-04]: Deal a four-seat Classic Hareeg table
+- [ ] #6 [HT-05]: Implement card identity, deck copies, and basic meld validation
+- [ ] #7 [HT-06]: Implement joker identity and replacement flow
+- [ ] #8 [HT-07]: Implement opening requirement and benchmark pressure
+- [ ] #9 [HT-08]: Implement covers and cover discard restrictions
+- [ ] #10 [HT-09]: Implement draw, discard pickup, and pending discard state
+- [ ] #11 [HT-10]: Implement finish validation and stock exhaustion
+- [ ] #12 [HT-11]: Implement Fifty claim flow
+- [ ] #13 [HT-12]: Implement scoring, elimination, and round progression
+- [ ] #14 [HT-13]: Build round summary, scoreboard, and match end UI
+- [ ] #15 [HT-14]: Implement first CPU strategy pass
+- [ ] #16 [HT-15]: Add assisted, penalty, and hard table rule presets
+- [ ] #17 [HT-16]: Design and implement warm Sudanese lounge table UI
+- [ ] #18 [HT-17]: Polish card art, joker treatment, and Fifty visuals
+- [ ] #19 [HT-18]: Build settings and persist local preferences
+- [ ] #20 [HT-19]: Add pause, resume, and match persistence
+- [ ] #21 [HT-20]: Add rules and help reference
+- [ ] #22 [HT-21]: Add accessibility, responsiveness, and battery pass
+- [ ] #23 [HT-22]: Sync documentation with implemented behavior
