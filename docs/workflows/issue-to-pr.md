@@ -1,10 +1,12 @@
 # Issue To PR
 
-This workflow keeps HT implementation issues, pull requests, labels, milestones, and the parent PRD checklist aligned.
+This workflow keeps HT implementation issues, pull requests, labels, milestones,
+and the parent PRD checklist aligned.
 
 ## Starting Work
 
-1. Pick the lowest unblocked `[HT-##]` issue from the project board or parent PRD checklist.
+1. Pick the lowest unblocked `[HT-##]` issue from the project board or parent PRD
+   checklist.
 2. Confirm the issue's `Blocked by` section is clear.
 3. Assign the issue to yourself.
 4. Update labels:
@@ -25,15 +27,18 @@ No kickoff comment is required. Assignment and labels are enough.
 ## During Work
 
 - Keep scope tied to the issue acceptance criteria.
-- Use available Dart or Flutter agent skills when the current task matches a skill's purpose. Skill use is task-driven, not tied to issue IDs.
-- Do not hide rule questions inside implementation. Create a `❓ question` issue for unclear Classic Hareeg behavior.
+- Use available Dart or Flutter agent skills when the current task matches a
+  skill's purpose. Skill use is task-driven, not tied to issue IDs.
+- Do not hide rule questions inside implementation. Create a `❓ question`
+  issue for unclear Classic Hareeg behavior.
 - If rule behavior changes, update tests and relevant docs.
 - If UI changes, capture screenshots or video for the PR.
-- If scope expands, prefer creating a follow-up issue over growing the current one.
+- If scope expands, prefer creating a follow-up issue over growing the current
+  one.
 
 ## Pull Requests
 
-Open a PR from the issue branch and use the PR template.
+Open a PR from the issue branch and use the PR template when one exists.
 
 Required:
 
@@ -42,6 +47,8 @@ Required:
 - List tests run.
 - Include UI evidence when screens, cards, animations, or layouts change.
 - Note rule behavior changes and docs/tests updated.
+- Verify draft vs ready-for-review state matches the intended review stage.
+- Apply relevant PR labels after creation.
 
 Recommended labels:
 
@@ -49,17 +56,17 @@ Recommended labels:
 - relevant type/area labels
 - keep `🙋 hitl` for human review items
 
+Before handing off the PR, confirm:
+
+- The PR has the expected base branch and source branch.
+- The PR has the intended draft or ready state.
+- The PR has workflow/status labels and type/area labels.
+- The linked child issue still has the expected active-work labels.
+- Any screenshots, videos, or manual test notes are attached or summarized.
+
 ## After Merge
 
-When the PR merges:
-
-1. The child issue should close automatically through `Closes #...`.
-2. Check the matching item in the parent PRD issue checklist.
-3. Remove active status labels from the closed issue if they remain.
-4. If the completed issue unlocks another issue, update the next issue:
-   - remove `⛔ blocked` if no longer blocked
-   - add `✅ ready` when it is ready to start
-5. Keep the parent PRD issue open until the first complete Classic Hareeg release scope is accepted.
+Use [Post Merge Cleanup](post-merge-cleanup.md) after the PR merges.
 
 ## Definition Of Ready
 
@@ -67,7 +74,8 @@ An issue is ready when:
 
 - Acceptance criteria are clear.
 - Blockers are resolved or not applicable.
-- Required human decisions are complete, unless the issue itself is labeled `🙋 hitl`.
+- Required human decisions are complete, unless the issue itself is labeled
+  `🙋 hitl`.
 - The issue has the right type, area, status, priority, and milestone labels.
 
 ## Definition Of Done
@@ -85,6 +93,8 @@ An issue is done when:
 
 ## Parent PRD Issue
 
-The parent PRD issue tracks the full release scope and child checklist. It should retain the full PRD context, user stories, implementation decisions, testing decisions, and issue tracker checklist.
+The parent PRD issue tracks the full release scope and child checklist. It should
+retain the full PRD context, user stories, implementation decisions, testing
+decisions, and issue tracker checklist.
 
 Do not replace the parent PRD body with a short tracker-only summary.
