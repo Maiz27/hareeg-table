@@ -1,4 +1,4 @@
-# Design Direction
+﻿# Design Direction
 
 ## Product Feel
 
@@ -27,6 +27,10 @@ Theme: Warm Sudanese Lounge.
 - Muted text: #B8AA91
 
 ## Icon Direction
+
+![Current Hareeg Table app icon concept](../../assets/brand/app-icon-concept-v2.png)
+
+Current selected concept: dark felt table, fanned ivory cards, warm flame, and a subtle Fifty token. Use this as the visual anchor for future launcher-icon refinement and brand polish.
 
 - Rounded-square app icon.
 - Dark green or charcoal base.
