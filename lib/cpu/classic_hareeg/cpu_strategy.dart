@@ -12,12 +12,15 @@ abstract interface class CpuStrategy {
 /// Minimal state visible to a CPU player when choosing a move.
 class CpuTurnSnapshot {
   /// Creates a CPU decision snapshot.
-  const CpuTurnSnapshot({required this.seat, required this.legalActionIds});
+  CpuTurnSnapshot({
+    required this.seat,
+    required Iterable<String> legalActionIds,
+  }) : legalActionIds = List.unmodifiable(legalActionIds);
 
   /// Seat controlled by this CPU decision.
   final PlayerSeat seat;
 
-  /// Identifiers for actions that the rules engine has already deemed legal.
+  /// Read-only identifiers for actions that the rules engine has deemed legal.
   final List<String> legalActionIds;
 }
 
