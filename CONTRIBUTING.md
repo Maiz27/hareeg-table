@@ -41,3 +41,5 @@ Do not put game-rule decisions directly in widgets. Rule behavior belongs in the
 ## Workflows
 
 See [Issue To PR](docs/workflows/issue-to-pr.md) for how to pick up an HT issue, branch, open a PR, and update the parent PRD checklist.
+
+Agent skills are optional workflow aids. See [Agent Skill Use](docs/workflows/agent-skill-use.md) for how agents should decide when Dart or Flutter skills apply to the current task.

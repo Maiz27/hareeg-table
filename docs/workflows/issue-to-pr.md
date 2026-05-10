@@ -25,6 +25,7 @@ No kickoff comment is required. Assignment and labels are enough.
 ## During Work
 
 - Keep scope tied to the issue acceptance criteria.
+- Use available Dart or Flutter agent skills when the current task matches a skill's purpose. Skill use is task-driven, not tied to issue IDs.
 - Do not hide rule questions inside implementation. Create a `❓ question` issue for unclear Classic Hareeg behavior.
 - If rule behavior changes, update tests and relevant docs.
 - If UI changes, capture screenshots or video for the PR.
