@@ -21,4 +21,19 @@ enum PlayerSeat {
       PlayerSeat.west => PlayerSeat.south,
     };
   }
+
+  /// Parses a saved seat name.
+  static PlayerSeat? fromName(String? name) {
+    if (name == null) {
+      return null;
+    }
+
+    for (final seat in PlayerSeat.values) {
+      if (seat.name == name) {
+        return seat;
+      }
+    }
+
+    return null;
+  }
 }

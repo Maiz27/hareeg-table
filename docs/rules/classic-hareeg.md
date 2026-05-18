@@ -6,12 +6,13 @@ This document captures the working rule spec for Hareeg Table's default Classic 
 
 - Default table: 4 players, one human and three CPU players.
 - Turn order: anti-clockwise.
-- Default deck: one standard 52-card deck plus two jokers.
+- Default deck: two standard 52-card decks plus two jokers. A one-deck setup does not contain enough cards for four 14-card seats plus the starter's extra card.
 - Customization: multiple decks and up to four jokers.
 - Default first starter: human player.
 - Optional first starter setting: random.
 - Each player receives 14 cards.
 - Starter receives 15 cards and skips the first draw.
+- Active matches are saved locally at safe table changes so the player can resume or abandon from the main menu.
 
 ## Melds
 

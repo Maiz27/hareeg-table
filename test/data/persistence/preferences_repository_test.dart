@@ -1,0 +1,79 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hareeg_table/data/persistence/preferences_repository.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+
+void main() {
+  group('LocalPreferencesRepository', () {
+    test('returns defaults when no preferences are saved', () async {
+      final repository = LocalPreferencesRepository(store: _MemoryStore());
+
+      final preferences = await repository.loadPreferences();
+
+      expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
+      expect(preferences.setup.rulePreset, RulePreset.assisted);
+      expect(preferences.autoSort, isTrue);
+      expect(preferences.reducedMotion, isFalse);
+      expect(preferences.language, AppLanguage.english);
+    });
+
+    test('saves and restores setup and display preferences', () async {
+      final store = _MemoryStore();
+      final repository = LocalPreferencesRepository(store: store);
+      final saved = GamePreferences.defaults().copyWith(
+        setup: ClassicHareegSetup.defaults().copyWith(
+          cpuDifficulty: CpuDifficulty.expert,
+          openingRequirement: 75,
+          deckCount: 3,
+          jokerCount: 4,
+          fiftyTimerSeconds: 6,
+          rulePreset: RulePreset.hardTable17,
+        ),
+        autoSort: false,
+        reducedMotion: true,
+        memoryJokerDisplay: true,
+        language: AppLanguage.arabic,
+      );
+
+      await repository.savePreferences(saved);
+
+      final restored = await repository.loadPreferences();
+      expect(restored.setup.cpuDifficulty, CpuDifficulty.expert);
+      expect(restored.setup.openingRequirement, 75);
+      expect(restored.setup.deckCount, 3);
+      expect(restored.setup.jokerCount, 4);
+      expect(restored.setup.fiftyTimerSeconds, 6);
+      expect(restored.setup.rulePreset, RulePreset.hardTable17);
+      expect(restored.autoSort, isFalse);
+      expect(restored.reducedMotion, isTrue);
+      expect(restored.memoryJokerDisplay, isTrue);
+      expect(restored.language, AppLanguage.arabic);
+    });
+
+    test('invalid saved preferences fall back to defaults', () async {
+      final store = _MemoryStore()..values['preferences.v1'] = '{';
+      final repository = LocalPreferencesRepository(store: store);
+
+      final preferences = await repository.loadPreferences();
+
+      expect(preferences.setup.rulePreset, RulePreset.assisted);
+      expect(store.values.containsKey('preferences.v1'), isFalse);
+    });
+  });
+}
+
+class _MemoryStore implements KeyValueStore {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> loadString(String key) async => values[key];
+
+  @override
+  Future<void> remove(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> saveString(String key, String value) async {
+    values[key] = value;
+  }
+}

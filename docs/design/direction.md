@@ -48,3 +48,7 @@ Current selected concept: dark felt table, fanned ivory cards, warm flame, and a
 - More advanced modes may intentionally rely on memory, timing, and player attention.
 - Joker identity should be represented creatively, not just with a plain label overlay.
 - In memory-oriented modes, joker identity may be shown briefly and then return to a mostly joker appearance.
+
+## Current Implementation Status
+
+The first playable implementation uses the warm lounge palette and a utilitarian table layout: portrait menu/setup/help/settings screens and a landscape table with player seats around the play surface. The shipped card and Fifty visuals are intentionally simple in this slice; richer card art, joker treatment, motion, and high-stakes Fifty effects remain follow-up polish work.
