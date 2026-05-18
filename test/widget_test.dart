@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
@@ -110,6 +110,44 @@ void main() {
     expect(find.text('No saved match yet'), findsOneWidget);
     expect(matchRepository.saved, isNull);
   });
+
+  testWidgets('resumed CPU turn advances back to human input', (tester) async {
+    final matchRepository = _MemoryMatchRepository(
+      saved: _snapshot(
+        currentSeat: PlayerSeat.east,
+        turnPhase: TurnPhase.action,
+      ),
+    );
+    await tester.pumpWidget(_testApp(matchRepository: matchRepository));
+    await tester.pump();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
+    expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
+    expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
+  });
+
+  testWidgets('human discard lets CPU seats complete turns', (tester) async {
+    final snapshot = _snapshot();
+    final matchRepository = _MemoryMatchRepository(saved: snapshot);
+    await tester.pumpWidget(_testApp(matchRepository: matchRepository));
+    await tester.pump();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(snapshot.hands[PlayerSeat.south]!.first.label).first,
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+
+    expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
+    expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
+    expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
+  });
 }
 
 Widget _testApp({
@@ -123,7 +161,10 @@ Widget _testApp({
   );
 }
 
-ClassicHareegMatchSnapshot _snapshot() {
+ClassicHareegMatchSnapshot _snapshot({
+  PlayerSeat currentSeat = PlayerSeat.south,
+  TurnPhase turnPhase = TurnPhase.action,
+}) {
   final round = ClassicHareegRound.deal(
     setup: ClassicHareegSetup.defaults(),
     seed: 3,
@@ -134,8 +175,8 @@ ClassicHareegMatchSnapshot _snapshot() {
     stock: round.stock,
     discardPile: round.discardPile,
     starter: round.starter,
-    currentSeat: PlayerSeat.south,
-    turnPhase: TurnPhase.action,
+    currentSeat: currentSeat,
+    turnPhase: turnPhase,
     savedAt: DateTime.utc(2026, 5, 18),
   );
 }

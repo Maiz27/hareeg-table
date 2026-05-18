@@ -52,6 +52,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
     } else {
       _restoreSnapshot(snapshot);
     }
+    _advanceCpuTurnsToHuman();
+    _saveMatch();
   }
 
   @override
@@ -185,7 +187,6 @@ class _GameTableScreenState extends State<GameTableScreen> {
     _currentSeat = round.currentSeat;
     _turnPhase = round.turnPhase;
     _pendingDiscard = null;
-    _saveMatch();
   }
 
   void _restoreSnapshot(ClassicHareegMatchSnapshot snapshot) {
@@ -271,6 +272,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
       _pendingDiscard = null;
       _currentSeat = _currentSeat.nextAntiClockwise;
       _turnPhase = TurnPhase.draw;
+      _advanceCpuTurnsToHuman();
     });
     _saveMatch();
   }
@@ -303,6 +305,46 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
   void _saveMatch() {
     widget.matchRepository.saveActiveMatch(_snapshot());
+  }
+
+  void _advanceCpuTurnsToHuman() {
+    var guard = 0;
+    while (_currentSeat != PlayerSeat.south &&
+        guard < PlayerSeat.values.length) {
+      _playCpuTurn();
+      guard += 1;
+    }
+    _selectedCards.clear();
+    _pendingDiscard = null;
+  }
+
+  void _playCpuTurn() {
+    if (_turnPhase == TurnPhase.draw) {
+      if (_stock.isNotEmpty) {
+        _hands[_currentSeat] = [...?_hands[_currentSeat], _stock.removeLast()];
+      } else if (_discardPile.isNotEmpty) {
+        _hands[_currentSeat] = [
+          ...?_hands[_currentSeat],
+          _discardPile.removeLast(),
+        ];
+      }
+      _turnPhase = TurnPhase.action;
+    }
+
+    final hand = List<HareegCard>.of(_hands[_currentSeat] ?? const []);
+    if (hand.isEmpty) {
+      _currentSeat = _currentSeat.nextAntiClockwise;
+      _turnPhase = TurnPhase.draw;
+      return;
+    }
+
+    final discardIndex = hand.lastIndexWhere((card) => !card.isJoker);
+    final selectedIndex = discardIndex == -1 ? hand.length - 1 : discardIndex;
+    final discarded = hand.removeAt(selectedIndex);
+    _hands[_currentSeat] = hand;
+    _discardPile.add(discarded);
+    _currentSeat = _currentSeat.nextAntiClockwise;
+    _turnPhase = TurnPhase.draw;
   }
 
   int _compareCards(HareegCard left, HareegCard right) {
