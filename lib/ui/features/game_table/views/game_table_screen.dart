@@ -1,21 +1,31 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
+import '../../../../app/app_routes.dart';
+import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
+import '../../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../round_summary/views/round_summary_screen.dart';
 
 /// First playable Classic Hareeg table slice.
+///
+/// All gameplay state is owned by [ClassicHareegGameController]. Human and CPU
+/// moves are routed through `controller.applyAction` so the rules engine
+/// remains the single point of legality enforcement.
 class GameTableScreen extends StatefulWidget {
   /// Creates a table screen from setup values.
   const GameTableScreen({
     required this.setup,
     required this.matchRepository,
     this.initialSnapshot,
+    this.cpuStrategy = const ClassicHareegCpuStrategy(),
     super.key,
   });
 
@@ -28,32 +38,38 @@ class GameTableScreen extends StatefulWidget {
   /// Saved match state to resume instead of dealing.
   final ClassicHareegMatchSnapshot? initialSnapshot;
 
+  /// CPU strategy used for non-human seats. Injected for tests.
+  final CpuStrategy cpuStrategy;
+
   @override
   State<GameTableScreen> createState() => _GameTableScreenState();
 }
 
 class _GameTableScreenState extends State<GameTableScreen> {
-  late Map<PlayerSeat, List<HareegCard>> _hands;
-  late List<HareegCard> _stock;
-  late List<HareegCard> _discardPile;
-  late PlayerSeat _starter;
-  late PlayerSeat _currentSeat;
-  late TurnPhase _turnPhase;
-  final _selectedCards = <HareegCard>[];
-  HareegCard? _pendingDiscard;
+  /// Safety bound for CPU action loops to prevent UI hangs from a strategy
+  /// that returns the same action repeatedly. A real CPU turn sequence is at
+  /// most ~3 actions per seat (take + use + discard); 64 covers all CPU
+  /// seats with generous headroom.
+  static const _cpuActionLimit = 64;
+
+  late ClassicHareegGameController _controller;
+  final _selectedCardIds = <String>{};
+  String? _humanFeedback;
 
   @override
   void initState() {
     super.initState();
     AppOrientation.useLandscape();
     final snapshot = widget.initialSnapshot;
-    if (snapshot == null) {
-      _deal();
-    } else {
-      _restoreSnapshot(snapshot);
-    }
-    _advanceCpuTurnsToHuman();
-    _saveMatch();
+    _controller = snapshot != null
+        ? ClassicHareegGameController.fromSnapshot(snapshot)
+        : ClassicHareegGameController.fromRound(
+            ClassicHareegRound.deal(setup: widget.setup),
+          );
+    _runCpuTurns();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _persistAndMaybeFinish();
+    });
   }
 
   @override
@@ -64,13 +80,28 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canAct = _currentSeat == PlayerSeat.south;
-    final needsDraw = _turnPhase == TurnPhase.draw;
+    final humanSeat = PlayerSeat.south;
+    final isHumanTurn = _controller.currentSeat == humanSeat;
+    final legalActions = isHumanTurn
+        ? _controller.legalActionIdsFor(humanSeat)
+        : const <String>[];
+    final pending = _controller.pendingDiscard;
+    final canDraw = legalActions.contains(ClassicHareegActionIds.drawStock);
+    final canTakeDiscard = legalActions.contains(
+      ClassicHareegActionIds.takeDiscard,
+    );
+    final canReturnDiscard = legalActions.contains(
+      ClassicHareegActionIds.returnPendingDiscard,
+    );
+    final selectedCards = _selectedCards();
+    final selectedCardId = selectedCards.length == 1
+        ? selectedCards.single.id
+        : null;
+    final discardActionId = selectedCardId == null
+        ? null
+        : '${ClassicHareegActionIds.discardPrefix}$selectedCardId';
     final canDiscard =
-        canAct &&
-        _turnPhase == TurnPhase.action &&
-        _selectedCards.length == 1 &&
-        _pendingDiscard == null;
+        discardActionId != null && legalActions.contains(discardActionId);
 
     return Scaffold(
       body: SafeArea(
@@ -80,9 +111,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
             children: [
               _TableHeader(
                 setup: widget.setup,
-                starter: _starter,
-                currentSeat: _currentSeat,
-                turnPhase: _turnPhase,
+                starter: _controller.starter,
+                currentSeat: _controller.currentSeat,
+                turnPhase: _controller.turnPhase,
                 onLeave: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 8),
@@ -91,7 +122,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                   children: [
                     _SeatPanel(
                       seat: PlayerSeat.west,
-                      count: _count(PlayerSeat.west),
+                      count: _controller.cardCountFor(PlayerSeat.west),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -99,46 +130,41 @@ class _GameTableScreenState extends State<GameTableScreen> {
                         children: [
                           _SeatPanel(
                             seat: PlayerSeat.north,
-                            count: _count(PlayerSeat.north),
+                            count: _controller.cardCountFor(PlayerSeat.north),
                             horizontal: true,
                           ),
                           const SizedBox(height: 8),
                           Expanded(
                             child: _TableCenter(
-                              stockCount: _stock.length,
-                              topDiscard: _discardPile.isEmpty
-                                  ? null
-                                  : _discardPile.last,
+                              stockCount: _controller.stockCount,
+                              topDiscard: _controller.topDiscard,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          _PendingDiscardBanner(card: _pendingDiscard),
+                          _PendingDiscardBanner(card: pending),
                           const SizedBox(height: 8),
                           _SelectedMeldFeedback(
-                            cards: _selectedCards,
+                            cards: selectedCards,
                             openingRequirement: widget.setup.openingRequirement,
+                            humanFeedback: _humanFeedback,
                           ),
                           const SizedBox(height: 8),
                           _ActionBar(
-                            canDraw:
-                                canAct &&
-                                needsDraw &&
-                                _stock.isNotEmpty &&
-                                _pendingDiscard == null,
-                            canTakeDiscard:
-                                canAct &&
-                                needsDraw &&
-                                _discardPile.isNotEmpty &&
-                                _pendingDiscard == null,
+                            canDraw: canDraw,
+                            canTakeDiscard: canTakeDiscard,
                             canDiscard: canDiscard,
-                            canReturnDiscard:
-                                canAct &&
-                                _pendingDiscard != null &&
-                                _stock.isNotEmpty,
-                            onDraw: _drawStock,
-                            onTakeDiscard: _takeDiscard,
-                            onReturnDiscard: _returnPendingDiscardAndDraw,
-                            onDiscard: _discardSelected,
+                            canReturnDiscard: canReturnDiscard,
+                            onDraw: () =>
+                                _runHumanAction(ClassicHareegActionIds.drawStock),
+                            onTakeDiscard: () => _runHumanAction(
+                              ClassicHareegActionIds.takeDiscard,
+                            ),
+                            onReturnDiscard: () => _runHumanAction(
+                              ClassicHareegActionIds.returnPendingDiscard,
+                            ),
+                            onDiscard: discardActionId == null
+                                ? null
+                                : () => _runHumanAction(discardActionId),
                             onAutoSort: _sortHumanHand,
                           ),
                         ],
@@ -147,26 +173,20 @@ class _GameTableScreenState extends State<GameTableScreen> {
                     const SizedBox(width: 8),
                     _SeatPanel(
                       seat: PlayerSeat.east,
-                      count: _count(PlayerSeat.east),
+                      count: _controller.cardCountFor(PlayerSeat.east),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              _HumanHandHeader(count: _count(PlayerSeat.south)),
+              _HumanHandHeader(
+                count: _controller.cardCountFor(PlayerSeat.south),
+              ),
               const SizedBox(height: 6),
               _HumanHand(
-                cards: _hands[PlayerSeat.south] ?? const [],
-                selected: _selectedCards,
-                onSelected: (card) {
-                  setState(() {
-                    if (_selectedCards.contains(card)) {
-                      _selectedCards.remove(card);
-                    } else {
-                      _selectedCards.add(card);
-                    }
-                  });
-                },
+                cards: _controller.handFor(PlayerSeat.south),
+                selectedIds: _selectedCardIds,
+                onSelected: _toggleSelectedCard,
               ),
             ],
           ),
@@ -175,198 +195,132 @@ class _GameTableScreenState extends State<GameTableScreen> {
     );
   }
 
-  void _deal() {
-    final round = ClassicHareegRound.deal(setup: widget.setup);
-    _hands = {
-      for (final entry in round.hands.entries)
-        entry.key: List<HareegCard>.of(entry.value),
-    };
-    _stock = List<HareegCard>.of(round.stock);
-    _discardPile = List<HareegCard>.of(round.discardPile);
-    _starter = round.starter;
-    _currentSeat = round.currentSeat;
-    _turnPhase = round.turnPhase;
-    _pendingDiscard = null;
-  }
-
-  void _restoreSnapshot(ClassicHareegMatchSnapshot snapshot) {
-    _hands = {
-      for (final entry in snapshot.hands.entries)
-        entry.key: List<HareegCard>.of(entry.value),
-    };
-    _stock = List<HareegCard>.of(snapshot.stock);
-    _discardPile = List<HareegCard>.of(snapshot.discardPile);
-    _starter = snapshot.starter;
-    _currentSeat = snapshot.currentSeat;
-    _turnPhase = snapshot.turnPhase;
-    _pendingDiscard = snapshot.pendingDiscard;
-    _selectedCards.clear();
-    if (_pendingDiscard != null) {
-      _selectedCards.add(_pendingDiscard!);
-    }
-  }
-
-  int _count(PlayerSeat seat) {
-    return _hands[seat]?.length ?? 0;
-  }
-
-  void _drawStock() {
-    if (_stock.isEmpty) {
-      return;
-    }
+  void _toggleSelectedCard(HareegCard card) {
     setState(() {
-      final card = _stock.removeLast();
-      _hands[_currentSeat] = [...?_hands[_currentSeat], card];
-      _turnPhase = TurnPhase.action;
-    });
-    _saveMatch();
-  }
-
-  void _takeDiscard() {
-    if (_discardPile.isEmpty) {
-      return;
-    }
-    setState(() {
-      final card = _discardPile.removeLast();
-      _hands[_currentSeat] = [...?_hands[_currentSeat], card];
-      _turnPhase = TurnPhase.action;
-      _pendingDiscard = card;
-      _selectedCards
-        ..clear()
-        ..add(card);
-    });
-    _saveMatch();
-  }
-
-  void _returnPendingDiscardAndDraw() {
-    final pending = _pendingDiscard;
-    if (pending == null || _stock.isEmpty) {
-      return;
-    }
-
-    setState(() {
-      final hand = List<HareegCard>.of(_hands[_currentSeat] ?? const [])
-        ..removeWhere((card) => card.id == pending.id);
-      final drawn = _stock.removeLast();
-      _hands[_currentSeat] = [...hand, drawn];
-      _discardPile.add(pending);
-      _pendingDiscard = null;
-      _selectedCards.clear();
-      _turnPhase = TurnPhase.action;
-    });
-    _saveMatch();
-  }
-
-  void _discardSelected() {
-    if (_selectedCards.length != 1) {
-      return;
-    }
-
-    final selected = _selectedCards.single;
-    setState(() {
-      final hand = List<HareegCard>.of(_hands[PlayerSeat.south] ?? const []);
-      hand.removeWhere((card) => card.id == selected.id);
-      _hands[PlayerSeat.south] = hand;
-      _discardPile.add(selected);
-      _selectedCards.clear();
-      _pendingDiscard = null;
-      _currentSeat = _currentSeat.nextAntiClockwise;
-      _turnPhase = TurnPhase.draw;
-      _advanceCpuTurnsToHuman();
-    });
-    _saveMatch();
-  }
-
-  void _sortHumanHand() {
-    setState(() {
-      final hand = List<HareegCard>.of(_hands[PlayerSeat.south] ?? const []);
-      hand.sort(_compareCards);
-      _hands[PlayerSeat.south] = hand;
-    });
-    _saveMatch();
-  }
-
-  ClassicHareegMatchSnapshot _snapshot() {
-    return ClassicHareegMatchSnapshot(
-      setup: widget.setup,
-      hands: {
-        for (final entry in _hands.entries)
-          entry.key: List<HareegCard>.of(entry.value),
-      },
-      stock: List<HareegCard>.of(_stock),
-      discardPile: List<HareegCard>.of(_discardPile),
-      starter: _starter,
-      currentSeat: _currentSeat,
-      turnPhase: _turnPhase,
-      pendingDiscard: _pendingDiscard,
-      savedAt: DateTime.now().toUtc(),
-    );
-  }
-
-  void _saveMatch() {
-    widget.matchRepository.saveActiveMatch(_snapshot());
-  }
-
-  void _advanceCpuTurnsToHuman() {
-    var guard = 0;
-    while (_currentSeat != PlayerSeat.south &&
-        guard < PlayerSeat.values.length) {
-      _playCpuTurn();
-      guard += 1;
-    }
-    _selectedCards.clear();
-    _pendingDiscard = null;
-  }
-
-  void _playCpuTurn() {
-    if (_turnPhase == TurnPhase.draw) {
-      if (_stock.isNotEmpty) {
-        _hands[_currentSeat] = [...?_hands[_currentSeat], _stock.removeLast()];
-      } else if (_discardPile.isNotEmpty) {
-        _hands[_currentSeat] = [
-          ...?_hands[_currentSeat],
-          _discardPile.removeLast(),
-        ];
+      if (_selectedCardIds.contains(card.id)) {
+        _selectedCardIds.remove(card.id);
+      } else {
+        _selectedCardIds.add(card.id);
       }
-      _turnPhase = TurnPhase.action;
+    });
+  }
+
+  List<HareegCard> _selectedCards() {
+    if (_selectedCardIds.isEmpty) {
+      return const [];
     }
 
-    final hand = List<HareegCard>.of(_hands[_currentSeat] ?? const []);
-    if (hand.isEmpty) {
-      _currentSeat = _currentSeat.nextAntiClockwise;
-      _turnPhase = TurnPhase.draw;
+    final hand = _controller.handFor(PlayerSeat.south);
+    final byId = {for (final card in hand) card.id: card};
+    return [
+      for (final id in _selectedCardIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
+
+  Future<void> _sortHumanHand() async {
+    setState(() {
+      _controller.sortHandFor(PlayerSeat.south);
+    });
+    await _persistAndMaybeFinish();
+  }
+
+  Future<void> _runHumanAction(String actionId) async {
+    final result = _controller.applyAction(actionId);
+    if (!result.isSuccess) {
+      setState(() {
+        _humanFeedback = result.message;
+      });
       return;
     }
 
-    final discardIndex = hand.lastIndexWhere((card) => !card.isJoker);
-    final selectedIndex = discardIndex == -1 ? hand.length - 1 : discardIndex;
-    final discarded = hand.removeAt(selectedIndex);
-    _hands[_currentSeat] = hand;
-    _discardPile.add(discarded);
-    _currentSeat = _currentSeat.nextAntiClockwise;
-    _turnPhase = TurnPhase.draw;
+    setState(() {
+      _humanFeedback = null;
+      if (actionId.startsWith(ClassicHareegActionIds.discardPrefix) ||
+          actionId == ClassicHareegActionIds.returnPendingDiscard) {
+        _selectedCardIds.clear();
+      }
+      _runCpuTurns();
+    });
+    await _persistAndMaybeFinish();
   }
 
-  int _compareCards(HareegCard left, HareegCard right) {
-    final leftIdentity = left.effectiveIdentity;
-    final rightIdentity = right.effectiveIdentity;
-    if (leftIdentity == null && rightIdentity == null) {
-      return left.id.compareTo(right.id);
+  void _runCpuTurns() {
+    var safety = 0;
+    while (!_controller.isRoundOver &&
+        _controller.currentSeat != PlayerSeat.south &&
+        safety < _cpuActionLimit) {
+      final seat = _controller.currentSeat;
+      final legal = _controller.legalActionIdsFor(seat);
+      if (legal.isEmpty) {
+        break;
+      }
+      final intent = widget.cpuStrategy.chooseMove(
+        CpuTurnSnapshot(
+          seat: seat,
+          legalActionIds: legal,
+          difficulty: widget.setup.cpuDifficulty,
+        ),
+      );
+      final result = _controller.applyAction(intent.actionId);
+      if (!result.isSuccess) {
+        throw StateError(
+          'CPU strategy returned illegal action ${intent.actionId}: '
+          '${result.message}',
+        );
+      }
+      safety += 1;
     }
-    if (leftIdentity == null) {
-      return 1;
+    _selectedCardIds.clear();
+  }
+
+  Future<void> _persistAndMaybeFinish() async {
+    if (_controller.isRoundOver) {
+      await widget.matchRepository.abandonActiveMatch();
+    } else {
+      await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
     }
-    if (rightIdentity == null) {
-      return -1;
+    if (!mounted) {
+      return;
+    }
+    if (_controller.isRoundOver) {
+      _navigateToRoundSummary();
+    }
+  }
+
+  void _navigateToRoundSummary() {
+    final outcome = _controller.roundOutcome;
+    if (outcome == null) {
+      return;
     }
 
-    final suitCompare = leftIdentity.suit.index.compareTo(
-      rightIdentity.suit.index,
+    final remainingCardCounts = <PlayerSeat, int>{
+      for (final seat in PlayerSeat.values)
+        seat: _controller.cardCountFor(seat),
+    };
+    final result = RoundProgressResult(
+      type: outcome,
+      remainingCardCounts: remainingCardCounts,
     );
-    if (suitCompare != 0) {
-      return suitCompare;
-    }
-    return leftIdentity.rank.order.compareTo(rightIdentity.rank.order);
+    final activeSeats = PlayerSeat.values.toList();
+    final previousScores = <PlayerSeat, int>{
+      for (final seat in PlayerSeat.values) seat: 0,
+    };
+    final progress = ClassicHareegMatchProgressionRules.applyRoundResult(
+      scores: previousScores,
+      activeSeats: activeSeats,
+      currentStarter: _controller.starter,
+      result: result,
+    );
+
+    Navigator.of(context).pushReplacementNamed(
+      AppRoutes.roundSummary,
+      arguments: RoundSummaryArguments(
+        result: result,
+        progress: progress,
+        previousScores: previousScores,
+      ),
+    );
   }
 }
 
@@ -559,7 +513,7 @@ class _ActionBar extends StatelessWidget {
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onReturnDiscard;
-  final VoidCallback onDiscard;
+  final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
   @override
@@ -637,18 +591,49 @@ class _SelectedMeldFeedback extends StatelessWidget {
   const _SelectedMeldFeedback({
     required this.cards,
     required this.openingRequirement,
+    required this.humanFeedback,
   });
 
   final List<HareegCard> cards;
   final int openingRequirement;
+  final String? humanFeedback;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    if (humanFeedback != null) {
+      return SizedBox(
+        height: 44,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: colors.error),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, size: 18, color: colors.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    humanFeedback!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final result = ClassicHareegMeldValidator.validate(cards);
     final openingText = result.value >= openingRequirement
         ? 'opening ready'
         : 'needs $openingRequirement to open';
-    final colors = Theme.of(context).colorScheme;
 
     return SizedBox(
       height: 44,
@@ -690,12 +675,12 @@ class _SelectedMeldFeedback extends StatelessWidget {
 class _HumanHand extends StatelessWidget {
   const _HumanHand({
     required this.cards,
-    required this.selected,
+    required this.selectedIds,
     required this.onSelected,
   });
 
   final List<HareegCard> cards;
-  final List<HareegCard> selected;
+  final Set<String> selectedIds;
   final ValueChanged<HareegCard> onSelected;
 
   @override
@@ -710,7 +695,7 @@ class _HumanHand extends StatelessWidget {
           final card = cards[index];
           return _HandCard(
             card: card,
-            selected: selected.contains(card),
+            selected: selectedIds.contains(card.id),
             onTap: () => onSelected(card),
           );
         },
