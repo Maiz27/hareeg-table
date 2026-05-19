@@ -24,6 +24,22 @@ class PlacedMeld {
     );
   }
 
+  /// Restores a placed meld from persisted JSON-compatible data.
+  factory PlacedMeld.fromJson(Map<String, Object?> json) {
+    final cardsJson = _asList(json['cards']);
+    final valueSnapshot = _asInt(json['valueSnapshot']);
+    final coverValue = _asInt(json['coverValue']) ?? 0;
+    if (cardsJson == null || valueSnapshot == null) {
+      throw const FormatException('Invalid placed meld.');
+    }
+
+    return PlacedMeld(
+      cards: List.unmodifiable(_cardsFromJson(cardsJson)),
+      valueSnapshot: valueSnapshot,
+      coverValue: coverValue,
+    );
+  }
+
   /// Cards originally placed as the meld.
   final List<HareegCard> cards;
 
@@ -43,6 +59,27 @@ class PlacedMeld {
       valueSnapshot: valueSnapshot,
       coverValue: coverValue + value,
     );
+  }
+
+  /// Returns a new snapshot with cover cards appended.
+  PlacedMeld addCoverCards(List<HareegCard> coverCards) {
+    final addedValue = coverCards.fold<int>(0, (total, card) {
+      return total + (card.effectiveIdentity?.rank.value ?? 0);
+    });
+    return PlacedMeld(
+      cards: List.unmodifiable([...cards, ...coverCards]),
+      valueSnapshot: valueSnapshot,
+      coverValue: coverValue + addedValue,
+    );
+  }
+
+  /// Converts the meld to JSON-compatible data.
+  Map<String, Object?> toJson() {
+    return {
+      'cards': cards.map((card) => card.toJson()).toList(),
+      'valueSnapshot': valueSnapshot,
+      'coverValue': coverValue,
+    };
   }
 }
 
@@ -85,6 +122,46 @@ class OpeningState {
   bool hasOpened(PlayerSeat seat) {
     return openedSeats.contains(seat);
   }
+}
+
+List<HareegCard> _cardsFromJson(List<Object?> cardsJson) {
+  final cards = <HareegCard>[];
+  for (final cardJson in cardsJson) {
+    final cardMap = _asMap(cardJson);
+    if (cardMap == null) {
+      throw const FormatException('Invalid placed meld card.');
+    }
+    cards.add(HareegCard.fromJson(cardMap));
+  }
+  return cards;
+}
+
+Map<String, Object?>? _asMap(Object? value) {
+  if (value is Map) {
+    return {
+      for (final entry in value.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    };
+  }
+
+  return null;
+}
+
+List<Object?>? _asList(Object? value) {
+  if (value is List) {
+    return value;
+  }
+
+  return null;
+}
+
+int? _asInt(Object? value) {
+  return switch (value) {
+    int() => value,
+    num() => value.toInt(),
+    String() => int.tryParse(value),
+    _ => null,
+  };
 }
 
 /// Result of checking an opening attempt.

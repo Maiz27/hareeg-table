@@ -11,6 +11,7 @@ import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
+import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../round_summary/views/round_summary_screen.dart';
 
@@ -97,6 +98,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
       ClassicHareegActionIds.returnPendingDiscard,
     );
     final selectedCards = _selectedCards();
+    final selectedMeld = _controller.meldValidationFor(
+      humanSeat,
+      _selectedCardIds.toList(),
+    );
+    final pendingIsSelected =
+        pending == null || _selectedCardIds.contains(pending.id);
+    final showPlayMeld = isHumanTurn && selectedCards.length >= 3;
+    final canPlayMeld =
+        isHumanTurn && selectedMeld.isValid && pendingIsSelected;
+    final coverActionId = isHumanTurn
+        ? _controller.coverActionIdFor(humanSeat, _selectedCardIds.toList())
+        : null;
+    final canPlaceCover = coverActionId != null && pendingIsSelected;
     final selectedCardId = selectedCards.length == 1
         ? selectedCards.single.id
         : null;
@@ -105,6 +119,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : '${ClassicHareegActionIds.discardPrefix}$selectedCardId';
     final canDiscard =
         discardActionId != null && legalActions.contains(discardActionId);
+    final showDiscard = isHumanTurn && selectedCardId != null;
 
     return Scaffold(
       body: LayoutBuilder(
@@ -157,14 +172,23 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   metrics: metrics,
                                   stockCount: _controller.stockCount,
                                   topDiscard: _controller.topDiscard,
+                                  tableMelds: _controller.tableMelds,
                                   pendingDiscard: pending,
                                   turnStatus: _turnStatus,
-                                  selectedCards: selectedCards,
+                                  selectedMeldResult: selectedMeld,
                                   openingRequirement:
                                       widget.setup.openingRequirement,
                                   humanFeedback: _humanFeedback,
                                   canDraw: canDraw,
                                   canTakeDiscard: canTakeDiscard,
+                                  showPlayMeld: showPlayMeld,
+                                  canPlayMeld: canPlayMeld,
+                                  showPlaceCover:
+                                      isHumanTurn &&
+                                      _selectedCardIds.isNotEmpty &&
+                                      _controller.tableMeldCount > 0,
+                                  canPlaceCover: canPlaceCover,
+                                  showDiscard: showDiscard,
                                   canDiscard: canDiscard,
                                   canReturnDiscard: canReturnDiscard,
                                   onDraw: () => _runHumanAction(
@@ -176,6 +200,14 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   onReturnDiscard: () => _runHumanAction(
                                     ClassicHareegActionIds.returnPendingDiscard,
                                   ),
+                                  onPlayMeld: () => _runHumanAction(
+                                    ClassicHareegActionIds.playMeldActionId(
+                                      _selectedCardIds,
+                                    ),
+                                  ),
+                                  onPlaceCover: coverActionId == null
+                                      ? null
+                                      : () => _runHumanAction(coverActionId),
                                   onDiscard: discardActionId == null
                                       ? null
                                       : () => _runHumanAction(discardActionId),
@@ -266,6 +298,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
       _humanFeedback = null;
       _turnStatus = _describeHumanAction(actionId);
       if (actionId.startsWith(ClassicHareegActionIds.discardPrefix) ||
+          actionId.startsWith(ClassicHareegActionIds.playMeldPrefix) ||
+          actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
           actionId == ClassicHareegActionIds.returnPendingDiscard) {
         _selectedCardIds.clear();
       }
@@ -343,27 +377,56 @@ class _GameTableScreenState extends State<GameTableScreen> {
     if (!mounted) {
       return;
     }
+    final hitCpuSafetyLimit =
+        safety >= _cpuActionLimit &&
+        !_controller.isRoundOver &&
+        _controller.currentSeat != PlayerSeat.south;
     setState(() {
       _isCpuRunning = false;
       _selectedCardIds.clear();
-      if (_controller.currentSeat == PlayerSeat.south) {
+      if (hitCpuSafetyLimit) {
+        _humanFeedback =
+            'CPU turn safety cap $_cpuActionLimit reached at '
+            '${_seatLabel(_controller.currentSeat)}.';
+      } else if (_controller.currentSeat == PlayerSeat.south) {
         _turnStatus = 'Your turn.';
       }
     });
+    if (hitCpuSafetyLimit) {
+      throw StateError(
+        'CPU turn safety cap $_cpuActionLimit reached while currentSeat is '
+        '${_controller.currentSeat}.',
+      );
+    }
   }
 
-  Future<void> _persistAndMaybeFinish() async {
-    if (_controller.isRoundOver) {
-      await widget.matchRepository.abandonActiveMatch();
-    } else {
-      await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
+  Future<bool> _persistAndMaybeFinish() async {
+    var persistenceSucceeded = true;
+    try {
+      if (_controller.isRoundOver) {
+        await widget.matchRepository.abandonActiveMatch();
+      } else {
+        await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
+      }
+    } catch (error, stackTrace) {
+      persistenceSucceeded = false;
+      debugPrint('Failed to persist active match: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save the table. You can keep playing.'),
+          ),
+        );
+      }
     }
     if (!mounted) {
-      return;
+      return persistenceSucceeded;
     }
-    if (_controller.isRoundOver) {
+    if (_controller.isRoundOver && persistenceSucceeded) {
       _navigateToRoundSummary();
     }
+    return persistenceSucceeded;
   }
 
   void _navigateToRoundSummary() {
@@ -412,6 +475,12 @@ String _describeHumanAction(String actionId) {
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return 'You returned the discard and drew.';
   }
+  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
+    return 'You played a meld.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
+    return 'You placed a cover.';
+  }
   if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
     return 'You discarded.';
   }
@@ -428,6 +497,12 @@ String _describeCpuAction(PlayerSeat seat, String actionId) {
   }
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return '$seatName returned the discard and drew.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
+    return '$seatName played a meld.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
+    return '$seatName placed a cover.';
   }
   if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
     return '$seatName discarded.';
@@ -501,18 +576,26 @@ class _TableStage extends StatelessWidget {
     required this.metrics,
     required this.stockCount,
     required this.topDiscard,
+    required this.tableMelds,
     required this.pendingDiscard,
     required this.turnStatus,
-    required this.selectedCards,
+    required this.selectedMeldResult,
     required this.openingRequirement,
     required this.humanFeedback,
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.showPlayMeld,
+    required this.canPlayMeld,
+    required this.showPlaceCover,
+    required this.canPlaceCover,
+    required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onReturnDiscard,
+    required this.onPlayMeld,
+    required this.onPlaceCover,
     required this.onDiscard,
     required this.onAutoSort,
   });
@@ -520,18 +603,26 @@ class _TableStage extends StatelessWidget {
   final _TableLayoutMetrics metrics;
   final int stockCount;
   final HareegCard? topDiscard;
+  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
   final HareegCard? pendingDiscard;
   final String? turnStatus;
-  final List<HareegCard> selectedCards;
+  final MeldValidationResult selectedMeldResult;
   final int openingRequirement;
   final String? humanFeedback;
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool showPlayMeld;
+  final bool canPlayMeld;
+  final bool showPlaceCover;
+  final bool canPlaceCover;
+  final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onPlayMeld;
+  final VoidCallback? onPlaceCover;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -544,16 +635,23 @@ class _TableStage extends StatelessWidget {
           metrics: metrics,
           pendingDiscard: pendingDiscard,
           turnStatus: turnStatus,
-          selectedCards: selectedCards,
+          selectedMeldResult: selectedMeldResult,
           openingRequirement: openingRequirement,
           humanFeedback: humanFeedback,
           canDraw: canDraw,
           canTakeDiscard: canTakeDiscard,
+          showPlayMeld: showPlayMeld,
+          canPlayMeld: canPlayMeld,
+          showPlaceCover: showPlaceCover,
+          canPlaceCover: canPlaceCover,
+          showDiscard: showDiscard,
           canDiscard: canDiscard,
           canReturnDiscard: canReturnDiscard,
           onDraw: onDraw,
           onTakeDiscard: onTakeDiscard,
           onReturnDiscard: onReturnDiscard,
+          onPlayMeld: onPlayMeld,
+          onPlaceCover: onPlaceCover,
           onDiscard: onDiscard,
           onAutoSort: onAutoSort,
         );
@@ -576,6 +674,7 @@ class _TableStage extends StatelessWidget {
                   compact: true,
                   stockCount: stockCount,
                   topDiscard: topDiscard,
+                  tableMelds: tableMelds,
                 ),
               ),
               SizedBox(height: metrics.gap),
@@ -592,6 +691,7 @@ class _TableStage extends StatelessWidget {
                 compact: metrics.compact,
                 stockCount: stockCount,
                 topDiscard: topDiscard,
+                tableMelds: tableMelds,
               ),
             ),
             SizedBox(width: metrics.gap),
@@ -731,11 +831,13 @@ class _TableCenter extends StatelessWidget {
     required this.compact,
     required this.stockCount,
     required this.topDiscard,
+    required this.tableMelds,
   });
 
   final bool compact;
   final int stockCount;
   final HareegCard? topDiscard;
+  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
 
   @override
   Widget build(BuildContext context) {
@@ -755,11 +857,7 @@ class _TableCenter extends StatelessWidget {
             ),
             SizedBox(width: compact ? 4 : 8),
             Expanded(
-              child: _Pile(
-                compact: compact,
-                label: AppStrings.meldZone,
-                value: 'Empty',
-              ),
+              child: _MeldPile(compact: compact, tableMelds: tableMelds),
             ),
             SizedBox(width: compact ? 4 : 8),
             Expanded(
@@ -821,21 +919,106 @@ class _Pile extends StatelessWidget {
   }
 }
 
+class _MeldPile extends StatelessWidget {
+  const _MeldPile({required this.compact, required this.tableMelds});
+
+  final bool compact;
+  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
+
+  @override
+  Widget build(BuildContext context) {
+    final melds = [
+      for (final entry in tableMelds.entries)
+        for (final meld in entry.value) (seat: entry.key, meld: meld),
+    ];
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          AppStrings.meldZone,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        SizedBox(height: compact ? 3 : 4),
+        Flexible(
+          child: melds.isEmpty
+              ? _MeldTile(compact: compact, label: 'Empty')
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: melds.length,
+                  separatorBuilder: (context, index) =>
+                      SizedBox(width: compact ? 4 : 6),
+                  itemBuilder: (context, index) {
+                    final entry = melds[index];
+                    final label = entry.meld.cards
+                        .map((card) => card.label)
+                        .join(' ');
+                    return _MeldTile(
+                      compact: compact,
+                      label: '${_seatLabel(entry.seat)}: $label',
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MeldTile extends StatelessWidget {
+  const _MeldTile({required this.compact, required this.label});
+
+  final bool compact;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        minWidth: compact ? 64 : 72,
+        maxWidth: compact ? 118 : 152,
+      ),
+      height: compact ? 38 : 44,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.secondary),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
 class _ActionDock extends StatelessWidget {
   const _ActionDock({
     required this.metrics,
     required this.pendingDiscard,
     required this.turnStatus,
-    required this.selectedCards,
+    required this.selectedMeldResult,
     required this.openingRequirement,
     required this.humanFeedback,
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.showPlayMeld,
+    required this.canPlayMeld,
+    required this.showPlaceCover,
+    required this.canPlaceCover,
+    required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onReturnDiscard,
+    required this.onPlayMeld,
+    required this.onPlaceCover,
     required this.onDiscard,
     required this.onAutoSort,
   });
@@ -843,16 +1026,23 @@ class _ActionDock extends StatelessWidget {
   final _TableLayoutMetrics metrics;
   final HareegCard? pendingDiscard;
   final String? turnStatus;
-  final List<HareegCard> selectedCards;
+  final MeldValidationResult selectedMeldResult;
   final int openingRequirement;
   final String? humanFeedback;
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool showPlayMeld;
+  final bool canPlayMeld;
+  final bool showPlaceCover;
+  final bool canPlaceCover;
+  final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onPlayMeld;
+  final VoidCallback? onPlaceCover;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -871,7 +1061,7 @@ class _ActionDock extends StatelessWidget {
               _PendingDiscardBanner(card: pendingDiscard),
               if (pendingDiscard != null) SizedBox(height: metrics.gap),
               _SelectedMeldFeedback(
-                cards: selectedCards,
+                result: selectedMeldResult,
                 openingRequirement: openingRequirement,
                 humanFeedback: humanFeedback,
               ),
@@ -879,11 +1069,18 @@ class _ActionDock extends StatelessWidget {
               _ActionBar(
                 canDraw: canDraw,
                 canTakeDiscard: canTakeDiscard,
+                showPlayMeld: showPlayMeld,
+                canPlayMeld: canPlayMeld,
+                showPlaceCover: showPlaceCover,
+                canPlaceCover: canPlaceCover,
+                showDiscard: showDiscard,
                 canDiscard: canDiscard,
                 canReturnDiscard: canReturnDiscard,
                 onDraw: onDraw,
                 onTakeDiscard: onTakeDiscard,
                 onReturnDiscard: onReturnDiscard,
+                onPlayMeld: onPlayMeld,
+                onPlaceCover: onPlaceCover,
                 onDiscard: onDiscard,
                 onAutoSort: onAutoSort,
               ),
@@ -899,22 +1096,36 @@ class _ActionBar extends StatelessWidget {
   const _ActionBar({
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.showPlayMeld,
+    required this.canPlayMeld,
+    required this.showPlaceCover,
+    required this.canPlaceCover,
+    required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onReturnDiscard,
+    required this.onPlayMeld,
+    required this.onPlaceCover,
     required this.onDiscard,
     required this.onAutoSort,
   });
 
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool showPlayMeld;
+  final bool canPlayMeld;
+  final bool showPlaceCover;
+  final bool canPlaceCover;
+  final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onPlayMeld;
+  final VoidCallback? onPlaceCover;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -925,26 +1136,42 @@ class _ActionBar extends StatelessWidget {
       runSpacing: 8,
       alignment: WrapAlignment.center,
       children: [
-        FilledButton.icon(
-          onPressed: canDraw ? onDraw : null,
-          icon: const Icon(Icons.add),
-          label: const Text(AppStrings.drawStock),
-        ),
-        FilledButton.tonalIcon(
-          onPressed: canTakeDiscard ? onTakeDiscard : null,
-          icon: const Icon(Icons.move_down_outlined),
-          label: const Text(AppStrings.takeDiscard),
-        ),
-        FilledButton.icon(
-          onPressed: canReturnDiscard ? onReturnDiscard : null,
-          icon: const Icon(Icons.undo),
-          label: const Text(AppStrings.returnDiscard),
-        ),
-        FilledButton.icon(
-          onPressed: canDiscard ? onDiscard : null,
-          icon: const Icon(Icons.remove_circle_outline),
-          label: const Text(AppStrings.discardCard),
-        ),
+        if (canDraw)
+          FilledButton.icon(
+            onPressed: onDraw,
+            icon: const Icon(Icons.add),
+            label: const Text(AppStrings.drawStock),
+          ),
+        if (canTakeDiscard)
+          FilledButton.tonalIcon(
+            onPressed: onTakeDiscard,
+            icon: const Icon(Icons.move_down_outlined),
+            label: const Text(AppStrings.takeDiscard),
+          ),
+        if (showPlayMeld)
+          FilledButton.icon(
+            onPressed: canPlayMeld ? onPlayMeld : null,
+            icon: const Icon(Icons.table_rows_outlined),
+            label: const Text('Play Meld'),
+          ),
+        if (showPlaceCover)
+          FilledButton.icon(
+            onPressed: canPlaceCover ? onPlaceCover : null,
+            icon: const Icon(Icons.call_merge),
+            label: const Text('Place Cover'),
+          ),
+        if (canReturnDiscard)
+          FilledButton.icon(
+            onPressed: onReturnDiscard,
+            icon: const Icon(Icons.undo),
+            label: const Text(AppStrings.returnDiscard),
+          ),
+        if (showDiscard)
+          FilledButton.icon(
+            onPressed: canDiscard ? onDiscard : null,
+            icon: const Icon(Icons.remove_circle_outline),
+            label: const Text(AppStrings.discardCard),
+          ),
         OutlinedButton.icon(
           onPressed: onAutoSort,
           icon: const Icon(Icons.sort),
@@ -1027,12 +1254,12 @@ class _TurnStatusBanner extends StatelessWidget {
 
 class _SelectedMeldFeedback extends StatelessWidget {
   const _SelectedMeldFeedback({
-    required this.cards,
+    required this.result,
     required this.openingRequirement,
     required this.humanFeedback,
   });
 
-  final List<HareegCard> cards;
+  final MeldValidationResult result;
   final int openingRequirement;
   final String? humanFeedback;
 
@@ -1068,7 +1295,6 @@ class _SelectedMeldFeedback extends StatelessWidget {
       );
     }
 
-    final result = ClassicHareegMeldValidator.validate(cards);
     final openingText = result.value >= openingRequirement
         ? 'opening ready'
         : 'needs $openingRequirement to open';

@@ -1,6 +1,7 @@
 import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../rules/opening_rules.dart';
 import 'classic_hareeg_round.dart';
 
 /// Serializable active Classic Hareeg match state.
@@ -19,6 +20,7 @@ class ClassicHareegMatchSnapshot {
     required this.currentSeat,
     required this.turnPhase,
     required this.savedAt,
+    this.tableMelds = const {},
     this.pendingDiscard,
   });
 
@@ -33,6 +35,7 @@ class ClassicHareegMatchSnapshot {
     final handsJson = _asMap(json['hands']);
     final stockJson = _asList(json['stock']);
     final discardJson = _asList(json['discardPile']);
+    final tableMeldsJson = _asMap(json['tableMelds']);
     final starter = PlayerSeat.fromName(_asString(json['starter']));
     final currentSeat = PlayerSeat.fromName(_asString(json['currentSeat']));
     final turnPhase = TurnPhase.fromName(_asString(json['turnPhase']));
@@ -66,6 +69,7 @@ class ClassicHareegMatchSnapshot {
       hands: hands,
       stock: _cardsFromJson(stockJson),
       discardPile: _cardsFromJson(discardJson),
+      tableMelds: _tableMeldsFromJson(tableMeldsJson),
       starter: starter,
       currentSeat: currentSeat,
       turnPhase: turnPhase,
@@ -87,6 +91,9 @@ class ClassicHareegMatchSnapshot {
 
   /// Face-up discard pile.
   final List<HareegCard> discardPile;
+
+  /// Melds already played onto the table by each seat.
+  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
 
   /// Seat that started the current round.
   final PlayerSeat starter;
@@ -114,6 +121,10 @@ class ClassicHareegMatchSnapshot {
       },
       'stock': stock.map((card) => card.toJson()).toList(),
       'discardPile': discardPile.map((card) => card.toJson()).toList(),
+      'tableMelds': {
+        for (final entry in tableMelds.entries)
+          entry.key.name: entry.value.map((meld) => meld.toJson()).toList(),
+      },
       'starter': starter.name,
       'currentSeat': currentSeat.name,
       'turnPhase': turnPhase.name,
@@ -132,6 +143,30 @@ class ClassicHareegMatchSnapshot {
       cards.add(HareegCard.fromJson(cardMap));
     }
     return cards;
+  }
+
+  static Map<PlayerSeat, List<PlacedMeld>> _tableMeldsFromJson(
+    Map<String, Object?>? tableMeldsJson,
+  ) {
+    if (tableMeldsJson == null) {
+      return const {};
+    }
+
+    final tableMelds = <PlayerSeat, List<PlacedMeld>>{};
+    for (final seat in PlayerSeat.values) {
+      final meldsJson = _asList(tableMeldsJson[seat.name]);
+      if (meldsJson == null) {
+        continue;
+      }
+      tableMelds[seat] = [
+        for (final meldJson in meldsJson)
+          PlacedMeld.fromJson(
+            _asMap(meldJson) ??
+                (throw const FormatException('Invalid saved meld.')),
+          ),
+      ];
+    }
+    return tableMelds;
   }
 }
 
