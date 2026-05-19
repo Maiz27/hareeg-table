@@ -103,6 +103,38 @@ class OpeningState {
     );
   }
 
+  /// Restores opening benchmark state from persisted JSON-compatible data.
+  factory OpeningState.fromJson(Map<String, Object?> json) {
+    final baseRequirement = _asInt(json['baseRequirement']);
+    final currentRequirement = _asInt(json['currentRequirement']);
+    final openedSeatNames = _asList(json['openedSeats']);
+    if (baseRequirement == null ||
+        currentRequirement == null ||
+        openedSeatNames == null) {
+      throw const FormatException('Invalid opening state.');
+    }
+
+    final openedSeats = <PlayerSeat>{};
+    for (final seatName in openedSeatNames) {
+      final seat = PlayerSeat.fromName(seatName is String ? seatName : null);
+      if (seat == null) {
+        throw const FormatException('Invalid opened seat.');
+      }
+      openedSeats.add(seat);
+    }
+
+    final owner = PlayerSeat.fromName(_asString(json['benchmarkOwner']));
+    final isLocked = json['isLocked'] == true;
+
+    return OpeningState(
+      baseRequirement: baseRequirement,
+      currentRequirement: currentRequirement,
+      openedSeats: Set.unmodifiable(openedSeats),
+      benchmarkOwner: owner,
+      isLocked: isLocked,
+    );
+  }
+
   /// Configured base requirement, such as 51 or 75.
   final int baseRequirement;
 
@@ -121,6 +153,17 @@ class OpeningState {
   /// Whether a seat has opened.
   bool hasOpened(PlayerSeat seat) {
     return openedSeats.contains(seat);
+  }
+
+  /// Converts opening benchmark state to JSON-compatible data.
+  Map<String, Object?> toJson() {
+    return {
+      'baseRequirement': baseRequirement,
+      'currentRequirement': currentRequirement,
+      'benchmarkOwner': benchmarkOwner?.name,
+      'isLocked': isLocked,
+      'openedSeats': openedSeats.map((seat) => seat.name).toList(),
+    };
   }
 }
 
@@ -158,10 +201,14 @@ List<Object?>? _asList(Object? value) {
 int? _asInt(Object? value) {
   return switch (value) {
     int() => value,
-    num() => value.toInt(),
+    num() when value.isFinite && value % 1 == 0 => value.toInt(),
     String() => int.tryParse(value),
     _ => null,
   };
+}
+
+String? _asString(Object? value) {
+  return value is String ? value : null;
 }
 
 /// Result of checking an opening attempt.

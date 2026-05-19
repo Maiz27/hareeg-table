@@ -81,9 +81,12 @@ class HareegTableApp extends StatelessWidget {
               result: args.result,
               progress: args.progress,
               previousScores: args.previousScores,
-              onContinue: () => Navigator.of(
-                context,
-              ).popUntil(ModalRoute.withName(AppRoutes.home)),
+              onContinue: args.nextSnapshot == null
+                  ? null
+                  : () => Navigator.of(context).pushReplacementNamed(
+                      AppRoutes.table,
+                      arguments: args.nextSnapshot,
+                    ),
               onReturnToMenu: () => Navigator.of(
                 context,
               ).popUntil(ModalRoute.withName(AppRoutes.home)),

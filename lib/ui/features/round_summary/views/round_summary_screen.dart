@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
+import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 
 /// Route arguments for [RoundSummaryScreen].
@@ -10,6 +11,7 @@ class RoundSummaryArguments {
     required this.result,
     required this.progress,
     required this.previousScores,
+    this.nextSnapshot,
   });
 
   /// Round outcome being summarized.
@@ -20,6 +22,9 @@ class RoundSummaryArguments {
 
   /// Scores before this round.
   final Map<PlayerSeat, int> previousScores;
+
+  /// Dealt next round to resume when the match is not over.
+  final ClassicHareegMatchSnapshot? nextSnapshot;
 }
 
 /// Player-facing round or match summary.

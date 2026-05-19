@@ -59,13 +59,14 @@ abstract final class ClassicHareegFiftyRules {
   /// Creates a claim window for the immediate next player.
   static FiftyClaimWindow openWindow({
     required PlayerSeat discarder,
+    PlayerSeat? claimant,
     required HareegCard discardedCard,
     required int durationSeconds,
     bool isFirstDealtRound = false,
   }) {
     return FiftyClaimWindow(
       discarder: discarder,
-      claimant: discarder.nextAntiClockwise,
+      claimant: claimant ?? discarder.nextAntiClockwise,
       discardedCard: discardedCard,
       durationSeconds: durationSeconds,
       isFirstDealtRound: isFirstDealtRound,

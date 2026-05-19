@@ -41,24 +41,45 @@ class ClassicHareegRound {
     required this.starter,
     required this.currentSeat,
     required this.turnPhase,
+    required this.activeSeats,
   });
 
   /// Deals a new Classic Hareeg round.
   factory ClassicHareegRound.deal({
     required ClassicHareegSetup setup,
     ClassicHareegRules? rules,
+    List<PlayerSeat>? activeSeats,
+    PlayerSeat? starterOverride,
     int? seed,
   }) {
     final activeRules = rules ?? ClassicHareegRules.defaults();
-    final deck = _buildDeck(setup, activeRules);
+    final activeSeatList = List<PlayerSeat>.unmodifiable(
+      activeSeats ?? PlayerSeat.values,
+    );
+    if (activeSeatList.isEmpty) {
+      throw StateError('Classic Hareeg needs at least one active seat.');
+    }
+
+    final deck = _buildDeck(
+      setup,
+      activeRules,
+      activeSeatCount: activeSeatList.length,
+    );
     final random = seed == null ? Random() : Random(seed);
     deck.shuffle(random);
 
-    final starter = _chooseStarter(setup, random);
-    final hands = <PlayerSeat, List<HareegCard>>{};
+    final starter = _chooseStarter(
+      setup,
+      random,
+      activeSeatList,
+      starterOverride,
+    );
+    final hands = <PlayerSeat, List<HareegCard>>{
+      for (final seat in PlayerSeat.values) seat: const <HareegCard>[],
+    };
     var cursor = 0;
 
-    for (final seat in PlayerSeat.values) {
+    for (final seat in activeSeatList) {
       final count = seat == starter
           ? activeRules.starterCardCount
           : activeRules.cardsPerPlayer;
@@ -75,6 +96,7 @@ class ClassicHareegRound {
       starter: starter,
       currentSeat: starter,
       turnPhase: TurnPhase.action,
+      activeSeats: activeSeatList,
     );
   }
 
@@ -102,15 +124,12 @@ class ClassicHareegRound {
   /// Current turn phase.
   final TurnPhase turnPhase;
 
+  /// Seats still active in this dealt round.
+  final List<PlayerSeat> activeSeats;
+
   /// Anti-clockwise order beginning from the starter.
   List<PlayerSeat> get turnOrder {
-    final order = <PlayerSeat>[starter];
-    var next = starter.nextAntiClockwise;
-    while (next != starter) {
-      order.add(next);
-      next = next.nextAntiClockwise;
-    }
-    return List.unmodifiable(order);
+    return _orderedActiveSeats(activeSeats, starter);
   }
 
   /// Cards for a seat.
@@ -131,18 +150,33 @@ class ClassicHareegRound {
     return discardPile.last;
   }
 
-  static PlayerSeat _chooseStarter(ClassicHareegSetup setup, Random random) {
+  static PlayerSeat _chooseStarter(
+    ClassicHareegSetup setup,
+    Random random,
+    List<PlayerSeat> activeSeats,
+    PlayerSeat? starterOverride,
+  ) {
+    if (starterOverride != null) {
+      if (!activeSeats.contains(starterOverride)) {
+        throw StateError('Starter must be an active seat.');
+      }
+      return starterOverride;
+    }
+
     return switch (setup.starterMode) {
-      StarterMode.human => PlayerSeat.south,
-      StarterMode.random =>
-        PlayerSeat.values[random.nextInt(PlayerSeat.values.length)],
+      StarterMode.human =>
+        activeSeats.contains(PlayerSeat.south)
+            ? PlayerSeat.south
+            : activeSeats.first,
+      StarterMode.random => activeSeats[random.nextInt(activeSeats.length)],
     };
   }
 
   static List<HareegCard> _buildDeck(
     ClassicHareegSetup setup,
-    ClassicHareegRules rules,
-  ) {
+    ClassicHareegRules rules, {
+    required int activeSeatCount,
+  }) {
     if (setup.deckCount <= 0) {
       throw StateError('Classic Hareeg needs at least one deck to deal.');
     }
@@ -163,7 +197,7 @@ class ClassicHareegRound {
     }
 
     final requiredCards =
-        rules.starterCardCount + (rules.cardsPerPlayer * (rules.seatCount - 1));
+        rules.starterCardCount + (rules.cardsPerPlayer * (activeSeatCount - 1));
     if (cards.length < requiredCards) {
       throw StateError(
         'Classic Hareeg needs at least $requiredCards cards to deal four seats.',
@@ -172,4 +206,19 @@ class ClassicHareegRound {
 
     return cards;
   }
+}
+
+List<PlayerSeat> _orderedActiveSeats(
+  List<PlayerSeat> activeSeats,
+  PlayerSeat starter,
+) {
+  final order = <PlayerSeat>[starter];
+  var next = starter.nextAntiClockwise;
+  while (next != starter) {
+    if (activeSeats.contains(next)) {
+      order.add(next);
+    }
+    next = next.nextAntiClockwise;
+  }
+  return List.unmodifiable(order);
 }

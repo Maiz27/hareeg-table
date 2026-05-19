@@ -22,6 +22,16 @@ class ClassicHareegMatchSnapshot {
     required this.savedAt,
     this.tableMelds = const {},
     this.pendingDiscard,
+    this.openingState,
+    this.scores = const {},
+    this.activeSeats = const [
+      PlayerSeat.south,
+      PlayerSeat.east,
+      PlayerSeat.north,
+      PlayerSeat.west,
+    ],
+    this.roundNumber = 1,
+    this.removedSeats = const [],
   });
 
   /// Restores a saved match from JSON-compatible data.
@@ -36,11 +46,16 @@ class ClassicHareegMatchSnapshot {
     final stockJson = _asList(json['stock']);
     final discardJson = _asList(json['discardPile']);
     final tableMeldsJson = _asMap(json['tableMelds']);
+    final openingStateJson = _asMap(json['openingState']);
+    final scoresJson = _asMap(json['scores']);
+    final activeSeatsJson = _asList(json['activeSeats']);
+    final removedSeatsJson = _asList(json['removedSeats']);
     final starter = PlayerSeat.fromName(_asString(json['starter']));
     final currentSeat = PlayerSeat.fromName(_asString(json['currentSeat']));
     final turnPhase = TurnPhase.fromName(_asString(json['turnPhase']));
     final savedAtRaw = _asString(json['savedAt']);
     final savedAt = savedAtRaw == null ? null : DateTime.tryParse(savedAtRaw);
+    final roundNumber = _asInt(json['roundNumber']) ?? 1;
 
     if (setupJson == null ||
         handsJson == null ||
@@ -76,6 +91,13 @@ class ClassicHareegMatchSnapshot {
       pendingDiscard: pendingJson == null
           ? null
           : HareegCard.fromJson(pendingJson),
+      openingState: openingStateJson == null
+          ? null
+          : OpeningState.fromJson(openingStateJson),
+      scores: _scoresFromJson(scoresJson),
+      activeSeats: _seatListFromJson(activeSeatsJson),
+      roundNumber: roundNumber <= 0 ? 1 : roundNumber,
+      removedSeats: _seatListFromJson(removedSeatsJson),
       savedAt: savedAt,
     );
   }
@@ -107,6 +129,21 @@ class ClassicHareegMatchSnapshot {
   /// Pending discard card that must be used or returned.
   final HareegCard? pendingDiscard;
 
+  /// Opening benchmark state for the active round.
+  final OpeningState? openingState;
+
+  /// Match scores before the active round result is applied.
+  final Map<PlayerSeat, int> scores;
+
+  /// Seats still active in the match.
+  final List<PlayerSeat> activeSeats;
+
+  /// One-based dealt round number for first-round Fifty rules.
+  final int roundNumber;
+
+  /// Seats removed from the current round by hard-table mistakes.
+  final List<PlayerSeat> removedSeats;
+
   /// Time the snapshot was saved.
   final DateTime savedAt;
 
@@ -129,6 +166,13 @@ class ClassicHareegMatchSnapshot {
       'currentSeat': currentSeat.name,
       'turnPhase': turnPhase.name,
       'pendingDiscard': pendingDiscard?.toJson(),
+      'openingState': openingState?.toJson(),
+      'scores': {
+        for (final entry in scores.entries) entry.key.name: entry.value,
+      },
+      'activeSeats': activeSeats.map((seat) => seat.name).toList(),
+      'roundNumber': roundNumber,
+      'removedSeats': removedSeats.map((seat) => seat.name).toList(),
       'savedAt': savedAt.toIso8601String(),
     };
   }
@@ -168,6 +212,31 @@ class ClassicHareegMatchSnapshot {
     }
     return tableMelds;
   }
+
+  static Map<PlayerSeat, int> _scoresFromJson(Map<String, Object?>? json) {
+    if (json == null) {
+      return {for (final seat in PlayerSeat.values) seat: 0};
+    }
+
+    return {
+      for (final seat in PlayerSeat.values) seat: _asInt(json[seat.name]) ?? 0,
+    };
+  }
+
+  static List<PlayerSeat> _seatListFromJson(List<Object?>? json) {
+    if (json == null) {
+      return PlayerSeat.values;
+    }
+
+    final seats = <PlayerSeat>[];
+    for (final raw in json) {
+      final seat = PlayerSeat.fromName(raw is String ? raw : null);
+      if (seat != null && !seats.contains(seat)) {
+        seats.add(seat);
+      }
+    }
+    return seats.isEmpty ? PlayerSeat.values : List.unmodifiable(seats);
+  }
 }
 
 Map<String, Object?>? _asMap(Object? value) {
@@ -192,7 +261,7 @@ List<Object?>? _asList(Object? value) {
 int? _asInt(Object? value) {
   return switch (value) {
     int() => value,
-    num() => value.toInt(),
+    num() when value.isFinite && value % 1 == 0 => value.toInt(),
     String() => int.tryParse(value),
     _ => null,
   };
