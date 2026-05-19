@@ -32,7 +32,7 @@ void main() {
     expect(['draw-stock', 'take-discard'], contains(intent.actionId));
   });
 
-  test('CPU prioritizes finish, opening, covers, pickup, then draw', () {
+  test('CPU prioritizes finish, opening, covers, draw, then pickup', () {
     const strategy = ClassicHareegCpuStrategy();
 
     expect(
@@ -77,8 +77,21 @@ void main() {
             ),
           )
           .actionId,
-      'take-discard',
+      'draw-stock',
     );
+  });
+
+  test('CPU returns pending discard until table play is implemented', () {
+    const strategy = ClassicHareegCpuStrategy();
+
+    final intent = strategy.chooseMove(
+      CpuTurnSnapshot(
+        seat: PlayerSeat.east,
+        legalActionIds: ['use-pending-discard', 'return-pending-discard'],
+      ),
+    );
+
+    expect(intent.actionId, 'return-pending-discard');
   });
 
   test(
@@ -89,14 +102,14 @@ void main() {
         CpuTurnSnapshot(
           seat: PlayerSeat.east,
           legalActionIds: [
-            'discard-blocked-cover-9-clubs',
-            'discard-joker-0',
-            'discard-7-hearts',
+            'discard-blocked-cover:9-clubs',
+            'discard-joker:0',
+            'discard:7-hearts',
           ],
         ),
       );
 
-      expect(intent.actionId, 'discard-7-hearts');
+      expect(intent.actionId, 'discard:7-hearts');
     },
   );
 

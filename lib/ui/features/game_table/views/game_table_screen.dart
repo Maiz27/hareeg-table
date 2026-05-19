@@ -51,9 +51,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
   /// most ~3 actions per seat (take + use + discard); 64 covers all CPU
   /// seats with generous headroom.
   static const _cpuActionLimit = 64;
+  static const _cpuActionDelay = Duration(milliseconds: 220);
 
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
+  bool _isCpuRunning = false;
+  String? _turnStatus;
   String? _humanFeedback;
 
   @override
@@ -66,8 +69,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
-    _runCpuTurns();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _runCpuTurns();
       await _persistAndMaybeFinish();
     });
   }
@@ -81,7 +84,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
   @override
   Widget build(BuildContext context) {
     final humanSeat = PlayerSeat.south;
-    final isHumanTurn = _controller.currentSeat == humanSeat;
+    final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
     final legalActions = isHumanTurn
         ? _controller.legalActionIdsFor(humanSeat)
         : const <String>[];
@@ -155,6 +158,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   stockCount: _controller.stockCount,
                                   topDiscard: _controller.topDiscard,
                                   pendingDiscard: pending,
+                                  turnStatus: _turnStatus,
                                   selectedCards: selectedCards,
                                   openingRequirement:
                                       widget.setup.openingRequirement,
@@ -246,6 +250,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 
   Future<void> _runHumanAction(String actionId) async {
+    if (_isCpuRunning) {
+      return;
+    }
+
     final result = _controller.applyAction(actionId);
     if (!result.isSuccess) {
       setState(() {
@@ -256,18 +264,34 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
     setState(() {
       _humanFeedback = null;
+      _turnStatus = _describeHumanAction(actionId);
       if (actionId.startsWith(ClassicHareegActionIds.discardPrefix) ||
           actionId == ClassicHareegActionIds.returnPendingDiscard) {
         _selectedCardIds.clear();
       }
-      _runCpuTurns();
     });
     await _persistAndMaybeFinish();
+    if (!mounted) {
+      return;
+    }
+    await _runCpuTurns();
   }
 
-  void _runCpuTurns() {
+  Future<void> _runCpuTurns() async {
+    if (_isCpuRunning ||
+        _controller.isRoundOver ||
+        _controller.currentSeat == PlayerSeat.south) {
+      return;
+    }
+
+    setState(() {
+      _isCpuRunning = true;
+      _turnStatus = '${_seatLabel(_controller.currentSeat)} is thinking...';
+    });
+
     var safety = 0;
-    while (!_controller.isRoundOver &&
+    while (mounted &&
+        !_controller.isRoundOver &&
         _controller.currentSeat != PlayerSeat.south &&
         safety < _cpuActionLimit) {
       final seat = _controller.currentSeat;
@@ -275,6 +299,15 @@ class _GameTableScreenState extends State<GameTableScreen> {
       if (legal.isEmpty) {
         break;
       }
+
+      setState(() {
+        _turnStatus = '${_seatLabel(seat)} is thinking...';
+      });
+      await Future<void>.delayed(_cpuActionDelay);
+      if (!mounted) {
+        return;
+      }
+
       final intent = widget.cpuStrategy.chooseMove(
         CpuTurnSnapshot(
           seat: seat,
@@ -284,14 +317,39 @@ class _GameTableScreenState extends State<GameTableScreen> {
       );
       final result = _controller.applyAction(intent.actionId);
       if (!result.isSuccess) {
+        if (mounted) {
+          setState(() {
+            _isCpuRunning = false;
+            _humanFeedback = result.message;
+          });
+        }
         throw StateError(
           'CPU strategy returned illegal action ${intent.actionId}: '
           '${result.message}',
         );
       }
+      setState(() {
+        _selectedCardIds.clear();
+        _turnStatus = _describeCpuAction(seat, intent.actionId);
+      });
+      await _persistAndMaybeFinish();
+      if (!mounted) {
+        return;
+      }
+      await Future<void>.delayed(_cpuActionDelay);
       safety += 1;
     }
-    _selectedCardIds.clear();
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isCpuRunning = false;
+      _selectedCardIds.clear();
+      if (_controller.currentSeat == PlayerSeat.south) {
+        _turnStatus = 'Your turn.';
+      }
+    });
   }
 
   Future<void> _persistAndMaybeFinish() async {
@@ -342,6 +400,39 @@ class _GameTableScreenState extends State<GameTableScreen> {
       ),
     );
   }
+}
+
+String _describeHumanAction(String actionId) {
+  if (actionId == ClassicHareegActionIds.drawStock) {
+    return 'You drew from stock.';
+  }
+  if (actionId == ClassicHareegActionIds.takeDiscard) {
+    return 'You took the discard.';
+  }
+  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
+    return 'You returned the discard and drew.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
+    return 'You discarded.';
+  }
+  return 'Action applied.';
+}
+
+String _describeCpuAction(PlayerSeat seat, String actionId) {
+  final seatName = _seatLabel(seat);
+  if (actionId == ClassicHareegActionIds.drawStock) {
+    return '$seatName drew from stock.';
+  }
+  if (actionId == ClassicHareegActionIds.takeDiscard) {
+    return '$seatName took the discard.';
+  }
+  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
+    return '$seatName returned the discard and drew.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
+    return '$seatName discarded.';
+  }
+  return '$seatName acted.';
 }
 
 class _TableLayoutMetrics {
@@ -411,6 +502,7 @@ class _TableStage extends StatelessWidget {
     required this.stockCount,
     required this.topDiscard,
     required this.pendingDiscard,
+    required this.turnStatus,
     required this.selectedCards,
     required this.openingRequirement,
     required this.humanFeedback,
@@ -429,6 +521,7 @@ class _TableStage extends StatelessWidget {
   final int stockCount;
   final HareegCard? topDiscard;
   final HareegCard? pendingDiscard;
+  final String? turnStatus;
   final List<HareegCard> selectedCards;
   final int openingRequirement;
   final String? humanFeedback;
@@ -450,6 +543,7 @@ class _TableStage extends StatelessWidget {
         final actionDock = _ActionDock(
           metrics: metrics,
           pendingDiscard: pendingDiscard,
+          turnStatus: turnStatus,
           selectedCards: selectedCards,
           openingRequirement: openingRequirement,
           humanFeedback: humanFeedback,
@@ -731,6 +825,7 @@ class _ActionDock extends StatelessWidget {
   const _ActionDock({
     required this.metrics,
     required this.pendingDiscard,
+    required this.turnStatus,
     required this.selectedCards,
     required this.openingRequirement,
     required this.humanFeedback,
@@ -747,6 +842,7 @@ class _ActionDock extends StatelessWidget {
 
   final _TableLayoutMetrics metrics;
   final HareegCard? pendingDiscard;
+  final String? turnStatus;
   final List<HareegCard> selectedCards;
   final int openingRequirement;
   final String? humanFeedback;
@@ -770,6 +866,8 @@ class _ActionDock extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _TurnStatusBanner(message: turnStatus),
+              if (turnStatus != null) SizedBox(height: metrics.gap),
               _PendingDiscardBanner(card: pendingDiscard),
               if (pendingDiscard != null) SizedBox(height: metrics.gap),
               _SelectedMeldFeedback(
@@ -883,6 +981,42 @@ class _PendingDiscardBanner extends StatelessWidget {
               const Icon(Icons.priority_high, size: 18),
               const SizedBox(width: 8),
               Text('${AppStrings.pendingDiscard}: ${pending.label}'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TurnStatusBanner extends StatelessWidget {
+  const _TurnStatusBanner({required this.message});
+
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = message;
+    if (text == null) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 34,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.timer_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
             ],
           ),
         ),

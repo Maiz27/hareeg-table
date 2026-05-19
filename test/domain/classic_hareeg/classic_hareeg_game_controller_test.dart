@@ -18,8 +18,10 @@ void main() {
             PlayerSeat.south: [
               defaults[PlayerSeat.south]!.firstWhere((c) => !c.isJoker),
               HareegCard.joker(deckIndex: 0, jokerIndex: 0),
-              defaults[PlayerSeat.south]!
-                  .firstWhere((c) => !c.isJoker, orElse: () => throw 'no card'),
+              defaults[PlayerSeat.south]!.firstWhere(
+                (c) => !c.isJoker,
+                orElse: () => throw 'no card',
+              ),
             ].followedBy(defaults[PlayerSeat.south]!.skip(2)).toList(),
           },
           currentSeat: PlayerSeat.south,
@@ -46,21 +48,22 @@ void main() {
       expect(controller.handFor(PlayerSeat.south), contains(joker));
     });
 
-    test('legalActionIdsFor in action phase enumerates each non-joker card', () {
-      final controller = _freshControllerInActionPhase();
+    test(
+      'legalActionIdsFor in action phase enumerates each non-joker card',
+      () {
+        final controller = _freshControllerInActionPhase();
 
-      final hand = controller.handFor(PlayerSeat.south);
-      final nonJokerCount = hand.where((card) => !card.isJoker).length;
+        final hand = controller.handFor(PlayerSeat.south);
+        final nonJokerCount = hand.where((card) => !card.isJoker).length;
 
-      final legal = controller.legalActionIdsFor(PlayerSeat.south);
-      final discards = legal
-          .where(
-            (id) => id.startsWith(ClassicHareegActionIds.discardPrefix),
-          )
-          .toList();
+        final legal = controller.legalActionIdsFor(PlayerSeat.south);
+        final discards = legal
+            .where((id) => id.startsWith(ClassicHareegActionIds.discardPrefix))
+            .toList();
 
-      expect(discards, hasLength(nonJokerCount));
-    });
+        expect(discards, hasLength(nonJokerCount));
+      },
+    );
 
     test('a successful human discard advances the seat and turn phase', () {
       final controller = _freshControllerInActionPhase();
@@ -112,9 +115,7 @@ void main() {
         '${ClassicHareegActionIds.discardPrefix}${discardedByHuman.id}',
       );
 
-      final result = controller.applyAction(
-        ClassicHareegActionIds.takeDiscard,
-      );
+      final result = controller.applyAction(ClassicHareegActionIds.takeDiscard);
 
       expect(result.isSuccess, isTrue);
       expect(controller.pendingDiscard?.id, discardedByHuman.id);
@@ -148,54 +149,60 @@ void main() {
   });
 
   group('ClassicHareegGameController CPU integration', () {
-    test('CPU strategy only produces legal actions across a full table cycle', () {
-      final controller = _freshControllerInActionPhase();
-      const strategy = ClassicHareegCpuStrategy();
+    test(
+      'CPU strategy only produces legal actions across a full table cycle',
+      () {
+        final controller = _freshControllerInActionPhase();
+        const strategy = ClassicHareegCpuStrategy();
 
-      // Human discards a non-joker.
-      final south = controller.handFor(PlayerSeat.south);
-      controller.applyAction(
-        '${ClassicHareegActionIds.discardPrefix}'
-        '${south.firstWhere((c) => !c.isJoker).id}',
-      );
-
-      var safety = 0;
-      while (controller.currentSeat != PlayerSeat.south && safety < 64) {
-        final seat = controller.currentSeat;
-        final legal = controller.legalActionIdsFor(seat);
-        expect(
-          legal,
-          isNotEmpty,
-          reason: 'CPU seat $seat must have at least one legal action.',
+        // Human discards a non-joker.
+        final south = controller.handFor(PlayerSeat.south);
+        controller.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}'
+          '${south.firstWhere((c) => !c.isJoker).id}',
         );
+        final stockAfterHumanDiscard = controller.stockCount;
 
-        final intent = strategy.chooseMove(
-          CpuTurnSnapshot(
-            seat: seat,
-            legalActionIds: legal,
-            difficulty: controller.setup.cpuDifficulty,
-          ),
-        );
+        var safety = 0;
+        while (controller.currentSeat != PlayerSeat.south && safety < 64) {
+          final seat = controller.currentSeat;
+          final legal = controller.legalActionIdsFor(seat);
+          expect(
+            legal,
+            isNotEmpty,
+            reason: 'CPU seat $seat must have at least one legal action.',
+          );
 
-        expect(
-          legal,
-          contains(intent.actionId),
-          reason: 'CPU strategy must pick from the legal action list.',
-        );
+          final intent = strategy.chooseMove(
+            CpuTurnSnapshot(
+              seat: seat,
+              legalActionIds: legal,
+              difficulty: controller.setup.cpuDifficulty,
+            ),
+          );
 
-        final result = controller.applyAction(intent.actionId);
-        expect(
-          result.isSuccess,
-          isTrue,
-          reason: 'CPU action ${intent.actionId} should be applied. '
-              '${result.message}',
-        );
-        safety += 1;
-      }
+          expect(
+            legal,
+            contains(intent.actionId),
+            reason: 'CPU strategy must pick from the legal action list.',
+          );
 
-      expect(controller.currentSeat, PlayerSeat.south);
-      expect(controller.turnPhase, TurnPhase.draw);
-    });
+          final result = controller.applyAction(intent.actionId);
+          expect(
+            result.isSuccess,
+            isTrue,
+            reason:
+                'CPU action ${intent.actionId} should be applied. '
+                '${result.message}',
+          );
+          safety += 1;
+        }
+
+        expect(controller.currentSeat, PlayerSeat.south);
+        expect(controller.turnPhase, TurnPhase.draw);
+        expect(controller.stockCount, stockAfterHumanDiscard - 3);
+      },
+    );
   });
 
   group('ClassicHareegGameController round end', () {
@@ -209,10 +216,7 @@ void main() {
         setup: base.setup,
         hands: {
           ...base.hands,
-          PlayerSeat.south: [
-            ...base.hands[PlayerSeat.south]!,
-            ...stockToHand,
-          ],
+          PlayerSeat.south: [...base.hands[PlayerSeat.south]!, ...stockToHand],
         },
         stock: const [],
         discardPile: [
@@ -237,10 +241,7 @@ void main() {
 
 ClassicHareegGameController _freshControllerInActionPhase() {
   return ClassicHareegGameController.fromRound(
-    ClassicHareegRound.deal(
-      setup: ClassicHareegSetup.defaults(),
-      seed: 5,
-    ),
+    ClassicHareegRound.deal(setup: ClassicHareegSetup.defaults(), seed: 5),
   );
 }
 

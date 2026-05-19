@@ -54,14 +54,18 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
     'finish-round',
     'open',
     'place-cover',
-    'take-discard',
     'draw-stock',
+    'take-discard',
   ];
 
   @override
   CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
     if (snapshot.legalActionIds.isEmpty) {
       throw StateError('CPU needs at least one legal action.');
+    }
+
+    if (snapshot.legalActionIds.contains('return-pending-discard')) {
+      return const CpuMoveIntent(actionId: 'return-pending-discard');
     }
 
     for (final actionId in _priority) {
@@ -71,7 +75,7 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
     }
 
     final safeDiscards = snapshot.legalActionIds.where((actionId) {
-      return actionId.startsWith('discard-') &&
+      return actionId.startsWith('discard:') &&
           !actionId.contains('blocked-cover') &&
           !actionId.contains('joker');
     });

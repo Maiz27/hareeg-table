@@ -125,6 +125,8 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
+    await _pumpCpuTurns(tester);
+
     expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
     expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
     expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
@@ -144,11 +146,43 @@ void main() {
     await tester.tap(find.text(discardable.label).first);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await tester.pumpAndSettle();
+    await _pumpCpuTurns(tester);
 
     expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
     expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
     expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
+  });
+
+  testWidgets('CPU turn is visible and locks human input after discard', (
+    tester,
+  ) async {
+    final snapshot = _snapshot();
+    final matchRepository = _MemoryMatchRepository(saved: snapshot);
+    await tester.pumpWidget(_testApp(matchRepository: matchRepository));
+    await tester.pump();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    final discardable = snapshot.hands[PlayerSeat.south]!.firstWhere(
+      (card) => !card.isJoker,
+    );
+    await tester.tap(find.text(discardable.label).first);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pump();
+
+    expect(find.textContaining('CPU East'), findsWidgets);
+    final drawButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Draw Stock'),
+    );
+    expect(drawButton.onPressed, isNull);
+
+    await _pumpCpuTurns(tester);
+
+    final readyDrawButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Draw Stock'),
+    );
+    expect(readyDrawButton.onPressed, isNotNull);
   });
 
   testWidgets('table fits a compact landscape viewport without overflow', (
@@ -222,6 +256,13 @@ Widget _testApp({
         preferencesRepository ?? _MemoryPreferencesRepository(),
     matchRepository: matchRepository ?? _MemoryMatchRepository(),
   );
+}
+
+Future<void> _pumpCpuTurns(WidgetTester tester) async {
+  for (var i = 0; i < 16; i += 1) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+  await tester.pumpAndSettle();
 }
 
 ClassicHareegMatchSnapshot _snapshot({
