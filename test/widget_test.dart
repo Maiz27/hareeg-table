@@ -123,7 +123,11 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    await _pumpCpuTurns(tester);
+    await _pumpCpuTurns(
+      tester,
+      ready: () =>
+          find.widgetWithText(FilledButton, 'Draw Stock').evaluate().isNotEmpty,
+    );
 
     expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
     expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
@@ -144,7 +148,11 @@ void main() {
     await tester.tap(find.text(discardable.label).first);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await _pumpCpuTurns(tester);
+    await _pumpCpuTurns(
+      tester,
+      ready: () =>
+          find.widgetWithText(FilledButton, 'Draw Stock').evaluate().isNotEmpty,
+    );
 
     expect(matchRepository.saved!.currentSeat, PlayerSeat.south);
     expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
@@ -172,7 +180,11 @@ void main() {
     expect(find.textContaining('CPU East'), findsWidgets);
     expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsNothing);
 
-    await _pumpCpuTurns(tester);
+    await _pumpCpuTurns(
+      tester,
+      ready: () =>
+          find.widgetWithText(FilledButton, 'Draw Stock').evaluate().isNotEmpty,
+    );
 
     final readyDrawButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Draw Stock'),
@@ -454,11 +466,17 @@ Widget _testApp({
   );
 }
 
-Future<void> _pumpCpuTurns(WidgetTester tester) async {
-  for (var i = 0; i < 16; i += 1) {
-    await tester.pump(const Duration(milliseconds: 250));
+Future<void> _pumpCpuTurns(
+  WidgetTester tester, {
+  required bool Function() ready,
+  Duration durationPerIteration = const Duration(milliseconds: 250),
+  int maxIterations = 24,
+}) async {
+  for (var i = 0; i < maxIterations && !ready(); i += 1) {
+    await tester.pump(durationPerIteration);
   }
   await tester.pumpAndSettle();
+  expect(ready(), isTrue);
 }
 
 ClassicHareegMatchSnapshot _snapshot({

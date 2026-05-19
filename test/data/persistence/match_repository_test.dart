@@ -34,6 +34,7 @@ void main() {
         currentSeat: PlayerSeat.east,
         turnPhase: TurnPhase.draw,
         pendingDiscard: round.handFor(PlayerSeat.south).first,
+        fiftyWindowOpenedAt: DateTime.utc(2026, 5, 18, 10),
         savedAt: DateTime.utc(2026, 5, 18),
       );
 
@@ -50,6 +51,8 @@ void main() {
       expect(restored.currentSeat, PlayerSeat.east);
       expect(restored.turnPhase, TurnPhase.draw);
       expect(restored.pendingDiscard!.id, snapshot.pendingDiscard!.id);
+      expect(restored.removedSeats, isEmpty);
+      expect(restored.fiftyWindowOpenedAt, snapshot.fiftyWindowOpenedAt);
       expect(restored.tableMelds[PlayerSeat.south], hasLength(1));
       expect(
         restored.tableMelds[PlayerSeat.south]!.single.cards.map(

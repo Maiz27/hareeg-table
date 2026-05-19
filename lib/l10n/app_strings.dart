@@ -97,6 +97,9 @@ abstract final class AppStrings {
   /// Return a pending discard and draw from stock.
   static const returnDiscard = 'Return + Draw';
 
+  /// Take back uncommitted opening melds.
+  static const takeBackMelds = 'Take Back Melds';
+
   /// Pending discard status label.
   static const pendingDiscard = 'Pending discard';
 

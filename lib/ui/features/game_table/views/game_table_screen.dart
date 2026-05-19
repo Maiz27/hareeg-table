@@ -79,8 +79,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _runCpuTurns();
-      await _persistAndMaybeFinish();
+      final didPersistOrNavigate = await _runCpuTurns();
+      if (!didPersistOrNavigate && mounted) {
+        await _persistAndMaybeFinish();
+      }
     });
   }
 
@@ -94,9 +96,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
   @override
   Widget build(BuildContext context) {
     final humanSeat = PlayerSeat.south;
+    final setup = _controller.setup;
     final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
     final legalActions = isHumanTurn
-        ? _controller.legalActionIdsFor(humanSeat)
+        ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
     final pending = _controller.pendingDiscard;
     final canDraw = legalActions.contains(ClassicHareegActionIds.drawStock);
@@ -108,6 +111,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
     );
     final canReturnDiscard = legalActions.contains(
       ClassicHareegActionIds.returnPendingDiscard,
+    );
+    final canReturnOpeningMelds = legalActions.contains(
+      ClassicHareegActionIds.returnOpeningMelds,
     );
     final hasDiscardActions = legalActions.any(
       (actionId) => ClassicHareegActionIds.discardCardId(actionId) != null,
@@ -181,7 +187,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                     height: metrics.headerHeight,
                     child: _TableHeader(
                       height: metrics.headerHeight,
-                      setup: widget.setup,
+                      setup: setup,
                       starter: _controller.starter,
                       currentSeat: _controller.currentSeat,
                       turnPhase: _controller.turnPhase,
@@ -220,8 +226,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   pendingDiscard: pending,
                                   turnStatus: _turnStatus,
                                   selectedMeldResult: selectedMeld,
-                                  openingRequirement:
-                                      widget.setup.openingRequirement,
+                                  openingRequirement: setup.openingRequirement,
                                   humanFeedback: _humanFeedback,
                                   humanFeedbackIsError: _humanFeedbackIsError,
                                   canDraw: canDraw,
@@ -242,6 +247,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   showDiscard: showDiscard,
                                   canDiscard: canDiscard,
                                   canReturnDiscard: canReturnDiscard,
+                                  canReturnOpeningMelds: canReturnOpeningMelds,
                                   onDraw: () => _runHumanAction(
                                     ClassicHareegActionIds.drawStock,
                                   ),
@@ -253,6 +259,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   ),
                                   onReturnDiscard: () => _runHumanAction(
                                     ClassicHareegActionIds.returnPendingDiscard,
+                                  ),
+                                  onReturnOpeningMelds: () => _runHumanAction(
+                                    ClassicHareegActionIds.returnOpeningMelds,
                                   ),
                                   onPlayMeld: () =>
                                       _playSelectedMeld(jokerOptions),
@@ -388,6 +397,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
           actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
           actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
           actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
+          actionId == ClassicHareegActionIds.returnOpeningMelds ||
           actionId == ClassicHareegActionIds.returnPendingDiscard) {
         _selectedCardIds.clear();
       }
@@ -399,11 +409,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
     await _runCpuTurns();
   }
 
-  Future<void> _runCpuTurns() async {
+  /// Runs CPU-owned turns and returns whether persistence/navigation ran.
+  Future<bool> _runCpuTurns() async {
     if (_isCpuRunning ||
         _controller.isRoundOver ||
         _controller.currentSeat == PlayerSeat.south) {
-      return;
+      return false;
     }
 
     setState(() {
@@ -412,29 +423,30 @@ class _GameTableScreenState extends State<GameTableScreen> {
     });
 
     var safety = 0;
+    var didPersistOrNavigate = false;
     while (mounted &&
         !_controller.isRoundOver &&
         _controller.currentSeat != PlayerSeat.south &&
         safety < _cpuActionLimit) {
       final seat = _controller.currentSeat;
-      final legal = _controller.legalActionIdsFor(seat);
-      if (legal.isEmpty) {
-        break;
-      }
-
       setState(() {
         _turnStatus = '${_seatLabel(seat)} is thinking...';
       });
       await Future<void>.delayed(_cpuActionDelay);
       if (!mounted) {
-        return;
+        return didPersistOrNavigate;
+      }
+
+      final legal = _controller.legalActionIdsFor(seat);
+      if (legal.isEmpty) {
+        break;
       }
 
       final intent = widget.cpuStrategy.chooseMove(
         CpuTurnSnapshot(
           seat: seat,
           legalActionIds: legal,
-          difficulty: widget.setup.cpuDifficulty,
+          difficulty: _controller.setup.cpuDifficulty,
         ),
       );
       final result = _controller.applyAction(intent.actionId);
@@ -455,16 +467,17 @@ class _GameTableScreenState extends State<GameTableScreen> {
         _selectedCardIds.clear();
         _turnStatus = _describeCpuAction(seat, intent.actionId);
       });
+      didPersistOrNavigate = true;
       await _persistAndMaybeFinish();
       if (!mounted) {
-        return;
+        return didPersistOrNavigate;
       }
       await Future<void>.delayed(_cpuActionDelay);
       safety += 1;
     }
 
     if (!mounted) {
-      return;
+      return didPersistOrNavigate;
     }
     final hitCpuSafetyLimit =
         safety >= _cpuActionLimit &&
@@ -488,6 +501,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
         '${_controller.currentSeat}.',
       );
     }
+    return didPersistOrNavigate;
   }
 
   Future<bool> _persistAndMaybeFinish() async {
@@ -553,6 +567,9 @@ String _describeHumanAction(String actionId) {
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return 'You returned the discard and drew.';
   }
+  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
+    return 'You took back your opening melds.';
+  }
   if (actionId == ClassicHareegActionIds.claimFifty) {
     return 'You claimed Fifty.';
   }
@@ -584,6 +601,9 @@ String _describeCpuAction(PlayerSeat seat, String actionId) {
   }
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return '$seatName returned the discard and drew.';
+  }
+  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
+    return '$seatName took back opening melds.';
   }
   if (actionId == ClassicHareegActionIds.claimFifty) {
     return '$seatName claimed Fifty.';
@@ -691,10 +711,12 @@ class _TableStage extends StatelessWidget {
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
+    required this.canReturnOpeningMelds,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onClaimFifty,
     required this.onReturnDiscard,
+    required this.onReturnOpeningMelds,
     required this.onPlayMeld,
     required this.onPlaceCover,
     required this.onReplaceJoker,
@@ -724,10 +746,12 @@ class _TableStage extends StatelessWidget {
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
+  final bool canReturnOpeningMelds;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onReturnOpeningMelds;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
   final VoidCallback? onReplaceJoker;
@@ -759,10 +783,12 @@ class _TableStage extends StatelessWidget {
           showDiscard: showDiscard,
           canDiscard: canDiscard,
           canReturnDiscard: canReturnDiscard,
+          canReturnOpeningMelds: canReturnOpeningMelds,
           onDraw: onDraw,
           onTakeDiscard: onTakeDiscard,
           onClaimFifty: onClaimFifty,
           onReturnDiscard: onReturnDiscard,
+          onReturnOpeningMelds: onReturnOpeningMelds,
           onPlayMeld: onPlayMeld,
           onPlaceCover: onPlaceCover,
           onReplaceJoker: onReplaceJoker,
@@ -1132,10 +1158,12 @@ class _ActionDock extends StatelessWidget {
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
+    required this.canReturnOpeningMelds,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onClaimFifty,
     required this.onReturnDiscard,
+    required this.onReturnOpeningMelds,
     required this.onPlayMeld,
     required this.onPlaceCover,
     required this.onReplaceJoker,
@@ -1162,10 +1190,12 @@ class _ActionDock extends StatelessWidget {
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
+  final bool canReturnOpeningMelds;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onReturnOpeningMelds;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
   final VoidCallback? onReplaceJoker;
@@ -1206,10 +1236,12 @@ class _ActionDock extends StatelessWidget {
                 showDiscard: showDiscard,
                 canDiscard: canDiscard,
                 canReturnDiscard: canReturnDiscard,
+                canReturnOpeningMelds: canReturnOpeningMelds,
                 onDraw: onDraw,
                 onTakeDiscard: onTakeDiscard,
                 onClaimFifty: onClaimFifty,
                 onReturnDiscard: onReturnDiscard,
+                onReturnOpeningMelds: onReturnOpeningMelds,
                 onPlayMeld: onPlayMeld,
                 onPlaceCover: onPlaceCover,
                 onReplaceJoker: onReplaceJoker,
@@ -1238,10 +1270,12 @@ class _ActionBar extends StatelessWidget {
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
+    required this.canReturnOpeningMelds,
     required this.onDraw,
     required this.onTakeDiscard,
     required this.onClaimFifty,
     required this.onReturnDiscard,
+    required this.onReturnOpeningMelds,
     required this.onPlayMeld,
     required this.onPlaceCover,
     required this.onReplaceJoker,
@@ -1261,10 +1295,12 @@ class _ActionBar extends StatelessWidget {
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
+  final bool canReturnOpeningMelds;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
   final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
+  final VoidCallback onReturnOpeningMelds;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
   final VoidCallback? onReplaceJoker;
@@ -1319,6 +1355,12 @@ class _ActionBar extends StatelessWidget {
             onPressed: onReturnDiscard,
             icon: const Icon(Icons.undo),
             label: const Text(AppStrings.returnDiscard),
+          ),
+        if (canReturnOpeningMelds)
+          FilledButton.icon(
+            onPressed: onReturnOpeningMelds,
+            icon: const Icon(Icons.undo_outlined),
+            label: const Text(AppStrings.takeBackMelds),
           ),
         if (showDiscard)
           FilledButton.icon(

@@ -32,6 +32,7 @@ class ClassicHareegMatchSnapshot {
     ],
     this.roundNumber = 1,
     this.removedSeats = const [],
+    this.fiftyWindowOpenedAt,
   });
 
   /// Restores a saved match from JSON-compatible data.
@@ -55,6 +56,10 @@ class ClassicHareegMatchSnapshot {
     final turnPhase = TurnPhase.fromName(_asString(json['turnPhase']));
     final savedAtRaw = _asString(json['savedAt']);
     final savedAt = savedAtRaw == null ? null : DateTime.tryParse(savedAtRaw);
+    final fiftyWindowOpenedAtRaw = _asString(json['fiftyWindowOpenedAt']);
+    final fiftyWindowOpenedAt = fiftyWindowOpenedAtRaw == null
+        ? null
+        : DateTime.tryParse(fiftyWindowOpenedAtRaw);
     final roundNumber = _asInt(json['roundNumber']) ?? 1;
 
     if (setupJson == null ||
@@ -95,9 +100,16 @@ class ClassicHareegMatchSnapshot {
           ? null
           : OpeningState.fromJson(openingStateJson),
       scores: _scoresFromJson(scoresJson),
-      activeSeats: _seatListFromJson(activeSeatsJson),
+      activeSeats: _seatListFromJson(
+        activeSeatsJson,
+        fallback: PlayerSeat.values,
+      ),
       roundNumber: roundNumber <= 0 ? 1 : roundNumber,
-      removedSeats: _seatListFromJson(removedSeatsJson),
+      removedSeats: _seatListFromJson(
+        removedSeatsJson,
+        fallback: const <PlayerSeat>[],
+      ),
+      fiftyWindowOpenedAt: fiftyWindowOpenedAt,
       savedAt: savedAt,
     );
   }
@@ -144,6 +156,9 @@ class ClassicHareegMatchSnapshot {
   /// Seats removed from the current round by hard-table mistakes.
   final List<PlayerSeat> removedSeats;
 
+  /// Time the current Fifty claim window opened, if a window is active.
+  final DateTime? fiftyWindowOpenedAt;
+
   /// Time the snapshot was saved.
   final DateTime savedAt;
 
@@ -173,6 +188,7 @@ class ClassicHareegMatchSnapshot {
       'activeSeats': activeSeats.map((seat) => seat.name).toList(),
       'roundNumber': roundNumber,
       'removedSeats': removedSeats.map((seat) => seat.name).toList(),
+      'fiftyWindowOpenedAt': fiftyWindowOpenedAt?.toIso8601String(),
       'savedAt': savedAt.toIso8601String(),
     };
   }
@@ -223,9 +239,12 @@ class ClassicHareegMatchSnapshot {
     };
   }
 
-  static List<PlayerSeat> _seatListFromJson(List<Object?>? json) {
+  static List<PlayerSeat> _seatListFromJson(
+    List<Object?>? json, {
+    required List<PlayerSeat> fallback,
+  }) {
     if (json == null) {
-      return PlayerSeat.values;
+      return List.unmodifiable(fallback);
     }
 
     final seats = <PlayerSeat>[];
@@ -235,7 +254,9 @@ class ClassicHareegMatchSnapshot {
         seats.add(seat);
       }
     }
-    return seats.isEmpty ? PlayerSeat.values : List.unmodifiable(seats);
+    return seats.isEmpty
+        ? List.unmodifiable(fallback)
+        : List.unmodifiable(seats);
   }
 }
 
