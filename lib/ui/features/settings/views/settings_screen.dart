@@ -158,14 +158,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadPreferences() async {
-    final preferences = await widget.preferencesRepository.loadPreferences();
-    if (!mounted) {
-      return;
-    }
+    try {
+      final preferences = await widget.preferencesRepository.loadPreferences();
+      if (!mounted) {
+        return;
+      }
 
-    setState(() {
-      _preferences = preferences;
-    });
+      setState(() {
+        _preferences = preferences;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load settings preferences: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _preferences = GamePreferences.defaults();
+      });
+    }
   }
 
   void _save(GamePreferences preferences) {

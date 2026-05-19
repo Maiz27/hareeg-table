@@ -100,7 +100,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadSavedMatch() async {
-    final savedMatch = await widget.matchRepository.loadActiveMatch();
+    ClassicHareegMatchSnapshot? savedMatch;
+    try {
+      savedMatch = await widget.matchRepository.loadActiveMatch();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load saved match: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     if (!mounted) {
       return;
     }

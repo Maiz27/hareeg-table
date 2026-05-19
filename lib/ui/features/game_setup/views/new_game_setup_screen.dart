@@ -124,7 +124,13 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
   }
 
   Future<void> _loadPreferences() async {
-    final preferences = await widget.preferencesRepository.loadPreferences();
+    var preferences = GamePreferences.defaults();
+    try {
+      preferences = await widget.preferencesRepository.loadPreferences();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load setup preferences: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     if (!mounted) {
       return;
     }

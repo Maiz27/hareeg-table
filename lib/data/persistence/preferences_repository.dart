@@ -176,6 +176,20 @@ class MethodChannelKeyValueStore implements KeyValueStore {
   final Map<String, String> _fallbackMemory = {};
   bool _loggedFallback = false;
 
+  bool get _canUseInMemoryFallback {
+    if (kIsWeb) {
+      return true;
+    }
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android || TargetPlatform.iOS => false,
+      TargetPlatform.linux ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows ||
+      TargetPlatform.fuchsia => true,
+    };
+  }
+
   void _warnAboutFallback() {
     if (_loggedFallback) {
       return;
@@ -194,6 +208,9 @@ class MethodChannelKeyValueStore implements KeyValueStore {
     try {
       return await _channel.invokeMethod<String>('getString', {'key': key});
     } on MissingPluginException {
+      if (!_canUseInMemoryFallback) {
+        rethrow;
+      }
       _warnAboutFallback();
       return _fallbackMemory[key];
     }
@@ -204,6 +221,9 @@ class MethodChannelKeyValueStore implements KeyValueStore {
     try {
       await _channel.invokeMethod<void>('remove', {'key': key});
     } on MissingPluginException {
+      if (!_canUseInMemoryFallback) {
+        rethrow;
+      }
       _warnAboutFallback();
       _fallbackMemory.remove(key);
     }
@@ -217,6 +237,9 @@ class MethodChannelKeyValueStore implements KeyValueStore {
         'value': value,
       });
     } on MissingPluginException {
+      if (!_canUseInMemoryFallback) {
+        rethrow;
+      }
       _warnAboutFallback();
       _fallbackMemory[key] = value;
     }
