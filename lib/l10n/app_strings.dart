@@ -166,7 +166,7 @@ abstract final class AppStrings {
 
   /// Help section body for mistake preset rules.
   static const helpMistakePresetsBody =
-      'Assisted blocks illegal actions. Table penalties can allow selected mistakes with +3. Hard table 17 can allow selected mistakes with +17 and removes that player from the current round. Normal joker discard stays blocked in every preset.';
+      'Assisted blocks illegal actions. Table penalties allow selected mistakes with +3. Hard table 17 allows selected mistakes with +17 and removes that player from the current round. Normal joker discard stays blocked in every preset.';
 
   /// Help section title for pause and resume rules.
   static const helpPauseResumeTitle = 'Pause and resume';
