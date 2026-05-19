@@ -83,7 +83,56 @@ void main() {
 
       expect(state.scores[PlayerSeat.south], 4);
       expect(state.scores[PlayerSeat.east], 5);
+      expect(state.scores[PlayerSeat.north], 6);
+      expect(state.scores[PlayerSeat.west], 7);
       expect(state.nextStarter, PlayerSeat.north);
+    });
+
+    test('normal finish rejects a winner outside active seats', () {
+      expect(
+        () => ClassicHareegMatchProgressionRules.applyRoundResult(
+          scores: {PlayerSeat.south: 0, PlayerSeat.east: 0},
+          activeSeats: const [PlayerSeat.south, PlayerSeat.east],
+          currentStarter: PlayerSeat.south,
+          result: const RoundProgressResult(
+            type: RoundOutcomeType.normalFinish,
+            winner: PlayerSeat.north,
+            remainingCardCounts: {},
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('Fifty finish rejects invalid discarders', () {
+      expect(
+        () => ClassicHareegMatchProgressionRules.applyRoundResult(
+          scores: {PlayerSeat.south: 0, PlayerSeat.east: 0},
+          activeSeats: const [PlayerSeat.south, PlayerSeat.east],
+          currentStarter: PlayerSeat.south,
+          result: const RoundProgressResult(
+            type: RoundOutcomeType.fiftyFinish,
+            winner: PlayerSeat.south,
+            fiftyDiscarder: PlayerSeat.south,
+            remainingCardCounts: {},
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ClassicHareegMatchProgressionRules.applyRoundResult(
+          scores: {PlayerSeat.south: 0, PlayerSeat.east: 0},
+          activeSeats: const [PlayerSeat.south, PlayerSeat.east],
+          currentStarter: PlayerSeat.south,
+          result: const RoundProgressResult(
+            type: RoundOutcomeType.fiftyFinish,
+            winner: PlayerSeat.south,
+            fiftyDiscarder: PlayerSeat.north,
+            remainingCardCounts: {},
+          ),
+        ),
+        throwsArgumentError,
+      );
     });
 
     test('eliminates players at 31 and preserves relative order', () {

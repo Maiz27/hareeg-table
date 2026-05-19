@@ -11,11 +11,11 @@ void main() {
       legalActionIds: actionIds,
     );
 
-    actionIds.add('discard-7-hearts');
+    actionIds.add('discard:7-hearts');
 
     expect(snapshot.legalActionIds, ['draw-stock']);
     expect(
-      () => snapshot.legalActionIds.add('discard-7-hearts'),
+      () => snapshot.legalActionIds.add('discard:7-hearts'),
       throwsUnsupportedError,
     );
   });

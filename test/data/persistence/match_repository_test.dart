@@ -4,6 +4,8 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   group('LocalMatchRepository', () {
@@ -19,6 +21,15 @@ void main() {
         hands: round.hands,
         stock: round.stock,
         discardPile: round.discardPile,
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards([
+              _card(CardRank.nine, CardSuit.clubs),
+              _card(CardRank.nine, CardSuit.diamonds),
+              _card(CardRank.nine, CardSuit.hearts),
+            ]),
+          ],
+        },
         starter: round.starter,
         currentSeat: PlayerSeat.east,
         turnPhase: TurnPhase.draw,
@@ -39,6 +50,13 @@ void main() {
       expect(restored.currentSeat, PlayerSeat.east);
       expect(restored.turnPhase, TurnPhase.draw);
       expect(restored.pendingDiscard!.id, snapshot.pendingDiscard!.id);
+      expect(restored.tableMelds[PlayerSeat.south], hasLength(1));
+      expect(
+        restored.tableMelds[PlayerSeat.south]!.single.cards.map(
+          (card) => card.label,
+        ),
+        ['9C', '9D', '9H'],
+      );
     });
 
     test('abandons an active match snapshot', () async {
@@ -77,6 +95,10 @@ void main() {
       expect(store.values.containsKey('active_match.v1'), isFalse);
     });
   });
+}
+
+HareegCard _card(CardRank rank, CardSuit suit) {
+  return HareegCard.standard(rank: rank, suit: suit, deckIndex: 50);
 }
 
 class _MemoryStore implements KeyValueStore {

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -57,6 +59,37 @@ void main() {
 
       expect(preferences.setup.rulePreset, RulePreset.assisted);
       expect(store.values.containsKey('preferences.v1'), isFalse);
+    });
+
+    test('method-channel store falls back in memory on desktop', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+      final store = MethodChannelKeyValueStore(
+        channel: const MethodChannel('hareeg_table/test_missing_desktop'),
+      );
+
+      await store.saveString('key', 'value');
+
+      expect(await store.loadString('key'), 'value');
+    });
+
+    test('method-channel store rethrows missing mobile plugins', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+      final store = MethodChannelKeyValueStore(
+        channel: const MethodChannel('hareeg_table/test_missing_mobile'),
+      );
+
+      expect(
+        () => store.loadString('key'),
+        throwsA(isA<MissingPluginException>()),
+      );
     });
   });
 }

@@ -21,6 +21,23 @@ void main() {
       ]);
     });
 
+    test('finds represented identity inside a longer sequence', () {
+      final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
+      final options = ClassicHareegJokerRules.representationOptionsForMeld(
+        cards: [
+          card(CardRank.nine, CardSuit.spades),
+          card(CardRank.ten, CardSuit.spades),
+          joker,
+          card(CardRank.queen, CardSuit.spades),
+        ],
+        joker: joker,
+      );
+
+      expect(options, [
+        const CardIdentity(rank: CardRank.jack, suit: CardSuit.spades),
+      ]);
+    });
+
     test('finds ambiguous represented identity options for set placement', () {
       final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
       final options = ClassicHareegJokerRules.representationOptionsForMeld(

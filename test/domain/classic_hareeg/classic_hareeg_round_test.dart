@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/classic_hareeg_rules.dart';
 
 void main() {
   test('deals four seats with starter counts and stock', () {
@@ -60,6 +61,37 @@ void main() {
           deckCount: 1,
           jokerCount: 0,
         ),
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('zero decks cannot deal four seats', () {
+    expect(
+      () => ClassicHareegRound.deal(
+        setup: ClassicHareegSetup.defaults().copyWith(
+          deckCount: 0,
+          jokerCount: 0,
+        ),
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('deck-size validation uses the active rules', () {
+    const largerDealRules = ClassicHareegRules(
+      seatCount: 4,
+      cardsPerPlayer: 30,
+      starterCardCount: 31,
+      openingRequirement: 51,
+      fiftyClaimSeconds: 4,
+      eliminationScore: 31,
+    );
+
+    expect(
+      () => ClassicHareegRound.deal(
+        setup: ClassicHareegSetup.defaults(),
+        rules: largerDealRules,
       ),
       throwsStateError,
     );

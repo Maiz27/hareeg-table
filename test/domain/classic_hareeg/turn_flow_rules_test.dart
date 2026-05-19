@@ -34,6 +34,14 @@ void main() {
       ]);
     });
 
+    test('pending state does not expose return when stock is empty', () {
+      final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
+        drawState(stock: const []),
+      );
+
+      expect(pending.legalActionIds, ['use-pending-discard']);
+    });
+
     test('returning pending discard restores discard and draws stock', () {
       final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
         drawState(),
@@ -48,6 +56,55 @@ void main() {
       expect(returned.stock.length, pending.stock.length - 1);
       expect(returned.phase, ClassicTurnPhase.action);
     });
+
+    test('returning pending discard removes exactly one matching card', () {
+      final pendingCard = card(CardRank.nine, CardSuit.clubs);
+      final duplicate = card(CardRank.nine, CardSuit.clubs, deckIndex: 1);
+      final state = ClassicTurnFlowState(
+        currentSeat: PlayerSeat.east,
+        phase: ClassicTurnPhase.action,
+        hand: [pendingCard, duplicate],
+        stock: [card(CardRank.two, CardSuit.clubs)],
+        discardPile: const [],
+        previousDiscardSeat: PlayerSeat.south,
+        pendingDiscard: PendingDiscard(
+          card: pendingCard,
+          fromSeat: PlayerSeat.south,
+        ),
+      );
+
+      final returned = ClassicHareegTurnFlowRules.returnPendingDiscardAndDraw(
+        state,
+      );
+
+      expect(returned.hand.any((card) => card.id == pendingCard.id), isFalse);
+      expect(returned.hand.any((card) => card.id == duplicate.id), isTrue);
+      expect(returned.hand.length, 2);
+    });
+
+    test(
+      'returning pending discard fails when the card is missing from hand',
+      () {
+        final pendingCard = card(CardRank.nine, CardSuit.clubs);
+        final state = ClassicTurnFlowState(
+          currentSeat: PlayerSeat.east,
+          phase: ClassicTurnPhase.action,
+          hand: [card(CardRank.five, CardSuit.hearts)],
+          stock: [card(CardRank.two, CardSuit.clubs)],
+          discardPile: const [],
+          previousDiscardSeat: PlayerSeat.south,
+          pendingDiscard: PendingDiscard(
+            card: pendingCard,
+            fromSeat: PlayerSeat.south,
+          ),
+        );
+
+        expect(
+          () => ClassicHareegTurnFlowRules.returnPendingDiscardAndDraw(state),
+          throwsStateError,
+        );
+      },
+    );
 
     test('player cannot draw stock after taking discard', () {
       final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
@@ -100,15 +157,18 @@ void main() {
 ClassicTurnFlowState drawState({
   PlayerSeat currentSeat = PlayerSeat.east,
   List<HareegCard>? hand,
+  List<HareegCard>? stock,
 }) {
   return ClassicTurnFlowState(
     currentSeat: currentSeat,
     phase: ClassicTurnPhase.draw,
     hand: hand ?? [card(CardRank.five, CardSuit.hearts)],
-    stock: [
-      card(CardRank.two, CardSuit.clubs),
-      card(CardRank.three, CardSuit.clubs),
-    ],
+    stock:
+        stock ??
+        [
+          card(CardRank.two, CardSuit.clubs),
+          card(CardRank.three, CardSuit.clubs),
+        ],
     discardPile: [card(CardRank.nine, CardSuit.clubs)],
     previousDiscardSeat: PlayerSeat.south,
   );
