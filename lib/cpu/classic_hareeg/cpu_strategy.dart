@@ -75,7 +75,7 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
     }
 
     final safeDiscards = snapshot.legalActionIds.where((actionId) {
-      return actionId.startsWith('discard:') &&
+      return actionId.startsWith('discard') &&
           !actionId.contains('blocked-cover') &&
           !actionId.contains('joker');
     });

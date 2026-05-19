@@ -60,7 +60,10 @@ class ClassicTurnFlowState {
   /// Legal action ids for the current draw/take state.
   List<String> get legalActionIds {
     if (pendingDiscard != null) {
-      return const ['use-pending-discard', 'return-pending-discard'];
+      return [
+        'use-pending-discard',
+        if (stock.isNotEmpty) 'return-pending-discard',
+      ];
     }
     if (phase == ClassicTurnPhase.action) {
       return const ['play-meld', 'discard'];
@@ -142,8 +145,12 @@ abstract final class ClassicHareegTurnFlowRules {
       throw StateError('Stock is empty.');
     }
 
-    final hand = List<HareegCard>.of(state.hand)
-      ..removeWhere((card) => card.id == pending.card.id);
+    final hand = List<HareegCard>.of(state.hand);
+    final pendingIndex = hand.indexWhere((card) => card.id == pending.card.id);
+    if (pendingIndex == -1) {
+      throw StateError('Pending discard is not in the player hand.');
+    }
+    hand.removeAt(pendingIndex);
     final stock = List<HareegCard>.of(state.stock);
     final drawn = stock.removeLast();
 

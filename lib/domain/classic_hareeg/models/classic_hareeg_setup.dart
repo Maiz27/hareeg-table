@@ -95,20 +95,23 @@ class ClassicHareegSetup {
 
   /// Restores setup values from persisted JSON-compatible data.
   factory ClassicHareegSetup.fromJson(Map<String, Object?> json) {
+    final defaults = ClassicHareegSetup.defaults();
     return ClassicHareegSetup(
       cpuDifficulty: CpuDifficulty.fromName(_asString(json['cpuDifficulty'])),
       starterMode: StarterMode.fromName(_asString(json['starterMode'])),
-      openingRequirement:
-          _asInt(json['openingRequirement']) ??
-          ClassicHareegSetup.defaults().openingRequirement,
-      deckCount:
-          _asInt(json['deckCount']) ?? ClassicHareegSetup.defaults().deckCount,
-      jokerCount:
-          _asInt(json['jokerCount']) ??
-          ClassicHareegSetup.defaults().jokerCount,
-      fiftyTimerSeconds:
-          _asInt(json['fiftyTimerSeconds']) ??
-          ClassicHareegSetup.defaults().fiftyTimerSeconds,
+      openingRequirement: _positiveIntOrDefault(
+        json['openingRequirement'],
+        defaults.openingRequirement,
+      ),
+      deckCount: _positiveIntOrDefault(json['deckCount'], defaults.deckCount),
+      jokerCount: _nonNegativeIntOrDefault(
+        json['jokerCount'],
+        defaults.jokerCount,
+      ),
+      fiftyTimerSeconds: _positiveIntOrDefault(
+        json['fiftyTimerSeconds'],
+        defaults.fiftyTimerSeconds,
+      ),
       rulePreset: RulePreset.fromName(_asString(json['rulePreset'])),
     );
   }
@@ -186,10 +189,20 @@ T? _enumByName<T extends Enum>(Iterable<T> values, String? name) {
 int? _asInt(Object? value) {
   return switch (value) {
     int() => value,
-    num() => value.toInt(),
+    num() when value.isFinite && value % 1 == 0 => value.toInt(),
     String() => int.tryParse(value),
     _ => null,
   };
+}
+
+int _positiveIntOrDefault(Object? value, int fallback) {
+  final parsed = _asInt(value);
+  return parsed == null || parsed <= 0 ? fallback : parsed;
+}
+
+int _nonNegativeIntOrDefault(Object? value, int fallback) {
+  final parsed = _asInt(value);
+  return parsed == null || parsed < 0 ? fallback : parsed;
 }
 
 String? _asString(Object? value) {

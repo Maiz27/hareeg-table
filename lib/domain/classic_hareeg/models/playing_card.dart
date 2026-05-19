@@ -279,7 +279,7 @@ T? _enumByName<T extends Enum>(Iterable<T> values, String? name) {
 int? _asInt(Object? value) {
   return switch (value) {
     int() => value,
-    num() => value.toInt(),
+    num() when value.isFinite && value % 1 == 0 => value.toInt(),
     String() => int.tryParse(value),
     _ => null,
   };

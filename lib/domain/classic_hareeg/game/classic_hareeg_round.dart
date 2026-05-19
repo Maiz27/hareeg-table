@@ -50,7 +50,7 @@ class ClassicHareegRound {
     int? seed,
   }) {
     final activeRules = rules ?? ClassicHareegRules.defaults();
-    final deck = _buildDeck(setup);
+    final deck = _buildDeck(setup, activeRules);
     final random = seed == null ? Random() : Random(seed);
     deck.shuffle(random);
 
@@ -139,7 +139,14 @@ class ClassicHareegRound {
     };
   }
 
-  static List<HareegCard> _buildDeck(ClassicHareegSetup setup) {
+  static List<HareegCard> _buildDeck(
+    ClassicHareegSetup setup,
+    ClassicHareegRules rules,
+  ) {
+    if (setup.deckCount <= 0) {
+      throw StateError('Classic Hareeg needs at least one deck to deal.');
+    }
+
     final cards = <HareegCard>[];
     for (var deck = 0; deck < setup.deckCount; deck += 1) {
       for (final suit in CardSuit.values) {
@@ -155,9 +162,8 @@ class ClassicHareegRound {
       cards.add(HareegCard.joker(deckIndex: joker ~/ 2, jokerIndex: joker));
     }
 
-    final requiredCards = setup.deckCount == 0
-        ? 0
-        : (ClassicHareegRules.defaults().cardsPerPlayer * 4) + 1;
+    final requiredCards =
+        rules.starterCardCount + (rules.cardsPerPlayer * (rules.seatCount - 1));
     if (cards.length < requiredCards) {
       throw StateError(
         'Classic Hareeg needs at least $requiredCards cards to deal four seats.',

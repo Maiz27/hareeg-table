@@ -76,9 +76,10 @@ abstract final class ClassicHareegMatchProgressionRules {
 
     switch (result.type) {
       case RoundOutcomeType.draw:
+        _requireActiveSeat(currentStarter, activeSeats, 'Current starter');
         break;
       case RoundOutcomeType.normalFinish:
-        final winner = _requireWinner(result);
+        final winner = _requireActiveWinner(result, activeSeats);
         for (final seat in activeSeats) {
           if (seat == winner) {
             nextScores[seat] = (nextScores[seat] ?? 0) - 1;
@@ -89,10 +90,14 @@ abstract final class ClassicHareegMatchProgressionRules {
           }
         }
       case RoundOutcomeType.fiftyFinish:
-        final winner = _requireWinner(result);
+        final winner = _requireActiveWinner(result, activeSeats);
         final discarder = result.fiftyDiscarder;
         if (discarder == null) {
           throw ArgumentError('Fifty scoring needs a discarder.');
+        }
+        _requireActiveSeat(discarder, activeSeats, 'Fifty discarder');
+        if (discarder == winner) {
+          throw ArgumentError('Fifty discarder cannot also be the winner.');
         }
 
         for (final seat in activeSeats) {
@@ -123,9 +128,28 @@ abstract final class ClassicHareegMatchProgressionRules {
       activeSeats: List.unmodifiable(remainingSeats),
       nextStarter: result.type == RoundOutcomeType.draw
           ? currentStarter
-          : _requireWinner(result),
+          : _requireActiveWinner(result, activeSeats),
       matchWinner: remainingSeats.length == 1 ? remainingSeats.single : null,
     );
+  }
+
+  static PlayerSeat _requireActiveWinner(
+    RoundProgressResult result,
+    List<PlayerSeat> activeSeats,
+  ) {
+    final winner = _requireWinner(result);
+    _requireActiveSeat(winner, activeSeats, 'Round winner');
+    return winner;
+  }
+
+  static void _requireActiveSeat(
+    PlayerSeat seat,
+    List<PlayerSeat> activeSeats,
+    String role,
+  ) {
+    if (!activeSeats.contains(seat)) {
+      throw ArgumentError('$role must be one of the active seats.');
+    }
   }
 
   static PlayerSeat _requireWinner(RoundProgressResult result) {

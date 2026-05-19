@@ -52,6 +52,8 @@ class RoundSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final winner = progress.matchWinner;
+    final scoreSeats = previousScores.keys.toList()
+      ..sort((left, right) => left.index.compareTo(right.index));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Round summary')),
@@ -63,7 +65,7 @@ class RoundSummaryScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(_details),
             const SizedBox(height: 20),
-            for (final seat in previousScores.keys) ...[
+            for (final seat in scoreSeats) ...[
               _ScoreLine(
                 seat: seat,
                 before: previousScores[seat] ?? 0,
