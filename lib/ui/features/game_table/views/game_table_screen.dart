@@ -104,93 +104,113 @@ class _GameTableScreenState extends State<GameTableScreen> {
         discardActionId != null && legalActions.contains(discardActionId);
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              _TableHeader(
-                setup: widget.setup,
-                starter: _controller.starter,
-                currentSeat: _controller.currentSeat,
-                turnPhase: _controller.turnPhase,
-                onLeave: () => Navigator.of(context).pop(),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Row(
-                  children: [
-                    _SeatPanel(
-                      seat: PlayerSeat.west,
-                      count: _controller.cardCountFor(PlayerSeat.west),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _TableLayoutMetrics.from(constraints);
+
+          return SafeArea(
+            top: false,
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.all(metrics.padding),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: metrics.headerHeight,
+                    child: _TableHeader(
+                      height: metrics.headerHeight,
+                      setup: widget.setup,
+                      starter: _controller.starter,
+                      currentSeat: _controller.currentSeat,
+                      turnPhase: _controller.turnPhase,
+                      onLeave: () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _SeatPanel(
-                            seat: PlayerSeat.north,
-                            count: _controller.cardCountFor(PlayerSeat.north),
-                            horizontal: true,
+                  ),
+                  SizedBox(height: metrics.gap),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SeatPanel(
+                          seat: PlayerSeat.west,
+                          count: _controller.cardCountFor(PlayerSeat.west),
+                          width: metrics.sideSeatWidth,
+                        ),
+                        SizedBox(width: metrics.gap),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _SeatPanel(
+                                seat: PlayerSeat.north,
+                                count: _controller.cardCountFor(
+                                  PlayerSeat.north,
+                                ),
+                                horizontal: true,
+                                height: metrics.topSeatHeight,
+                              ),
+                              SizedBox(height: metrics.gap),
+                              Expanded(
+                                child: _TableStage(
+                                  metrics: metrics,
+                                  stockCount: _controller.stockCount,
+                                  topDiscard: _controller.topDiscard,
+                                  pendingDiscard: pending,
+                                  selectedCards: selectedCards,
+                                  openingRequirement:
+                                      widget.setup.openingRequirement,
+                                  humanFeedback: _humanFeedback,
+                                  canDraw: canDraw,
+                                  canTakeDiscard: canTakeDiscard,
+                                  canDiscard: canDiscard,
+                                  canReturnDiscard: canReturnDiscard,
+                                  onDraw: () => _runHumanAction(
+                                    ClassicHareegActionIds.drawStock,
+                                  ),
+                                  onTakeDiscard: () => _runHumanAction(
+                                    ClassicHareegActionIds.takeDiscard,
+                                  ),
+                                  onReturnDiscard: () => _runHumanAction(
+                                    ClassicHareegActionIds.returnPendingDiscard,
+                                  ),
+                                  onDiscard: discardActionId == null
+                                      ? null
+                                      : () => _runHumanAction(discardActionId),
+                                  onAutoSort: _sortHumanHand,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: _TableCenter(
-                              stockCount: _controller.stockCount,
-                              topDiscard: _controller.topDiscard,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _PendingDiscardBanner(card: pending),
-                          const SizedBox(height: 8),
-                          _SelectedMeldFeedback(
-                            cards: selectedCards,
-                            openingRequirement: widget.setup.openingRequirement,
-                            humanFeedback: _humanFeedback,
-                          ),
-                          const SizedBox(height: 8),
-                          _ActionBar(
-                            canDraw: canDraw,
-                            canTakeDiscard: canTakeDiscard,
-                            canDiscard: canDiscard,
-                            canReturnDiscard: canReturnDiscard,
-                            onDraw: () =>
-                                _runHumanAction(ClassicHareegActionIds.drawStock),
-                            onTakeDiscard: () => _runHumanAction(
-                              ClassicHareegActionIds.takeDiscard,
-                            ),
-                            onReturnDiscard: () => _runHumanAction(
-                              ClassicHareegActionIds.returnPendingDiscard,
-                            ),
-                            onDiscard: discardActionId == null
-                                ? null
-                                : () => _runHumanAction(discardActionId),
-                            onAutoSort: _sortHumanHand,
-                          ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: metrics.gap),
+                        _SeatPanel(
+                          seat: PlayerSeat.east,
+                          count: _controller.cardCountFor(PlayerSeat.east),
+                          width: metrics.sideSeatWidth,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    _SeatPanel(
-                      seat: PlayerSeat.east,
-                      count: _controller.cardCountFor(PlayerSeat.east),
+                  ),
+                  SizedBox(height: metrics.gap),
+                  SizedBox(
+                    height: metrics.handHeaderHeight,
+                    child: _HumanHandHeader(
+                      count: _controller.cardCountFor(PlayerSeat.south),
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: metrics.handGap),
+                  _HumanHand(
+                    height: metrics.handListHeight,
+                    cardWidth: metrics.handCardWidth,
+                    cardHeight: metrics.handCardHeight,
+                    cards: _controller.handFor(PlayerSeat.south),
+                    selectedIds: _selectedCardIds,
+                    onSelected: _toggleSelectedCard,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _HumanHandHeader(
-                count: _controller.cardCountFor(PlayerSeat.south),
-              ),
-              const SizedBox(height: 6),
-              _HumanHand(
-                cards: _controller.handFor(PlayerSeat.south),
-                selectedIds: _selectedCardIds,
-                onSelected: _toggleSelectedCard,
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -324,8 +344,174 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 }
 
+class _TableLayoutMetrics {
+  const _TableLayoutMetrics({
+    required this.compact,
+    required this.padding,
+    required this.gap,
+    required this.handGap,
+    required this.headerHeight,
+    required this.sideSeatWidth,
+    required this.topSeatHeight,
+    required this.actionDockWidth,
+    required this.handHeaderHeight,
+    required this.handListHeight,
+    required this.handCardWidth,
+    required this.handCardHeight,
+  });
+
+  final bool compact;
+  final double padding;
+  final double gap;
+  final double handGap;
+  final double headerHeight;
+  final double sideSeatWidth;
+  final double topSeatHeight;
+  final double actionDockWidth;
+  final double handHeaderHeight;
+  final double handListHeight;
+  final double handCardWidth;
+  final double handCardHeight;
+
+  factory _TableLayoutMetrics.from(BoxConstraints constraints) {
+    final compact = constraints.maxHeight < 430 || constraints.maxWidth < 700;
+    final padding = compact ? 6.0 : 12.0;
+    final gap = compact ? 4.0 : 8.0;
+    final sideSeatWidth = (constraints.maxWidth * 0.12)
+        .clamp(compact ? 64.0 : 84.0, compact ? 86.0 : 104.0)
+        .toDouble();
+    final handCardHeight = (constraints.maxHeight * 0.16)
+        .clamp(compact ? 52.0 : 64.0, 76.0)
+        .toDouble();
+
+    return _TableLayoutMetrics(
+      compact: compact,
+      padding: padding,
+      gap: gap,
+      handGap: compact ? 3.0 : 6.0,
+      headerHeight: compact ? 44.0 : 48.0,
+      sideSeatWidth: sideSeatWidth,
+      topSeatHeight: (constraints.maxHeight * 0.15)
+          .clamp(compact ? 46.0 : 56.0, compact ? 58.0 : 68.0)
+          .toDouble(),
+      actionDockWidth: (constraints.maxWidth * 0.26)
+          .clamp(compact ? 186.0 : 200.0, compact ? 210.0 : 240.0)
+          .toDouble(),
+      handHeaderHeight: compact ? 18.0 : 22.0,
+      handListHeight: handCardHeight + (compact ? 8.0 : 16.0),
+      handCardWidth: (handCardHeight * 0.68).clamp(36.0, 52.0).toDouble(),
+      handCardHeight: handCardHeight,
+    );
+  }
+}
+
+class _TableStage extends StatelessWidget {
+  const _TableStage({
+    required this.metrics,
+    required this.stockCount,
+    required this.topDiscard,
+    required this.pendingDiscard,
+    required this.selectedCards,
+    required this.openingRequirement,
+    required this.humanFeedback,
+    required this.canDraw,
+    required this.canTakeDiscard,
+    required this.canDiscard,
+    required this.canReturnDiscard,
+    required this.onDraw,
+    required this.onTakeDiscard,
+    required this.onReturnDiscard,
+    required this.onDiscard,
+    required this.onAutoSort,
+  });
+
+  final _TableLayoutMetrics metrics;
+  final int stockCount;
+  final HareegCard? topDiscard;
+  final HareegCard? pendingDiscard;
+  final List<HareegCard> selectedCards;
+  final int openingRequirement;
+  final String? humanFeedback;
+  final bool canDraw;
+  final bool canTakeDiscard;
+  final bool canDiscard;
+  final bool canReturnDiscard;
+  final VoidCallback onDraw;
+  final VoidCallback onTakeDiscard;
+  final VoidCallback onReturnDiscard;
+  final VoidCallback? onDiscard;
+  final VoidCallback onAutoSort;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useSideDock = constraints.maxWidth >= 420;
+        final actionDock = _ActionDock(
+          metrics: metrics,
+          pendingDiscard: pendingDiscard,
+          selectedCards: selectedCards,
+          openingRequirement: openingRequirement,
+          humanFeedback: humanFeedback,
+          canDraw: canDraw,
+          canTakeDiscard: canTakeDiscard,
+          canDiscard: canDiscard,
+          canReturnDiscard: canReturnDiscard,
+          onDraw: onDraw,
+          onTakeDiscard: onTakeDiscard,
+          onReturnDiscard: onReturnDiscard,
+          onDiscard: onDiscard,
+          onAutoSort: onAutoSort,
+        );
+
+        if (!useSideDock) {
+          final preferredDockHeight = (constraints.maxHeight * 0.42)
+              .clamp(56.0, 150.0)
+              .toDouble();
+          final maxDockHeight = constraints.maxHeight > metrics.gap
+              ? constraints.maxHeight - metrics.gap
+              : 0.0;
+          final dockHeight = preferredDockHeight > maxDockHeight
+              ? maxDockHeight
+              : preferredDockHeight;
+
+          return Column(
+            children: [
+              Expanded(
+                child: _TableCenter(
+                  compact: true,
+                  stockCount: stockCount,
+                  topDiscard: topDiscard,
+                ),
+              ),
+              SizedBox(height: metrics.gap),
+              SizedBox(height: dockHeight, child: actionDock),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _TableCenter(
+                compact: metrics.compact,
+                stockCount: stockCount,
+                topDiscard: topDiscard,
+              ),
+            ),
+            SizedBox(width: metrics.gap),
+            SizedBox(width: metrics.actionDockWidth, child: actionDock),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _TableHeader extends StatelessWidget {
   const _TableHeader({
+    required this.height,
     required this.setup,
     required this.starter,
     required this.currentSeat,
@@ -333,6 +519,7 @@ class _TableHeader extends StatelessWidget {
     required this.onLeave,
   });
 
+  final double height;
   final ClassicHareegSetup setup;
   final PlayerSeat starter;
   final PlayerSeat currentSeat;
@@ -342,12 +529,14 @@ class _TableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: height,
       child: Row(
         children: [
           IconButton(
             tooltip: 'Leave table',
             onPressed: onLeave,
+            constraints: BoxConstraints.tightFor(width: height, height: height),
+            padding: EdgeInsets.zero,
             icon: const Icon(Icons.arrow_back),
           ),
           const SizedBox(width: 8),
@@ -408,11 +597,15 @@ class _SeatPanel extends StatelessWidget {
     required this.seat,
     required this.count,
     this.horizontal = false,
+    this.width = 104,
+    this.height = 68,
   });
 
   final PlayerSeat seat;
   final int count;
   final bool horizontal;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -427,9 +620,10 @@ class _SeatPanel extends StatelessWidget {
     );
 
     return Card(
+      margin: EdgeInsets.zero,
       child: SizedBox(
-        width: horizontal ? double.infinity : 104,
-        height: horizontal ? 68 : double.infinity,
+        width: horizontal ? double.infinity : width,
+        height: horizontal ? height : double.infinity,
         child: Center(
           child: FittedBox(fit: BoxFit.scaleDown, child: child),
         ),
@@ -439,24 +633,47 @@ class _SeatPanel extends StatelessWidget {
 }
 
 class _TableCenter extends StatelessWidget {
-  const _TableCenter({required this.stockCount, required this.topDiscard});
+  const _TableCenter({
+    required this.compact,
+    required this.stockCount,
+    required this.topDiscard,
+  });
 
+  final bool compact;
   final int stockCount;
   final HareegCard? topDiscard;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(compact ? 8 : 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _Pile(label: AppStrings.stock, value: '$stockCount'),
-            const _Pile(label: AppStrings.meldZone, value: 'Empty'),
-            _Pile(
-              label: AppStrings.discard,
-              value: topDiscard?.label ?? 'Empty',
+            Expanded(
+              child: _Pile(
+                compact: compact,
+                label: AppStrings.stock,
+                value: '$stockCount',
+              ),
+            ),
+            SizedBox(width: compact ? 4 : 8),
+            Expanded(
+              child: _Pile(
+                compact: compact,
+                label: AppStrings.meldZone,
+                value: 'Empty',
+              ),
+            ),
+            SizedBox(width: compact ? 4 : 8),
+            Expanded(
+              child: _Pile(
+                compact: compact,
+                label: AppStrings.discard,
+                value: topDiscard?.label ?? 'Empty',
+              ),
             ),
           ],
         ),
@@ -466,8 +683,13 @@ class _TableCenter extends StatelessWidget {
 }
 
 class _Pile extends StatelessWidget {
-  const _Pile({required this.label, required this.value});
+  const _Pile({
+    required this.compact,
+    required this.label,
+    required this.value,
+  });
 
+  final bool compact;
   final String label;
   final String value;
 
@@ -476,19 +698,101 @@ class _Pile extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 4),
-        Container(
-          width: 72,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).colorScheme.secondary),
-            borderRadius: BorderRadius.circular(8),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        SizedBox(height: compact ? 3 : 4),
+        Flexible(
+          child: Container(
+            width: compact ? 64 : 72,
+            height: compact ? 38 : 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value, textAlign: TextAlign.center),
+            ),
           ),
-          child: Text(value, textAlign: TextAlign.center),
         ),
       ],
+    );
+  }
+}
+
+class _ActionDock extends StatelessWidget {
+  const _ActionDock({
+    required this.metrics,
+    required this.pendingDiscard,
+    required this.selectedCards,
+    required this.openingRequirement,
+    required this.humanFeedback,
+    required this.canDraw,
+    required this.canTakeDiscard,
+    required this.canDiscard,
+    required this.canReturnDiscard,
+    required this.onDraw,
+    required this.onTakeDiscard,
+    required this.onReturnDiscard,
+    required this.onDiscard,
+    required this.onAutoSort,
+  });
+
+  final _TableLayoutMetrics metrics;
+  final HareegCard? pendingDiscard;
+  final List<HareegCard> selectedCards;
+  final int openingRequirement;
+  final String? humanFeedback;
+  final bool canDraw;
+  final bool canTakeDiscard;
+  final bool canDiscard;
+  final bool canReturnDiscard;
+  final VoidCallback onDraw;
+  final VoidCallback onTakeDiscard;
+  final VoidCallback onReturnDiscard;
+  final VoidCallback? onDiscard;
+  final VoidCallback onAutoSort;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: EdgeInsets.all(metrics.compact ? 6 : 8),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PendingDiscardBanner(card: pendingDiscard),
+              if (pendingDiscard != null) SizedBox(height: metrics.gap),
+              _SelectedMeldFeedback(
+                cards: selectedCards,
+                openingRequirement: openingRequirement,
+                humanFeedback: humanFeedback,
+              ),
+              SizedBox(height: metrics.gap),
+              _ActionBar(
+                canDraw: canDraw,
+                canTakeDiscard: canTakeDiscard,
+                canDiscard: canDiscard,
+                canReturnDiscard: canReturnDiscard,
+                onDraw: onDraw,
+                onTakeDiscard: onTakeDiscard,
+                onReturnDiscard: onReturnDiscard,
+                onDiscard: onDiscard,
+                onAutoSort: onAutoSort,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -674,11 +978,17 @@ class _SelectedMeldFeedback extends StatelessWidget {
 
 class _HumanHand extends StatelessWidget {
   const _HumanHand({
+    required this.height,
+    required this.cardWidth,
+    required this.cardHeight,
     required this.cards,
     required this.selectedIds,
     required this.onSelected,
   });
 
+  final double height;
+  final double cardWidth;
+  final double cardHeight;
   final List<HareegCard> cards;
   final Set<String> selectedIds;
   final ValueChanged<HareegCard> onSelected;
@@ -686,7 +996,7 @@ class _HumanHand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 92,
+      height: height,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: cards.length,
@@ -694,6 +1004,8 @@ class _HumanHand extends StatelessWidget {
         itemBuilder: (context, index) {
           final card = cards[index];
           return _HandCard(
+            width: cardWidth,
+            height: cardHeight,
             card: card,
             selected: selectedIds.contains(card.id),
             onTap: () => onSelected(card),
@@ -725,11 +1037,15 @@ class _HumanHandHeader extends StatelessWidget {
 
 class _HandCard extends StatelessWidget {
   const _HandCard({
+    required this.width,
+    required this.height,
     required this.card,
     required this.selected,
     required this.onTap,
   });
 
+  final double width;
+  final double height;
   final HareegCard card;
   final bool selected;
   final VoidCallback onTap;
@@ -743,8 +1059,8 @@ class _HandCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
-        width: 52,
-        height: 76,
+        width: width,
+        height: height,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: const Color(0xFFF8F0DD),
@@ -757,6 +1073,8 @@ class _HandCard extends StatelessWidget {
         child: Text(
           card.label,
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF15110E),
             fontWeight: FontWeight.w800,

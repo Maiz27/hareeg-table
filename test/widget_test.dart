@@ -151,6 +151,28 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
   });
 
+  testWidgets('table fits a compact landscape viewport without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final matchRepository = _MemoryMatchRepository(saved: _snapshot());
+    await tester.pumpWidget(_testApp(matchRepository: matchRepository));
+    await tester.pump();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Classic Hareeg Table'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Discard'), findsOneWidget);
+  });
+
   testWidgets('selecting a joker disables the discard action', (tester) async {
     // Build a snapshot with a known joker in south's hand so we can assert the
     // UI keeps the Discard button disabled when only a joker is selected.
@@ -162,10 +184,7 @@ void main() {
     }
     final patched = ClassicHareegMatchSnapshot(
       setup: base.setup,
-      hands: {
-        ...base.hands,
-        PlayerSeat.south: southHand,
-      },
+      hands: {...base.hands, PlayerSeat.south: southHand},
       stock: base.stock,
       discardPile: base.discardPile,
       starter: base.starter,
@@ -193,7 +212,6 @@ void main() {
     );
   });
 }
-
 
 Widget _testApp({
   PreferencesRepository? preferencesRepository,

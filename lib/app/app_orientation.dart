@@ -7,24 +7,29 @@ import 'package:flutter/services.dart';
 /// while it is mounted so the four seats can use the screen edges naturally.
 abstract final class AppOrientation {
   /// Locks the shell and non-table screens to portrait.
-  static Future<void> usePortrait() {
+  static Future<void> usePortrait() async {
     if (kIsWeb) {
-      return Future<void>.value();
+      return;
     }
 
-    return SystemChrome.setPreferredOrientations(const [
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    await SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
   }
 
-  /// Locks the live table to landscape.
-  static Future<void> useLandscape() {
+  /// Locks the live table to landscape and hides system overlays.
+  static Future<void> useLandscape() async {
     if (kIsWeb) {
-      return Future<void>.value();
+      return;
     }
 
-    return SystemChrome.setPreferredOrientations(const [
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
