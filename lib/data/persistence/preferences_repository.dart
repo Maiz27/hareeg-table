@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -160,6 +161,11 @@ abstract interface class KeyValueStore {
 
 /// Platform-channel key/value storage backed by Android SharedPreferences and
 /// iOS UserDefaults.
+///
+/// Falls back to an in-process map when the platform channel is unavailable
+/// (desktop/web), so the app continues to function in unsupported targets.
+/// The fallback is logged loudly so support gaps are visible in the console
+/// rather than silently swallowing persisted state.
 class MethodChannelKeyValueStore implements KeyValueStore {
   /// Creates platform-channel storage.
   MethodChannelKeyValueStore({
@@ -168,12 +174,27 @@ class MethodChannelKeyValueStore implements KeyValueStore {
 
   final MethodChannel _channel;
   final Map<String, String> _fallbackMemory = {};
+  bool _loggedFallback = false;
+
+  void _warnAboutFallback() {
+    if (_loggedFallback) {
+      return;
+    }
+    _loggedFallback = true;
+    debugPrint(
+      '[hareeg_table] Platform channel "hareeg_table/local_storage" is not '
+      'available on this platform. Falling back to in-memory storage; saved '
+      'preferences and matches will not survive app restart. '
+      'Android and iOS register this channel at startup.',
+    );
+  }
 
   @override
   Future<String?> loadString(String key) async {
     try {
       return await _channel.invokeMethod<String>('getString', {'key': key});
     } on MissingPluginException {
+      _warnAboutFallback();
       return _fallbackMemory[key];
     }
   }
@@ -183,6 +204,7 @@ class MethodChannelKeyValueStore implements KeyValueStore {
     try {
       await _channel.invokeMethod<void>('remove', {'key': key});
     } on MissingPluginException {
+      _warnAboutFallback();
       _fallbackMemory.remove(key);
     }
   }
@@ -195,6 +217,7 @@ class MethodChannelKeyValueStore implements KeyValueStore {
         'value': value,
       });
     } on MissingPluginException {
+      _warnAboutFallback();
       _fallbackMemory[key] = value;
     }
   }
