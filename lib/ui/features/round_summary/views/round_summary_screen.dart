@@ -3,6 +3,25 @@ import 'package:flutter/material.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 
+/// Route arguments for [RoundSummaryScreen].
+class RoundSummaryArguments {
+  /// Creates round summary route arguments.
+  const RoundSummaryArguments({
+    required this.result,
+    required this.progress,
+    required this.previousScores,
+  });
+
+  /// Round outcome being summarized.
+  final RoundProgressResult result;
+
+  /// Match progress state after applying the round outcome.
+  final MatchProgressState progress;
+
+  /// Scores before this round.
+  final Map<PlayerSeat, int> previousScores;
+}
+
 /// Player-facing round or match summary.
 class RoundSummaryScreen extends StatelessWidget {
   /// Creates a round summary screen.

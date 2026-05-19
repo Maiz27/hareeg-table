@@ -46,8 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _MenuButton(
               icon: Icons.add_circle_outline,
               label: AppStrings.newGame,
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.newGame),
+              onPressed: () => _openAndRefresh(AppRoutes.newGame),
             ),
             const SizedBox(height: 12),
             _MenuButton(
@@ -60,9 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   : 'Resume saved Classic Hareeg table',
               onPressed: _savedMatch == null
                   ? null
-                  : () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.table, arguments: _savedMatch),
+                  : () => _openAndRefresh(
+                      AppRoutes.table,
+                      arguments: _savedMatch,
+                    ),
             ),
             if (_savedMatch != null) ...[
               const SizedBox(height: 8),
@@ -109,6 +109,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _savedMatch = savedMatch;
       _loadingSavedMatch = false;
     });
+  }
+
+  Future<void> _openAndRefresh(String route, {Object? arguments}) async {
+    await Navigator.of(context).pushNamed(route, arguments: arguments);
+    if (!mounted) {
+      return;
+    }
+    await _loadSavedMatch();
   }
 
   Future<void> _abandonSavedMatch() async {

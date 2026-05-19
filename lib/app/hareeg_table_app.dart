@@ -10,6 +10,7 @@ import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/core/theme/app_theme.dart';
 import '../ui/features/home/views/home_screen.dart';
+import '../ui/features/round_summary/views/round_summary_screen.dart';
 import '../ui/features/settings/views/settings_screen.dart';
 import 'app_routes.dart';
 
@@ -65,6 +66,27 @@ class HareegTableApp extends StatelessWidget {
               setup: setup,
               initialSnapshot: snapshot,
               matchRepository: matches,
+            ),
+            settings: settings,
+          );
+        }
+
+        if (settings.name == AppRoutes.roundSummary) {
+          final args = settings.arguments;
+          if (args is! RoundSummaryArguments) {
+            return null;
+          }
+          return MaterialPageRoute<void>(
+            builder: (context) => RoundSummaryScreen(
+              result: args.result,
+              progress: args.progress,
+              previousScores: args.previousScores,
+              onContinue: () => Navigator.of(
+                context,
+              ).popUntil(ModalRoute.withName(AppRoutes.home)),
+              onReturnToMenu: () => Navigator.of(
+                context,
+              ).popUntil(ModalRoute.withName(AppRoutes.home)),
             ),
             settings: settings,
           );
