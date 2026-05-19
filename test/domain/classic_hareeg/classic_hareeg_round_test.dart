@@ -49,4 +49,19 @@ void main() {
       expect(round.cardCountFor(seat), 14);
     }
   });
+
+  test('single deck with no jokers cannot deal four seats', () {
+    // The setup picker only exposes 2-4 decks, but the round factory must
+    // still refuse to deal an under-sized deck. 52 cards is one short of the
+    // 57 required (14 * 4 + 1).
+    expect(
+      () => ClassicHareegRound.deal(
+        setup: ClassicHareegSetup.defaults().copyWith(
+          deckCount: 1,
+          jokerCount: 0,
+        ),
+      ),
+      throwsStateError,
+    );
+  });
 }

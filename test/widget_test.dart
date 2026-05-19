@@ -6,6 +6,7 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 
 void main() {
   testWidgets('main menu exposes primary navigation', (tester) async {
@@ -137,9 +138,10 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.text(snapshot.hands[PlayerSeat.south]!.first.label).first,
+    final discardable = snapshot.hands[PlayerSeat.south]!.firstWhere(
+      (card) => !card.isJoker,
     );
+    await tester.tap(find.text(discardable.label).first);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
     await tester.pumpAndSettle();
@@ -148,7 +150,50 @@ void main() {
     expect(matchRepository.saved!.turnPhase, TurnPhase.draw);
     expect(find.widgetWithText(FilledButton, 'Draw Stock'), findsOneWidget);
   });
+
+  testWidgets('selecting a joker disables the discard action', (tester) async {
+    // Build a snapshot with a known joker in south's hand so we can assert the
+    // UI keeps the Discard button disabled when only a joker is selected.
+    final base = _snapshot();
+    final southHand = List<HareegCard>.of(base.hands[PlayerSeat.south]!);
+    final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
+    if (!southHand.any((card) => card.isJoker)) {
+      southHand.insert(0, joker);
+    }
+    final patched = ClassicHareegMatchSnapshot(
+      setup: base.setup,
+      hands: {
+        ...base.hands,
+        PlayerSeat.south: southHand,
+      },
+      stock: base.stock,
+      discardPile: base.discardPile,
+      starter: base.starter,
+      currentSeat: PlayerSeat.south,
+      turnPhase: TurnPhase.action,
+      savedAt: base.savedAt,
+    );
+    final matchRepository = _MemoryMatchRepository(saved: patched);
+    await tester.pumpWidget(_testApp(matchRepository: matchRepository));
+    await tester.pump();
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Joker').first);
+    await tester.pump();
+
+    final discardButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Discard'),
+    );
+    expect(
+      discardButton.onPressed,
+      isNull,
+      reason: 'Discarding a joker must be blocked at the UI level.',
+    );
+  });
 }
+
 
 Widget _testApp({
   PreferencesRepository? preferencesRepository,
