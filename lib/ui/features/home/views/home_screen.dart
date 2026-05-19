@@ -54,9 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
               label: AppStrings.continueGame,
               subtitle: _savedMatch == null
                   ? (_loadingSavedMatch
-                        ? 'Checking saved match...'
+                        ? AppStrings.checkingSavedMatch
                         : AppStrings.noSavedMatch)
-                  : 'Resume saved Classic Hareeg table',
+                  : AppStrings.resumeSavedMatch,
               onPressed: _savedMatch == null
                   ? null
                   : () => _openAndRefresh(
@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: TextButton.icon(
                   onPressed: _abandonSavedMatch,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Abandon saved match'),
+                  label: const Text(AppStrings.abandonSavedMatch),
                 ),
               ),
             ],
@@ -212,12 +212,18 @@ class _ClassicSummary extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _FactChip(label: 'Seats', value: '${rules.seatCount}'),
                 _FactChip(
-                  label: 'Opening',
+                  label: AppStrings.seatsLabel,
+                  value: '${rules.seatCount}',
+                ),
+                _FactChip(
+                  label: AppStrings.openingLabel,
                   value: '${rules.openingRequirement}',
                 ),
-                _FactChip(label: 'Fifty', value: '${rules.fiftyClaimSeconds}s'),
+                _FactChip(
+                  label: AppStrings.fiftyLabel,
+                  value: '${rules.fiftyClaimSeconds}s',
+                ),
               ],
             ),
           ],

@@ -27,6 +27,24 @@ abstract final class AppStrings {
   /// Disabled resume explanation.
   static const noSavedMatch = 'No saved match yet';
 
+  /// Saved-match loading explanation.
+  static const checkingSavedMatch = 'Checking saved match...';
+
+  /// Saved-match resume explanation.
+  static const resumeSavedMatch = 'Resume saved Classic Hareeg table';
+
+  /// Abandon saved match action.
+  static const abandonSavedMatch = 'Abandon saved match';
+
+  /// Seat-count summary label.
+  static const seatsLabel = 'Seats';
+
+  /// Opening summary label.
+  static const openingLabel = 'Opening';
+
+  /// Fifty timer summary label.
+  static const fiftyLabel = 'Fifty';
+
   /// Coming-soon section title.
   static const plannedModes = 'Planned modes';
 
