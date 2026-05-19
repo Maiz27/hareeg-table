@@ -7,6 +7,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   testWidgets('main menu exposes primary navigation', (tester) async {
@@ -59,10 +60,7 @@ void main() {
     expect(find.text('CPU West'), findsOneWidget);
     expect(find.text('Stock'), findsOneWidget);
     expect(find.text('Discard'), findsWidgets);
-    expect(
-      find.text('Select at least three cards for a meld.'),
-      findsOneWidget,
-    );
+    expect(find.text('Meld area'), findsOneWidget);
   });
 
   testWidgets('rules and settings routes are reachable', (tester) async {
@@ -202,7 +200,15 @@ void main() {
         deckIndex: 80,
       ),
     ];
-    final snapshot = _snapshotWithSouthCards(meldCards);
+    final discardable = HareegCard.standard(
+      rank: CardRank.queen,
+      suit: CardSuit.spades,
+      deckIndex: 80,
+    );
+    final snapshot = _snapshotWithSouthCards([
+      ...meldCards,
+      discardable,
+    ], openingState: _opened(PlayerSeat.south));
     final matchRepository = _MemoryMatchRepository(saved: snapshot);
     await tester.pumpWidget(_testApp(matchRepository: matchRepository));
     await tester.pump();
@@ -230,6 +236,19 @@ void main() {
       ['5C', '6C', '7C'],
     );
     expect(find.textContaining('You: 5C 6C 7C'), findsOneWidget);
+
+    final disabledDiscard = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Discard'),
+    );
+    expect(disabledDiscard.onPressed, isNull);
+
+    await tester.tap(find.text(discardable.label).first);
+    await tester.pump();
+
+    final enabledDiscard = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Discard'),
+    );
+    expect(enabledDiscard.onPressed, isNotNull);
   });
 
   testWidgets('joker-assisted sequence can be played as a meld', (
@@ -254,7 +273,10 @@ void main() {
         deckIndex: 82,
       ),
     ];
-    final snapshot = _snapshotWithSouthCards(meldCards);
+    final snapshot = _snapshotWithSouthCards(
+      meldCards,
+      openingState: _opened(PlayerSeat.south),
+    );
     final matchRepository = _MemoryMatchRepository(saved: snapshot);
     await tester.pumpWidget(_testApp(matchRepository: matchRepository));
     await tester.pump();
@@ -321,7 +343,10 @@ void main() {
         deckIndex: 81,
       ),
     ];
-    final snapshot = _snapshotWithSouthCards([...meldCards, ...covers]);
+    final snapshot = _snapshotWithSouthCards([
+      ...meldCards,
+      ...covers,
+    ], openingState: _opened(PlayerSeat.south));
     final matchRepository = _MemoryMatchRepository(saved: snapshot);
     await tester.pumpWidget(_testApp(matchRepository: matchRepository));
     await tester.pump();
@@ -439,6 +464,7 @@ Future<void> _pumpCpuTurns(WidgetTester tester) async {
 ClassicHareegMatchSnapshot _snapshot({
   PlayerSeat currentSeat = PlayerSeat.south,
   TurnPhase turnPhase = TurnPhase.action,
+  OpeningState? openingState,
 }) {
   final round = ClassicHareegRound.deal(
     setup: ClassicHareegSetup.defaults(),
@@ -452,12 +478,16 @@ ClassicHareegMatchSnapshot _snapshot({
     starter: round.starter,
     currentSeat: currentSeat,
     turnPhase: turnPhase,
+    openingState: openingState,
     savedAt: DateTime.utc(2026, 5, 18),
   );
 }
 
-ClassicHareegMatchSnapshot _snapshotWithSouthCards(List<HareegCard> cards) {
-  final base = _snapshot();
+ClassicHareegMatchSnapshot _snapshotWithSouthCards(
+  List<HareegCard> cards, {
+  OpeningState? openingState,
+}) {
+  final base = _snapshot(openingState: openingState);
   return ClassicHareegMatchSnapshot(
     setup: base.setup,
     hands: {
@@ -469,7 +499,19 @@ ClassicHareegMatchSnapshot _snapshotWithSouthCards(List<HareegCard> cards) {
     starter: base.starter,
     currentSeat: PlayerSeat.south,
     turnPhase: TurnPhase.action,
+    openingState: openingState,
     savedAt: base.savedAt,
+  );
+}
+
+OpeningState _opened(PlayerSeat seat) {
+  final setup = ClassicHareegSetup.defaults();
+  return ClassicHareegOpeningRules.applyOpening(
+    state: OpeningState.initial(setup.openingRequirement),
+    seat: seat,
+    melds: [
+      PlacedMeld(cards: const [], valueSnapshot: setup.openingRequirement),
+    ],
   );
 }
 

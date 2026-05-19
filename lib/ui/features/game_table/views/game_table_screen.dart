@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -9,7 +11,6 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
 import '../../../../l10n/app_strings.dart';
@@ -59,6 +60,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
   bool _isCpuRunning = false;
   String? _turnStatus;
   String? _humanFeedback;
+  bool _humanFeedbackIsError = false;
+  Timer? _fiftyTicker;
 
   @override
   void initState() {
@@ -70,6 +73,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
+    _fiftyTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _runCpuTurns();
       await _persistAndMaybeFinish();
@@ -78,6 +86,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
   @override
   void dispose() {
+    _fiftyTicker?.cancel();
     AppOrientation.usePortrait();
     super.dispose();
   }
@@ -94,11 +103,21 @@ class _GameTableScreenState extends State<GameTableScreen> {
     final canTakeDiscard = legalActions.contains(
       ClassicHareegActionIds.takeDiscard,
     );
+    final canClaimFifty = legalActions.contains(
+      ClassicHareegActionIds.claimFifty,
+    );
     final canReturnDiscard = legalActions.contains(
       ClassicHareegActionIds.returnPendingDiscard,
     );
+    final hasDiscardActions = legalActions.any(
+      (actionId) => ClassicHareegActionIds.discardCardId(actionId) != null,
+    );
     final selectedCards = _selectedCards();
     final selectedMeld = _controller.meldValidationFor(
+      humanSeat,
+      _selectedCardIds.toList(),
+    );
+    final jokerOptions = _controller.jokerRepresentationOptionsFor(
       humanSeat,
       _selectedCardIds.toList(),
     );
@@ -106,20 +125,45 @@ class _GameTableScreenState extends State<GameTableScreen> {
         pending == null || _selectedCardIds.contains(pending.id);
     final showPlayMeld = isHumanTurn && selectedCards.length >= 3;
     final canPlayMeld =
-        isHumanTurn && selectedMeld.isValid && pendingIsSelected;
+        isHumanTurn &&
+        (selectedMeld.isValid || jokerOptions.isNotEmpty) &&
+        pendingIsSelected;
     final coverActionId = isHumanTurn
         ? _controller.coverActionIdFor(humanSeat, _selectedCardIds.toList())
         : null;
     final canPlaceCover = coverActionId != null && pendingIsSelected;
+    final replaceJokerActionId = isHumanTurn
+        ? _controller.jokerReplacementActionIdFor(
+            humanSeat,
+            _selectedCardIds.toList(),
+          )
+        : null;
+    final canReplaceJoker = replaceJokerActionId != null && pendingIsSelected;
     final selectedCardId = selectedCards.length == 1
         ? selectedCards.single.id
         : null;
-    final discardActionId = selectedCardId == null
-        ? null
-        : '${ClassicHareegActionIds.discardPrefix}$selectedCardId';
-    final canDiscard =
-        discardActionId != null && legalActions.contains(discardActionId);
-    final showDiscard = isHumanTurn && selectedCardId != null;
+    String? discardActionId;
+    if (selectedCardId != null) {
+      for (final actionId in legalActions) {
+        if (ClassicHareegActionIds.discardCardId(actionId) == selectedCardId) {
+          discardActionId = actionId;
+          break;
+        }
+      }
+    }
+    final canDiscard = discardActionId != null;
+    final showDiscard =
+        isHumanTurn && (hasDiscardActions || selectedCardId != null);
+    VoidCallback? onReplaceJoker;
+    final replaceActionId = replaceJokerActionId;
+    if (replaceActionId != null) {
+      onReplaceJoker = () => _runHumanAction(replaceActionId);
+    }
+    VoidCallback? onDiscard;
+    final selectedDiscardActionId = discardActionId;
+    if (selectedDiscardActionId != null) {
+      onDiscard = () => _runHumanAction(selectedDiscardActionId);
+    }
 
     return Scaffold(
       body: LayoutBuilder(
@@ -179,8 +223,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   openingRequirement:
                                       widget.setup.openingRequirement,
                                   humanFeedback: _humanFeedback,
+                                  humanFeedbackIsError: _humanFeedbackIsError,
                                   canDraw: canDraw,
                                   canTakeDiscard: canTakeDiscard,
+                                  canClaimFifty: canClaimFifty,
                                   showPlayMeld: showPlayMeld,
                                   canPlayMeld: canPlayMeld,
                                   showPlaceCover:
@@ -188,6 +234,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                       _selectedCardIds.isNotEmpty &&
                                       _controller.tableMeldCount > 0,
                                   canPlaceCover: canPlaceCover,
+                                  showReplaceJoker:
+                                      isHumanTurn &&
+                                      selectedCards.length == 1 &&
+                                      _controller.tableMeldCount > 0,
+                                  canReplaceJoker: canReplaceJoker,
                                   showDiscard: showDiscard,
                                   canDiscard: canDiscard,
                                   canReturnDiscard: canReturnDiscard,
@@ -197,20 +248,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
                                   onTakeDiscard: () => _runHumanAction(
                                     ClassicHareegActionIds.takeDiscard,
                                   ),
+                                  onClaimFifty: () => _runHumanAction(
+                                    ClassicHareegActionIds.claimFifty,
+                                  ),
                                   onReturnDiscard: () => _runHumanAction(
                                     ClassicHareegActionIds.returnPendingDiscard,
                                   ),
-                                  onPlayMeld: () => _runHumanAction(
-                                    ClassicHareegActionIds.playMeldActionId(
-                                      _selectedCardIds,
-                                    ),
-                                  ),
+                                  onPlayMeld: () =>
+                                      _playSelectedMeld(jokerOptions),
                                   onPlaceCover: coverActionId == null
                                       ? null
                                       : () => _runHumanAction(coverActionId),
-                                  onDiscard: discardActionId == null
-                                      ? null
-                                      : () => _runHumanAction(discardActionId),
+                                  onReplaceJoker: onReplaceJoker,
+                                  onDiscard: onDiscard,
                                   onAutoSort: _sortHumanHand,
                                 ),
                               ),
@@ -281,6 +331,40 @@ class _GameTableScreenState extends State<GameTableScreen> {
     await _persistAndMaybeFinish();
   }
 
+  Future<void> _playSelectedMeld(List<CardIdentity> jokerOptions) async {
+    var actionId = ClassicHareegActionIds.playMeldActionId(_selectedCardIds);
+    if (jokerOptions.isNotEmpty) {
+      final joker = _selectedCards().firstWhere(
+        (card) => card.isJoker && card.representedIdentity == null,
+      );
+      final identity = await showDialog<CardIdentity>(
+        context: context,
+        builder: (context) {
+          return SimpleDialog(
+            title: const Text('Choose joker'),
+            children: [
+              for (final option in jokerOptions)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(option),
+                  child: Text(option.label),
+                ),
+            ],
+          );
+        },
+      );
+      if (identity == null || !mounted) {
+        return;
+      }
+      actionId = ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
+        cardIds: _selectedCardIds,
+        jokerId: joker.id,
+        identity: identity,
+      );
+    }
+
+    await _runHumanAction(actionId);
+  }
+
   Future<void> _runHumanAction(String actionId) async {
     if (_isCpuRunning) {
       return;
@@ -290,16 +374,20 @@ class _GameTableScreenState extends State<GameTableScreen> {
     if (!result.isSuccess) {
       setState(() {
         _humanFeedback = result.message;
+        _humanFeedbackIsError = true;
       });
       return;
     }
 
     setState(() {
-      _humanFeedback = null;
+      _humanFeedback = result.message.isEmpty ? null : result.message;
+      _humanFeedbackIsError = false;
       _turnStatus = _describeHumanAction(actionId);
-      if (actionId.startsWith(ClassicHareegActionIds.discardPrefix) ||
+      if (ClassicHareegActionIds.discardCardId(actionId) != null ||
           actionId.startsWith(ClassicHareegActionIds.playMeldPrefix) ||
+          actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
           actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
+          actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
           actionId == ClassicHareegActionIds.returnPendingDiscard) {
         _selectedCardIds.clear();
       }
@@ -355,6 +443,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
           setState(() {
             _isCpuRunning = false;
             _humanFeedback = result.message;
+            _humanFeedbackIsError = true;
           });
         }
         throw StateError(
@@ -388,6 +477,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
         _humanFeedback =
             'CPU turn safety cap $_cpuActionLimit reached at '
             '${_seatLabel(_controller.currentSeat)}.';
+        _humanFeedbackIsError = true;
       } else if (_controller.currentSeat == PlayerSeat.south) {
         _turnStatus = 'Your turn.';
       }
@@ -404,7 +494,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
     var persistenceSucceeded = true;
     try {
       if (_controller.isRoundOver) {
-        await widget.matchRepository.abandonActiveMatch();
+        final nextSnapshot = _controller.nextRoundSnapshot();
+        if (nextSnapshot == null) {
+          await widget.matchRepository.abandonActiveMatch();
+        } else {
+          await widget.matchRepository.saveActiveMatch(nextSnapshot);
+        }
       } else {
         await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
       }
@@ -430,36 +525,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 
   void _navigateToRoundSummary() {
-    final outcome = _controller.roundOutcome;
-    if (outcome == null) {
+    final result = _controller.roundResult;
+    final progress = _controller.roundProgress;
+    if (result == null || progress == null) {
       return;
     }
-
-    final remainingCardCounts = <PlayerSeat, int>{
-      for (final seat in PlayerSeat.values)
-        seat: _controller.cardCountFor(seat),
-    };
-    final result = RoundProgressResult(
-      type: outcome,
-      remainingCardCounts: remainingCardCounts,
-    );
-    final activeSeats = PlayerSeat.values.toList();
-    final previousScores = <PlayerSeat, int>{
-      for (final seat in PlayerSeat.values) seat: 0,
-    };
-    final progress = ClassicHareegMatchProgressionRules.applyRoundResult(
-      scores: previousScores,
-      activeSeats: activeSeats,
-      currentStarter: _controller.starter,
-      result: result,
-    );
 
     Navigator.of(context).pushReplacementNamed(
       AppRoutes.roundSummary,
       arguments: RoundSummaryArguments(
         result: result,
         progress: progress,
-        previousScores: previousScores,
+        previousScores: _controller.scores,
+        nextSnapshot: _controller.nextRoundSnapshot(),
       ),
     );
   }
@@ -475,13 +553,22 @@ String _describeHumanAction(String actionId) {
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return 'You returned the discard and drew.';
   }
+  if (actionId == ClassicHareegActionIds.claimFifty) {
+    return 'You claimed Fifty.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
+    return 'You played a meld.';
+  }
   if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
     return 'You played a meld.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
+    return 'You replaced a joker.';
   }
   if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
     return 'You placed a cover.';
   }
-  if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
+  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
     return 'You discarded.';
   }
   return 'Action applied.';
@@ -498,13 +585,22 @@ String _describeCpuAction(PlayerSeat seat, String actionId) {
   if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
     return '$seatName returned the discard and drew.';
   }
+  if (actionId == ClassicHareegActionIds.claimFifty) {
+    return '$seatName claimed Fifty.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
+    return '$seatName played a meld.';
+  }
   if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
     return '$seatName played a meld.';
+  }
+  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
+    return '$seatName replaced a joker.';
   }
   if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
     return '$seatName placed a cover.';
   }
-  if (actionId.startsWith(ClassicHareegActionIds.discardPrefix)) {
+  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
     return '$seatName discarded.';
   }
   return '$seatName acted.';
@@ -582,20 +678,26 @@ class _TableStage extends StatelessWidget {
     required this.selectedMeldResult,
     required this.openingRequirement,
     required this.humanFeedback,
+    required this.humanFeedbackIsError,
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.canClaimFifty,
     required this.showPlayMeld,
     required this.canPlayMeld,
     required this.showPlaceCover,
     required this.canPlaceCover,
+    required this.showReplaceJoker,
+    required this.canReplaceJoker,
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
+    required this.onClaimFifty,
     required this.onReturnDiscard,
     required this.onPlayMeld,
     required this.onPlaceCover,
+    required this.onReplaceJoker,
     required this.onDiscard,
     required this.onAutoSort,
   });
@@ -609,20 +711,26 @@ class _TableStage extends StatelessWidget {
   final MeldValidationResult selectedMeldResult;
   final int openingRequirement;
   final String? humanFeedback;
+  final bool humanFeedbackIsError;
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool canClaimFifty;
   final bool showPlayMeld;
   final bool canPlayMeld;
   final bool showPlaceCover;
   final bool canPlaceCover;
+  final bool showReplaceJoker;
+  final bool canReplaceJoker;
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
+  final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
+  final VoidCallback? onReplaceJoker;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -638,20 +746,26 @@ class _TableStage extends StatelessWidget {
           selectedMeldResult: selectedMeldResult,
           openingRequirement: openingRequirement,
           humanFeedback: humanFeedback,
+          humanFeedbackIsError: humanFeedbackIsError,
           canDraw: canDraw,
           canTakeDiscard: canTakeDiscard,
+          canClaimFifty: canClaimFifty,
           showPlayMeld: showPlayMeld,
           canPlayMeld: canPlayMeld,
           showPlaceCover: showPlaceCover,
           canPlaceCover: canPlaceCover,
+          showReplaceJoker: showReplaceJoker,
+          canReplaceJoker: canReplaceJoker,
           showDiscard: showDiscard,
           canDiscard: canDiscard,
           canReturnDiscard: canReturnDiscard,
           onDraw: onDraw,
           onTakeDiscard: onTakeDiscard,
+          onClaimFifty: onClaimFifty,
           onReturnDiscard: onReturnDiscard,
           onPlayMeld: onPlayMeld,
           onPlaceCover: onPlaceCover,
+          onReplaceJoker: onReplaceJoker,
           onDiscard: onDiscard,
           onAutoSort: onAutoSort,
         );
@@ -1005,20 +1119,26 @@ class _ActionDock extends StatelessWidget {
     required this.selectedMeldResult,
     required this.openingRequirement,
     required this.humanFeedback,
+    required this.humanFeedbackIsError,
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.canClaimFifty,
     required this.showPlayMeld,
     required this.canPlayMeld,
     required this.showPlaceCover,
     required this.canPlaceCover,
+    required this.showReplaceJoker,
+    required this.canReplaceJoker,
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
+    required this.onClaimFifty,
     required this.onReturnDiscard,
     required this.onPlayMeld,
     required this.onPlaceCover,
+    required this.onReplaceJoker,
     required this.onDiscard,
     required this.onAutoSort,
   });
@@ -1029,20 +1149,26 @@ class _ActionDock extends StatelessWidget {
   final MeldValidationResult selectedMeldResult;
   final int openingRequirement;
   final String? humanFeedback;
+  final bool humanFeedbackIsError;
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool canClaimFifty;
   final bool showPlayMeld;
   final bool canPlayMeld;
   final bool showPlaceCover;
   final bool canPlaceCover;
+  final bool showReplaceJoker;
+  final bool canReplaceJoker;
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
+  final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
+  final VoidCallback? onReplaceJoker;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -1064,23 +1190,29 @@ class _ActionDock extends StatelessWidget {
                 result: selectedMeldResult,
                 openingRequirement: openingRequirement,
                 humanFeedback: humanFeedback,
+                humanFeedbackIsError: humanFeedbackIsError,
               ),
               SizedBox(height: metrics.gap),
               _ActionBar(
                 canDraw: canDraw,
                 canTakeDiscard: canTakeDiscard,
+                canClaimFifty: canClaimFifty,
                 showPlayMeld: showPlayMeld,
                 canPlayMeld: canPlayMeld,
                 showPlaceCover: showPlaceCover,
                 canPlaceCover: canPlaceCover,
+                showReplaceJoker: showReplaceJoker,
+                canReplaceJoker: canReplaceJoker,
                 showDiscard: showDiscard,
                 canDiscard: canDiscard,
                 canReturnDiscard: canReturnDiscard,
                 onDraw: onDraw,
                 onTakeDiscard: onTakeDiscard,
+                onClaimFifty: onClaimFifty,
                 onReturnDiscard: onReturnDiscard,
                 onPlayMeld: onPlayMeld,
                 onPlaceCover: onPlaceCover,
+                onReplaceJoker: onReplaceJoker,
                 onDiscard: onDiscard,
                 onAutoSort: onAutoSort,
               ),
@@ -1096,36 +1228,46 @@ class _ActionBar extends StatelessWidget {
   const _ActionBar({
     required this.canDraw,
     required this.canTakeDiscard,
+    required this.canClaimFifty,
     required this.showPlayMeld,
     required this.canPlayMeld,
     required this.showPlaceCover,
     required this.canPlaceCover,
+    required this.showReplaceJoker,
+    required this.canReplaceJoker,
     required this.showDiscard,
     required this.canDiscard,
     required this.canReturnDiscard,
     required this.onDraw,
     required this.onTakeDiscard,
+    required this.onClaimFifty,
     required this.onReturnDiscard,
     required this.onPlayMeld,
     required this.onPlaceCover,
+    required this.onReplaceJoker,
     required this.onDiscard,
     required this.onAutoSort,
   });
 
   final bool canDraw;
   final bool canTakeDiscard;
+  final bool canClaimFifty;
   final bool showPlayMeld;
   final bool canPlayMeld;
   final bool showPlaceCover;
   final bool canPlaceCover;
+  final bool showReplaceJoker;
+  final bool canReplaceJoker;
   final bool showDiscard;
   final bool canDiscard;
   final bool canReturnDiscard;
   final VoidCallback onDraw;
   final VoidCallback onTakeDiscard;
+  final VoidCallback onClaimFifty;
   final VoidCallback onReturnDiscard;
   final VoidCallback onPlayMeld;
   final VoidCallback? onPlaceCover;
+  final VoidCallback? onReplaceJoker;
   final VoidCallback? onDiscard;
   final VoidCallback onAutoSort;
 
@@ -1148,6 +1290,12 @@ class _ActionBar extends StatelessWidget {
             icon: const Icon(Icons.move_down_outlined),
             label: const Text(AppStrings.takeDiscard),
           ),
+        if (canClaimFifty)
+          FilledButton.icon(
+            onPressed: onClaimFifty,
+            icon: const Icon(Icons.local_fire_department_outlined),
+            label: const Text('Fifty'),
+          ),
         if (showPlayMeld)
           FilledButton.icon(
             onPressed: canPlayMeld ? onPlayMeld : null,
@@ -1159,6 +1307,12 @@ class _ActionBar extends StatelessWidget {
             onPressed: canPlaceCover ? onPlaceCover : null,
             icon: const Icon(Icons.call_merge),
             label: const Text('Place Cover'),
+          ),
+        if (showReplaceJoker)
+          FilledButton.icon(
+            onPressed: canReplaceJoker ? onReplaceJoker : null,
+            icon: const Icon(Icons.change_circle_outlined),
+            label: const Text('Replace Joker'),
           ),
         if (canReturnDiscard)
           FilledButton.icon(
@@ -1257,34 +1411,43 @@ class _SelectedMeldFeedback extends StatelessWidget {
     required this.result,
     required this.openingRequirement,
     required this.humanFeedback,
+    required this.humanFeedbackIsError,
   });
 
   final MeldValidationResult result;
   final int openingRequirement;
   final String? humanFeedback;
+  final bool humanFeedbackIsError;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
     if (humanFeedback != null) {
-      return SizedBox(
-        height: 44,
+      final color = humanFeedbackIsError ? colors.error : colors.primary;
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: Border.all(color: colors.error),
+            border: Border.all(color: color),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Icon(Icons.error_outline, size: 18, color: colors.error),
+                Icon(
+                  humanFeedbackIsError
+                      ? Icons.error_outline
+                      : Icons.check_circle_outline,
+                  size: 18,
+                  color: color,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     humanFeedback!,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1299,8 +1462,8 @@ class _SelectedMeldFeedback extends StatelessWidget {
         ? 'opening ready'
         : 'needs $openingRequirement to open';
 
-    return SizedBox(
-      height: 44,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(
@@ -1324,7 +1487,7 @@ class _SelectedMeldFeedback extends StatelessWidget {
                   result.isValid
                       ? '${result.message} Value ${result.value}, $openingText.'
                       : result.message,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
