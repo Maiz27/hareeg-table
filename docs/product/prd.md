@@ -8,7 +8,7 @@ The core product risk is rule authenticity. If the game treats Hareeg like gener
 
 ## Solution
 
-Build Hareeg Table as a Flutter mobile game with an Android-first launch and future cross-platform support. The default experience is a four-seat offline Classic Hareeg table: one human player against three CPU players, anti-clockwise turn order, 14-card hands with a 15-card starter, opening benchmark pressure, cover restrictions, joker replacement, timed Fifty claims, Classic scoring, and elimination at 31.
+Build Hareeg Table as a Flutter mobile game with an Android-first launch and future cross-platform support. The default experience is a four-seat offline Classic Hareeg table: one human player against three CPU players, anti-clockwise turn order, two decks with configurable jokers, 14-card hands with a 15-card starter, opening benchmark pressure, cover restrictions, joker replacement, timed Fifty claims, Classic scoring, and elimination at 31.
 
 The game should be free and open source, with no ads and no paid cosmetic locks. The presentation should feel like a warm Sudanese lounge: readable dark table, ivory cards, restrained cultural accents, and special flame/heat treatment for Fifty moments. English is the launch language, but localization architecture must be present from the beginning so Arabic support can be added cleanly.
 
@@ -107,9 +107,10 @@ The implementation should center on a deep, pure-Dart Classic Hareeg rules modul
 - Create a CPU strategy module that consumes legal move options and visible table state, then emits move intents. It must never bypass the rules engine.
 - Implement CPU difficulties as behavior profiles covering hand evaluation, discard safety, opening pressure, joker use, Fifty awareness, and reaction timing.
 - Create a Flutter app module that renders the table, hands, player seats, discard/stock areas, meld zones, Fifty timer, settings, and invalid-action feedback.
+- Keep menu, setup, settings, and help screens portrait by default; switch to landscape only for the active table screen.
 - Use a warm Sudanese lounge visual direction: clean dark table, readable ivory cards, warm accents, subtle cultural patterning, and special Fifty treatment.
 - Make localization a first implementation concern. User-facing strings should not be embedded in rule logic.
-- Create a persistence module for local rule presets, visual preferences, match history, and future profile data.
+- Create a persistence module for local rule presets, visual preferences, active match resume data, and future profile data. The current app-owned platform channel stores JSON through Android SharedPreferences and iOS UserDefaults without adding a Flutter plugin.
 - Keep online multiplayer, accounts, stores, payments, and online sync outside the first implementation.
 
 ## Testing Decisions
@@ -146,25 +147,25 @@ The implementation should center on a deep, pure-Dart Classic Hareeg rules modul
 
 ## Implementation Issue Tracker
 
-- [ ] #2 [HT-01]: Set up app architecture and quality gates
-- [ ] #3 [HT-02]: Create main menu and app navigation shell
-- [ ] #4 [HT-03]: Create game setup flow for Classic Hareeg
-- [ ] #5 [HT-04]: Deal a four-seat Classic Hareeg table
-- [ ] #6 [HT-05]: Implement card identity, deck copies, and basic meld validation
-- [ ] #7 [HT-06]: Implement joker identity and replacement flow
-- [ ] #8 [HT-07]: Implement opening requirement and benchmark pressure
-- [ ] #9 [HT-08]: Implement covers and cover discard restrictions
-- [ ] #10 [HT-09]: Implement draw, discard pickup, and pending discard state
-- [ ] #11 [HT-10]: Implement finish validation and stock exhaustion
-- [ ] #12 [HT-11]: Implement Fifty claim flow
-- [ ] #13 [HT-12]: Implement scoring, elimination, and round progression
-- [ ] #14 [HT-13]: Build round summary, scoreboard, and match end UI
-- [ ] #15 [HT-14]: Implement first CPU strategy pass
-- [ ] #16 [HT-15]: Add assisted, penalty, and hard table rule presets
+- [x] #2 [HT-01]: Set up app architecture and quality gates
+- [x] #3 [HT-02]: Create main menu and app navigation shell
+- [x] #4 [HT-03]: Create game setup flow for Classic Hareeg
+- [x] #5 [HT-04]: Deal a four-seat Classic Hareeg table
+- [x] #6 [HT-05]: Implement card identity, deck copies, and basic meld validation
+- [x] #7 [HT-06]: Implement joker identity and replacement flow
+- [x] #8 [HT-07]: Implement opening requirement and benchmark pressure
+- [x] #9 [HT-08]: Implement covers and cover discard restrictions
+- [x] #10 [HT-09]: Implement draw, discard pickup, and pending discard state
+- [x] #11 [HT-10]: Implement finish validation and stock exhaustion
+- [x] #12 [HT-11]: Implement Fifty claim flow
+- [x] #13 [HT-12]: Implement scoring, elimination, and round progression
+- [x] #14 [HT-13]: Build round summary, scoreboard, and match end UI
+- [x] #15 [HT-14]: Implement first CPU strategy pass
+- [x] #16 [HT-15]: Add assisted, penalty, and hard table rule presets
 - [ ] #17 [HT-16]: Design and implement warm Sudanese lounge table UI
 - [ ] #18 [HT-17]: Polish card art, joker treatment, and Fifty visuals
-- [ ] #19 [HT-18]: Build settings and persist local preferences
-- [ ] #20 [HT-19]: Add pause, resume, and match persistence
-- [ ] #21 [HT-20]: Add rules and help reference
+- [x] #19 [HT-18]: Build settings and persist local preferences
+- [x] #20 [HT-19]: Add pause, resume, and match persistence
+- [x] #21 [HT-20]: Add rules and help reference
 - [ ] #22 [HT-21]: Add accessibility, responsiveness, and battery pass
-- [ ] #23 [HT-22]: Sync documentation with implemented behavior
+- [x] #23 [HT-22]: Sync documentation with implemented behavior
