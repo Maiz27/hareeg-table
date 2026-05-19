@@ -51,9 +51,10 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
 
   static const _priority = [
     'claim-fifty',
-    'finish-round',
-    'open',
-    'place-cover',
+    'play-meld:',
+    'play-meld-joker:',
+    'replace-joker:',
+    'place-cover:',
     'draw-stock',
     'take-discard',
   ];
@@ -64,13 +65,11 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
       throw StateError('CPU needs at least one legal action.');
     }
 
-    if (snapshot.legalActionIds.contains('return-pending-discard')) {
-      return const CpuMoveIntent(actionId: 'return-pending-discard');
-    }
-
     for (final actionId in _priority) {
-      if (snapshot.legalActionIds.contains(actionId)) {
-        return CpuMoveIntent(actionId: actionId);
+      for (final legalActionId in snapshot.legalActionIds) {
+        if (legalActionId == actionId || legalActionId.startsWith(actionId)) {
+          return CpuMoveIntent(actionId: legalActionId);
+        }
       }
     }
 
@@ -81,6 +80,10 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
     });
     if (safeDiscards.isNotEmpty) {
       return CpuMoveIntent(actionId: safeDiscards.first);
+    }
+
+    if (snapshot.legalActionIds.contains('return-pending-discard')) {
+      return const CpuMoveIntent(actionId: 'return-pending-discard');
     }
 
     return CpuMoveIntent(actionId: snapshot.legalActionIds.first);

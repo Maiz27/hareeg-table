@@ -32,7 +32,7 @@ void main() {
     expect(['draw-stock', 'take-discard'], contains(intent.actionId));
   });
 
-  test('CPU prioritizes finish, opening, covers, draw, then pickup', () {
+  test('CPU prioritizes Fifty, table play, draw, then pickup', () {
     const strategy = ClassicHareegCpuStrategy();
 
     expect(
@@ -40,33 +40,33 @@ void main() {
           .chooseMove(
             CpuTurnSnapshot(
               seat: PlayerSeat.east,
-              legalActionIds: ['draw-stock', 'finish-round'],
+              legalActionIds: ['draw-stock', 'claim-fifty'],
             ),
           )
           .actionId,
-      'finish-round',
+      'claim-fifty',
     );
     expect(
       strategy
           .chooseMove(
             CpuTurnSnapshot(
               seat: PlayerSeat.east,
-              legalActionIds: ['draw-stock', 'open'],
+              legalActionIds: ['draw-stock', 'play-meld:1,2,3'],
             ),
           )
           .actionId,
-      'open',
+      'play-meld:1,2,3',
     );
     expect(
       strategy
           .chooseMove(
             CpuTurnSnapshot(
               seat: PlayerSeat.east,
-              legalActionIds: ['draw-stock', 'place-cover'],
+              legalActionIds: ['draw-stock', 'place-cover:0:4'],
             ),
           )
           .actionId,
-      'place-cover',
+      'place-cover:0:4',
     );
     expect(
       strategy
@@ -81,13 +81,26 @@ void main() {
     );
   });
 
-  test('CPU returns pending discard until table play is implemented', () {
+  test('CPU uses pending discard in a table play before returning it', () {
     const strategy = ClassicHareegCpuStrategy();
 
     final intent = strategy.chooseMove(
       CpuTurnSnapshot(
         seat: PlayerSeat.east,
-        legalActionIds: ['use-pending-discard', 'return-pending-discard'],
+        legalActionIds: ['play-meld:pending,1,2', 'return-pending-discard'],
+      ),
+    );
+
+    expect(intent.actionId, 'play-meld:pending,1,2');
+  });
+
+  test('CPU returns pending discard when no table play is legal', () {
+    const strategy = ClassicHareegCpuStrategy();
+
+    final intent = strategy.chooseMove(
+      CpuTurnSnapshot(
+        seat: PlayerSeat.east,
+        legalActionIds: ['return-pending-discard'],
       ),
     );
 
