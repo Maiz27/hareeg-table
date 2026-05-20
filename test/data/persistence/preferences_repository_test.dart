@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/ui/core/theme/table_surface_theme.dart';
 
 void main() {
   group('LocalPreferencesRepository', () {
@@ -16,6 +17,7 @@ void main() {
       expect(preferences.autoSort, isTrue);
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
+      expect(preferences.tableSurfaceTheme, TableSurfaceTheme.felt);
     });
 
     test('saves and restores setup and display preferences', () async {
@@ -34,6 +36,7 @@ void main() {
         reducedMotion: true,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
+        tableSurfaceTheme: TableSurfaceTheme.wood,
       );
 
       await repository.savePreferences(saved);
@@ -49,6 +52,7 @@ void main() {
       expect(restored.reducedMotion, isTrue);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
+      expect(restored.tableSurfaceTheme, TableSurfaceTheme.wood);
     });
 
     test('invalid saved preferences fall back to defaults', () async {
