@@ -271,28 +271,57 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // (rail + meld lane).
         final stockBottom = compact ? 6.0 : 10.0;
         final stockReservedHeight = tableCardSize.height + (compact ? 32 : 42);
+        final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
+        final southMeldHeight = compact ? 50.0 : 60.0;
         // Side rail (opponent hand) shrinks to a compact deck-stack hint —
-        // 5 backs in compact, 6 in regular — so the rail never falls into
-        // the stock pile or south meld zones. The exact height feeds the
-        // meld-lane sizing below so they share the same vertical budget.
+        // 5 backs in compact, 6 in regular — and is centered on the table's
+        // vertical axis. Earlier versions anchored this under the north hand,
+        // which made west/east drift upward instead of mirroring the fixed
+        // four-seat geometry.
         final sideRailVisibleCount = compact ? 5 : 6;
+        const sideRailGap = 16.0;
         final sideRailHeight =
-            opponentCardSize.height + (sideRailVisibleCount - 1) * 14.0;
-        final sideRailTop = topInset + opponentCardSize.height + 12;
+            opponentCardSize.height + (sideRailVisibleCount - 1) * sideRailGap;
+        final sideRailMinTop =
+            topInset + opponentCardSize.height + (compact ? 8.0 : 12.0);
+        final sideRailMaxTop =
+            tableHeight -
+            stockBottom -
+            stockReservedHeight -
+            sideRailHeight -
+            (compact ? 8.0 : 12.0);
+        final sideRailTop = ((tableHeight - sideRailHeight) * 0.5)
+            .clamp(sideRailMinTop, math.max(sideRailMinTop, sideRailMaxTop))
+            .toDouble();
         // West/east meld lanes sit beside their player rail, facing that
-        // player. They use the full side budget and scroll only when the
-        // placed melds/covers genuinely exceed the table height.
-        final leftMeldTopSafe = sideRailTop - (compact ? 4.0 : 8.0);
+        // player. The lane is centered around the same side-seat axis and
+        // scrolls when placed melds/covers exceed that centered budget.
+        final leftMeldTopSafe = topInset + opponentCardSize.height;
         final leftMeldBottomSafe =
-            tableHeight - stockBottom - stockReservedHeight - 12;
+            tableHeight -
+            southMeldBottom -
+            southMeldHeight -
+            (compact ? 6.0 : 10.0);
+        final sideMeldCenter = tableHeight * 0.5;
+        final centeredSideMeldMaxHeight = math.max(
+          0.0,
+          2 *
+              math.min(
+                sideMeldCenter - leftMeldTopSafe,
+                leftMeldBottomSafe - sideMeldCenter,
+              ),
+        );
         final sideMeldAvailable = math.max(
           0.0,
           leftMeldBottomSafe - leftMeldTopSafe,
         );
-        final sideMeldHeight = sideMeldAvailable
-            .clamp(0.0, compact ? 260.0 : 620.0)
+        final sideMeldHeight = math
+            .min(
+              sideMeldAvailable,
+              math.min(compact ? 180.0 : 420.0, centeredSideMeldMaxHeight),
+            )
             .toDouble();
-        final sideMeldTop = leftMeldTopSafe;
+        final sideMeldTop = sideMeldCenter - sideMeldHeight * 0.5;
         final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
         final sideMeldGap = compact ? 6.0 : 10.0;
         final horizontalMeldInset = (tableWidth * 0.25)
@@ -311,8 +340,6 @@ class PhysicalTablePlayfield extends StatelessWidget {
             .toDouble();
         final handRightInset =
             controlWidth + edgeInset + (compact ? 10.0 : 16.0);
-        final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
-        final southMeldHeight = compact ? 50.0 : 60.0;
 
         // Discard drop is handled by [_DiscardPile] itself so a card released
         // ON the pile gets routed (the previous wide field rectangle was
@@ -341,15 +368,18 @@ class PhysicalTablePlayfield extends StatelessWidget {
               top: sideRailTop,
               width: sideRailWidth,
               height: sideRailHeight,
-              child: _OpponentSideRail(
-                theme: theme,
-                count: cardCounts[PlayerSeat.west] ?? 0,
-                cardSize: opponentCardSize,
-                active: currentSeat == PlayerSeat.west,
-                thinking: isCpuRunning && currentSeat == PlayerSeat.west,
-                eliminated: !activeSeats.contains(PlayerSeat.west),
-                alignRight: false,
-                compact: compact,
+              child: SizedBox.expand(
+                key: const ValueKey('west-opponent-rail'),
+                child: _OpponentSideRail(
+                  theme: theme,
+                  count: cardCounts[PlayerSeat.west] ?? 0,
+                  cardSize: opponentCardSize,
+                  active: currentSeat == PlayerSeat.west,
+                  thinking: isCpuRunning && currentSeat == PlayerSeat.west,
+                  eliminated: !activeSeats.contains(PlayerSeat.west),
+                  alignRight: false,
+                  compact: compact,
+                ),
               ),
             ),
             Positioned(
@@ -357,15 +387,18 @@ class PhysicalTablePlayfield extends StatelessWidget {
               top: sideRailTop,
               width: sideRailWidth,
               height: sideRailHeight,
-              child: _OpponentSideRail(
-                theme: theme,
-                count: cardCounts[PlayerSeat.east] ?? 0,
-                cardSize: opponentCardSize,
-                active: currentSeat == PlayerSeat.east,
-                thinking: isCpuRunning && currentSeat == PlayerSeat.east,
-                eliminated: !activeSeats.contains(PlayerSeat.east),
-                alignRight: true,
-                compact: compact,
+              child: SizedBox.expand(
+                key: const ValueKey('east-opponent-rail'),
+                child: _OpponentSideRail(
+                  theme: theme,
+                  count: cardCounts[PlayerSeat.east] ?? 0,
+                  cardSize: opponentCardSize,
+                  active: currentSeat == PlayerSeat.east,
+                  thinking: isCpuRunning && currentSeat == PlayerSeat.east,
+                  eliminated: !activeSeats.contains(PlayerSeat.east),
+                  alignRight: true,
+                  compact: compact,
+                ),
               ),
             ),
             Positioned(
@@ -646,7 +679,7 @@ class _OpponentSideRail extends StatelessWidget {
               count: count,
               axis: Axis.vertical,
               cardSize: cardSize,
-              visibleCount: compact ? 8 : 11,
+              visibleCount: compact ? 5 : 6,
             ),
           ),
         ],

@@ -260,6 +260,34 @@ void main() {
       expect(find.byTooltip('Pause'), findsOneWidget);
     });
 
+    testWidgets('side opponent rails are vertically centered', (tester) async {
+      await _pumpPlayfield(tester, size: const Size(900, 500));
+
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('west-opponent-rail'))).dy,
+        closeTo(250, 0.1),
+      );
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('east-opponent-rail'))).dy,
+        closeTo(250, 0.1),
+      );
+    });
+
+    testWidgets('side opponent rails stay centered on compact landscape', (
+      tester,
+    ) async {
+      await _pumpPlayfield(tester, size: const Size(640, 360));
+
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('west-opponent-rail'))).dy,
+        closeTo(180, 0.1),
+      );
+      expect(
+        tester.getCenter(find.byKey(const ValueKey('east-opponent-rail'))).dy,
+        closeTo(180, 0.1),
+      );
+    });
+
     testWidgets('pending discard can be returned from the discard pile', (
       tester,
     ) async {
@@ -423,6 +451,69 @@ void main() {
       );
     });
 
+    testWidgets('hard table mode suppresses represented joker aids', (
+      tester,
+    ) async {
+      const represented = CardIdentity(
+        rank: CardRank.queen,
+        suit: CardSuit.hearts,
+      );
+      const joker = HareegCard.joker(
+        deckIndex: 95,
+        jokerIndex: 0,
+        representedIdentity: represented,
+      );
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        rulePreset: RulePreset.hardTable17,
+      );
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          memoryJokerDisplay: true,
+        );
+
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          setup: setup,
+          southHand: [
+            joker,
+            _card(CardRank.three, CardSuit.spades, 95),
+            _card(CardRank.four, CardSuit.spades, 95),
+          ],
+        ),
+        preferencesRepository: preferences,
+      );
+
+      final hardJoker = find.byKey(
+        ValueKey(
+          '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+          '${CardVisualState.normal}-${JokerDisplay.unassigned}',
+        ),
+      );
+      expect(hardJoker, findsOneWidget);
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+          ),
+        ),
+        findsNothing,
+      );
+
+      await tester.longPressAt(tester.getCenter(hardJoker));
+      await tester.pumpAndSettle();
+
+      final overlay = find.byKey(const ValueKey('card-inspect-overlay'));
+      expect(overlay, findsOneWidget);
+      expect(
+        find.descendant(of: overlay, matching: find.text('Joker')),
+        findsWidgets,
+      );
+      expect(find.textContaining('Queen'), findsNothing);
+      expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
+    });
+
     testWidgets('long press opens guided card inspect with explanation', (
       tester,
     ) async {
@@ -545,13 +636,14 @@ Future<void> _openTable(
 Future<void> _pumpPlayfield(
   WidgetTester tester, {
   Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
+  Size size = const Size(900, 500),
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: SizedBox(
-          width: 900,
-          height: 500,
+          width: size.width,
+          height: size.height,
           child: PhysicalTablePlayfield(
             theme: CardThemeRegistry.byId(null),
             stockCount: 30,

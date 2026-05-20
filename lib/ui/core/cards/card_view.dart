@@ -160,7 +160,8 @@ class _HareegCardViewState extends State<HareegCardView> {
             overlay: overlay,
           );
 
-    final label = widget.semanticsLabel ?? _defaultSemanticsLabel();
+    final label =
+        widget.semanticsLabel ?? _defaultSemanticsLabel(effectiveJokerDisplay);
     return Semantics(
       label: label,
       child: AnimatedSwitcher(
@@ -179,11 +180,11 @@ class _HareegCardViewState extends State<HareegCardView> {
     );
   }
 
-  String _defaultSemanticsLabel() {
+  String _defaultSemanticsLabel(JokerDisplay jokerDisplay) {
     if (widget.faceDown) return 'Face-down card';
     if (widget.card.isJoker) {
       final represented = widget.card.representedIdentity;
-      if (represented != null) {
+      if (represented != null && jokerDisplay != JokerDisplay.unassigned) {
         return 'Joker representing ${represented.label}';
       }
       return 'Joker';

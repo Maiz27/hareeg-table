@@ -172,7 +172,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);
     final aids = AidsScope.of(context);
-    final jokerDisplay = widget.preferences.memoryJokerDisplay
+    final jokerAidsEnabled = _jokerAidsEnabledFor(_controller.setup);
+    final jokerDisplay = !jokerAidsEnabled
+        ? JokerDisplay.unassigned
+        : widget.preferences.memoryJokerDisplay
         ? JokerDisplay.memoryReveal
         : JokerDisplay.assisted;
     final southCards = _orderedSouthHand();
@@ -403,6 +406,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
               card: _inspectedCard!,
               theme: theme,
               aids: aids,
+              jokerAidsEnabled: jokerAidsEnabled,
               onClose: () => setState(() => _inspectedCard = null),
             ),
         ],
@@ -1340,18 +1344,23 @@ class _CardInspectOverlay extends StatelessWidget {
     required this.card,
     required this.theme,
     required this.aids,
+    required this.jokerAidsEnabled,
     required this.onClose,
   });
 
   final HareegCard card;
   final HareegCardTheme theme;
   final TableAids aids;
+  final bool jokerAidsEnabled;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final title = _inspectTitle(card);
-    final body = _inspectBody(card, aids);
+    final title = _inspectTitle(card, jokerAidsEnabled: jokerAidsEnabled);
+    final body = _inspectBody(card, aids, jokerAidsEnabled: jokerAidsEnabled);
+    final inspectJokerDisplay = jokerAidsEnabled
+        ? JokerDisplay.assisted
+        : JokerDisplay.unassigned;
     return Positioned.fill(
       key: const ValueKey('card-inspect-overlay'),
       child: Material(
@@ -1409,7 +1418,7 @@ class _CardInspectOverlay extends StatelessWidget {
                             theme: theme,
                             card: card,
                             size: cardSize,
-                            jokerDisplay: JokerDisplay.assisted,
+                            jokerDisplay: inspectJokerDisplay,
                           ),
                           const SizedBox(height: 12),
                           details,
@@ -1422,7 +1431,7 @@ class _CardInspectOverlay extends StatelessWidget {
                             theme: theme,
                             card: card,
                             size: cardSize,
-                            jokerDisplay: JokerDisplay.assisted,
+                            jokerDisplay: inspectJokerDisplay,
                           ),
                           const SizedBox(width: 18),
                           Flexible(child: details),
@@ -1824,10 +1833,18 @@ String _debugActionSummary(Iterable<String> actionIds) {
   return '[$shown, +${ids.length - maxShown} more]';
 }
 
-String _inspectTitle(HareegCard card) {
+bool _jokerAidsEnabledFor(ClassicHareegSetup setup) {
+  return setup.rulePreset != RulePreset.hardTable17;
+}
+
+String _inspectTitle(HareegCard card, {required bool jokerAidsEnabled}) {
   final identity = card.identity;
   if (identity != null) {
     return '${_rankWord(identity.rank)} of ${_suitWord(identity.suit)}';
+  }
+
+  if (!jokerAidsEnabled) {
+    return 'Joker';
   }
 
   final represented = card.representedIdentity;
@@ -1839,8 +1856,16 @@ String _inspectTitle(HareegCard card) {
   return 'Joker';
 }
 
-String? _inspectBody(HareegCard card, TableAids aids) {
+String? _inspectBody(
+  HareegCard card,
+  TableAids aids, {
+  required bool jokerAidsEnabled,
+}) {
   if (aids == TableAids.tableMode) {
+    return null;
+  }
+
+  if (card.isJoker && !jokerAidsEnabled) {
     return null;
   }
 
