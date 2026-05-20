@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import '../../ui/core/aids/table_aids.dart';
+import '../../ui/core/cards/card_theme_registry.dart';
+import '../../ui/core/motion/motion_speed.dart';
+import '../../ui/core/theme/table_surface_theme.dart';
 
 /// Player-facing language option.
 enum AppLanguage {
@@ -54,6 +58,12 @@ class GamePreferences {
     required this.memoryJokerDisplay,
     required this.visualStyle,
     required this.language,
+    required this.motionSpeed,
+    required this.hapticsEnabled,
+    required this.soundEnabled,
+    required this.tableAids,
+    required this.cardThemeId,
+    required this.tableSurfaceTheme,
   });
 
   /// Default first-run preferences.
@@ -65,26 +75,45 @@ class GamePreferences {
       memoryJokerDisplay: false,
       visualStyle: VisualStyle.warmSudaneseLounge,
       language: AppLanguage.english,
+      motionSpeed: MotionSpeed.normal,
+      hapticsEnabled: true,
+      soundEnabled: false,
+      tableAids: TableAids.guided,
+      cardThemeId: CardThemeRegistry.defaultThemeId,
+      tableSurfaceTheme: TableSurfaceTheme.felt,
     );
   }
 
   /// Restores preferences from persisted JSON-compatible data.
   factory GamePreferences.fromJson(Map<String, Object?> json) {
+    final defaults = GamePreferences.defaults();
     final setupJson = _asMap(json['setup']);
+    final reducedMotion =
+        _asBool(json['reducedMotion']) ?? defaults.reducedMotion;
+    final storedMotionSpeed = MotionSpeed.fromName(
+      _asString(json['motionSpeed']),
+    );
     return GamePreferences(
       setup: setupJson != null
           ? ClassicHareegSetup.fromJson(setupJson)
           : ClassicHareegSetup.defaults(),
-      autoSort:
-          _asBool(json['autoSort']) ?? GamePreferences.defaults().autoSort,
-      reducedMotion:
-          _asBool(json['reducedMotion']) ??
-          GamePreferences.defaults().reducedMotion,
+      autoSort: _asBool(json['autoSort']) ?? defaults.autoSort,
+      reducedMotion: reducedMotion,
       memoryJokerDisplay:
-          _asBool(json['memoryJokerDisplay']) ??
-          GamePreferences.defaults().memoryJokerDisplay,
+          _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
       visualStyle: VisualStyle.fromName(_asString(json['visualStyle'])),
       language: AppLanguage.fromName(_asString(json['language'])),
+      motionSpeed: json.containsKey('motionSpeed')
+          ? storedMotionSpeed
+          : (reducedMotion ? MotionSpeed.reduced : MotionSpeed.normal),
+      hapticsEnabled:
+          _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
+      soundEnabled: _asBool(json['soundEnabled']) ?? defaults.soundEnabled,
+      tableAids: TableAids.fromName(_asString(json['tableAids'])),
+      cardThemeId: _asString(json['cardThemeId']) ?? defaults.cardThemeId,
+      tableSurfaceTheme: TableSurfaceTheme.fromName(
+        _asString(json['tableSurfaceTheme']),
+      ),
     );
   }
 
@@ -94,7 +123,8 @@ class GamePreferences {
   /// Whether human hands should be auto-sorted.
   final bool autoSort;
 
-  /// Whether nonessential motion should be reduced.
+  /// Legacy reduced-motion bool. Retained for backwards compatibility; new
+  /// reads should prefer [motionSpeed].
   final bool reducedMotion;
 
   /// Whether represented jokers should use a memory-oriented display.
@@ -106,6 +136,25 @@ class GamePreferences {
   /// Language setting.
   final AppLanguage language;
 
+  /// Motion speed choice (normal / fast / reduced).
+  final MotionSpeed motionSpeed;
+
+  /// Whether table haptics are enabled.
+  final bool hapticsEnabled;
+
+  /// Whether table sounds are enabled. The audio engine ships as a stub in
+  /// this release; the toggle persists for the planned audio follow-up.
+  final bool soundEnabled;
+
+  /// Player-facing aid level.
+  final TableAids tableAids;
+
+  /// Selected card theme id (see [CardThemeRegistry]).
+  final String cardThemeId;
+
+  /// Selected table surface theme.
+  final TableSurfaceTheme tableSurfaceTheme;
+
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
@@ -114,6 +163,12 @@ class GamePreferences {
     bool? memoryJokerDisplay,
     VisualStyle? visualStyle,
     AppLanguage? language,
+    MotionSpeed? motionSpeed,
+    bool? hapticsEnabled,
+    bool? soundEnabled,
+    TableAids? tableAids,
+    String? cardThemeId,
+    TableSurfaceTheme? tableSurfaceTheme,
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
@@ -122,6 +177,12 @@ class GamePreferences {
       memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
       visualStyle: visualStyle ?? this.visualStyle,
       language: language ?? this.language,
+      motionSpeed: motionSpeed ?? this.motionSpeed,
+      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
+      tableAids: tableAids ?? this.tableAids,
+      cardThemeId: cardThemeId ?? this.cardThemeId,
+      tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
     );
   }
 
@@ -134,6 +195,12 @@ class GamePreferences {
       'memoryJokerDisplay': memoryJokerDisplay,
       'visualStyle': visualStyle.name,
       'language': language.name,
+      'motionSpeed': motionSpeed.name,
+      'hapticsEnabled': hapticsEnabled,
+      'soundEnabled': soundEnabled,
+      'tableAids': tableAids.name,
+      'cardThemeId': cardThemeId,
+      'tableSurfaceTheme': tableSurfaceTheme.name,
     };
   }
 }

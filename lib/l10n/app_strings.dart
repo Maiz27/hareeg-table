@@ -190,4 +190,128 @@ abstract final class AppStrings {
 
   /// Status line confirming that local preferences have a persistence boundary.
   static const persistenceReady = 'Local preferences boundary';
+
+  // -- Splash + brand ------------------------------------------------------
+
+  /// Splash subtitle shown under the wordmark.
+  static const splashTagline = 'Offline Classic Hareeg';
+
+  /// Splash hint copy.
+  static const splashTapToContinue = 'Tap to continue';
+
+  // -- Table chrome --------------------------------------------------------
+
+  /// Score button tooltip.
+  static const scores = 'Scores';
+
+  /// Pause button tooltip.
+  static const pauseTable = 'Pause';
+
+  /// Score overlay title.
+  static const scoresTitle = 'Match scores';
+
+  /// Pause overlay title.
+  static const pauseTitle = 'Paused';
+
+  /// Pause overlay "Resume table" action.
+  static const resumeTable = 'Resume table';
+
+  /// Pause overlay "Leave table" action.
+  static const leaveTable = 'Leave table';
+
+  /// Pause overlay subhead for in-match controls.
+  static const pauseInMatchControls = 'In-match settings';
+
+  /// Aids selection group label.
+  static const aidsLabel = 'Table aids';
+
+  /// Aids selection footnote shown on the pause overlay.
+  static const aidsHelp =
+      'Aids only change which hints the app shows. Scoring stays the same.';
+
+  /// Motion speed group label.
+  static const motionSpeedLabel = 'Motion speed';
+
+  /// Haptics toggle title.
+  static const hapticsLabel = 'Table haptics';
+
+  /// Haptics toggle subtitle.
+  static const hapticsHelp = 'Light vibrations on taps, drops, and Fifty.';
+
+  /// Sound toggle title.
+  static const soundLabel = 'Table sounds';
+
+  /// Sound toggle subtitle.
+  static const soundHelp = 'Sounds will arrive in a future update.';
+
+  /// Settings card-theme group label.
+  static const cardThemeLabel = 'Card theme';
+
+  /// Card theme picker subtitle.
+  static const cardThemeHelp =
+      'Themes can only be changed outside an active match.';
+
+  /// About → Licenses navigation entry.
+  static const aboutLicenses = 'About & Licenses';
+
+  /// About header line on the licenses screen.
+  static const aboutHeader = 'Hareeg Table';
+
+  /// About body on the licenses screen.
+  static const aboutBody =
+      'Open-source Sudanese Hareeg, offline-first, ad-free. '
+      'Source on GitHub.';
+
+  /// Generic theme attribution heading on the licenses screen.
+  static const licensesThemesHeader = 'Card themes';
+
+  /// Generic licenses screen footer note.
+  static const licensesFooter =
+      'Bundled assets keep their original CC0 / Public Domain licenses.';
+
+  // -- Aid level descriptions used on settings + pause ---------------------
+
+  /// Guided aid level description shown in settings detail.
+  static const aidGuidedDescription =
+      'Full hints. Legal targets glow, pending warnings show, invalid moves explain themselves, Fifty prompts appear when valid.';
+
+  /// Standard aid level description shown in settings detail.
+  static const aidStandardDescription =
+      'Meld picker remains; fewer proactive hints.';
+
+  /// Table mode aid level description shown in settings detail.
+  static const aidTableModeDescription =
+      'Minimal aids while preserving accessibility and state feedback.';
+
+  // -- Action labels shared by the table action bar ------------------------
+
+  /// Score overlay button label.
+  static const openScoresButton = 'Scores';
+
+  /// Pause overlay button label.
+  static const openPauseButton = 'Pause';
+
+  /// Play meld button label.
+  static const playMeld = 'Play meld';
+
+  /// Place cover button label.
+  static const placeCover = 'Place cover';
+
+  /// Replace joker button label.
+  static const replaceJoker = 'Replace joker';
+
+  /// Claim Fifty button label.
+  static const claimFifty = 'Claim Fifty';
+
+  /// Sort mode group label.
+  static const sortModeLabel = 'Sort';
+
+  /// Sort modes.
+  static const sortByRank = 'Rank';
+
+  /// Sort by suit.
+  static const sortBySuit = 'Suit';
+
+  /// Manual sort label.
+  static const sortManual = 'Manual';
 }

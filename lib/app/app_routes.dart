@@ -1,5 +1,8 @@
 /// Named routes used by the Hareeg Table app shell.
 abstract final class AppRoutes {
+  /// Splash screen shown on first frame before the home menu.
+  static const splash = '/splash';
+
   /// Main menu.
   static const home = '/';
 
@@ -14,6 +17,9 @@ abstract final class AppRoutes {
 
   /// Local settings surface.
   static const settings = '/settings';
+
+  /// About + asset/theme licenses surface.
+  static const licenses = '/licenses';
 
   /// Player-facing rules and help reference.
   static const rulesHelp = '/rules-help';

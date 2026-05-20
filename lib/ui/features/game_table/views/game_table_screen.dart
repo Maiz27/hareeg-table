@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -6,41 +7,61 @@ import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
+import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
-import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
-import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_state.dart';
+import '../../../core/cards/card_theme.dart';
+import '../../../core/cards/card_view.dart';
+import '../../../core/haptics/table_haptics.dart';
+import '../../../core/motion/motion_speed.dart';
+import '../../../core/scopes/app_scopes.dart';
+import '../../../core/theme/lounge_tokens.dart';
 import '../../round_summary/views/round_summary_screen.dart';
+import '../widgets/pause_overlay.dart';
+import '../widgets/physical_table_playfield.dart';
+import '../widgets/score_overlay.dart';
+import '../widgets/south_seat.dart';
+import '../widgets/table_background.dart';
 
-/// First playable Classic Hareeg table slice.
+/// Live Classic Hareeg table.
 ///
-/// All gameplay state is owned by [ClassicHareegGameController]. Human and CPU
-/// moves are routed through `controller.applyAction` so the rules engine
-/// remains the single point of legality enforcement.
+/// Owns the [ClassicHareegGameController] and orchestrates every player /
+/// CPU action through it. Visual / motion / aid / theme / haptics
+/// preferences flow in via [preferences] from the app shell so the same
+/// surface keeps responding to settings changes made from the pause overlay.
 class GameTableScreen extends StatefulWidget {
-  /// Creates a table screen from setup values.
+  /// Creates a live table.
   const GameTableScreen({
+    super.key,
     required this.setup,
     required this.matchRepository,
+    required this.preferences,
+    required this.onPreferencesChanged,
     this.initialSnapshot,
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
-    super.key,
   });
 
-  /// Setup values used to deal the round.
+  /// Setup used to deal the round.
   final ClassicHareegSetup setup;
 
   /// Active match persistence.
   final MatchRepository matchRepository;
 
-  /// Saved match state to resume instead of dealing.
+  /// Player preferences (motion, haptics, aids, theme).
+  final GamePreferences preferences;
+
+  /// Called by the pause overlay when a preference is toggled mid-match.
+  final ValueChanged<GamePreferences> onPreferencesChanged;
+
+  /// Saved snapshot to resume (else deal a fresh round).
   final ClassicHareegMatchSnapshot? initialSnapshot;
 
-  /// CPU strategy used for non-human seats. Injected for tests.
+  /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
 
   @override
@@ -48,20 +69,29 @@ class GameTableScreen extends StatefulWidget {
 }
 
 class _GameTableScreenState extends State<GameTableScreen> {
-  /// Safety bound for CPU action loops to prevent UI hangs from a strategy
-  /// that returns the same action repeatedly. A real CPU turn sequence is at
-  /// most ~3 actions per seat (take + use + discard); 64 covers all CPU
-  /// seats with generous headroom.
   static const _cpuActionLimit = 64;
-  static const _cpuActionDelay = Duration(milliseconds: 220);
+  static const _successFeedbackDuration = Duration(milliseconds: 1400);
+  static const _errorFeedbackDuration = Duration(milliseconds: 2400);
 
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
   bool _isCpuRunning = false;
-  String? _turnStatus;
+  bool _scoreOpen = false;
+  bool _pauseOpen = false;
+  bool _fiftyPulse = false;
   String? _humanFeedback;
   bool _humanFeedbackIsError = false;
   Timer? _fiftyTicker;
+  Timer? _feedbackTimer;
+  _CardFlight? _cardFlight;
+  int _flightSerial = 0;
+
+  /// Stable display order for the south hand, indexed by card id. The engine
+  /// hand list reorders freely as cards leave/enter; the player's visual
+  /// order persists so freshly-drawn cards always land at the right end
+  /// (regardless of the Settings `autoSort` preset, which only sorts on
+  /// initial deal).
+  late List<String> _displayOrder;
 
   @override
   void initState() {
@@ -73,11 +103,21 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
-    _fiftyTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    final initialHand = _controller.handFor(PlayerSeat.south);
+    final initialSort = widget.preferences.autoSort
+        ? HandSortMode.byRank
+        : HandSortMode.manual;
+    _displayOrder = HandSorting.sort(
+      initialHand,
+      initialSort,
+    ).map((card) => card.id).toList();
+    _debugTableLog(
+      'init snapshot=${snapshot != null} current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
+      'discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
+    _ensureFiftyTicker();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final didPersistOrNavigate = await _runCpuTurns();
       if (!didPersistOrNavigate && mounted) {
@@ -89,228 +129,606 @@ class _GameTableScreenState extends State<GameTableScreen> {
   @override
   void dispose() {
     _fiftyTicker?.cancel();
+    _fiftyTicker = null;
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
     AppOrientation.usePortrait();
     super.dispose();
   }
 
+  void _ensureFiftyTicker() {
+    final fiftyOpen =
+        _controller.fiftySecondsRemaining != null &&
+        _controller.fiftySecondsRemaining! > 0;
+    if (fiftyOpen && _fiftyTicker == null) {
+      _fiftyTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        if (!mounted) return;
+        if (_controller.fiftySecondsRemaining == null) {
+          _fiftyTicker?.cancel();
+          _fiftyTicker = null;
+          return;
+        }
+        setState(() {});
+      });
+    } else if (!fiftyOpen && _fiftyTicker != null) {
+      _fiftyTicker?.cancel();
+      _fiftyTicker = null;
+    }
+  }
+
+  TableHaptics get _haptics => HapticsScope.of(context);
+
+  Duration _scaledDelay(Duration base) => MotionScope.of(context).scale(base);
+
   @override
   Widget build(BuildContext context) {
     final humanSeat = PlayerSeat.south;
-    final setup = _controller.setup;
     final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
-    final legalActions = isHumanTurn
+    final controlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
     final pending = _controller.pendingDiscard;
-    final canDraw = legalActions.contains(ClassicHareegActionIds.drawStock);
-    final canTakeDiscard = legalActions.contains(
-      ClassicHareegActionIds.takeDiscard,
-    );
-    final canClaimFifty = legalActions.contains(
-      ClassicHareegActionIds.claimFifty,
-    );
-    final canReturnDiscard = legalActions.contains(
-      ClassicHareegActionIds.returnPendingDiscard,
-    );
-    final canReturnOpeningMelds = legalActions.contains(
-      ClassicHareegActionIds.returnOpeningMelds,
-    );
-    final hasDiscardActions = legalActions.any(
-      (actionId) => ClassicHareegActionIds.discardCardId(actionId) != null,
-    );
-    final selectedCards = _selectedCards();
-    final selectedMeld = _controller.meldValidationFor(
-      humanSeat,
-      _selectedCardIds.toList(),
-    );
-    final jokerOptions = _controller.jokerRepresentationOptionsFor(
-      humanSeat,
-      _selectedCardIds.toList(),
-    );
-    final pendingIsSelected =
-        pending == null || _selectedCardIds.contains(pending.id);
-    final showPlayMeld = isHumanTurn && selectedCards.length >= 3;
-    final canPlayMeld =
-        isHumanTurn &&
-        (selectedMeld.isValid || jokerOptions.isNotEmpty) &&
-        pendingIsSelected;
-    final coverActionId = isHumanTurn
-        ? _controller.coverActionIdFor(humanSeat, _selectedCardIds.toList())
-        : null;
-    final canPlaceCover = coverActionId != null && pendingIsSelected;
-    final replaceJokerActionId = isHumanTurn
-        ? _controller.jokerReplacementActionIdFor(
+    final theme = CardThemeScope.of(context);
+    final aids = AidsScope.of(context);
+    final southCards = _orderedSouthHand();
+    final meldSuggestions = aids.showsMeldPicker
+        ? _meldSuggestions(southCards)
+        : const <TableMeldSuggestion>[];
+    final meldValidation = isHumanTurn && _selectedCardIds.isNotEmpty
+        ? _controller.singleMeldValidationFor(
             humanSeat,
             _selectedCardIds.toList(),
           )
         : null;
-    final canReplaceJoker = replaceJokerActionId != null && pendingIsSelected;
-    final selectedCardId = selectedCards.length == 1
-        ? selectedCards.single.id
+    final primaryMeldAction = isHumanTurn
+        ? _selectedMeldAction(meldValidation)
         : null;
-    String? discardActionId;
-    if (selectedCardId != null) {
-      for (final actionId in legalActions) {
-        if (ClassicHareegActionIds.discardCardId(actionId) == selectedCardId) {
-          discardActionId = actionId;
-          break;
-        }
-      }
-    }
-    final canDiscard = discardActionId != null;
-    final showDiscard =
-        isHumanTurn && (hasDiscardActions || selectedCardId != null);
-    VoidCallback? onReplaceJoker;
-    final replaceActionId = replaceJokerActionId;
-    if (replaceActionId != null) {
-      onReplaceJoker = () => _runHumanAction(replaceActionId);
-    }
-    VoidCallback? onDiscard;
-    final selectedDiscardActionId = discardActionId;
-    if (selectedDiscardActionId != null) {
-      onDiscard = () => _runHumanAction(selectedDiscardActionId);
-    }
+    final canPlayMeld = primaryMeldAction != null;
+    final hasOpened = _controller.openingState.hasOpened(humanSeat);
+    final meldCtaValue = canPlayMeld ? (meldValidation?.value ?? 0) : null;
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _TableLayoutMetrics.from(constraints);
-
-          return SafeArea(
-            top: false,
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.all(metrics.padding),
-              child: Column(
+    final body = TableBackground(
+      surface: widget.preferences.tableSurfaceTheme,
+      child: Stack(
+        children: [
+          PhysicalTablePlayfield(
+            theme: theme,
+            stockCount: _controller.stockCount,
+            discardPile: _controller.discardPile,
+            topDiscard: _controller.topDiscard,
+            pendingDiscard: pending,
+            cardCounts: {
+              for (final seat in PlayerSeat.values)
+                seat: _controller.cardCountFor(seat),
+            },
+            tableMelds: {
+              for (final seat in PlayerSeat.values)
+                seat: _controller.tableMeldsFor(seat),
+            },
+            southCards: southCards,
+            selectedIds: _selectedCardIds,
+            onCardTap: _toggleSelectedCard,
+            onReorderHand: _reorderHand,
+            canDiscardCard: _canDropCardToDiscard,
+            canPlayCardOnTable: _canDropCardToTable,
+            canPlaceMeldOnTable: _canPlaceNewMeldOnTable,
+            canPlayCardOnMeld: _canDropCardToMeld,
+            canRetractMeld: (owner, meldIndex) =>
+                controlActions.contains(
+                  ClassicHareegActionIds.returnOpeningMelds,
+                ) &&
+                _controller.canReturnTablePlayFromMeld(owner, meldIndex),
+            onDiscardCard: (card) => unawaited(_dropCardToDiscard(card)),
+            onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
+            onPlayCardOnMeld: (card, owner, meldIndex) =>
+                unawaited(_dropCardToMeld(card, owner, meldIndex)),
+            onRetractMeld: (_, _) => unawaited(
+              _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+            ),
+            canDrawStock: controlActions.contains(
+              ClassicHareegActionIds.drawStock,
+            ),
+            canTakeDiscard: controlActions.contains(
+              ClassicHareegActionIds.takeDiscard,
+            ),
+            canReturnDiscard: controlActions.contains(
+              ClassicHareegActionIds.returnPendingDiscard,
+            ),
+            canClaimFifty: controlActions.contains(
+              ClassicHareegActionIds.claimFifty,
+            ),
+            canReturnOpeningMelds: controlActions.contains(
+              ClassicHareegActionIds.returnOpeningMelds,
+            ),
+            onDrawStock: () =>
+                unawaited(_runHumanAction(ClassicHareegActionIds.drawStock)),
+            onTakeDiscard: () =>
+                unawaited(_runHumanAction(ClassicHareegActionIds.takeDiscard)),
+            onReturnDiscard: () => unawaited(
+              _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),
+            ),
+            onClaimFifty: () => unawaited(_claimFifty()),
+            onReturnOpeningMelds: () => unawaited(
+              _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+            ),
+            fiftySecondsRemaining: _controller.fiftySecondsRemaining,
+            fiftyTotalSeconds: _controller.setup.fiftyTimerSeconds,
+            fiftyPulse: _fiftyPulse,
+            meldRequirement: _controller.openingState.currentRequirement,
+            meldSelectionValue: meldCtaValue,
+            meldSelectionValid: canPlayMeld,
+            meldSelectionHasOpened: hasOpened,
+            onPlaySelectedMeld: primaryMeldAction == null
+                ? null
+                : () => unawaited(_runHumanAction(primaryMeldAction)),
+            meldSuggestions: meldSuggestions,
+            showMeldSuggestions: aids.showsMeldPicker,
+            onMeldSuggestion: (actionId) {
+              unawaited(_runHumanAction(actionId));
+            },
+            isHumanTurn: isHumanTurn,
+            isCpuRunning: _isCpuRunning,
+            currentSeat: _controller.currentSeat,
+            activeSeats: _controller.activeSeats.toSet(),
+          ),
+          LayoutBuilder(
+            builder: (context, viewport) {
+              // Score / pause snap to the true safe-area corners. We pull
+              // them OUTSIDE the SafeArea wrapper and add the safe-area
+              // padding ourselves so the buttons can hug the literal edge
+              // (the table's border ornament is decorative — buttons go on
+              // top of it). Sizes scale with viewport width so tablets
+              // don't end up with tiny phone-sized controls.
+              final safe = MediaQuery.paddingOf(context);
+              final isLarge = viewport.maxWidth >= 900;
+              final isTablet = viewport.maxWidth >= 720;
+              final buttonSize = isLarge
+                  ? 56.0
+                  : isTablet
+                  ? 48.0
+                  : 38.0;
+              final iconSize = isLarge
+                  ? 30.0
+                  : isTablet
+                  ? 26.0
+                  : 20.0;
+              return Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  SizedBox(
-                    height: metrics.headerHeight,
-                    child: _TableHeader(
-                      height: metrics.headerHeight,
-                      setup: setup,
-                      starter: _controller.starter,
-                      currentSeat: _controller.currentSeat,
-                      turnPhase: _controller.turnPhase,
-                      onLeave: () => Navigator.of(context).pop(),
+                  Positioned(
+                    top: safe.top,
+                    left: safe.left,
+                    child: _RoundTableButton(
+                      tooltip: 'Scores',
+                      icon: Icons.bar_chart_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _scoreOpen = true),
                     ),
                   ),
-                  SizedBox(height: metrics.gap),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SeatPanel(
-                          seat: PlayerSeat.west,
-                          count: _controller.cardCountFor(PlayerSeat.west),
-                          width: metrics.sideSeatWidth,
-                        ),
-                        SizedBox(width: metrics.gap),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              _SeatPanel(
-                                seat: PlayerSeat.north,
-                                count: _controller.cardCountFor(
-                                  PlayerSeat.north,
-                                ),
-                                horizontal: true,
-                                height: metrics.topSeatHeight,
-                              ),
-                              SizedBox(height: metrics.gap),
-                              Expanded(
-                                child: _TableStage(
-                                  metrics: metrics,
-                                  stockCount: _controller.stockCount,
-                                  topDiscard: _controller.topDiscard,
-                                  tableMelds: _controller.tableMelds,
-                                  pendingDiscard: pending,
-                                  turnStatus: _turnStatus,
-                                  selectedMeldResult: selectedMeld,
-                                  openingRequirement: setup.openingRequirement,
-                                  humanFeedback: _humanFeedback,
-                                  humanFeedbackIsError: _humanFeedbackIsError,
-                                  canDraw: canDraw,
-                                  canTakeDiscard: canTakeDiscard,
-                                  canClaimFifty: canClaimFifty,
-                                  showPlayMeld: showPlayMeld,
-                                  canPlayMeld: canPlayMeld,
-                                  showPlaceCover:
-                                      isHumanTurn &&
-                                      _selectedCardIds.isNotEmpty &&
-                                      _controller.tableMeldCount > 0,
-                                  canPlaceCover: canPlaceCover,
-                                  showReplaceJoker:
-                                      isHumanTurn &&
-                                      selectedCards.length == 1 &&
-                                      _controller.tableMeldCount > 0,
-                                  canReplaceJoker: canReplaceJoker,
-                                  showDiscard: showDiscard,
-                                  canDiscard: canDiscard,
-                                  canReturnDiscard: canReturnDiscard,
-                                  canReturnOpeningMelds: canReturnOpeningMelds,
-                                  onDraw: () => _runHumanAction(
-                                    ClassicHareegActionIds.drawStock,
-                                  ),
-                                  onTakeDiscard: () => _runHumanAction(
-                                    ClassicHareegActionIds.takeDiscard,
-                                  ),
-                                  onClaimFifty: () => _runHumanAction(
-                                    ClassicHareegActionIds.claimFifty,
-                                  ),
-                                  onReturnDiscard: () => _runHumanAction(
-                                    ClassicHareegActionIds.returnPendingDiscard,
-                                  ),
-                                  onReturnOpeningMelds: () => _runHumanAction(
-                                    ClassicHareegActionIds.returnOpeningMelds,
-                                  ),
-                                  onPlayMeld: () =>
-                                      _playSelectedMeld(jokerOptions),
-                                  onPlaceCover: coverActionId == null
-                                      ? null
-                                      : () => _runHumanAction(coverActionId),
-                                  onReplaceJoker: onReplaceJoker,
-                                  onDiscard: onDiscard,
-                                  onAutoSort: _sortHumanHand,
-                                ),
-                              ),
-                            ],
+                  Positioned(
+                    top: safe.top,
+                    right: safe.right,
+                    child: _RoundTableButton(
+                      tooltip: 'Pause',
+                      icon: Icons.pause_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _pauseOpen = true),
+                    ),
+                  ),
+                  if (_humanFeedback != null)
+                    Positioned(
+                      top: safe.top + math.max(0.0, (buttonSize - 34) / 2),
+                      left: safe.left + buttonSize + 20,
+                      right: safe.right + buttonSize + 20,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: IgnorePointer(
+                          child: _FeedbackChip(
+                            message: _humanFeedback!,
+                            isError: _humanFeedbackIsError,
                           ),
                         ),
-                        SizedBox(width: metrics.gap),
-                        _SeatPanel(
-                          seat: PlayerSeat.east,
-                          count: _controller.cardCountFor(PlayerSeat.east),
-                          width: metrics.sideSeatWidth,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  SizedBox(height: metrics.gap),
-                  SizedBox(
-                    height: metrics.handHeaderHeight,
-                    child: _HumanHandHeader(
-                      count: _controller.cardCountFor(PlayerSeat.south),
-                    ),
-                  ),
-                  SizedBox(height: metrics.handGap),
-                  _HumanHand(
-                    height: metrics.handListHeight,
-                    cardWidth: metrics.handCardWidth,
-                    cardHeight: metrics.handCardHeight,
-                    cards: _controller.handFor(PlayerSeat.south),
-                    selectedIds: _selectedCardIds,
-                    onSelected: _toggleSelectedCard,
-                  ),
                 ],
+              );
+            },
+          ),
+          if (_cardFlight != null)
+            Positioned.fill(
+              child: _CardFlightOverlay(
+                key: ValueKey(_cardFlight!.serial),
+                flight: _cardFlight!,
+                theme: theme,
+                duration: _scaledDelay(const Duration(milliseconds: 230)),
               ),
             ),
-          );
-        },
+        ],
+      ),
+    );
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          body,
+          if (_scoreOpen)
+            ScoreOverlay(
+              scores: _controller.scores,
+              activeSeats: _controller.activeSeats,
+              starter: _controller.starter,
+              currentSeat: _controller.currentSeat,
+              roundNumber: _controller.roundNumber,
+              onClose: () => setState(() => _scoreOpen = false),
+            ),
+          if (_pauseOpen)
+            PauseOverlay(
+              aids: widget.preferences.tableAids,
+              motionSpeed: widget.preferences.motionSpeed,
+              hapticsEnabled: widget.preferences.hapticsEnabled,
+              soundEnabled: widget.preferences.soundEnabled,
+              onAidsChanged: (v) => widget.onPreferencesChanged(
+                widget.preferences.copyWith(tableAids: v),
+              ),
+              onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
+                widget.preferences.copyWith(
+                  motionSpeed: v,
+                  reducedMotion: v == MotionSpeed.reduced,
+                ),
+              ),
+              onHapticsChanged: (v) => widget.onPreferencesChanged(
+                widget.preferences.copyWith(hapticsEnabled: v),
+              ),
+              onSoundChanged: (v) => widget.onPreferencesChanged(
+                widget.preferences.copyWith(soundEnabled: v),
+              ),
+              onResume: () => setState(() => _pauseOpen = false),
+              onLeave: () {
+                Navigator.of(context).pop();
+              },
+            ),
+        ],
       ),
     );
   }
 
+  /// Returns the human hand in the player's chosen display order.
+  ///
+  /// Reconciles `_displayOrder` against the controller's hand each build:
+  /// cards no longer in hand drop off, freshly-drawn cards are appended to
+  /// the right end so the player can see their newest card. Players may
+  /// drag-reorder freely after that — sort never reasserts mid-round.
+  List<HareegCard> _orderedSouthHand() {
+    final hand = _controller.handFor(PlayerSeat.south);
+    final byId = {for (final card in hand) card.id: card};
+    final ordered = <HareegCard>[];
+    final seen = <String>{};
+    // Keep existing ordering for cards still in the hand.
+    final keptOrder = <String>[];
+    for (final id in _displayOrder) {
+      if (byId.containsKey(id) && seen.add(id)) {
+        keptOrder.add(id);
+        ordered.add(byId[id]!);
+      }
+    }
+    // Append any new cards (e.g., just drawn) at the right end.
+    for (final card in hand) {
+      if (!seen.contains(card.id)) {
+        keptOrder.add(card.id);
+        ordered.add(card);
+      }
+    }
+    if (!_displayOrderMatches(keptOrder)) {
+      _displayOrder = keptOrder;
+    }
+    return ordered;
+  }
+
+  bool _displayOrderMatches(List<String> other) {
+    if (other.length != _displayOrder.length) return false;
+    for (var i = 0; i < other.length; i++) {
+      if (other[i] != _displayOrder[i]) return false;
+    }
+    return true;
+  }
+
+  void _reorderHand(HareegCard card, int targetIndex) {
+    final src = _displayOrder.indexOf(card.id);
+    if (src < 0 || src == targetIndex) return;
+    setState(() {
+      _displayOrder.removeAt(src);
+      final insertAt = targetIndex > src ? targetIndex - 1 : targetIndex;
+      _displayOrder.insert(
+        insertAt.clamp(0, _displayOrder.length).toInt(),
+        card.id,
+      );
+    });
+  }
+
+  String? _findDiscardActionId(List<String> legal, String? selectedId) {
+    if (selectedId == null) return null;
+    for (final id in legal) {
+      if (ClassicHareegActionIds.discardCardId(id) == selectedId) {
+        return id;
+      }
+    }
+    return null;
+  }
+
+  bool _canDropCardToDiscard(HareegCard card) {
+    if (_controller.currentSeat != PlayerSeat.south || _isCpuRunning) {
+      return false;
+    }
+    final legal = _controller.controlActionIdsFor(PlayerSeat.south);
+    if (_controller.pendingDiscard?.id == card.id) {
+      return legal.contains(ClassicHareegActionIds.returnPendingDiscard);
+    }
+    return _findDiscardActionId(legal, card.id) != null;
+  }
+
+  Future<void> _dropCardToDiscard(HareegCard card) async {
+    if (_isCpuRunning) return;
+    final legal = _controller.controlActionIdsFor(PlayerSeat.south);
+    if (_controller.pendingDiscard?.id == card.id &&
+        legal.contains(ClassicHareegActionIds.returnPendingDiscard)) {
+      await _runHumanAction(ClassicHareegActionIds.returnPendingDiscard);
+      return;
+    }
+
+    final discardActionId = _findDiscardActionId(legal, card.id);
+    if (discardActionId != null) {
+      await _runHumanAction(discardActionId);
+      return;
+    }
+
+    _showInvalidFeedback('That card cannot be discarded now.');
+  }
+
+  bool _canDropCardToTable(HareegCard card) {
+    if (_controller.currentSeat != PlayerSeat.south || _isCpuRunning) {
+      return false;
+    }
+    return _tableActionIdForCardIds(_dropCardIds(card)) != null;
+  }
+
+  /// Stricter variant used by the south meld lane's wide drop target. Only
+  /// returns true when dropping the dragged card(s) would place a *new*
+  /// meld — covers and joker replacements have their own per-meld targets
+  /// so the wide lane does not light up for them.
+  bool _canPlaceNewMeldOnTable(HareegCard card) {
+    if (_controller.currentSeat != PlayerSeat.south || _isCpuRunning) {
+      return false;
+    }
+    final ids = _dropCardIds(card);
+    if (ids.isEmpty) return false;
+    final pending = _controller.pendingDiscard;
+    if (pending != null && !ids.contains(pending.id)) return false;
+    return _legalMeldActionForCardIds(ids) != null;
+  }
+
+  bool _canDropCardToMeld(HareegCard card, PlayerSeat owner, int meldIndex) {
+    if (_controller.currentSeat != PlayerSeat.south || _isCpuRunning) {
+      return false;
+    }
+    for (final cardIds in _dropCardIdCandidatesForMeld(card)) {
+      if (_tableActionIdForMeldTarget(cardIds, owner, meldIndex) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _dropCardToTable(HareegCard card) async {
+    if (_isCpuRunning) return;
+    final actionId = _tableActionIdForCardIds(_dropCardIds(card));
+    if (actionId == null) {
+      _showInvalidFeedback('Drop a valid meld, cover, or joker replacement.');
+      return;
+    }
+    await _runHumanAction(actionId);
+  }
+
+  Future<void> _dropCardToMeld(
+    HareegCard card,
+    PlayerSeat owner,
+    int meldIndex,
+  ) async {
+    if (_isCpuRunning) return;
+    for (final cardIds in _dropCardIdCandidatesForMeld(card)) {
+      final actionId = _tableActionIdForMeldTarget(cardIds, owner, meldIndex);
+      if (actionId != null) {
+        await _runHumanAction(actionId);
+        return;
+      }
+    }
+    _showInvalidFeedback('That card does not fit this meld.');
+  }
+
+  List<String> _dropCardIds(HareegCard card) {
+    if (_selectedCardIds.contains(card.id) && _selectedCardIds.length > 1) {
+      return _selectedCardIds.toList(growable: false);
+    }
+    return [card.id];
+  }
+
+  String? _tableActionIdForCardIds(List<String> cardIds) {
+    if (cardIds.isEmpty) return null;
+    final pending = _controller.pendingDiscard;
+    if (pending != null && !cardIds.contains(pending.id)) {
+      return null;
+    }
+
+    final coverActionId = _controller.coverActionIdFor(
+      PlayerSeat.south,
+      cardIds,
+    );
+    if (coverActionId != null) return coverActionId;
+
+    final replaceActionId = _controller.jokerReplacementActionIdFor(
+      PlayerSeat.south,
+      cardIds,
+    );
+    if (replaceActionId != null) return replaceActionId;
+
+    return _legalMeldActionForCardIds(cardIds);
+  }
+
+  String? _tableActionIdForMeldTarget(
+    List<String> cardIds,
+    PlayerSeat owner,
+    int meldIndex,
+  ) {
+    if (cardIds.isEmpty) return null;
+    final pending = _controller.pendingDiscard;
+    if (pending != null && !cardIds.contains(pending.id)) {
+      return null;
+    }
+
+    final coverActionId = _controller.coverActionIdForMeldTarget(
+      seat: PlayerSeat.south,
+      cardIds: cardIds,
+      targetSeat: owner,
+      meldIndex: meldIndex,
+    );
+    if (coverActionId != null) {
+      return coverActionId;
+    }
+
+    final replacementActionId = _controller
+        .jokerReplacementActionIdForMeldTarget(
+          seat: PlayerSeat.south,
+          cardIds: cardIds,
+          targetSeat: owner,
+          meldIndex: meldIndex,
+        );
+    if (replacementActionId != null) return replacementActionId;
+
+    return null;
+  }
+
+  String? _legalMeldActionForCardIds(Iterable<String> cardIds) {
+    return _meldActionForCardIds(cardIds.toList(growable: false));
+  }
+
+  List<String>? _meldActionCardIds(String actionId) {
+    final plain = ClassicHareegActionIds.meldCardIds(actionId);
+    if (plain != null) return plain;
+    final joker = ClassicHareegActionIds.jokerMeldChoice(actionId);
+    return joker?.cardIds;
+  }
+
+  Iterable<List<String>> _dropCardIdCandidatesForMeld(HareegCard card) sync* {
+    if (_selectedCardIds.contains(card.id) && _selectedCardIds.length > 1) {
+      yield _selectedCardIds.toList(growable: false);
+    }
+    yield [card.id];
+  }
+
+  /// Returns a play action for the exact selected single meld. This bypasses
+  /// controller-wide opening-combination enumeration so the picker never pulls
+  /// unselected cards from the rest of the hand.
+  String? _selectedMeldAction(MeldValidationResult? validation) {
+    if (_selectedCardIds.length < 3 || validation?.isValid != true) {
+      return null;
+    }
+    return _meldActionForCardIds(_selectedCardIds.toList(growable: false));
+  }
+
+  String? _meldActionForCardIds(List<String> cardIds) {
+    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
+      return null;
+    }
+    final pending = _controller.pendingDiscard;
+    if (pending != null && !cardIds.contains(pending.id)) {
+      return null;
+    }
+    final handCount = _controller.handFor(PlayerSeat.south).length;
+    if (handCount - cardIds.length == 0) {
+      return null;
+    }
+
+    final validation = _controller.singleMeldValidationFor(
+      PlayerSeat.south,
+      cardIds,
+    );
+    if (!validation.isValid) {
+      return null;
+    }
+
+    final jokerChoices = _controller.jokerRepresentationOptionsFor(
+      PlayerSeat.south,
+      cardIds,
+    );
+    if (jokerChoices.isNotEmpty) {
+      return null;
+    }
+
+    return ClassicHareegActionIds.playMeldActionId(cardIds);
+  }
+
+  List<TableMeldSuggestion> _meldSuggestions(List<HareegCard> handCards) {
+    // The GitHub PRD is explicit: the picker reflects selected cards only.
+    // Opening bundles from the rest of the hand are deliberately excluded.
+    if (_selectedCardIds.length < 3) return const [];
+    final seen = <String>{};
+    final suggestions = <TableMeldSuggestion>[];
+    final selectedCards = [
+      for (final card in handCards)
+        if (_selectedCardIds.contains(card.id)) card,
+    ];
+
+    for (final group in _selectedMeldCandidateGroups(selectedCards)) {
+      final ids = group.map((card) => card.id).toList(growable: false);
+      final actionId = _meldActionForCardIds(ids);
+      if (actionId == null) continue;
+      final key = (List<String>.of(ids)..sort()).join('|');
+      if (!seen.add(key)) continue;
+      suggestions.add(TableMeldSuggestion(actionId: actionId, cards: group));
+      if (suggestions.length == 5) {
+        break;
+      }
+    }
+    return suggestions;
+  }
+
+  Iterable<List<HareegCard>> _selectedMeldCandidateGroups(
+    List<HareegCard> selectedCards,
+  ) sync* {
+    if (selectedCards.length < 3) {
+      return;
+    }
+    if (selectedCards.length > 10) {
+      yield selectedCards;
+      return;
+    }
+    for (var size = selectedCards.length; size >= 3; size -= 1) {
+      yield* _cardCombinations(selectedCards, size);
+    }
+  }
+
+  Iterable<List<HareegCard>> _cardCombinations(
+    List<HareegCard> cards,
+    int size,
+  ) sync* {
+    if (size == 0) {
+      yield const <HareegCard>[];
+      return;
+    }
+    if (cards.length < size) {
+      return;
+    }
+    for (var index = 0; index <= cards.length - size; index += 1) {
+      final head = cards[index];
+      final remaining = cards.sublist(index + 1);
+      for (final tail in _cardCombinations(remaining, size - 1)) {
+        yield [head, ...tail];
+      }
+    }
+  }
+
   void _toggleSelectedCard(HareegCard card) {
+    unawaited(_haptics.fire(TableHapticEvent.cardTap));
     setState(() {
       if (_selectedCardIds.contains(card.id)) {
         _selectedCardIds.remove(card.id);
@@ -320,206 +738,505 @@ class _GameTableScreenState extends State<GameTableScreen> {
     });
   }
 
-  List<HareegCard> _selectedCards() {
-    if (_selectedCardIds.isEmpty) {
-      return const [];
-    }
+  void _replaceHumanFeedback(String? message, {required bool isError}) {
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    final nextMessage = message == null || message.isEmpty ? null : message;
+    _humanFeedback = nextMessage;
+    _humanFeedbackIsError = isError;
+    if (nextMessage == null) return;
 
-    final hand = _controller.handFor(PlayerSeat.south);
-    final byId = {for (final card in hand) card.id: card};
-    return [
-      for (final id in _selectedCardIds)
-        if (byId[id] != null) byId[id]!,
-    ];
-  }
-
-  Future<void> _sortHumanHand() async {
-    setState(() {
-      _controller.sortHandFor(PlayerSeat.south);
+    final duration = _scaledDelay(
+      isError ? _errorFeedbackDuration : _successFeedbackDuration,
+    );
+    _feedbackTimer = Timer(duration, () {
+      if (!mounted) return;
+      setState(() {
+        if (_humanFeedback == nextMessage && _humanFeedbackIsError == isError) {
+          _humanFeedback = null;
+        }
+      });
     });
-    await _persistAndMaybeFinish();
   }
 
-  Future<void> _playSelectedMeld(List<CardIdentity> jokerOptions) async {
-    var actionId = ClassicHareegActionIds.playMeldActionId(_selectedCardIds);
-    if (jokerOptions.isNotEmpty) {
-      final joker = _selectedCards().firstWhere(
-        (card) => card.isJoker && card.representedIdentity == null,
+  void _showInvalidFeedback(String message) {
+    unawaited(_haptics.fire(TableHapticEvent.illegalAction));
+    setState(() {
+      _replaceHumanFeedback(message, isError: true);
+    });
+  }
+
+  /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
+  /// action so the human can see which seat acted and where the card went.
+  Future<void> _playFlightForCpuAction(PlayerSeat seat, String actionId) async {
+    final flight = _flightForCpuAction(seat, actionId);
+    if (flight == null) return;
+    setState(() => _cardFlight = flight);
+    await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 200)));
+    if (mounted && identical(_cardFlight, flight)) {
+      setState(() => _cardFlight = null);
+    }
+  }
+
+  _CardFlight? _flightForCpuAction(PlayerSeat seat, String actionId) {
+    final seatAnchor = _alignmentForSeat(seat);
+    if (actionId == ClassicHareegActionIds.drawStock) {
+      final handSlot = _appendHandSlotForSeat(seat);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: _backSeed(_flightSerial),
+        faceDown: true,
+        begin: _FlightAnchor.stock.alignment,
+        end: seatAnchor,
+        endHandSlot: handSlot,
       );
-      final identity = await showDialog<CardIdentity>(
-        context: context,
-        builder: (context) {
-          return SimpleDialog(
-            title: const Text('Choose joker'),
-            children: [
-              for (final option in jokerOptions)
-                SimpleDialogOption(
-                  onPressed: () => Navigator.of(context).pop(option),
-                  child: Text(option.label),
-                ),
-            ],
-          );
-        },
+    }
+    if (actionId == ClassicHareegActionIds.takeDiscard) {
+      final card = _controller.topDiscard;
+      if (card == null) return null;
+      final handSlot = _appendHandSlotForSeat(seat);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.discard.alignment,
+        end: seatAnchor,
+        endHandSlot: handSlot,
       );
-      if (identity == null || !mounted) {
-        return;
-      }
-      actionId = ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
-        cardIds: _selectedCardIds,
-        jokerId: joker.id,
-        identity: identity,
+    }
+    if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
+      final card = _controller.pendingDiscard;
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: seatAnchor,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _lastHandSlotForSeat(seat),
+      );
+    }
+    final discardCardId = ClassicHareegActionIds.discardCardId(actionId);
+    if (discardCardId != null) {
+      final card = _cardInHand(seat, discardCardId);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card ?? _backSeed(_flightSerial),
+        faceDown: card == null,
+        begin: seatAnchor,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _lastHandSlotForSeat(seat),
+      );
+    }
+    return null;
+  }
+
+  Future<void> _playFlightForAction(String actionId) async {
+    final flight = _flightForAction(actionId);
+    if (flight == null) return;
+    setState(() => _cardFlight = flight);
+    await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 230)));
+    if (mounted && identical(_cardFlight, flight)) {
+      setState(() => _cardFlight = null);
+    }
+  }
+
+  _CardFlight? _flightForAction(String actionId) {
+    if (actionId == ClassicHareegActionIds.drawStock) {
+      final handSlot = _southHandAppendSlot();
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: _backSeed(_flightSerial),
+        faceDown: true,
+        begin: _FlightAnchor.stock.alignment,
+        end: _FlightAnchor.hand.alignment,
+        endHandSlot: handSlot,
       );
     }
 
-    await _runHumanAction(actionId);
+    if (actionId == ClassicHareegActionIds.takeDiscard) {
+      final card = _controller.topDiscard;
+      if (card == null) return null;
+      final handSlot = _southHandAppendSlot();
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.discard.alignment,
+        end: _FlightAnchor.hand.alignment,
+        endHandSlot: handSlot,
+      );
+    }
+
+    if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
+      final card = _controller.pendingDiscard;
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final discardCardId = ClassicHareegActionIds.discardCardId(actionId);
+    if (discardCardId != null) {
+      final card = _cardInSouthHand(discardCardId);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final cover = ClassicHareegActionIds.coverActionTarget(actionId);
+    if (cover != null && cover.cardIds.isNotEmpty) {
+      final card = _cardInSouthHand(cover.cardIds.first);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _alignmentForSeat(cover.targetSeat),
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final replacement = ClassicHareegActionIds.jokerReplacementTarget(actionId);
+    if (replacement != null) {
+      final card = _cardInSouthHand(replacement.cardId);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _alignmentForSeat(replacement.targetSeat),
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final meldIds = _meldActionCardIds(actionId);
+    if (meldIds != null && meldIds.isNotEmpty) {
+      final card = _cardInSouthHand(meldIds.first);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.southMeld.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    return null;
+  }
+
+  _SeatHandFlightSlot _southHandAppendSlot() {
+    final count = _controller.handFor(PlayerSeat.south).length + 1;
+    return _SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: count - 1,
+      count: count,
+    );
+  }
+
+  _SeatHandFlightSlot? _southHandCardSlot(String cardId) {
+    final cards = _orderedSouthHand();
+    final index = cards.indexWhere((card) => card.id == cardId);
+    if (index == -1) {
+      return null;
+    }
+    return _SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: index,
+      count: cards.length,
+    );
+  }
+
+  _SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      return _southHandAppendSlot();
+    }
+    final count = _controller.cardCountFor(seat) + 1;
+    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  _SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      final cards = _orderedSouthHand();
+      if (cards.isEmpty) return null;
+      return _SeatHandFlightSlot(
+        seat: PlayerSeat.south,
+        index: cards.length - 1,
+        count: cards.length,
+      );
+    }
+    final count = _controller.cardCountFor(seat);
+    if (count <= 0) return null;
+    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  HareegCard? _cardInSouthHand(String id) {
+    return _cardInHand(PlayerSeat.south, id);
+  }
+
+  HareegCard? _cardInHand(PlayerSeat seat, String id) {
+    for (final card in _controller.handFor(seat)) {
+      if (card.id == id) return card;
+    }
+    return null;
+  }
+
+  Future<void> _claimFifty() async {
+    await _runHumanAction(ClassicHareegActionIds.claimFifty);
+    if (!mounted) return;
+    setState(() => _fiftyPulse = true);
+    unawaited(_haptics.fire(TableHapticEvent.fiftyClaim));
+    Future.delayed(_scaledDelay(TableMotion.fiftyHeatPulse), () {
+      if (mounted) setState(() => _fiftyPulse = false);
+    });
   }
 
   Future<void> _runHumanAction(String actionId) async {
-    if (_isCpuRunning) {
-      return;
-    }
-
+    if (_isCpuRunning) return;
+    final totalWatch = Stopwatch()..start();
+    _debugTableLog(
+      'human action start action=$actionId current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
+    );
+    await _playFlightForAction(actionId);
+    if (!mounted) return;
+    final applyWatch = Stopwatch()..start();
     final result = _controller.applyAction(actionId);
+    applyWatch.stop();
+    _debugTableLog(
+      'human action applied action=$actionId success=${result.isSuccess} '
+      'applyElapsed=${applyWatch.elapsedMilliseconds}ms '
+      'totalElapsed=${totalWatch.elapsedMilliseconds}ms '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+    );
     if (!result.isSuccess) {
+      unawaited(_haptics.fire(TableHapticEvent.illegalAction));
       setState(() {
-        _humanFeedback = result.message;
-        _humanFeedbackIsError = true;
+        _replaceHumanFeedback(result.message, isError: true);
       });
       return;
     }
-
+    unawaited(_haptics.fire(_hapticForAction(actionId)));
     setState(() {
-      _humanFeedback = result.message.isEmpty ? null : result.message;
-      _humanFeedbackIsError = false;
-      _turnStatus = _describeHumanAction(actionId);
-      if (ClassicHareegActionIds.discardCardId(actionId) != null ||
-          actionId.startsWith(ClassicHareegActionIds.playMeldPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
-          actionId == ClassicHareegActionIds.returnOpeningMelds ||
-          actionId == ClassicHareegActionIds.returnPendingDiscard) {
+      _replaceHumanFeedback(result.message, isError: false);
+      if (_clearsSelection(actionId)) {
         _selectedCardIds.clear();
       }
     });
+    _ensureFiftyTicker();
     await _persistAndMaybeFinish();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     await _runCpuTurns();
+    totalWatch.stop();
+    _debugTableLog(
+      'human action end action=$actionId '
+      'elapsed=${totalWatch.elapsedMilliseconds}ms '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+    );
   }
 
-  /// Runs CPU-owned turns and returns whether persistence/navigation ran.
+  TableHapticEvent _hapticForAction(String actionId) {
+    if (actionId == ClassicHareegActionIds.drawStock) {
+      return TableHapticEvent.drawCard;
+    }
+    if (actionId == ClassicHareegActionIds.takeDiscard) {
+      return TableHapticEvent.buttonTap;
+    }
+    if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
+      return TableHapticEvent.pendingReturn;
+    }
+    if (actionId == ClassicHareegActionIds.claimFifty) {
+      return TableHapticEvent.fiftyClaim;
+    }
+    return TableHapticEvent.buttonTap;
+  }
+
+  bool _clearsSelection(String actionId) {
+    return ClassicHareegActionIds.discardCardId(actionId) != null ||
+        actionId.startsWith(ClassicHareegActionIds.playMeldPrefix) ||
+        actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
+        actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
+        actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
+        actionId == ClassicHareegActionIds.returnOpeningMelds ||
+        actionId == ClassicHareegActionIds.returnPendingDiscard;
+  }
+
   Future<bool> _runCpuTurns() async {
     if (_isCpuRunning ||
         _controller.isRoundOver ||
         _controller.currentSeat == PlayerSeat.south) {
+      _debugTableLog(
+        'cpu loop skip running=$_isCpuRunning roundOver=${_controller.isRoundOver} '
+        'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+      );
       return false;
     }
-
+    final totalWatch = Stopwatch()..start();
+    _debugTableLog(
+      'cpu loop start current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
+      'discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
     setState(() {
       _isCpuRunning = true;
-      _turnStatus = '${_seatLabel(_controller.currentSeat)} is thinking...';
     });
-
     var safety = 0;
     var didPersistOrNavigate = false;
-    while (mounted &&
-        !_controller.isRoundOver &&
-        _controller.currentSeat != PlayerSeat.south &&
-        safety < _cpuActionLimit) {
-      final seat = _controller.currentSeat;
-      setState(() {
-        _turnStatus = '${_seatLabel(seat)} is thinking...';
-      });
-      await Future<void>.delayed(_cpuActionDelay);
-      if (!mounted) {
-        return didPersistOrNavigate;
-      }
-
-      final legal = _controller.legalActionIdsFor(seat);
-      if (legal.isEmpty) {
-        break;
-      }
-
-      final intent = widget.cpuStrategy.chooseMove(
-        CpuTurnSnapshot(
-          seat: seat,
-          legalActionIds: legal,
-          difficulty: _controller.setup.cpuDifficulty,
-        ),
-      );
-      final result = _controller.applyAction(intent.actionId);
-      if (!result.isSuccess) {
-        if (mounted) {
-          setState(() {
-            _isCpuRunning = false;
-            _humanFeedback = result.message;
-            _humanFeedbackIsError = true;
-          });
-        }
-        throw StateError(
-          'CPU strategy returned illegal action ${intent.actionId}: '
-          '${result.message}',
+    try {
+      while (mounted &&
+          !_controller.isRoundOver &&
+          _controller.currentSeat != PlayerSeat.south &&
+          safety < _cpuActionLimit) {
+        final seat = _controller.currentSeat;
+        _debugTableLog(
+          'cpu step ${safety + 1} start seat=${seat.name} '
+          'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label} '
+          'stock=${_controller.stockCount} discard=${_controller.discardPile.length}',
         );
+        await Future<void>.delayed(_scaledDelay(TableMotion.cpuReadPause));
+        if (!mounted) return didPersistOrNavigate;
+        final legalWatch = Stopwatch()..start();
+        final legal = _controller.cpuActionIdsFor(seat);
+        legalWatch.stop();
+        _debugTableLog(
+          'cpu step ${safety + 1} legal seat=${seat.name} '
+          'elapsed=${legalWatch.elapsedMilliseconds}ms count=${legal.length} '
+          'actions=${_debugActionSummary(legal)}',
+        );
+        if (legal.isEmpty) {
+          _debugTableLog('cpu step ${safety + 1} break no legal actions');
+          break;
+        }
+        final chooseWatch = Stopwatch()..start();
+        final intent = widget.cpuStrategy.chooseMove(
+          CpuTurnSnapshot(
+            seat: seat,
+            legalActionIds: legal,
+            difficulty: _controller.setup.cpuDifficulty,
+          ),
+        );
+        chooseWatch.stop();
+        _debugTableLog(
+          'cpu step ${safety + 1} chose action=${intent.actionId} '
+          'elapsed=${chooseWatch.elapsedMilliseconds}ms',
+        );
+        final flightWatch = Stopwatch()..start();
+        await _playFlightForCpuAction(seat, intent.actionId);
+        flightWatch.stop();
+        _debugTableLog(
+          'cpu step ${safety + 1} flight action=${intent.actionId} '
+          'elapsed=${flightWatch.elapsedMilliseconds}ms',
+        );
+        if (!mounted) return didPersistOrNavigate;
+        final applyWatch = Stopwatch()..start();
+        final result = _controller.applyAction(intent.actionId);
+        applyWatch.stop();
+        _debugTableLog(
+          'cpu step ${safety + 1} applied action=${intent.actionId} '
+          'success=${result.isSuccess} elapsed=${applyWatch.elapsedMilliseconds}ms '
+          'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+        );
+        if (!result.isSuccess) {
+          throw StateError(
+            'CPU strategy returned illegal action ${intent.actionId}: '
+            '${result.message}',
+          );
+        }
+        didPersistOrNavigate = true;
+        _ensureFiftyTicker();
+        final persistWatch = Stopwatch()..start();
+        await _persistAndMaybeFinish();
+        persistWatch.stop();
+        _debugTableLog(
+          'cpu step ${safety + 1} persist returned '
+          'elapsed=${persistWatch.elapsedMilliseconds}ms '
+          'roundOver=${_controller.isRoundOver}',
+        );
+        if (!mounted) return didPersistOrNavigate;
+        await Future<void>.delayed(_scaledDelay(TableMotion.cpuMove));
+        safety += 1;
       }
+      if (!mounted) return didPersistOrNavigate;
+      final hitCpuSafetyLimit =
+          safety >= _cpuActionLimit &&
+          !_controller.isRoundOver &&
+          _controller.currentSeat != PlayerSeat.south;
       setState(() {
-        _selectedCardIds.clear();
-        _turnStatus = _describeCpuAction(seat, intent.actionId);
+        _isCpuRunning = false;
+        _cardFlight = null;
+        if (hitCpuSafetyLimit) {
+          _replaceHumanFeedback(
+            'CPU turn safety cap $_cpuActionLimit reached at '
+            '${_seatLabel(_controller.currentSeat)}.',
+            isError: true,
+          );
+        }
       });
-      didPersistOrNavigate = true;
-      await _persistAndMaybeFinish();
-      if (!mounted) {
-        return didPersistOrNavigate;
+      totalWatch.stop();
+      _debugTableLog(
+        'cpu loop end elapsed=${totalWatch.elapsedMilliseconds}ms '
+        'steps=$safety hitSafety=$hitCpuSafetyLimit '
+        'didPersist=$didPersistOrNavigate current=${_controller.currentSeat.name} '
+        'phase=${_controller.turnPhase} roundOver=${_controller.isRoundOver}',
+      );
+      return didPersistOrNavigate;
+    } catch (error, stackTrace) {
+      totalWatch.stop();
+      _debugTableLog(
+        'cpu loop failed elapsed=${totalWatch.elapsedMilliseconds}ms '
+        'steps=$safety current=${_controller.currentSeat.name} '
+        'phase=${_controller.turnPhase} error=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        setState(() {
+          _isCpuRunning = false;
+          _cardFlight = null;
+          _replaceHumanFeedback(
+            'CPU turn paused at ${_seatLabel(_controller.currentSeat)}.',
+            isError: true,
+          );
+        });
       }
-      await Future<void>.delayed(_cpuActionDelay);
-      safety += 1;
-    }
-
-    if (!mounted) {
       return didPersistOrNavigate;
     }
-    final hitCpuSafetyLimit =
-        safety >= _cpuActionLimit &&
-        !_controller.isRoundOver &&
-        _controller.currentSeat != PlayerSeat.south;
-    setState(() {
-      _isCpuRunning = false;
-      _selectedCardIds.clear();
-      if (hitCpuSafetyLimit) {
-        _humanFeedback =
-            'CPU turn safety cap $_cpuActionLimit reached at '
-            '${_seatLabel(_controller.currentSeat)}.';
-        _humanFeedbackIsError = true;
-      } else if (_controller.currentSeat == PlayerSeat.south) {
-        _turnStatus = 'Your turn.';
-      }
-    });
-    if (hitCpuSafetyLimit) {
-      throw StateError(
-        'CPU turn safety cap $_cpuActionLimit reached while currentSeat is '
-        '${_controller.currentSeat}.',
-      );
-    }
-    return didPersistOrNavigate;
   }
 
   Future<bool> _persistAndMaybeFinish() async {
+    final totalWatch = Stopwatch()..start();
+    var persistencePath = 'active';
+    _debugTableLog(
+      'persist start roundOver=${_controller.isRoundOver} '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
+      'stock=${_controller.stockCount} discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
     var persistenceSucceeded = true;
     try {
       if (_controller.isRoundOver) {
-        final nextSnapshot = _controller.nextRoundSnapshot();
-        if (nextSnapshot == null) {
+        final next = _controller.nextRoundSnapshot();
+        if (next == null) {
+          persistencePath = 'abandon';
           await widget.matchRepository.abandonActiveMatch();
         } else {
-          await widget.matchRepository.saveActiveMatch(nextSnapshot);
+          persistencePath = 'next-round';
+          await widget.matchRepository.saveActiveMatch(next);
         }
       } else {
+        persistencePath = 'active';
         await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
       }
     } catch (error, stackTrace) {
       persistenceSucceeded = false;
-      debugPrint('Failed to persist active match: $error');
+      _debugTableLog('persist failed path=$persistencePath error=$error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -529,10 +1246,14 @@ class _GameTableScreenState extends State<GameTableScreen> {
         );
       }
     }
-    if (!mounted) {
-      return persistenceSucceeded;
-    }
+    totalWatch.stop();
+    _debugTableLog(
+      'persist end success=$persistenceSucceeded path=$persistencePath '
+      'elapsed=${totalWatch.elapsedMilliseconds}ms roundOver=${_controller.isRoundOver}',
+    );
+    if (!mounted) return persistenceSucceeded;
     if (_controller.isRoundOver && persistenceSucceeded) {
+      _debugTableLog('round summary navigation requested');
       _navigateToRoundSummary();
     }
     return persistenceSucceeded;
@@ -541,10 +1262,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
   void _navigateToRoundSummary() {
     final result = _controller.roundResult;
     final progress = _controller.roundProgress;
-    if (result == null || progress == null) {
-      return;
-    }
-
+    if (result == null || progress == null) return;
+    unawaited(_haptics.fire(TableHapticEvent.roundEnd));
     Navigator.of(context).pushReplacementNamed(
       AppRoutes.roundSummary,
       arguments: RoundSummaryArguments(
@@ -557,355 +1276,339 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 }
 
-String _describeHumanAction(String actionId) {
-  if (actionId == ClassicHareegActionIds.drawStock) {
-    return 'You drew from stock.';
-  }
-  if (actionId == ClassicHareegActionIds.takeDiscard) {
-    return 'You took the discard.';
-  }
-  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
-    return 'You returned the discard and drew.';
-  }
-  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
-    return 'You took back your opening melds.';
-  }
-  if (actionId == ClassicHareegActionIds.claimFifty) {
-    return 'You claimed Fifty.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
-    return 'You played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
-    return 'You played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
-    return 'You replaced a joker.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
-    return 'You placed a cover.';
-  }
-  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
-    return 'You discarded.';
-  }
-  return 'Action applied.';
-}
-
-String _describeCpuAction(PlayerSeat seat, String actionId) {
-  final seatName = _seatLabel(seat);
-  if (actionId == ClassicHareegActionIds.drawStock) {
-    return '$seatName drew from stock.';
-  }
-  if (actionId == ClassicHareegActionIds.takeDiscard) {
-    return '$seatName took the discard.';
-  }
-  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
-    return '$seatName returned the discard and drew.';
-  }
-  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
-    return '$seatName took back opening melds.';
-  }
-  if (actionId == ClassicHareegActionIds.claimFifty) {
-    return '$seatName claimed Fifty.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
-    return '$seatName played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
-    return '$seatName played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
-    return '$seatName replaced a joker.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
-    return '$seatName placed a cover.';
-  }
-  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
-    return '$seatName discarded.';
-  }
-  return '$seatName acted.';
-}
-
-class _TableLayoutMetrics {
-  const _TableLayoutMetrics({
-    required this.compact,
-    required this.padding,
-    required this.gap,
-    required this.handGap,
-    required this.headerHeight,
-    required this.sideSeatWidth,
-    required this.topSeatHeight,
-    required this.actionDockWidth,
-    required this.handHeaderHeight,
-    required this.handListHeight,
-    required this.handCardWidth,
-    required this.handCardHeight,
+class _RoundTableButton extends StatelessWidget {
+  const _RoundTableButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.diameter = 40,
+    this.iconSize = 22,
   });
 
-  final bool compact;
-  final double padding;
-  final double gap;
-  final double handGap;
-  final double headerHeight;
-  final double sideSeatWidth;
-  final double topSeatHeight;
-  final double actionDockWidth;
-  final double handHeaderHeight;
-  final double handListHeight;
-  final double handCardWidth;
-  final double handCardHeight;
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final double diameter;
+  final double iconSize;
 
-  factory _TableLayoutMetrics.from(BoxConstraints constraints) {
-    final compact = constraints.maxHeight < 430 || constraints.maxWidth < 700;
-    final padding = compact ? 6.0 : 12.0;
-    final gap = compact ? 4.0 : 8.0;
-    final sideSeatWidth = (constraints.maxWidth * 0.12)
-        .clamp(compact ? 64.0 : 84.0, compact ? 86.0 : 104.0)
-        .toDouble();
-    final handCardHeight = (constraints.maxHeight * 0.16)
-        .clamp(compact ? 52.0 : 64.0, 76.0)
-        .toDouble();
-
-    return _TableLayoutMetrics(
-      compact: compact,
-      padding: padding,
-      gap: gap,
-      handGap: compact ? 3.0 : 6.0,
-      headerHeight: compact ? 44.0 : 48.0,
-      sideSeatWidth: sideSeatWidth,
-      topSeatHeight: (constraints.maxHeight * 0.15)
-          .clamp(compact ? 46.0 : 56.0, compact ? 58.0 : 68.0)
-          .toDouble(),
-      actionDockWidth: (constraints.maxWidth * 0.26)
-          .clamp(compact ? 186.0 : 200.0, compact ? 210.0 : 240.0)
-          .toDouble(),
-      handHeaderHeight: compact ? 18.0 : 22.0,
-      handListHeight: handCardHeight + (compact ? 8.0 : 16.0),
-      handCardWidth: (handCardHeight * 0.68).clamp(36.0, 52.0).toDouble(),
-      handCardHeight: handCardHeight,
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.88),
+        shape: const CircleBorder(),
+        elevation: 6,
+        shadowColor: Colors.black.withValues(alpha: 0.35),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: diameter,
+            child: Icon(icon, color: LoungeTokens.offWhiteText, size: iconSize),
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _TableStage extends StatelessWidget {
-  const _TableStage({
-    required this.metrics,
-    required this.stockCount,
-    required this.topDiscard,
-    required this.tableMelds,
-    required this.pendingDiscard,
-    required this.turnStatus,
-    required this.selectedMeldResult,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
+enum _FlightAnchor {
+  stock(Alignment(-0.86, 0.56)),
+  discard(Alignment(0, 0)),
+  hand(Alignment(0, 0.82)),
+  southMeld(Alignment(0, 0.48));
+
+  const _FlightAnchor(this.alignment);
+
+  final Alignment alignment;
+}
+
+Alignment _alignmentForSeat(PlayerSeat seat) {
+  return switch (seat) {
+    PlayerSeat.south => const Alignment(0, 0.48),
+    PlayerSeat.north => const Alignment(0, -0.48),
+    PlayerSeat.east => const Alignment(0.68, 0),
+    PlayerSeat.west => const Alignment(-0.68, 0),
+  };
+}
+
+HareegCard _backSeed(int index) {
+  return HareegCard.standard(
+    rank: CardRank.ace,
+    suit: CardSuit.spades,
+    deckIndex: 700 + index,
+  );
+}
+
+class _CardFlight {
+  const _CardFlight({
+    required this.serial,
+    required this.card,
+    required this.begin,
+    required this.end,
+    this.faceDown = false,
+    this.beginHandSlot,
+    this.endHandSlot,
   });
 
-  final _TableLayoutMetrics metrics;
-  final int stockCount;
-  final HareegCard? topDiscard;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
-  final HareegCard? pendingDiscard;
-  final String? turnStatus;
-  final MeldValidationResult selectedMeldResult;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
+  final int serial;
+  final HareegCard card;
+  final Alignment begin;
+  final Alignment end;
+  final bool faceDown;
+  final _SeatHandFlightSlot? beginHandSlot;
+  final _SeatHandFlightSlot? endHandSlot;
+}
+
+class _SeatHandFlightSlot {
+  const _SeatHandFlightSlot({
+    required this.seat,
+    required this.index,
+    required this.count,
+  });
+
+  final PlayerSeat seat;
+  final int index;
+  final int count;
+}
+
+class _CardFlightOverlay extends StatelessWidget {
+  const _CardFlightOverlay({
+    super.key,
+    required this.flight,
+    required this.theme,
+    required this.duration,
+  });
+
+  final _CardFlight flight;
+  final HareegCardTheme theme;
+  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSideDock = constraints.maxWidth >= 420;
-        final actionDock = _ActionDock(
-          metrics: metrics,
-          pendingDiscard: pendingDiscard,
-          turnStatus: turnStatus,
-          selectedMeldResult: selectedMeldResult,
-          openingRequirement: openingRequirement,
-          humanFeedback: humanFeedback,
-          humanFeedbackIsError: humanFeedbackIsError,
-          canDraw: canDraw,
-          canTakeDiscard: canTakeDiscard,
-          canClaimFifty: canClaimFifty,
-          showPlayMeld: showPlayMeld,
-          canPlayMeld: canPlayMeld,
-          showPlaceCover: showPlaceCover,
-          canPlaceCover: canPlaceCover,
-          showReplaceJoker: showReplaceJoker,
-          canReplaceJoker: canReplaceJoker,
-          showDiscard: showDiscard,
-          canDiscard: canDiscard,
-          canReturnDiscard: canReturnDiscard,
-          canReturnOpeningMelds: canReturnOpeningMelds,
-          onDraw: onDraw,
-          onTakeDiscard: onTakeDiscard,
-          onClaimFifty: onClaimFifty,
-          onReturnDiscard: onReturnDiscard,
-          onReturnOpeningMelds: onReturnOpeningMelds,
-          onPlayMeld: onPlayMeld,
-          onPlaceCover: onPlaceCover,
-          onReplaceJoker: onReplaceJoker,
-          onDiscard: onDiscard,
-          onAutoSort: onAutoSort,
-        );
-
-        if (!useSideDock) {
-          final preferredDockHeight = (constraints.maxHeight * 0.42)
-              .clamp(56.0, 150.0)
-              .toDouble();
-          final maxDockHeight = constraints.maxHeight > metrics.gap
-              ? constraints.maxHeight - metrics.gap
-              : 0.0;
-          final dockHeight = preferredDockHeight > maxDockHeight
-              ? maxDockHeight
-              : preferredDockHeight;
-
-          return Column(
-            children: [
-              Expanded(
-                child: _TableCenter(
-                  compact: true,
-                  stockCount: stockCount,
-                  topDiscard: topDiscard,
-                  tableMelds: tableMelds,
-                ),
-              ),
-              SizedBox(height: metrics.gap),
-              SizedBox(height: dockHeight, child: actionDock),
-            ],
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          final cardSize = constraints.maxHeight <= 390
+              ? const Size(44, 62)
+              : const Size(58, 82);
+          final begin = _resolveFlightPoint(
+            flight.begin,
+            size,
+            cardSize,
+            flight.beginHandSlot,
           );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: _TableCenter(
-                compact: metrics.compact,
-                stockCount: stockCount,
-                topDiscard: topDiscard,
-                tableMelds: tableMelds,
-              ),
-            ),
-            SizedBox(width: metrics.gap),
-            SizedBox(width: metrics.actionDockWidth, child: actionDock),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _TableHeader extends StatelessWidget {
-  const _TableHeader({
-    required this.height,
-    required this.setup,
-    required this.starter,
-    required this.currentSeat,
-    required this.turnPhase,
-    required this.onLeave,
-  });
-
-  final double height;
-  final ClassicHareegSetup setup;
-  final PlayerSeat starter;
-  final PlayerSeat currentSeat;
-  final TurnPhase turnPhase;
-  final VoidCallback onLeave;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Leave table',
-            onPressed: onLeave,
-            constraints: BoxConstraints.tightFor(width: height, height: height),
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 180,
-            child: Text(
-              AppStrings.tableTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+          final end = _resolveFlightPoint(
+            flight.end,
+            size,
+            cardSize,
+            flight.endHandSlot,
+          );
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              final lifted = math.sin(value * math.pi) * 24;
+              final offset = Offset.lerp(begin, end, value)!;
+              return Stack(
                 children: [
-                  _HeaderFact(label: 'Starter', value: _seatLabel(starter)),
-                  const SizedBox(width: 8),
-                  _HeaderFact(label: 'Turn', value: _seatLabel(currentSeat)),
-                  const SizedBox(width: 8),
-                  _HeaderFact(label: 'Phase', value: turnPhase.name),
-                  const SizedBox(width: 8),
-                  _HeaderFact(
-                    label: 'Opening',
-                    value: '${setup.openingRequirement}',
-                  ),
-                  const SizedBox(width: 8),
-                  _HeaderFact(
-                    label: 'Fifty',
-                    value: '${setup.fiftyTimerSeconds}s',
+                  Positioned(
+                    left: offset.dx,
+                    top: offset.dy - lifted,
+                    child: Transform.rotate(
+                      angle: (1 - value) * -0.10,
+                      child: Opacity(
+                        opacity: (1 - (value * 0.18))
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                        child: child,
+                      ),
+                    ),
                   ),
                 ],
+              );
+            },
+            child: Material(
+              color: Colors.transparent,
+              elevation: 14,
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
+              child: HareegCardView(
+                theme: theme,
+                card: flight.card,
+                size: cardSize,
+                faceDown: flight.faceDown,
+                visualState: CardVisualState.selected,
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Offset _resolveFlightPoint(
+    Alignment alignment,
+    Size size,
+    Size cardSize,
+    _SeatHandFlightSlot? handSlot,
+  ) {
+    if (handSlot != null) {
+      return _resolveSeatHandSlot(handSlot, size, cardSize);
+    }
+    return Offset(
+      ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
+      ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
+    );
+  }
+
+  Offset _resolveSeatHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    return switch (slot.seat) {
+      PlayerSeat.south => _resolveSouthHandSlot(slot, size, flightCardSize),
+      PlayerSeat.north => _resolveNorthHandSlot(slot, size, flightCardSize),
+      PlayerSeat.west ||
+      PlayerSeat.east => _resolveSideHandSlot(slot, size, flightCardSize),
+    };
+  }
+
+  Offset _resolveSouthHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
+    final controlWidth = compact ? 60.0 : 72.0;
+    final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final handRightInset = controlWidth + edgeInset + (compact ? 10.0 : 16.0);
+    final handLeft = compact ? 70.0 : 96.0;
+    final handBottom = compact ? 0.0 : 2.0;
+    final handWidth = math.max(0.0, size.width - handLeft - handRightInset);
+    final count = math.max(1, slot.count);
+    final index = slot.index.clamp(0, count - 1).toInt();
+    final minGap = handCardSize.width * 0.42;
+    final preferredGap = handCardSize.width * 0.78;
+    final available = math.max(0.0, handWidth - 8);
+    final fittedGap = count <= 1
+        ? 0.0
+        : ((available - handCardSize.width) / (count - 1))
+              .clamp(minGap, preferredGap)
+              .toDouble();
+    final stripWidth = handCardSize.width + math.max(0, count - 1) * fittedGap;
+    final canvasWidth = math.max(stripWidth, available);
+    final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
+    final handTop = size.height - handBottom - bottomHandHeight;
+    final centerX =
+        handLeft + start + index * fittedGap + handCardSize.width / 2;
+    final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveNorthHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final visibleCount = compact ? 9 : 12;
+    final shown = math.min(math.max(1, slot.count), visibleCount);
+    final index = slot.index.clamp(0, shown - 1).toInt();
+    final gap = cardSize.width * 0.38;
+    final stackWidth = cardSize.width + (shown - 1) * gap;
+    final left = (size.width - stackWidth) / 2;
+    final top = topInset + (compact ? 6.0 : 8.0);
+    final centerX = left + index * gap + cardSize.width / 2;
+    final centerY = top + cardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveSideHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final sideRailWidth = compact ? 46.0 : 56.0;
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final sideRailVisibleCount = compact ? 5 : 6;
+    final sideRailHeight = cardSize.height + (sideRailVisibleCount - 1) * 14.0;
+    final sideRailTop = topInset + cardSize.height + 12;
+    final visibleCount = compact ? 8 : 11;
+    final shown = math.min(math.max(1, slot.count), visibleCount);
+    final index = slot.index.clamp(0, shown - 1).toInt();
+    final gap = 16.0;
+    final stackHeight = cardSize.height + (shown - 1) * gap;
+    final top = sideRailTop + (sideRailHeight - stackHeight) / 2;
+    final left = switch (slot.seat) {
+      PlayerSeat.west => edgeInset,
+      PlayerSeat.east =>
+        size.width - edgeInset - sideRailWidth + sideRailWidth - cardSize.width,
+      PlayerSeat.north || PlayerSeat.south => 0.0,
+    };
+    final centerX = left + cardSize.width / 2;
+    final centerY = top + index * gap + cardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {
+    return Offset(centerX - cardSize.width / 2, centerY - cardSize.height / 2);
+  }
+}
+
+class _FeedbackChip extends StatelessWidget {
+  const _FeedbackChip({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? LoungeTokens.deepRed : LoungeTokens.goldAccent;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
+      padding: const EdgeInsets.symmetric(
+        horizontal: LoungeTokens.space3,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        border: Border.all(color: color),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isError ? Icons.error_outline : Icons.check_circle_outline,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              message,
+              style: LoungeTokens.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -914,745 +1617,35 @@ class _TableHeader extends StatelessWidget {
   }
 }
 
-class _HeaderFact extends StatelessWidget {
-  const _HeaderFact({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(label: Text('$label $value'));
-  }
+void _debugTableLog(String message) {
+  assert(() {
+    debugPrint('[hareeg:table] $message');
+    return true;
+  }());
 }
 
-class _SeatPanel extends StatelessWidget {
-  const _SeatPanel({
-    required this.seat,
-    required this.count,
-    this.horizontal = false,
-    this.width = 104,
-    this.height = 68,
-  });
-
-  final PlayerSeat seat;
-  final int count;
-  final bool horizontal;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(seat == PlayerSeat.south ? Icons.person : Icons.smart_toy),
-        const SizedBox(height: 4),
-        Text(_seatLabel(seat)),
-        Text('$count cards', style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: SizedBox(
-        width: horizontal ? double.infinity : width,
-        height: horizontal ? height : double.infinity,
-        child: Center(
-          child: FittedBox(fit: BoxFit.scaleDown, child: child),
-        ),
-      ),
-    );
-  }
+String _debugSeatCounts(ClassicHareegGameController controller) {
+  return PlayerSeat.values
+      .map((seat) => '${seat.name}:${controller.cardCountFor(seat)}')
+      .join(',');
 }
 
-class _TableCenter extends StatelessWidget {
-  const _TableCenter({
-    required this.compact,
-    required this.stockCount,
-    required this.topDiscard,
-    required this.tableMelds,
-  });
-
-  final bool compact;
-  final int stockCount;
-  final HareegCard? topDiscard;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 8 : 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Expanded(
-              child: _Pile(
-                compact: compact,
-                label: AppStrings.stock,
-                value: '$stockCount',
-              ),
-            ),
-            SizedBox(width: compact ? 4 : 8),
-            Expanded(
-              child: _MeldPile(compact: compact, tableMelds: tableMelds),
-            ),
-            SizedBox(width: compact ? 4 : 8),
-            Expanded(
-              child: _Pile(
-                compact: compact,
-                label: AppStrings.discard,
-                value: topDiscard?.label ?? 'Empty',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+String _debugActionSummary(Iterable<String> actionIds) {
+  final ids = actionIds.toList(growable: false);
+  if (ids.isEmpty) {
+    return '[]';
   }
-}
-
-class _Pile extends StatelessWidget {
-  const _Pile({
-    required this.compact,
-    required this.label,
-    required this.value,
-  });
-
-  final bool compact;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        SizedBox(height: compact ? 3 : 4),
-        Flexible(
-          child: Container(
-            width: compact ? 64 : 72,
-            height: compact ? 38 : 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(value, textAlign: TextAlign.center),
-            ),
-          ),
-        ),
-      ],
-    );
+  const maxShown = 5;
+  final shown = ids.take(maxShown).join(', ');
+  if (ids.length <= maxShown) {
+    return '[$shown]';
   }
-}
-
-class _MeldPile extends StatelessWidget {
-  const _MeldPile({required this.compact, required this.tableMelds});
-
-  final bool compact;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
-
-  @override
-  Widget build(BuildContext context) {
-    final melds = [
-      for (final entry in tableMelds.entries)
-        for (final meld in entry.value) (seat: entry.key, meld: meld),
-    ];
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          AppStrings.meldZone,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        SizedBox(height: compact ? 3 : 4),
-        Flexible(
-          child: melds.isEmpty
-              ? _MeldTile(compact: compact, label: 'Empty')
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: melds.length,
-                  separatorBuilder: (context, index) =>
-                      SizedBox(width: compact ? 4 : 6),
-                  itemBuilder: (context, index) {
-                    final entry = melds[index];
-                    final label = entry.meld.cards
-                        .map((card) => card.label)
-                        .join(' ');
-                    return _MeldTile(
-                      compact: compact,
-                      label: '${_seatLabel(entry.seat)}: $label',
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MeldTile extends StatelessWidget {
-  const _MeldTile({required this.compact, required this.label});
-
-  final bool compact;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        minWidth: compact ? 64 : 72,
-        maxWidth: compact ? 118 : 152,
-      ),
-      height: compact ? 38 : 44,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.secondary),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-class _ActionDock extends StatelessWidget {
-  const _ActionDock({
-    required this.metrics,
-    required this.pendingDiscard,
-    required this.turnStatus,
-    required this.selectedMeldResult,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
-  });
-
-  final _TableLayoutMetrics metrics;
-  final HareegCard? pendingDiscard;
-  final String? turnStatus;
-  final MeldValidationResult selectedMeldResult;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(metrics.compact ? 6 : 8),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _TurnStatusBanner(message: turnStatus),
-              if (turnStatus != null) SizedBox(height: metrics.gap),
-              _PendingDiscardBanner(card: pendingDiscard),
-              if (pendingDiscard != null) SizedBox(height: metrics.gap),
-              _SelectedMeldFeedback(
-                result: selectedMeldResult,
-                openingRequirement: openingRequirement,
-                humanFeedback: humanFeedback,
-                humanFeedbackIsError: humanFeedbackIsError,
-              ),
-              SizedBox(height: metrics.gap),
-              _ActionBar(
-                canDraw: canDraw,
-                canTakeDiscard: canTakeDiscard,
-                canClaimFifty: canClaimFifty,
-                showPlayMeld: showPlayMeld,
-                canPlayMeld: canPlayMeld,
-                showPlaceCover: showPlaceCover,
-                canPlaceCover: canPlaceCover,
-                showReplaceJoker: showReplaceJoker,
-                canReplaceJoker: canReplaceJoker,
-                showDiscard: showDiscard,
-                canDiscard: canDiscard,
-                canReturnDiscard: canReturnDiscard,
-                canReturnOpeningMelds: canReturnOpeningMelds,
-                onDraw: onDraw,
-                onTakeDiscard: onTakeDiscard,
-                onClaimFifty: onClaimFifty,
-                onReturnDiscard: onReturnDiscard,
-                onReturnOpeningMelds: onReturnOpeningMelds,
-                onPlayMeld: onPlayMeld,
-                onPlaceCover: onPlaceCover,
-                onReplaceJoker: onReplaceJoker,
-                onDiscard: onDiscard,
-                onAutoSort: onAutoSort,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
-  });
-
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: [
-        if (canDraw)
-          FilledButton.icon(
-            onPressed: onDraw,
-            icon: const Icon(Icons.add),
-            label: const Text(AppStrings.drawStock),
-          ),
-        if (canTakeDiscard)
-          FilledButton.tonalIcon(
-            onPressed: onTakeDiscard,
-            icon: const Icon(Icons.move_down_outlined),
-            label: const Text(AppStrings.takeDiscard),
-          ),
-        if (canClaimFifty)
-          FilledButton.icon(
-            onPressed: onClaimFifty,
-            icon: const Icon(Icons.local_fire_department_outlined),
-            label: const Text('Fifty'),
-          ),
-        if (showPlayMeld)
-          FilledButton.icon(
-            onPressed: canPlayMeld ? onPlayMeld : null,
-            icon: const Icon(Icons.table_rows_outlined),
-            label: const Text('Play Meld'),
-          ),
-        if (showPlaceCover)
-          FilledButton.icon(
-            onPressed: canPlaceCover ? onPlaceCover : null,
-            icon: const Icon(Icons.call_merge),
-            label: const Text('Place Cover'),
-          ),
-        if (showReplaceJoker)
-          FilledButton.icon(
-            onPressed: canReplaceJoker ? onReplaceJoker : null,
-            icon: const Icon(Icons.change_circle_outlined),
-            label: const Text('Replace Joker'),
-          ),
-        if (canReturnDiscard)
-          FilledButton.icon(
-            onPressed: onReturnDiscard,
-            icon: const Icon(Icons.undo),
-            label: const Text(AppStrings.returnDiscard),
-          ),
-        if (canReturnOpeningMelds)
-          FilledButton.icon(
-            onPressed: onReturnOpeningMelds,
-            icon: const Icon(Icons.undo_outlined),
-            label: const Text(AppStrings.takeBackMelds),
-          ),
-        if (showDiscard)
-          FilledButton.icon(
-            onPressed: canDiscard ? onDiscard : null,
-            icon: const Icon(Icons.remove_circle_outline),
-            label: const Text(AppStrings.discardCard),
-          ),
-        OutlinedButton.icon(
-          onPressed: onAutoSort,
-          icon: const Icon(Icons.sort),
-          label: const Text(AppStrings.autoSort),
-        ),
-      ],
-    );
-  }
-}
-
-class _PendingDiscardBanner extends StatelessWidget {
-  const _PendingDiscardBanner({required this.card});
-
-  final HareegCard? card;
-
-  @override
-  Widget build(BuildContext context) {
-    final pending = card;
-    if (pending == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 34,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.priority_high, size: 18),
-              const SizedBox(width: 8),
-              Text('${AppStrings.pendingDiscard}: ${pending.label}'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TurnStatusBanner extends StatelessWidget {
-  const _TurnStatusBanner({required this.message});
-
-  final String? message;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = message;
-    if (text == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 34,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.timer_outlined, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectedMeldFeedback extends StatelessWidget {
-  const _SelectedMeldFeedback({
-    required this.result,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-  });
-
-  final MeldValidationResult result;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    if (humanFeedback != null) {
-      final color = humanFeedbackIsError ? colors.error : colors.primary;
-      return ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: color),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Icon(
-                  humanFeedbackIsError
-                      ? Icons.error_outline
-                      : Icons.check_circle_outline,
-                  size: 18,
-                  color: color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    humanFeedback!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final openingText = result.value >= openingRequirement
-        ? 'opening ready'
-        : 'needs $openingRequirement to open';
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 44),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: result.isValid ? colors.primary : colors.outline,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                result.isValid
-                    ? Icons.check_circle_outline
-                    : Icons.info_outline,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  result.isValid
-                      ? '${result.message} Value ${result.value}, $openingText.'
-                      : result.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HumanHand extends StatelessWidget {
-  const _HumanHand({
-    required this.height,
-    required this.cardWidth,
-    required this.cardHeight,
-    required this.cards,
-    required this.selectedIds,
-    required this.onSelected,
-  });
-
-  final double height;
-  final double cardWidth;
-  final double cardHeight;
-  final List<HareegCard> cards;
-  final Set<String> selectedIds;
-  final ValueChanged<HareegCard> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: cards.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          final card = cards[index];
-          return _HandCard(
-            width: cardWidth,
-            height: cardHeight,
-            card: card,
-            selected: selectedIds.contains(card.id),
-            onTap: () => onSelected(card),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _HumanHandHeader extends StatelessWidget {
-  const _HumanHandHeader({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.person, size: 18),
-        const SizedBox(width: 6),
-        const Text(AppStrings.humanSeat),
-        const SizedBox(width: 8),
-        Text('$count cards', style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
-class _HandCard extends StatelessWidget {
-  const _HandCard({
-    required this.width,
-    required this.height,
-    required this.card,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final double width;
-  final double height;
-  final HareegCard card;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        width: width,
-        height: height,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F0DD),
-          border: Border.all(
-            color: selected ? colors.primary : const Color(0xFFD7BD83),
-            width: selected ? 3 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          card.label,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF15110E),
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-    );
-  }
+  return '[$shown, +${ids.length - maxShown} more]';
 }
 
 String _seatLabel(PlayerSeat seat) {
   return switch (seat) {
-    PlayerSeat.south => AppStrings.humanSeat,
+    PlayerSeat.south => 'You',
     PlayerSeat.east => 'CPU East',
     PlayerSeat.north => 'CPU North',
     PlayerSeat.west => 'CPU West',
