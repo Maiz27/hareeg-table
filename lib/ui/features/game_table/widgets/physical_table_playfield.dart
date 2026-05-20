@@ -52,6 +52,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
     required this.southCards,
     required this.selectedIds,
     required this.onCardTap,
+    required this.onCardLongPress,
     required this.onReorderHand,
     required this.canDiscardCard,
     required this.canPlayCardOnTable,
@@ -118,6 +119,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
 
   /// Tap fallback for selecting cards.
   final ValueChanged<HareegCard> onCardTap;
+
+  /// Long-press handler for inspecting a visible card.
+  final ValueChanged<HareegCard> onCardLongPress;
 
   /// Player-initiated reorder inside the hand. Receives the dragged card
   /// and the target slot index in the displayed hand order; the orchestrator
@@ -389,6 +393,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 canReturn: isHumanTurn && canReturnDiscard,
                 onTake: onTakeDiscard,
                 onReturn: onReturnDiscard,
+                onCardLongPress: onCardLongPress,
                 fiftySecondsRemaining: fiftySecondsRemaining,
                 fiftyTotalSeconds: fiftyTotalSeconds,
                 fiftyPulse: fiftyPulse,
@@ -416,6 +421,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onAcceptMeld: onPlayCardOnMeld,
                 canRetractMeld: canRetractMeld,
                 onRetractMeld: onRetractMeld,
+                onCardLongPress: onCardLongPress,
                 stackVertically: false,
               ),
             ),
@@ -436,6 +442,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onAcceptMeld: onPlayCardOnMeld,
                 canRetractMeld: canRetractMeld,
                 onRetractMeld: onRetractMeld,
+                onCardLongPress: onCardLongPress,
                 stackVertically: false,
                 quarterTurns: 1,
               ),
@@ -457,6 +464,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onAcceptMeld: onPlayCardOnMeld,
                 canRetractMeld: canRetractMeld,
                 onRetractMeld: onRetractMeld,
+                onCardLongPress: onCardLongPress,
                 stackVertically: false,
                 quarterTurns: 3,
               ),
@@ -480,6 +488,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onAcceptMeld: onPlayCardOnMeld,
                 canRetractMeld: canRetractMeld,
                 onRetractMeld: onRetractMeld,
+                onCardLongPress: onCardLongPress,
                 stackVertically: false,
               ),
             ),
@@ -496,6 +505,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                     suggestions: meldSuggestions,
                     cardSize: compact ? const Size(26, 36) : const Size(30, 42),
                     onTapSuggestion: onMeldSuggestion,
+                    onCardLongPress: onCardLongPress,
                   ),
                 ),
               ),
@@ -529,6 +539,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   cardSize: handCardSize,
                   draggable: true,
                   onTap: onCardTap,
+                  onLongPress: onCardLongPress,
                   onReorder: onReorderHand,
                 ),
               ),
@@ -808,6 +819,7 @@ class _DiscardPile extends StatelessWidget {
     required this.onClaimFifty,
     required this.canAcceptDiscard,
     required this.onAcceptDiscard,
+    required this.onCardLongPress,
     required this.compact,
   });
 
@@ -827,6 +839,7 @@ class _DiscardPile extends StatelessWidget {
   final VoidCallback onClaimFifty;
   final bool Function(HareegCard card) canAcceptDiscard;
   final ValueChanged<HareegCard> onAcceptDiscard;
+  final ValueChanged<HareegCard> onCardLongPress;
   final bool compact;
 
   @override
@@ -904,6 +917,9 @@ class _DiscardPile extends StatelessWidget {
                     : canTake
                     ? onTake
                     : null,
+                onLongPress: topCard == null
+                    ? null
+                    : () => onCardLongPress(topCard),
                 child: SizedBox.expand(
                   child: Stack(
                     alignment: Alignment.center,
@@ -995,7 +1011,7 @@ class _EmptyDiscard extends StatelessWidget {
   }
 }
 
-class _SeatMeldLane extends StatelessWidget {
+class _SeatMeldLane extends StatefulWidget {
   const _SeatMeldLane({
     required this.theme,
     required this.owner,
@@ -1008,6 +1024,7 @@ class _SeatMeldLane extends StatelessWidget {
     required this.onAcceptMeld,
     required this.canRetractMeld,
     required this.onRetractMeld,
+    required this.onCardLongPress,
     required this.stackVertically,
     this.quarterTurns = 0,
   });
@@ -1023,20 +1040,48 @@ class _SeatMeldLane extends StatelessWidget {
   final TableMeldDropHandler onAcceptMeld;
   final TableMeldRetractPredicate canRetractMeld;
   final TableMeldRetractHandler onRetractMeld;
+  final ValueChanged<HareegCard> onCardLongPress;
   final bool stackVertically;
   final int quarterTurns;
 
   @override
+  State<_SeatMeldLane> createState() => _SeatMeldLaneState();
+}
+
+class _SeatMeldLaneState extends State<_SeatMeldLane> {
+  int? _expandedMeldIndex;
+
+  @override
+  void didUpdateWidget(covariant _SeatMeldLane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.owner != widget.owner) {
+      _expandedMeldIndex = null;
+      return;
+    }
+    final expanded = _expandedMeldIndex;
+    if (expanded != null && expanded >= widget.melds.length) {
+      _expandedMeldIndex = null;
+    }
+  }
+
+  void _toggleExpanded(int index) {
+    if (widget.owner == PlayerSeat.south) return;
+    setState(() {
+      _expandedMeldIndex = _expandedMeldIndex == index ? null : index;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DragTarget<HareegCard>(
-      onWillAcceptWithDetails: (details) => canAcceptTable(details.data),
-      onAcceptWithDetails: (details) => onAcceptTable(details.data),
+      onWillAcceptWithDetails: (details) => widget.canAcceptTable(details.data),
+      onAcceptWithDetails: (details) => widget.onAcceptTable(details.data),
       builder: (context, candidates, rejected) {
         final hot = candidates.isNotEmpty;
         final lane = AnimatedContainer(
           duration: const Duration(milliseconds: 130),
           curve: Curves.easeOutCubic,
-          padding: EdgeInsets.all(compact ? 3 : 5),
+          padding: EdgeInsets.all(widget.compact ? 3 : 5),
           decoration: BoxDecoration(
             color: hot
                 ? LoungeTokens.goldAccent.withValues(alpha: 0.10)
@@ -1050,35 +1095,49 @@ class _SeatMeldLane extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final sideFacing = quarterTurns % 2 != 0;
+              final sideFacing = widget.quarterTurns % 2 != 0;
               final meldWidgets = [
-                for (var index = 0; index < melds.length; index++)
+                for (var index = 0; index < widget.melds.length; index++)
                   _TableMeldStack(
-                    theme: theme,
-                    owner: owner,
+                    key: ValueKey(
+                      'table-meld-${widget.owner.name}-$index-'
+                      '${_expandedMeldIndex == index ? 'expanded' : 'normal'}',
+                    ),
+                    theme: widget.theme,
+                    owner: widget.owner,
                     meldIndex: index,
-                    meld: melds[index],
-                    cardSize: cardSize,
-                    compact: compact,
-                    canAccept: canAcceptMeld,
-                    onAccept: onAcceptMeld,
-                    canRetract: canRetractMeld(owner, index),
-                    onRetract: () => onRetractMeld(owner, index),
-                    vertical: stackVertically,
-                    quarterTurns: quarterTurns,
+                    meld: widget.melds[index],
+                    cardSize: widget.cardSize,
+                    compact: widget.compact,
+                    canAccept: widget.canAcceptMeld,
+                    onAccept: widget.onAcceptMeld,
+                    canRetract: widget.canRetractMeld(widget.owner, index),
+                    onRetract: () => widget.onRetractMeld(widget.owner, index),
+                    onCardLongPress: widget.onCardLongPress,
+                    expanded: _expandedMeldIndex == index,
+                    onToggleExpanded: widget.owner == PlayerSeat.south
+                        ? null
+                        : () => _toggleExpanded(index),
+                    vertical: widget.stackVertically,
+                    quarterTurns: widget.quarterTurns,
                   ),
-                if (melds.isEmpty && owner == PlayerSeat.south && hot)
-                  SizedBox(width: compact ? 70 : 92, height: compact ? 36 : 46),
+                if (widget.melds.isEmpty &&
+                    widget.owner == PlayerSeat.south &&
+                    hot)
+                  SizedBox(
+                    width: widget.compact ? 70 : 92,
+                    height: widget.compact ? 36 : 46,
+                  ),
               ];
               final content = Wrap(
                 alignment: WrapAlignment.center,
                 runAlignment: WrapAlignment.center,
-                spacing: compact ? 7 : 10,
-                runSpacing: compact ? 8 : 12,
+                spacing: widget.compact ? 7 : 10,
+                runSpacing: widget.compact ? 8 : 12,
                 children: meldWidgets,
               );
 
-              if (stackVertically || sideFacing) {
+              if (widget.stackVertically || sideFacing) {
                 return SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   physics: const BouncingScrollPhysics(),
@@ -1111,6 +1170,7 @@ class _SeatMeldLane extends StatelessWidget {
 
 class _TableMeldStack extends StatelessWidget {
   const _TableMeldStack({
+    super.key,
     required this.theme,
     required this.owner,
     required this.meldIndex,
@@ -1119,8 +1179,11 @@ class _TableMeldStack extends StatelessWidget {
     required this.compact,
     required this.canAccept,
     required this.onAccept,
+    required this.onCardLongPress,
+    required this.expanded,
     this.canRetract = false,
     this.onRetract,
+    this.onToggleExpanded,
     this.vertical = false,
     this.quarterTurns = 0,
   });
@@ -1133,8 +1196,11 @@ class _TableMeldStack extends StatelessWidget {
   final bool compact;
   final TableMeldDropPredicate canAccept;
   final TableMeldDropHandler onAccept;
+  final ValueChanged<HareegCard> onCardLongPress;
+  final bool expanded;
   final bool canRetract;
   final VoidCallback? onRetract;
+  final VoidCallback? onToggleExpanded;
 
   /// When true, cards stack downward (used for west/east opponent lanes
   /// that sit along the side edges of the table).
@@ -1145,16 +1211,23 @@ class _TableMeldStack extends StatelessWidget {
   Widget build(BuildContext context) {
     final cards = meld.cards;
     final sideFacing = quarterTurns % 2 != 0;
+    final expandedScale = expanded ? (compact ? 1.16 : 1.26) : 1.0;
+    final effectiveCardSize = Size(
+      cardSize.width * expandedScale,
+      cardSize.height * expandedScale,
+    );
     final horizontalGap = sideFacing
-        ? cardSize.width * 0.68
-        : cardSize.width * 0.43;
-    final gap = vertical ? cardSize.height * 0.32 : horizontalGap;
+        ? effectiveCardSize.width * (expanded ? 0.92 : 0.68)
+        : effectiveCardSize.width * (expanded ? 0.72 : 0.43);
+    final gap = vertical
+        ? effectiveCardSize.height * (expanded ? 0.58 : 0.32)
+        : horizontalGap;
     final width = vertical
-        ? cardSize.width
-        : cardSize.width + math.max(0, cards.length - 1) * gap;
+        ? effectiveCardSize.width
+        : effectiveCardSize.width + math.max(0, cards.length - 1) * gap;
     final height = vertical
-        ? cardSize.height + math.max(0, cards.length - 1) * gap
-        : cardSize.height;
+        ? effectiveCardSize.height + math.max(0, cards.length - 1) * gap
+        : effectiveCardSize.height;
     final accent = _seatAccent(owner);
     return DragTarget<HareegCard>(
       onWillAcceptWithDetails: (details) =>
@@ -1164,8 +1237,8 @@ class _TableMeldStack extends StatelessWidget {
       builder: (context, candidates, rejected) {
         final hot = candidates.isNotEmpty;
         final retractable = canRetract && onRetract != null;
-        final bodyWidth = vertical ? width : width + 10;
-        final bodyHeight = vertical ? height + 10 : height;
+        final bodyWidth = vertical ? width : width + (expanded ? 14 : 10);
+        final bodyHeight = vertical ? height + (expanded ? 14 : 10) : height;
         final body = AnimatedScale(
           duration: const Duration(milliseconds: 120),
           curve: Curves.easeOutCubic,
@@ -1202,10 +1275,14 @@ class _TableMeldStack extends StatelessWidget {
                   Positioned(
                     left: vertical ? 0 : i * gap,
                     top: vertical ? i * gap : 0,
-                    child: HareegCardView(
-                      theme: theme,
-                      card: cards[i],
-                      size: cardSize,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onLongPress: () => onCardLongPress(cards[i]),
+                      child: HareegCardView(
+                        theme: theme,
+                        card: cards[i],
+                        size: effectiveCardSize,
+                      ),
                     ),
                   ),
                 Positioned(
@@ -1270,13 +1347,25 @@ class _TableMeldStack extends StatelessWidget {
                 ),
               );
 
-        if (!retractable) return orientedBody;
+        final expandable = onToggleExpanded != null;
+        final interactiveBody = expandable
+            ? Tooltip(
+                message: expanded ? 'Collapse meld' : 'Expand meld',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onToggleExpanded,
+                  child: orientedBody,
+                ),
+              )
+            : orientedBody;
+
+        if (!retractable) return interactiveBody;
         return Tooltip(
           message: 'Take this meld back',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onRetract,
-            child: orientedBody,
+            child: interactiveBody,
           ),
         );
       },
@@ -1290,12 +1379,14 @@ class _MeldSuggestionRack extends StatelessWidget {
     required this.suggestions,
     required this.cardSize,
     required this.onTapSuggestion,
+    required this.onCardLongPress,
   });
 
   final HareegCardTheme theme;
   final List<TableMeldSuggestion> suggestions;
   final Size cardSize;
   final ValueChanged<String> onTapSuggestion;
+  final ValueChanged<HareegCard> onCardLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1327,6 +1418,7 @@ class _MeldSuggestionRack extends StatelessWidget {
                   suggestion: suggestion,
                   cardSize: cardSize,
                   onTap: () => onTapSuggestion(suggestion.actionId),
+                  onCardLongPress: onCardLongPress,
                 ),
                 const SizedBox(width: 10),
               ],
@@ -1344,12 +1436,14 @@ class _SuggestionGroup extends StatelessWidget {
     required this.suggestion,
     required this.cardSize,
     required this.onTap,
+    required this.onCardLongPress,
   });
 
   final HareegCardTheme theme;
   final TableMeldSuggestion suggestion;
   final Size cardSize;
   final VoidCallback onTap;
+  final ValueChanged<HareegCard> onCardLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1371,11 +1465,15 @@ class _SuggestionGroup extends StatelessWidget {
               for (var i = 0; i < cards.length; i++)
                 Positioned(
                   left: i * gap,
-                  child: HareegCardView(
-                    theme: theme,
-                    card: cards[i],
-                    size: cardSize,
-                    visualState: CardVisualState.coverTarget,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPress: () => onCardLongPress(cards[i]),
+                    child: HareegCardView(
+                      theme: theme,
+                      card: cards[i],
+                      size: cardSize,
+                      visualState: CardVisualState.coverTarget,
+                    ),
                   ),
                 ),
             ],
@@ -1611,6 +1709,7 @@ class _HumanHandFan extends StatelessWidget {
     required this.cardSize,
     required this.draggable,
     required this.onTap,
+    required this.onLongPress,
     required this.onReorder,
   });
 
@@ -1621,6 +1720,7 @@ class _HumanHandFan extends StatelessWidget {
   final Size cardSize;
   final bool draggable;
   final ValueChanged<HareegCard> onTap;
+  final ValueChanged<HareegCard> onLongPress;
 
   /// Called when the player drops `card` onto the slot at `targetIndex` in
   /// the displayed hand order. The orchestrator updates its display order
@@ -1683,6 +1783,7 @@ class _HumanHandFan extends StatelessWidget {
                           size: cardSize,
                           draggable: draggable,
                           onTap: () => onTap(cards[i]),
+                          onLongPress: () => onLongPress(cards[i]),
                         );
                       },
                     ),
@@ -1721,6 +1822,7 @@ class _DraggableHandCard extends StatelessWidget {
     required this.size,
     required this.draggable,
     required this.onTap,
+    required this.onLongPress,
     this.insertGapBefore = false,
   });
 
@@ -1731,6 +1833,7 @@ class _DraggableHandCard extends StatelessWidget {
   final Size size;
   final bool draggable;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   /// True when another card is being dragged over this position; the card
   /// shifts right slightly so the player can see where the dropped card
@@ -1749,6 +1852,7 @@ class _DraggableHandCard extends StatelessWidget {
     final face = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 130),
         curve: Curves.easeOutCubic,

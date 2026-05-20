@@ -17,6 +17,7 @@ import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
+import '../../../core/aids/table_aids.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
@@ -84,6 +85,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
   Timer? _fiftyTicker;
   Timer? _feedbackTimer;
   _CardFlight? _cardFlight;
+  HareegCard? _inspectedCard;
   int _flightSerial = 0;
 
   /// Stable display order for the south hand, indexed by card id. The engine
@@ -213,6 +215,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
               southCards: southCards,
               selectedIds: _selectedCardIds,
               onCardTap: _toggleSelectedCard,
+              onCardLongPress: _showCardInspect,
               onReorderHand: _reorderHand,
               canDiscardCard: _canDropCardToDiscard,
               canPlayCardOnTable: _canDropCardToTable,
@@ -394,6 +397,13 @@ class _GameTableScreenState extends State<GameTableScreen> {
               onLeave: () {
                 Navigator.of(context).pop();
               },
+            ),
+          if (_inspectedCard != null)
+            _CardInspectOverlay(
+              card: _inspectedCard!,
+              theme: theme,
+              aids: aids,
+              onClose: () => setState(() => _inspectedCard = null),
             ),
         ],
       ),
@@ -743,6 +753,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
         _selectedCardIds.add(card.id);
       }
     });
+  }
+
+  void _showCardInspect(HareegCard card) {
+    unawaited(_haptics.fire(TableHapticEvent.cardTap));
+    setState(() => _inspectedCard = card);
   }
 
   void _replaceHumanFeedback(String? message, {required bool isError}) {
@@ -1320,6 +1335,165 @@ class _RoundTableButton extends StatelessWidget {
   }
 }
 
+class _CardInspectOverlay extends StatelessWidget {
+  const _CardInspectOverlay({
+    required this.card,
+    required this.theme,
+    required this.aids,
+    required this.onClose,
+  });
+
+  final HareegCard card;
+  final HareegCardTheme theme;
+  final TableAids aids;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _inspectTitle(card);
+    final body = _inspectBody(card, aids);
+    return Positioned.fill(
+      key: const ValueKey('card-inspect-overlay'),
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.48),
+        child: SafeArea(
+          child: Center(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact =
+                    constraints.maxWidth < 560 || constraints.maxHeight < 390;
+                final cardSize = compact
+                    ? const Size(88, 124)
+                    : const Size(128, 180);
+                final details = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: compact
+                      ? CrossAxisAlignment.center
+                      : CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      key: const ValueKey('card-inspect-title'),
+                      textAlign: compact ? TextAlign.center : TextAlign.start,
+                      style: TextStyle(
+                        color: LoungeTokens.offWhiteText,
+                        fontSize: compact ? 17 : 20,
+                        fontWeight: FontWeight.w900,
+                        height: 1.05,
+                      ),
+                    ),
+                    if (body != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        body,
+                        key: const ValueKey('card-inspect-body'),
+                        textAlign: compact ? TextAlign.center : TextAlign.start,
+                        style: TextStyle(
+                          color: LoungeTokens.offWhiteText.withValues(
+                            alpha: 0.82,
+                          ),
+                          fontSize: compact ? 12 : 13,
+                          height: 1.25,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+
+                final content = compact
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          HareegCardView(
+                            theme: theme,
+                            card: card,
+                            size: cardSize,
+                            jokerDisplay: JokerDisplay.assisted,
+                          ),
+                          const SizedBox(height: 12),
+                          details,
+                        ],
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          HareegCardView(
+                            theme: theme,
+                            card: card,
+                            size: cardSize,
+                            jokerDisplay: JokerDisplay.assisted,
+                          ),
+                          const SizedBox(width: 18),
+                          Flexible(child: details),
+                        ],
+                      );
+
+                return Container(
+                  constraints: BoxConstraints(
+                    maxWidth: math.max(
+                      0.0,
+                      math.min(constraints.maxWidth - 28, 520.0),
+                    ),
+                    maxHeight: math.max(0.0, constraints.maxHeight - 28),
+                  ),
+                  margin: const EdgeInsets.all(14),
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 14 : 18,
+                    compact ? 14 : 18,
+                    compact ? 14 : 18,
+                    compact ? 16 : 18,
+                  ),
+                  decoration: BoxDecoration(
+                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: LoungeTokens.goldAccent.withValues(alpha: 0.36),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.34),
+                        blurRadius: 28,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: compact ? 0 : 28),
+                          child: content,
+                        ),
+                      ),
+                      Positioned(
+                        top: -8,
+                        right: -8,
+                        child: Tooltip(
+                          message: 'Close',
+                          child: IconButton(
+                            key: const ValueKey('card-inspect-close'),
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close_rounded),
+                            color: LoungeTokens.offWhiteText,
+                            iconSize: 20,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 enum _FlightAnchor {
   stock(Alignment(-0.86, 0.56)),
   discard(Alignment(0, 0)),
@@ -1650,11 +1824,80 @@ String _debugActionSummary(Iterable<String> actionIds) {
   return '[$shown, +${ids.length - maxShown} more]';
 }
 
+String _inspectTitle(HareegCard card) {
+  final identity = card.identity;
+  if (identity != null) {
+    return '${_rankWord(identity.rank)} of ${_suitWord(identity.suit)}';
+  }
+
+  final represented = card.representedIdentity;
+  if (represented != null) {
+    return 'Joker as ${_rankWord(represented.rank)} of '
+        '${_suitWord(represented.suit)}';
+  }
+
+  return 'Joker';
+}
+
+String? _inspectBody(HareegCard card, TableAids aids) {
+  if (aids == TableAids.tableMode) {
+    return null;
+  }
+
+  final identity = card.effectiveIdentity;
+  if (identity == null) {
+    return aids == TableAids.guided
+        ? 'Unassigned joker. Pick its identity when a legal meld needs it.'
+        : 'Unassigned joker.';
+  }
+
+  final value = identity.rank.value;
+  if (card.isJoker) {
+    final represented = '${identity.rank.label}${identity.suit.label}';
+    return aids == TableAids.guided
+        ? 'Represents $represented for melds, covers, and scoring. '
+              'Memory display reveals this briefly, then quiets it.'
+        : 'Represents $represented. Value $value.';
+  }
+
+  if (aids == TableAids.guided) {
+    return 'Value $value. Fits same-rank sets and same-suit runs when legal.';
+  }
+  return 'Value $value. ${_suitWord(identity.suit)}.';
+}
+
 String _seatLabel(PlayerSeat seat) {
   return switch (seat) {
     PlayerSeat.south => 'You',
     PlayerSeat.east => 'CPU East',
     PlayerSeat.north => 'CPU North',
     PlayerSeat.west => 'CPU West',
+  };
+}
+
+String _rankWord(CardRank rank) {
+  return switch (rank) {
+    CardRank.ace => 'Ace',
+    CardRank.two => 'Two',
+    CardRank.three => 'Three',
+    CardRank.four => 'Four',
+    CardRank.five => 'Five',
+    CardRank.six => 'Six',
+    CardRank.seven => 'Seven',
+    CardRank.eight => 'Eight',
+    CardRank.nine => 'Nine',
+    CardRank.ten => 'Ten',
+    CardRank.jack => 'Jack',
+    CardRank.queen => 'Queen',
+    CardRank.king => 'King',
+  };
+}
+
+String _suitWord(CardSuit suit) {
+  return switch (suit) {
+    CardSuit.spades => 'Spades',
+    CardSuit.hearts => 'Hearts',
+    CardSuit.diamonds => 'Diamonds',
+    CardSuit.clubs => 'Clubs',
   };
 }

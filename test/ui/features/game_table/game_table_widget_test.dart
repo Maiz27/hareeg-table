@@ -9,6 +9,8 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
+import 'package:hareeg_table/ui/core/aids/table_aids.dart';
 import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
@@ -185,6 +187,7 @@ void main() {
                 southCards: cards,
                 selectedIds: const {},
                 onCardTap: (_) {},
+                onCardLongPress: (_) {},
                 onReorderHand: (card, targetIndex) {
                   moves.add((card: card, targetIndex: targetIndex));
                 },
@@ -360,6 +363,145 @@ void main() {
       );
     });
 
+    testWidgets('memory joker reveal quiets after the reveal window', (
+      tester,
+    ) async {
+      const represented = CardIdentity(
+        rank: CardRank.queen,
+        suit: CardSuit.hearts,
+      );
+      const joker = HareegCard.joker(
+        deckIndex: 94,
+        jokerIndex: 0,
+        representedIdentity: represented,
+      );
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          memoryJokerDisplay: true,
+        );
+
+      await _openTable(
+        tester,
+        southHand: [
+          joker,
+          _card(CardRank.three, CardSuit.spades, 94),
+          _card(CardRank.four, CardSuit.spades, 94),
+        ],
+        preferencesRepository: preferences,
+      );
+
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 1700));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+            '${CardVisualState.normal}-${JokerDisplay.unassigned}',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+          ),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('long press opens guided card inspect with explanation', (
+      tester,
+    ) async {
+      await _openTable(
+        tester,
+        southHand: [
+          _card(CardRank.queen, CardSuit.hearts, 95),
+          _card(CardRank.three, CardSuit.spades, 95),
+          _card(CardRank.four, CardSuit.spades, 95),
+        ],
+      );
+
+      final target = find.bySemanticsLabel('Queen of Hearts').first;
+      await tester.longPressAt(tester.getCenter(target));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('card-inspect-overlay')),
+        findsOneWidget,
+      );
+      expect(find.text('Queen of Hearts'), findsOneWidget);
+      expect(find.textContaining('same-rank sets'), findsOneWidget);
+    });
+
+    testWidgets('table mode card inspect stays minimal', (tester) async {
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          tableAids: TableAids.tableMode,
+        );
+      await _openTable(
+        tester,
+        southHand: [
+          _card(CardRank.queen, CardSuit.hearts, 96),
+          _card(CardRank.three, CardSuit.spades, 96),
+          _card(CardRank.four, CardSuit.spades, 96),
+        ],
+        preferencesRepository: preferences,
+      );
+
+      final target = find.bySemanticsLabel('Queen of Hearts').first;
+      await tester.longPressAt(tester.getCenter(target));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('card-inspect-overlay')),
+        findsOneWidget,
+      );
+      expect(find.text('Queen of Hearts'), findsOneWidget);
+      expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
+    });
+
+    testWidgets('opponent meld tap expands the meld in place', (tester) async {
+      final meld = PlacedMeld.fromCards([
+        _card(CardRank.four, CardSuit.clubs, 97),
+        _card(CardRank.five, CardSuit.clubs, 97),
+        _card(CardRank.six, CardSuit.clubs, 97),
+        _card(CardRank.seven, CardSuit.clubs, 97),
+      ]);
+
+      await _pumpPlayfield(
+        tester,
+        tableMelds: {
+          PlayerSeat.east: [meld],
+        },
+      );
+
+      final normal = find.byKey(const ValueKey('table-meld-east-0-normal'));
+      expect(normal, findsOneWidget);
+
+      await tester.tap(normal);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('table-meld-east-0-expanded')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('card-inspect-overlay')), findsNothing);
+    });
+
     testWidgets('FiftyRing is not present when no Fifty window is open', (
       tester,
     ) async {
@@ -397,6 +539,80 @@ Future<void> _openTable(
       deckIndex: 0,
     ).label,
     'AS',
+  );
+}
+
+Future<void> _pumpPlayfield(
+  WidgetTester tester, {
+  Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 900,
+          height: 500,
+          child: PhysicalTablePlayfield(
+            theme: CardThemeRegistry.byId(null),
+            stockCount: 30,
+            discardPile: const [],
+            topDiscard: null,
+            pendingDiscard: null,
+            cardCounts: const {
+              PlayerSeat.south: 4,
+              PlayerSeat.east: 14,
+              PlayerSeat.north: 14,
+              PlayerSeat.west: 14,
+            },
+            tableMelds: tableMelds,
+            southCards: [
+              _card(CardRank.four, CardSuit.clubs, 98),
+              _card(CardRank.five, CardSuit.clubs, 98),
+              _card(CardRank.six, CardSuit.clubs, 98),
+              _card(CardRank.seven, CardSuit.clubs, 98),
+            ],
+            selectedIds: const {},
+            onCardTap: (_) {},
+            onCardLongPress: (_) {},
+            onReorderHand: (_, _) {},
+            canDiscardCard: (_) => false,
+            canPlayCardOnTable: (_) => false,
+            canPlaceMeldOnTable: (_) => false,
+            canPlayCardOnMeld: (_, _, _) => false,
+            canRetractMeld: (_, _) => false,
+            onDiscardCard: (_) {},
+            onPlayCardOnTable: (_) {},
+            onPlayCardOnMeld: (_, _, _) {},
+            onRetractMeld: (_, _) {},
+            canDrawStock: false,
+            canTakeDiscard: false,
+            canReturnDiscard: false,
+            canClaimFifty: false,
+            canReturnOpeningMelds: false,
+            onDrawStock: () {},
+            onTakeDiscard: () {},
+            onReturnDiscard: () {},
+            onClaimFifty: () {},
+            onReturnOpeningMelds: () {},
+            fiftySecondsRemaining: null,
+            fiftyTotalSeconds: 50,
+            fiftyPulse: false,
+            meldRequirement: 51,
+            meldSelectionValue: null,
+            meldSelectionValid: false,
+            meldSelectionHasOpened: false,
+            onPlaySelectedMeld: null,
+            meldSuggestions: const [],
+            showMeldSuggestions: false,
+            onMeldSuggestion: (_) {},
+            isHumanTurn: false,
+            isCpuRunning: false,
+            currentSeat: PlayerSeat.south,
+            activeSeats: PlayerSeat.values.toSet(),
+          ),
+        ),
+      ),
+    ),
   );
 }
 

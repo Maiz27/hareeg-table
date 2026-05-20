@@ -317,10 +317,8 @@ abstract final class CardPainting {
     );
 
     void paintIndex() {
-      final painter = TextPainter(
-        text: span,
-        textDirection: TextDirection.ltr,
-      )..layout();
+      final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
+        ..layout();
 
       // Rank sits in the upper-left of the index well.
       final rankOffset = Offset(padX, padY);
@@ -384,10 +382,7 @@ abstract final class CardPainting {
     tp.paint(canvas, Offset((size.width - tp.width) / 2, groupTop));
 
     canvas.save();
-    canvas.translate(
-      (size.width - glyphSize) / 2,
-      groupTop + tp.height + gap,
-    );
+    canvas.translate((size.width - glyphSize) / 2, groupTop + tp.height + gap);
     _paintSuitGlyph(canvas, identity.suit, color, glyphSize);
     canvas.restore();
   }
@@ -451,7 +446,9 @@ abstract final class CardPainting {
   ) {
     final size = request.size;
     final shortSide = size.shortestSide;
-    final fade = request.jokerDisplay == JokerDisplay.memoryReveal ? 0.55 : 0.95;
+    final fade = request.jokerDisplay == JokerDisplay.memoryReveal
+        ? 0.90
+        : 0.95;
     final color = palette.colorFor(represented.suit).withValues(alpha: fade);
     final labelSize = shortSide * 0.2;
     final glyphSize = shortSide * 0.18;
@@ -482,10 +479,7 @@ abstract final class CardPainting {
     tp.paint(canvas, Offset(groupLeft, centerY - tp.height / 2));
 
     canvas.save();
-    canvas.translate(
-      groupLeft + tp.width + gap,
-      centerY - glyphSize / 2,
-    );
+    canvas.translate(groupLeft + tp.width + gap, centerY - glyphSize / 2);
     _paintSuitGlyph(canvas, represented.suit, color, glyphSize);
     canvas.restore();
   }
@@ -505,11 +499,7 @@ abstract final class CardPainting {
     ];
     final color = colors[deckIndex % colors.length];
     final paint = Paint()..color = color.withValues(alpha: 0.7);
-    canvas.drawCircle(
-      Offset(size.width - 8, 8),
-      2.4,
-      paint,
-    );
+    canvas.drawCircle(Offset(size.width - 8, 8), 2.4, paint);
   }
 
   static List<Offset> _pipPositionsFor(CardRank rank) {

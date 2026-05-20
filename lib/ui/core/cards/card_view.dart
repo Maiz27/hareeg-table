@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../domain/classic_hareeg/models/playing_card.dart';
@@ -9,9 +11,10 @@ import 'card_theme.dart';
 /// Renders a single Hareeg card using the active [CardTheme].
 ///
 /// Composes the theme's face/back paint with the state overlay defined by
-/// the theme (or default) and a subtle state-change tween. Stateless: the
-/// caller drives visual state via [visualState].
-class HareegCardView extends StatelessWidget {
+/// the theme (or default) and a subtle state-change tween. The caller drives
+/// visual state via [visualState]; this widget only keeps local timing state
+/// for memory-joker reveal.
+class HareegCardView extends StatefulWidget {
   /// Creates a card view.
   const HareegCardView({
     super.key,
@@ -54,29 +57,102 @@ class HareegCardView extends StatelessWidget {
   final String? semanticsLabel;
 
   @override
+  State<HareegCardView> createState() => _HareegCardViewState();
+}
+
+class _HareegCardViewState extends State<HareegCardView> {
+  static const _memoryRevealDuration = Duration(milliseconds: 1600);
+
+  Timer? _memoryRevealTimer;
+  JokerDisplay? _lastResolvedJokerDisplay;
+  bool _memoryRevealQuieted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final resolvedDisplay =
+        widget.jokerDisplay ?? JokerDisplayScope.of(context);
+    if (_lastResolvedJokerDisplay != resolvedDisplay) {
+      _lastResolvedJokerDisplay = resolvedDisplay;
+      _memoryRevealQuieted = false;
+      _syncMemoryRevealTimer();
+    } else if (_memoryRevealTimer == null && _shouldMemoryReveal) {
+      _syncMemoryRevealTimer();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HareegCardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final cardChanged =
+        oldWidget.card.id != widget.card.id ||
+        oldWidget.card.representedIdentity != widget.card.representedIdentity;
+    final displayChanged = oldWidget.jokerDisplay != widget.jokerDisplay;
+    if (cardChanged || displayChanged) {
+      _lastResolvedJokerDisplay =
+          widget.jokerDisplay ?? _lastResolvedJokerDisplay;
+      _memoryRevealQuieted = false;
+      _syncMemoryRevealTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _memoryRevealTimer?.cancel();
+    super.dispose();
+  }
+
+  bool get _shouldMemoryReveal {
+    final display =
+        widget.jokerDisplay ??
+        _lastResolvedJokerDisplay ??
+        JokerDisplay.assisted;
+    return widget.card.isJoker &&
+        widget.card.representedIdentity != null &&
+        display == JokerDisplay.memoryReveal;
+  }
+
+  void _syncMemoryRevealTimer() {
+    _memoryRevealTimer?.cancel();
+    _memoryRevealTimer = null;
+    if (!_shouldMemoryReveal) {
+      _memoryRevealQuieted = false;
+      return;
+    }
+    _memoryRevealTimer = Timer(_memoryRevealDuration, () {
+      if (!mounted) return;
+      setState(() => _memoryRevealQuieted = true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final motion = MotionScope.of(context);
-    final overlay = theme.overlayFor(visualState);
-    final effectiveJokerDisplay = jokerDisplay ?? JokerDisplayScope.of(context);
+    final overlay = widget.theme.overlayFor(widget.visualState);
+    final scopedJokerDisplay =
+        widget.jokerDisplay ?? JokerDisplayScope.of(context);
+    final effectiveJokerDisplay = _shouldMemoryReveal && _memoryRevealQuieted
+        ? JokerDisplay.unassigned
+        : scopedJokerDisplay;
     final request = CardRenderRequest(
-      card: card,
-      variant: variant,
-      size: size,
-      visualState: visualState,
+      card: widget.card,
+      variant: widget.variant,
+      size: widget.size,
+      visualState: widget.visualState,
       jokerDisplay: effectiveJokerDisplay,
-      badge: badge,
-      faceDown: faceDown,
+      badge: widget.badge,
+      faceDown: widget.faceDown,
     );
 
-    final assetPath = theme.imageAssetFor(request);
+    final assetPath = widget.theme.imageAssetFor(request);
     final surface = assetPath == null
         ? CustomPaint(
             painter: _CardThemePainter(
-              theme: theme,
+              theme: widget.theme,
               request: request,
               overlay: overlay,
             ),
-            size: size,
+            size: widget.size,
           )
         : _AssetCardSurface(
             assetPath: assetPath,
@@ -84,7 +160,7 @@ class HareegCardView extends StatelessWidget {
             overlay: overlay,
           );
 
-    final label = semanticsLabel ?? _defaultSemanticsLabel();
+    final label = widget.semanticsLabel ?? _defaultSemanticsLabel();
     return Semantics(
       label: label,
       child: AnimatedSwitcher(
@@ -93,9 +169,10 @@ class HareegCardView extends StatelessWidget {
         switchOutCurve: motion.curve(Curves.easeIn),
         child: SizedBox.fromSize(
           key: ValueKey(
-            '${theme.id}-${card.id}-$visualState-$effectiveJokerDisplay',
+            '${widget.theme.id}-${widget.card.id}-'
+            '${widget.visualState}-$effectiveJokerDisplay',
           ),
-          size: size,
+          size: widget.size,
           child: surface,
         ),
       ),
@@ -103,15 +180,15 @@ class HareegCardView extends StatelessWidget {
   }
 
   String _defaultSemanticsLabel() {
-    if (faceDown) return 'Face-down card';
-    if (card.isJoker) {
-      final represented = card.representedIdentity;
+    if (widget.faceDown) return 'Face-down card';
+    if (widget.card.isJoker) {
+      final represented = widget.card.representedIdentity;
       if (represented != null) {
         return 'Joker representing ${represented.label}';
       }
       return 'Joker';
     }
-    final identity = card.effectiveIdentity!;
+    final identity = widget.card.effectiveIdentity!;
     return '${_rankWord(identity.rank)} of ${_suitWord(identity.suit)}';
   }
 
