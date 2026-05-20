@@ -147,6 +147,8 @@ abstract final class CardPainting {
     final showRepresented =
         represented != null && request.jokerDisplay != JokerDisplay.unassigned;
 
+    _paintJokerCorners(canvas, request, palette);
+
     // Lift the joker mark slightly when a represented identity is shown so
     // both elements share the visual centre instead of stacking lop-sided.
     final centerY = showRepresented ? size.height * 0.46 : size.height * 0.5;
@@ -436,6 +438,70 @@ abstract final class CardPainting {
     CardThemePalette palette,
   ) {
     // No-op for now; the joker face draws its own treatment.
+  }
+
+  /// Draws the joker's corner indices: a jester-cap silhouette in both the
+  /// top-left and (rotated 180°) bottom-right corners. Sits in the same
+  /// corner well as a standard card's rank/pip stack but as a single glyph,
+  /// so the joker never reads as a Jack.
+  static void _paintJokerCorners(
+    Canvas canvas,
+    CardRenderRequest request,
+    CardThemePalette palette,
+  ) {
+    final size = request.size;
+    final shortSide = size.shortestSide;
+    // Cap occupies roughly the visual mass of a rank letter + suit pip on a
+    // standard card, with clamps so picker-scale cards still get a legible
+    // silhouette and full-scale cards don't crowd the centre treatment.
+    final capSize = (shortSide * 0.34).clamp(13.0, 26.0);
+    final padX = shortSide * 0.08;
+    final padY = shortSide * 0.07;
+
+    void paintCorner() {
+      canvas.save();
+      canvas.translate(padX, padY);
+      _paintJokerCap(canvas, capSize, palette.jokerAccent);
+      canvas.restore();
+    }
+
+    paintCorner();
+
+    // Bottom-right index rotated 180° so the cap still points "up" when
+    // the card is held by the opposite seat.
+    canvas.save();
+    canvas.translate(size.width, size.height);
+    canvas.rotate(math.pi);
+    paintCorner();
+    canvas.restore();
+  }
+
+  /// Paints a jester cap inside a 1× [size] square. Three upward spikes —
+  /// outer two leaning outward, centre pointing up — anchored by a short
+  /// band along the bottom. Small bells perch at each spike tip so the
+  /// silhouette reads as "jester hat" at full size; at picker scale the
+  /// bells fuse into the tips and the cap shape carries the meaning.
+  static void _paintJokerCap(Canvas canvas, double size, Color color) {
+    final s = size;
+    final fill = Paint()..color = color;
+
+    final cap = Path()
+      ..moveTo(s * 0.12, s * 0.86)
+      ..lineTo(s * 0.06, s * 0.66) // left band shoulder
+      ..lineTo(s * 0.10, s * 0.30) // left spike tip (leans outward)
+      ..lineTo(s * 0.36, s * 0.66) // left valley at band top
+      ..lineTo(s * 0.50, s * 0.20) // centre spike tip
+      ..lineTo(s * 0.64, s * 0.66) // right valley at band top
+      ..lineTo(s * 0.90, s * 0.30) // right spike tip
+      ..lineTo(s * 0.94, s * 0.66) // right band shoulder
+      ..lineTo(s * 0.88, s * 0.86)
+      ..close();
+    canvas.drawPath(cap, fill);
+
+    final bellRadius = s * 0.085;
+    canvas.drawCircle(Offset(s * 0.10, s * 0.22), bellRadius, fill);
+    canvas.drawCircle(Offset(s * 0.50, s * 0.12), bellRadius, fill);
+    canvas.drawCircle(Offset(s * 0.90, s * 0.22), bellRadius, fill);
   }
 
   static void _paintJokerRepresented(
