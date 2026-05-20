@@ -60,10 +60,7 @@ class ClassicTurnFlowState {
   /// Legal action ids for the current draw/take state.
   List<String> get legalActionIds {
     if (pendingDiscard != null) {
-      return [
-        'use-pending-discard',
-        if (stock.isNotEmpty) 'return-pending-discard',
-      ];
+      return ['use-pending-discard', 'return-pending-discard'];
     }
     if (phase == ClassicTurnPhase.action) {
       return const ['play-meld', 'discard'];
@@ -133,16 +130,11 @@ abstract final class ClassicHareegTurnFlowRules {
     );
   }
 
-  /// Returns the pending discard and draws from stock instead.
-  static ClassicTurnFlowState returnPendingDiscardAndDraw(
-    ClassicTurnFlowState state,
-  ) {
+  /// Returns the pending discard and moves back to draw/take decision state.
+  static ClassicTurnFlowState returnPendingDiscard(ClassicTurnFlowState state) {
     final pending = state.pendingDiscard;
     if (pending == null) {
       throw StateError('No pending discard to return.');
-    }
-    if (state.stock.isEmpty) {
-      throw StateError('Stock is empty.');
     }
 
     final hand = List<HareegCard>.of(state.hand);
@@ -151,14 +143,12 @@ abstract final class ClassicHareegTurnFlowRules {
       throw StateError('Pending discard is not in the player hand.');
     }
     hand.removeAt(pendingIndex);
-    final stock = List<HareegCard>.of(state.stock);
-    final drawn = stock.removeLast();
 
     return ClassicTurnFlowState(
       currentSeat: state.currentSeat,
-      phase: ClassicTurnPhase.action,
-      hand: List.unmodifiable([...hand, drawn]),
-      stock: List.unmodifiable(stock),
+      phase: ClassicTurnPhase.draw,
+      hand: List.unmodifiable(hand),
+      stock: state.stock,
       discardPile: List.unmodifiable([...state.discardPile, pending.card]),
       previousDiscardSeat: pending.fromSeat,
     );

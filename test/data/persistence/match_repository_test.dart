@@ -58,7 +58,7 @@ void main() {
         restored.tableMelds[PlayerSeat.south]!.single.cards.map(
           (card) => card.label,
         ),
-        ['9C', '9D', '9H'],
+        ['9D', '9C', '9H'],
       );
     });
 
