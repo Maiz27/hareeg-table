@@ -218,6 +218,8 @@ class _ReorderableHand extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       buildDefaultDragHandles: false,
       itemCount: cards.length,
+      // TODO: Replace with onReorderItem after the repo requires Flutter 3.44+.
+      // ignore: deprecated_member_use
       onReorder: onReorder,
       proxyDecorator: (child, index, animation) => Material(
         color: Colors.transparent,
