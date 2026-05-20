@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -5,6 +7,8 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/match_repository.dart';
 import '../../../../domain/classic_hareeg/rules/classic_hareeg_rules.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/theme/lounge_tokens.dart';
 
 /// Main menu and navigation shell.
 class HomeScreen extends StatefulWidget {
@@ -32,68 +36,87 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final rules = ClassicHareegRules.defaults();
-    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      backgroundColor: LoungeTokens.feltGreen,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(AppStrings.homeTitle, style: textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text(AppStrings.homeSubtitle, style: textTheme.bodySmall),
-            const SizedBox(height: 24),
-            _MenuButton(
-              icon: Icons.add_circle_outline,
-              label: AppStrings.newGame,
-              onPressed: () => _openAndRefresh(AppRoutes.newGame),
-            ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.play_circle_outline,
-              label: AppStrings.continueGame,
-              subtitle: _savedMatch == null
-                  ? (_loadingSavedMatch
-                        ? AppStrings.checkingSavedMatch
-                        : AppStrings.noSavedMatch)
-                  : AppStrings.resumeSavedMatch,
-              onPressed: _savedMatch == null
-                  ? null
-                  : () => _openAndRefresh(
-                      AppRoutes.table,
-                      arguments: _savedMatch,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth >= 520
+                ? LoungeTokens.space8
+                : LoungeTokens.space5;
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const _MenuBackdrop(),
+                ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    LoungeTokens.space6,
+                    horizontalPadding,
+                    LoungeTokens.space8,
+                  ),
+                  children: [
+                    _BrandHeader(rules: rules),
+                    const SizedBox(height: LoungeTokens.space8),
+                    FilledButton.icon(
+                      onPressed: () => _openAndRefresh(AppRoutes.newGame),
+                      icon: const Icon(Icons.table_bar_outlined),
+                      label: const Text(AppStrings.newGame),
                     ),
-            ),
-            if (_savedMatch != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _abandonSavedMatch,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text(AppStrings.abandonSavedMatch),
+                    const SizedBox(height: LoungeTokens.space3),
+                    _CommandStack(
+                      children: [
+                        _CommandRow(
+                          icon: Icons.play_circle_outline,
+                          label: AppStrings.continueGame,
+                          subtitle: _savedMatch == null
+                              ? (_loadingSavedMatch
+                                    ? AppStrings.checkingSavedMatch
+                                    : AppStrings.noSavedMatch)
+                              : AppStrings.resumeSavedMatch,
+                          onTap: _savedMatch == null
+                              ? null
+                              : () => _openAndRefresh(
+                                  AppRoutes.table,
+                                  arguments: _savedMatch,
+                                ),
+                        ),
+                        _CommandRow(
+                          icon: Icons.settings_outlined,
+                          label: AppStrings.settings,
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.settings),
+                        ),
+                        _CommandRow(
+                          icon: Icons.menu_book_outlined,
+                          label: AppStrings.rulesHelp,
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pushNamed(AppRoutes.rulesHelp),
+                        ),
+                      ],
+                    ),
+                    if (_savedMatch != null) ...[
+                      const SizedBox(height: LoungeTokens.space2),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _abandonSavedMatch,
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text(AppStrings.abandonSavedMatch),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: LoungeTokens.space8),
+                    const _ClassicContext(),
+                  ],
                 ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.settings_outlined,
-              label: AppStrings.settings,
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.settings),
-            ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.menu_book_outlined,
-              label: AppStrings.rulesHelp,
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.rulesHelp),
-            ),
-            const SizedBox(height: 24),
-            _ClassicSummary(rules: rules),
-            const SizedBox(height: 16),
-            const _PlannedModes(),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -138,46 +161,316 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _MenuButton extends StatelessWidget {
-  const _MenuButton({
+class _MenuBackdrop extends StatelessWidget {
+  const _MenuBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -48,
+          right: -46,
+          child: LoungeMotif(
+            variant: LoungeMotifVariant.medallion,
+            opacity: 0.07,
+            strokeWidth: 1.0,
+            density: 4,
+            size: const Size.square(230),
+          ),
+        ),
+        Positioned(
+          bottom: 18,
+          left: -58,
+          child: LoungeMotif(
+            variant: LoungeMotifVariant.medallion,
+            opacity: 0.055,
+            strokeWidth: 1.0,
+            density: 5,
+            size: const Size.square(190),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader({required this.rules});
+
+  final ClassicHareegRules rules;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 380;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(child: _BrandCopy()),
+                if (!compact) ...[
+                  const SizedBox(width: LoungeTokens.space4),
+                  const _MenuCardFan(width: 112, height: 84),
+                ],
+              ],
+            ),
+            if (compact) ...[
+              const SizedBox(height: LoungeTokens.space5),
+              const Center(child: _MenuCardFan(width: 138, height: 82)),
+            ],
+            const SizedBox(height: LoungeTokens.space5),
+            _RuleLine(rules: rules),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BrandCopy extends StatelessWidget {
+  const _BrandCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          const TextSpan(
+            children: [
+              TextSpan(text: 'Hareeg ', style: _brandTitle),
+              TextSpan(text: 'Table', style: _brandTitleGold),
+            ],
+          ),
+        ),
+        const SizedBox(height: LoungeTokens.space2),
+        const Text(
+          AppStrings.homeSubtitle,
+          style: TextStyle(
+            color: LoungeTokens.mutedText,
+            fontSize: 15,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static const _brandTitle = TextStyle(
+    color: LoungeTokens.offWhiteText,
+    fontSize: 36,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.1,
+    height: 1.0,
+  );
+
+  static const _brandTitleGold = TextStyle(
+    color: LoungeTokens.goldAccent,
+    fontSize: 36,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.1,
+    height: 1.0,
+  );
+}
+
+class _RuleLine extends StatelessWidget {
+  const _RuleLine({required this.rules});
+
+  final ClassicHareegRules rules;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: LoungeTokens.space2,
+      runSpacing: LoungeTokens.space2,
+      children: [
+        _InlineFact(label: '${rules.seatCount} seats'),
+        _InlineFact(label: '${rules.openingRequirement} opening'),
+        _InlineFact(label: 'Fifty ${rules.fiftyClaimSeconds}s'),
+      ],
+    );
+  }
+}
+
+class _InlineFact extends StatelessWidget {
+  const _InlineFact({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space3,
+          vertical: LoungeTokens.space2,
+        ),
+        child: Text(label, style: LoungeTokens.bodyMuted),
+      ),
+    );
+  }
+}
+
+class _MenuCardFan extends StatelessWidget {
+  const _MenuCardFan({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(painter: _MenuCardFanPainter()),
+    );
+  }
+}
+
+class _MenuCardFanPainter extends CustomPainter {
+  static const _cardCount = 5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cardWidth = size.width * 0.34;
+    final cardHeight = size.height * 0.92;
+    final center = Offset(size.width / 2, size.height * 0.98);
+
+    for (var i = 0; i < _cardCount; i++) {
+      final t = (i - (_cardCount - 1) / 2) / (_cardCount - 1);
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(t * 0.54);
+      canvas.translate(-cardWidth / 2, -cardHeight);
+
+      final rect = Rect.fromLTWH(0, 0, cardWidth, cardHeight);
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6));
+      canvas.drawRRect(
+        rrect.shift(const Offset(0, 2)),
+        Paint()
+          ..color = const Color(0x560B0A08)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+      canvas.drawRRect(rrect, Paint()..color = LoungeTokens.cardIvory);
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = LoungeTokens.sandLine
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+      canvas.restore();
+    }
+
+    canvas.drawCircle(
+      Offset(size.width * 0.74, size.height * 0.37),
+      math.min(size.width, size.height) * 0.08,
+      Paint()..color = LoungeTokens.fiftyFlame,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _CommandStack extends StatelessWidget {
+  const _CommandStack({required this.children});
+
+  final List<_CommandRow> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Divider(
+                height: 1,
+                color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CommandRow extends StatelessWidget {
+  const _CommandRow({
     required this.icon,
     required this.label,
+    required this.onTap,
     this.subtitle,
-    this.onPressed,
   });
 
   final IconData icon;
   final String label;
   final String? subtitle;
-  final VoidCallback? onPressed;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null;
-    final colors = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      height: subtitle == null ? 58 : 72,
-      child: FilledButton.tonalIcon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Align(
-          alignment: Alignment.centerLeft,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final enabled = onTap != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: LoungeTokens.space4,
+            vertical: LoungeTokens.space4,
+          ),
+          child: Row(
             children: [
-              Text(label),
-              if (subtitle != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle!,
-                  style: TextStyle(
-                    color: enabled ? colors.onSecondaryContainer : null,
-                    fontSize: 12,
-                  ),
+              Icon(
+                icon,
+                color: enabled
+                    ? LoungeTokens.goldAccent
+                    : LoungeTokens.mutedText,
+              ),
+              const SizedBox(width: LoungeTokens.space4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: LoungeTokens.titleSmall.copyWith(
+                        fontSize: 15,
+                        color: enabled
+                            ? LoungeTokens.offWhiteText
+                            : LoungeTokens.mutedText,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(subtitle!, style: LoungeTokens.bodyMuted),
+                    ],
+                  ],
                 ),
-              ],
+              ),
+              if (enabled)
+                const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
             ],
           ),
         ),
@@ -186,98 +479,41 @@ class _MenuButton extends StatelessWidget {
   }
 }
 
-class _ClassicSummary extends StatelessWidget {
-  const _ClassicSummary({required this.rules});
-
-  final ClassicHareegRules rules;
+class _ClassicContext extends StatelessWidget {
+  const _ClassicContext();
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.28)),
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(top: LoungeTokens.space5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppStrings.classicModeTitle, style: textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              AppStrings.classicModeDescription,
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _FactChip(
-                  label: AppStrings.seatsLabel,
-                  value: '${rules.seatCount}',
+            Row(
+              children: const [
+                Icon(
+                  Icons.style_outlined,
+                  color: LoungeTokens.goldAccent,
+                  size: 18,
                 ),
-                _FactChip(
-                  label: AppStrings.openingLabel,
-                  value: '${rules.openingRequirement}',
-                ),
-                _FactChip(
-                  label: AppStrings.fiftyLabel,
-                  value: '${rules.fiftyClaimSeconds}s',
-                ),
+                SizedBox(width: LoungeTokens.space2),
+                Text(AppStrings.classicModeTitle, style: LoungeTokens.heading),
               ],
+            ),
+            const SizedBox(height: LoungeTokens.space2),
+            const Text(
+              AppStrings.classicModeDescription,
+              style: LoungeTokens.body,
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FactChip extends StatelessWidget {
-  const _FactChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(label: Text('$label $value'));
-  }
-}
-
-class _PlannedModes extends StatelessWidget {
-  const _PlannedModes();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(AppStrings.plannedModes, style: textTheme.titleMedium),
-        const SizedBox(height: 8),
-        const _PlannedModeTile(title: AppStrings.hareeg14),
-        const SizedBox(height: 8),
-        const _PlannedModeTile(title: AppStrings.fifties),
-      ],
-    );
-  }
-}
-
-class _PlannedModeTile extends StatelessWidget {
-  const _PlannedModeTile({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.lock_clock_outlined),
-      title: Text(title),
-      trailing: const Text(AppStrings.comingSoon),
-      enabled: false,
     );
   }
 }

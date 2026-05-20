@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
+import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
+import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/theme/lounge_tokens.dart';
 
 /// Route arguments for [RoundSummaryScreen].
 class RoundSummaryArguments {
@@ -61,44 +63,48 @@ class RoundSummaryScreen extends StatelessWidget {
       ..sort((left, right) => left.index.compareTo(right.index));
 
     return Scaffold(
+      backgroundColor: LoungeTokens.feltGreen,
       appBar: AppBar(title: const Text('Round summary')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Text(_headline, style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text(_details),
-            const SizedBox(height: 20),
-            for (final seat in scoreSeats) ...[
-              _ScoreLine(
-                seat: seat,
-                before: previousScores[seat] ?? 0,
-                after: progress.scores[seat] ?? 0,
-                eliminated: !progress.activeSeats.contains(seat),
+            const _SummaryBackdrop(),
+            ListView(
+              padding: const EdgeInsets.fromLTRB(
+                LoungeTokens.space5,
+                LoungeTokens.space5,
+                LoungeTokens.space5,
+                LoungeTokens.space8,
               ),
-              const Divider(height: 16),
-            ],
-            if (winner != null) ...[
-              const SizedBox(height: 12),
-              Text('Match winner: ${_seatLabel(winner)}'),
-            ] else ...[
-              const SizedBox(height: 12),
-              Text('Next starter: ${_seatLabel(progress.nextStarter)}'),
-            ],
-            const SizedBox(height: 24),
-            if (winner == null)
-              FilledButton.icon(
-                onPressed: onContinue,
-                icon: const Icon(Icons.skip_next),
-                label: const Text('Continue next round'),
-              )
-            else
-              FilledButton.icon(
-                onPressed: onReturnToMenu,
-                icon: const Icon(Icons.home_outlined),
-                label: const Text('Return to menu'),
-              ),
+              children: [
+                _SummaryIntro(headline: _headline, details: _details),
+                const _SectionBreak(),
+                _ScoreSection(
+                  scoreSeats: scoreSeats,
+                  previousScores: previousScores,
+                  progress: progress,
+                ),
+                const _SectionBreak(),
+                _NextStepLine(
+                  winner: winner,
+                  nextStarter: progress.nextStarter,
+                ),
+                const SizedBox(height: LoungeTokens.space6),
+                if (winner == null)
+                  FilledButton.icon(
+                    onPressed: onContinue,
+                    icon: const Icon(Icons.skip_next),
+                    label: const Text('Continue next round'),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: onReturnToMenu,
+                    icon: const Icon(Icons.home_outlined),
+                    label: const Text('Return to menu'),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -127,6 +133,120 @@ class RoundSummaryScreen extends StatelessWidget {
   }
 }
 
+class _SummaryBackdrop extends StatelessWidget {
+  const _SummaryBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -42,
+          right: -54,
+          child: LoungeMotif(
+            variant: LoungeMotifVariant.medallion,
+            opacity: 0.052,
+            strokeWidth: 1.0,
+            density: 4,
+            size: const Size.square(220),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 18,
+          child: SizedBox(
+            height: 30,
+            child: CustomPaint(
+              painter: const GeometricMotifPainter(
+                variant: LoungeMotifVariant.border,
+                opacity: 0.08,
+                strokeWidth: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryIntro extends StatelessWidget {
+  const _SummaryIntro({required this.headline, required this.details});
+
+  final String headline;
+  final String details;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox.square(
+          dimension: 50,
+          child: CustomPaint(
+            painter: GeometricMotifPainter(
+              variant: LoungeMotifVariant.medallion,
+              opacity: 0.38,
+              strokeWidth: 1.0,
+              density: 3,
+            ),
+          ),
+        ),
+        const SizedBox(width: LoungeTokens.space4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(headline, style: LoungeTokens.display),
+              const SizedBox(height: LoungeTokens.space2),
+              Text(details, style: LoungeTokens.bodyMuted),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScoreSection extends StatelessWidget {
+  const _ScoreSection({
+    required this.scoreSeats,
+    required this.previousScores,
+    required this.progress,
+  });
+
+  final List<PlayerSeat> scoreSeats;
+  final Map<PlayerSeat, int> previousScores;
+  final MatchProgressState progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: const [
+            Icon(Icons.scoreboard_outlined, color: LoungeTokens.goldAccent),
+            SizedBox(width: LoungeTokens.space2),
+            Expanded(child: Text('Scores', style: LoungeTokens.heading)),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        for (var i = 0; i < scoreSeats.length; i++) ...[
+          _ScoreLine(
+            seat: scoreSeats[i],
+            before: previousScores[scoreSeats[i]] ?? 0,
+            after: progress.scores[scoreSeats[i]] ?? 0,
+            eliminated: !progress.activeSeats.contains(scoreSeats[i]),
+          ),
+          if (i < scoreSeats.length - 1) const _ThinDivider(),
+        ],
+      ],
+    );
+  }
+}
+
 class _ScoreLine extends StatelessWidget {
   const _ScoreLine({
     required this.seat,
@@ -145,11 +265,93 @@ class _ScoreLine extends StatelessWidget {
     final delta = after - before;
     final deltaText = delta >= 0 ? '+$delta' : '$delta';
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(_seatLabel(seat)),
-      subtitle: eliminated ? const Text('Eliminated') : null,
-      trailing: Text('$before -> $after ($deltaText)'),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_seatLabel(seat), style: LoungeTokens.titleSmall),
+                if (eliminated)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text('Eliminated', style: LoungeTokens.bodyMuted),
+                  ),
+              ],
+            ),
+          ),
+          Text('$before -> $after', style: LoungeTokens.numericChip),
+          const SizedBox(width: LoungeTokens.space3),
+          Text(deltaText, style: LoungeTokens.bodyMuted),
+        ],
+      ),
+    );
+  }
+}
+
+class _NextStepLine extends StatelessWidget {
+  const _NextStepLine({required this.winner, required this.nextStarter});
+
+  final PlayerSeat? winner;
+  final PlayerSeat nextStarter;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasWinner = winner != null;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          hasWinner ? Icons.emoji_events_outlined : Icons.flag_outlined,
+          color: LoungeTokens.goldAccent,
+        ),
+        const SizedBox(width: LoungeTokens.space3),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                hasWinner ? 'Match winner' : 'Next starter',
+                style: LoungeTokens.heading,
+              ),
+              const SizedBox(height: LoungeTokens.space2),
+              Text(
+                _seatLabel(hasWinner ? winner! : nextStarter),
+                style: LoungeTokens.body,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionBreak extends StatelessWidget {
+  const _SectionBreak();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space5),
+      child: Divider(
+        height: 1,
+        color: LoungeTokens.sandLine.withValues(alpha: 0.24),
+      ),
+    );
+  }
+}
+
+class _ThinDivider extends StatelessWidget {
+  const _ThinDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: LoungeTokens.space4,
+      color: LoungeTokens.sandLine.withValues(alpha: 0.14),
     );
   }
 }
