@@ -111,27 +111,29 @@ class _SortBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Row(
       children: [
-        Text(AppStrings.sortModeLabel, style: LoungeTokens.bodyMuted),
+        Text(strings.sortModeLabel, style: LoungeTokens.bodyMuted),
         const SizedBox(width: LoungeTokens.space2),
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<HandSortMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: HandSortMode.manual,
-                  label: Text(AppStrings.sortManual),
-                  icon: Icon(Icons.drag_indicator),
+                  label: Text(strings.sortManual),
+                  icon: const Icon(Icons.drag_indicator),
                 ),
                 ButtonSegment(
                   value: HandSortMode.byRank,
-                  label: Text(AppStrings.sortByRank),
+                  label: Text(strings.sortByRank),
                 ),
                 ButtonSegment(
                   value: HandSortMode.bySuit,
-                  label: Text(AppStrings.sortBySuit),
+                  label: Text(strings.sortBySuit),
                 ),
               ],
               selected: {value},
@@ -271,8 +273,8 @@ class _HandCardChip extends StatelessWidget {
     final state = pending
         ? CardVisualState.pending
         : selected
-            ? CardVisualState.selected
-            : CardVisualState.normal;
+        ? CardVisualState.selected
+        : CardVisualState.normal;
 
     final offset = selected ? -6.0 : 0.0;
 

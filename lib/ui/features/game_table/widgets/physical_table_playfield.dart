@@ -6,6 +6,7 @@ import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
+import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
@@ -773,7 +774,7 @@ class _StockPile extends StatelessWidget {
     // Stock pile: card stack with the remaining-count badge overlaid on top
     // so the corner reads as a single object instead of pile + label.
     return Tooltip(
-      message: 'Draw stock',
+      message: context.strings.drawStock,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canDraw ? onDraw : null,
@@ -1243,6 +1244,7 @@ class _TableMeldStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final cards = meld.cards;
     final sideFacing = quarterTurns % 2 != 0;
     final expandedScale = expanded ? (compact ? 1.16 : 1.26) : 1.0;
@@ -1384,7 +1386,7 @@ class _TableMeldStack extends StatelessWidget {
         final expandable = onToggleExpanded != null;
         final interactiveBody = expandable
             ? Tooltip(
-                message: expanded ? 'Collapse meld' : 'Expand meld',
+                message: expanded ? strings.collapseMeld : strings.expandMeld,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: onToggleExpanded,
@@ -1395,7 +1397,7 @@ class _TableMeldStack extends StatelessWidget {
 
         if (!retractable) return interactiveBody;
         return Tooltip(
-          message: 'Take this meld back',
+          message: strings.takeThisMeldBack,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onRetract,
@@ -1485,7 +1487,7 @@ class _SuggestionGroup extends StatelessWidget {
     final gap = cardSize.width * 0.50;
     final width = cardSize.width + math.max(0, cards.length - 1) * gap;
     return Tooltip(
-      message: 'Play meld',
+      message: context.strings.playMeld,
       child: GestureDetector(
         key: ValueKey('meld-suggestion-${suggestion.actionId}'),
         behavior: HitTestBehavior.opaque,
@@ -1556,7 +1558,7 @@ class _SideControls extends StatelessWidget {
         if (canReturnOpeningMelds) ...[
           SizedBox(height: compact ? 4 : 6),
           Tooltip(
-            message: 'Return opening melds',
+            message: context.strings.takeBackMelds,
             child: _IconTablePill(
               icon: Icons.undo_rounded,
               compact: compact,
@@ -1652,11 +1654,12 @@ class _MeldCtaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final isCta = selectionValid && onTap != null;
     final displayValue = selectionValue ?? requirement;
     final caption = isCta
-        ? (hasOpened ? 'Play meld' : 'Open meld')
-        : (hasOpened ? 'Meld' : 'Open need');
+        ? (hasOpened ? strings.playMeld : strings.openMeld)
+        : (hasOpened ? strings.meld : strings.openNeed);
     final background = isCta
         ? LoungeTokens.goldAccent
         : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92);
@@ -1721,7 +1724,7 @@ class _MeldCtaButton extends StatelessWidget {
     if (!isCta) return body;
 
     return Tooltip(
-      message: 'Play selected meld',
+      message: strings.playSelectedMeld,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

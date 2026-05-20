@@ -150,10 +150,12 @@ class _StockPile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(AppStrings.stock, style: LoungeTokens.bodyMuted),
+        Text(strings.stock, style: LoungeTokens.bodyMuted),
         const SizedBox(height: 4),
         GestureDetector(
           onTap: canDraw ? onDraw : null,
@@ -203,12 +205,13 @@ class _FiftyAndDiscard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final hasFifty = fiftySecondsRemaining != null;
     final displayCard = pendingDiscard ?? topDiscard;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(AppStrings.discard, style: LoungeTokens.bodyMuted),
+        Text(strings.discard, style: LoungeTokens.bodyMuted),
         const SizedBox(height: 4),
         Expanded(
           child: Stack(
@@ -262,10 +265,12 @@ class _SouthMeldLane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(AppStrings.meldZone, style: LoungeTokens.bodyMuted),
+        Text(strings.meldZone, style: LoungeTokens.bodyMuted),
         const SizedBox(height: 4),
         Expanded(
           child: melds.isEmpty
@@ -375,6 +380,8 @@ class _EmptyDiscardPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Container(
       width: 46,
       height: 67,
@@ -387,7 +394,7 @@ class _EmptyDiscardPlaceholder extends StatelessWidget {
         color: LoungeTokens.coffeeCharcoal,
       ),
       alignment: Alignment.center,
-      child: Text('Empty', style: LoungeTokens.bodyMuted),
+      child: Text(strings.empty, style: LoungeTokens.bodyMuted),
     );
   }
 }
@@ -397,6 +404,8 @@ class _EmptyMeldsPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -406,7 +415,7 @@ class _EmptyMeldsPlaceholder extends StatelessWidget {
         ),
       ),
       alignment: Alignment.center,
-      child: Text('No melds yet', style: LoungeTokens.bodyMuted),
+      child: Text(strings.noMeldsYet, style: LoungeTokens.bodyMuted),
     );
   }
 }

@@ -50,6 +50,8 @@ class PauseOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return GestureDetector(
       onTap: onResume,
       child: ColoredBox(
@@ -57,11 +59,8 @@ class PauseOverlay extends StatelessWidget {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final maxHeight =
-                  (constraints.maxHeight - LoungeTokens.space5).clamp(
-                    160.0,
-                    constraints.maxHeight,
-                  );
+              final maxHeight = (constraints.maxHeight - LoungeTokens.space5)
+                  .clamp(160.0, constraints.maxHeight);
               return Center(
                 child: GestureDetector(
                   onTap: () {},
@@ -82,10 +81,10 @@ class PauseOverlay extends StatelessWidget {
                           children: [
                             _PanelHeader(
                               icon: Icons.pause_circle_outline,
-                              title: AppStrings.pauseTitle,
-                              subtitle: AppStrings.pauseInMatchControls,
+                              title: strings.pauseTitle,
+                              subtitle: strings.pauseInMatchControls,
                               onClose: onResume,
-                              closeTooltip: AppStrings.resumeTable,
+                              closeTooltip: strings.resumeTable,
                             ),
                             const SizedBox(height: LoungeTokens.space4),
                             // Sections scroll if the available height is
@@ -102,14 +101,16 @@ class PauseOverlay extends StatelessWidget {
                                   children: [
                                     _OverlaySection(
                                       icon: Icons.visibility_outlined,
-                                      title: AppStrings.aidsLabel,
-                                      helper: AppStrings.aidsHelp,
+                                      title: strings.aidsLabel,
+                                      helper: strings.aidsHelp,
                                       child: SegmentedButton<TableAids>(
                                         segments: [
                                           for (final aid in TableAids.values)
                                             ButtonSegment(
                                               value: aid,
-                                              label: Text(aid.label),
+                                              label: Text(
+                                                _aidsLabel(aid, strings),
+                                              ),
                                             ),
                                         ],
                                         selected: {aids},
@@ -121,20 +122,20 @@ class PauseOverlay extends StatelessWidget {
                                     const _PanelDivider(),
                                     _OverlaySection(
                                       icon: Icons.timer_outlined,
-                                      title: AppStrings.motionSpeedLabel,
+                                      title: strings.motionSpeedLabel,
                                       child: SegmentedButton<MotionSpeed>(
-                                        segments: const [
+                                        segments: [
                                           ButtonSegment(
                                             value: MotionSpeed.normal,
-                                            label: Text('Normal'),
+                                            label: Text(strings.normal),
                                           ),
                                           ButtonSegment(
                                             value: MotionSpeed.fast,
-                                            label: Text('Fast'),
+                                            label: Text(strings.fast),
                                           ),
                                           ButtonSegment(
                                             value: MotionSpeed.reduced,
-                                            label: Text('Reduced'),
+                                            label: Text(strings.reduced),
                                           ),
                                         ],
                                         selected: {motionSpeed},
@@ -148,16 +149,16 @@ class PauseOverlay extends StatelessWidget {
                                     const _PanelDivider(),
                                     _OverlayToggle(
                                       icon: Icons.vibration,
-                                      title: AppStrings.hapticsLabel,
-                                      subtitle: AppStrings.hapticsHelp,
+                                      title: strings.hapticsLabel,
+                                      subtitle: strings.hapticsHelp,
                                       value: hapticsEnabled,
                                       onChanged: onHapticsChanged,
                                     ),
                                     const _PanelDivider(),
                                     _OverlayToggle(
                                       icon: Icons.graphic_eq_outlined,
-                                      title: AppStrings.soundLabel,
-                                      subtitle: AppStrings.soundHelp,
+                                      title: strings.soundLabel,
+                                      subtitle: strings.soundHelp,
                                       value: soundEnabled,
                                       onChanged: onSoundChanged,
                                     ),
@@ -169,13 +170,13 @@ class PauseOverlay extends StatelessWidget {
                             _PanelActions(
                               primary: _PanelAction(
                                 icon: Icons.play_arrow,
-                                label: AppStrings.resumeTable,
+                                label: strings.resumeTable,
                                 onTap: onResume,
                                 tone: _ActionTone.primary,
                               ),
                               secondary: _PanelAction(
                                 icon: Icons.exit_to_app,
-                                label: AppStrings.leaveTable,
+                                label: strings.leaveTable,
                                 onTap: onLeave,
                                 tone: _ActionTone.danger,
                               ),
@@ -192,6 +193,14 @@ class PauseOverlay extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _aidsLabel(TableAids aid, AppStrings strings) {
+    return switch (aid) {
+      TableAids.guided => strings.guided,
+      TableAids.standard => strings.standard,
+      TableAids.tableMode => strings.tableMode,
+    };
   }
 }
 
@@ -310,9 +319,7 @@ class _HeaderBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: LoungeTokens.feltRaised,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
       ),
       alignment: Alignment.center,
       child: Icon(icon, color: LoungeTokens.goldAccent, size: 22),

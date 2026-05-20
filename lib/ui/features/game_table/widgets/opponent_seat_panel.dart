@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../../domain/classic_hareeg/rules/opening_rules.dart' show PlacedMeld;
+import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
+    show PlacedMeld;
+import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -64,10 +66,11 @@ class OpponentSeatPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final isHorizontal = orientation == OpponentSeatOrientation.north;
     final body = isHorizontal
-        ? _horizontalBody()
-        : _verticalBody();
+        ? _horizontalBody(strings)
+        : _verticalBody(strings);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
@@ -95,7 +98,7 @@ class OpponentSeatPanel extends StatelessWidget {
     );
   }
 
-  Widget _horizontalBody() {
+  Widget _horizontalBody(AppStrings strings) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -107,12 +110,12 @@ class OpponentSeatPanel extends StatelessWidget {
           cardSize: const Size(20, 28),
           spacing: 4,
         ),
-        _meldsCountChip(),
+        _meldsCountChip(strings),
       ],
     );
   }
 
-  Widget _verticalBody() {
+  Widget _verticalBody(AppStrings strings) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -126,12 +129,12 @@ class OpponentSeatPanel extends StatelessWidget {
           maxWidth: 80,
         ),
         const SizedBox(height: 6),
-        _meldsCountChip(),
+        _meldsCountChip(strings),
         if (isEliminated) ...[
           const SizedBox(height: 6),
-          const Text(
-            'Eliminated',
-            style: TextStyle(
+          Text(
+            strings.eliminated,
+            style: const TextStyle(
               color: LoungeTokens.mutedText,
               fontSize: 10,
               letterSpacing: 0.6,
@@ -183,7 +186,7 @@ class OpponentSeatPanel extends StatelessWidget {
     );
   }
 
-  Widget _meldsCountChip() {
+  Widget _meldsCountChip(AppStrings strings) {
     return GestureDetector(
       onTap: onTapMelds,
       behavior: HitTestBehavior.opaque,
@@ -197,7 +200,7 @@ class OpponentSeatPanel extends StatelessWidget {
           ),
         ),
         child: Text(
-          '${melds.length}m · $cardCount',
+          strings.meldsAndCardsCount(melds.length, cardCount),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -233,7 +236,8 @@ class _MiniHand extends StatelessWidget {
       return SizedBox(width: cardSize.width, height: cardSize.height);
     }
     final visible = count.clamp(1, 6);
-    final stripWidth = cardSize.width + (visible - 1) * (cardSize.width - spacing);
+    final stripWidth =
+        cardSize.width + (visible - 1) * (cardSize.width - spacing);
     final width = stripWidth.clamp(cardSize.width, maxWidth).toDouble();
     final placeholder = HareegCard.standard(
       rank: CardRank.ace,

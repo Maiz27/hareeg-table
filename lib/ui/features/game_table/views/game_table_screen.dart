@@ -14,6 +14,7 @@ import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
@@ -172,6 +173,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final humanSeat = PlayerSeat.south;
     final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
     final controlActions = isHumanTurn
@@ -319,7 +321,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                       top: safe.top,
                       left: safe.left,
                       child: _RoundTableButton(
-                        tooltip: 'Scores',
+                        tooltip: strings.scores,
                         icon: Icons.bar_chart_rounded,
                         diameter: buttonSize,
                         iconSize: iconSize,
@@ -330,7 +332,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                       top: safe.top,
                       right: safe.right,
                       child: _RoundTableButton(
-                        tooltip: 'Pause',
+                        tooltip: strings.pauseTable,
                         icon: Icons.pause_rounded,
                         diameter: buttonSize,
                         iconSize: iconSize,
@@ -393,10 +395,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                 widget.preferences.copyWith(tableAids: v),
               ),
               onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(
-                  motionSpeed: v,
-                  reducedMotion: v == MotionSpeed.reduced,
-                ),
+                widget.preferences.copyWith(motionSpeed: v),
               ),
               onHapticsChanged: (v) => widget.onPreferencesChanged(
                 widget.preferences.copyWith(hapticsEnabled: v),
@@ -788,7 +787,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
   void _replaceHumanFeedback(String? message, {required bool isError}) {
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
-    final nextMessage = message == null || message.isEmpty ? null : message;
+    final nextMessage = message == null || message.isEmpty
+        ? null
+        : context.strings.gameMessage(message);
     _humanFeedback = nextMessage;
     _humanFeedbackIsError = isError;
     if (nextMessage == null) return;
@@ -1224,8 +1225,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
         _cardFlight = null;
         if (hitCpuSafetyLimit) {
           _replaceHumanFeedback(
-            'CPU turn safety cap $_cpuActionLimit reached at '
-            '${_seatLabel(_controller.currentSeat)}.',
+            context.strings.cpuTurnSafetyCapReached(
+              _cpuActionLimit,
+              _controller.currentSeat,
+            ),
             isError: true,
           );
         }
@@ -1251,7 +1254,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
           _isCpuRunning = false;
           _cardFlight = null;
           _replaceHumanFeedback(
-            'CPU turn paused at ${_seatLabel(_controller.currentSeat)}.',
+            context.strings.cpuTurnPaused(_controller.currentSeat),
             isError: true,
           );
         });
@@ -1295,9 +1298,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not save the table. You can keep playing.'),
-          ),
+          SnackBar(content: Text(context.strings.couldNotSaveTable)),
         );
       }
     }
@@ -1448,6 +1449,7 @@ class _RoundResultOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final seats = PlayerSeat.values.toList();
     final compact = MediaQuery.sizeOf(context).height < 390;
     final winner = presentation.progress.matchWinner;
@@ -1489,8 +1491,11 @@ class _RoundResultOverlay extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _RoundResultHeader(
-                          headline: _roundHeadline(presentation.result),
-                          detail: _roundDetail(presentation),
+                          headline: _roundHeadline(
+                            presentation.result,
+                            strings,
+                          ),
+                          detail: _roundDetail(presentation, strings),
                           compact: compact,
                         ),
                         SizedBox(height: compact ? 10 : 14),
@@ -1556,7 +1561,7 @@ class _RoundResultHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Round score',
+                context.strings.roundScore,
                 style: TextStyle(
                   color: LoungeTokens.goldAccent,
                   fontSize: compact ? 10 : 12,
@@ -1657,6 +1662,7 @@ class _RoundScoreRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final delta = after - before;
     final deltaText = delta > 0 ? '+$delta' : '$delta';
     return Padding(
@@ -1673,7 +1679,7 @@ class _RoundScoreRow extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  _seatLabel(seat),
+                  strings.seatLabel(seat),
                   style: TextStyle(
                     color: eliminated
                         ? LoungeTokens.mutedText
@@ -1684,8 +1690,12 @@ class _RoundScoreRow extends StatelessWidget {
                   ),
                 ),
                 if (cards != null)
-                  _MiniResultTag(label: 'cards $cards', compact: compact),
-                if (eliminated) _MiniResultTag(label: 'out', compact: compact),
+                  _MiniResultTag(
+                    label: strings.cardsCountTag(cards!),
+                    compact: compact,
+                  ),
+                if (eliminated)
+                  _MiniResultTag(label: strings.out, compact: compact),
               ],
             ),
           ),
@@ -1762,11 +1772,12 @@ class _RoundAdvanceLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Row(
       children: [
         Expanded(
           child: Text(
-            'Next round starts with ${_seatLabel(nextStarter)}.',
+            strings.nextRoundStartsWith(nextStarter),
             style: TextStyle(
               color: LoungeTokens.offWhiteText.withValues(alpha: 0.76),
               fontSize: compact ? 11 : 13,
@@ -1777,7 +1788,7 @@ class _RoundAdvanceLine extends StatelessWidget {
         TextButton(
           onPressed: onContinueNow,
           style: _roundResultActionStyle(compact),
-          child: const Text('Next now'),
+          child: Text(strings.nextNow),
         ),
       ],
     );
@@ -1797,11 +1808,12 @@ class _MatchWinnerLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Row(
       children: [
         Expanded(
           child: Text(
-            '${_seatLabel(winner)} wins the match.',
+            strings.playerWinsMatch(winner),
             style: TextStyle(
               color: LoungeTokens.goldAccent,
               fontSize: compact ? 12 : 14,
@@ -1812,7 +1824,7 @@ class _MatchWinnerLine extends StatelessWidget {
         TextButton(
           onPressed: onReturnToMenu,
           style: _roundResultActionStyle(compact),
-          child: const Text('Menu'),
+          child: Text(strings.menu),
         ),
       ],
     );
@@ -1837,24 +1849,22 @@ TextStyle _scoreNumberStyle(bool compact) {
   );
 }
 
-String _roundHeadline(RoundProgressResult result) {
+String _roundHeadline(RoundProgressResult result, AppStrings strings) {
   return switch (result.type) {
-    RoundOutcomeType.normalFinish => '${_seatLabel(result.winner!)} finished',
-    RoundOutcomeType.fiftyFinish => '${_seatLabel(result.winner!)} hit Fifty',
-    RoundOutcomeType.draw => 'Round drawn',
+    RoundOutcomeType.normalFinish => strings.playerFinished(result.winner!),
+    RoundOutcomeType.fiftyFinish => strings.playerHitFifty(result.winner!),
+    RoundOutcomeType.draw => strings.roundDrawn,
   };
 }
 
-String _roundDetail(_RoundResultPresentation presentation) {
+String _roundDetail(_RoundResultPresentation presentation, AppStrings strings) {
   final result = presentation.result;
   return switch (result.type) {
-    RoundOutcomeType.normalFinish =>
-      'Remaining cards were added. Winner receives -1.',
-    RoundOutcomeType.fiftyFinish =>
-      result.firstRoundFiftyException
-          ? 'First-round Fifty: winner receives -1; discarder takes cards plus 3.'
-          : 'Fifty: winner receives -3; discarder takes cards plus 3.',
-    RoundOutcomeType.draw => 'Stock exhausted. No score changes.',
+    RoundOutcomeType.normalFinish => strings.roundResultDetailNormal(),
+    RoundOutcomeType.fiftyFinish => strings.roundResultDetailFifty(
+      firstRoundException: result.firstRoundFiftyException,
+    ),
+    RoundOutcomeType.draw => strings.roundResultDetailDraw(),
   };
 }
 
@@ -1875,8 +1885,18 @@ class _CardInspectOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = _inspectTitle(card, jokerAidsEnabled: jokerAidsEnabled);
-    final body = _inspectBody(card, aids, jokerAidsEnabled: jokerAidsEnabled);
+    final strings = context.strings;
+    final title = _inspectTitle(
+      card,
+      strings,
+      jokerAidsEnabled: jokerAidsEnabled,
+    );
+    final body = _inspectBody(
+      card,
+      aids,
+      strings: strings,
+      jokerAidsEnabled: jokerAidsEnabled,
+    );
     final inspectJokerDisplay = jokerAidsEnabled
         ? JokerDisplay.assisted
         : JokerDisplay.unassigned;
@@ -1999,7 +2019,7 @@ class _CardInspectOverlay extends StatelessWidget {
                         top: -8,
                         right: -8,
                         child: Tooltip(
-                          message: 'Close',
+                          message: strings.close,
                           child: IconButton(
                             key: const ValueKey('card-inspect-close'),
                             onPressed: onClose,
@@ -2356,28 +2376,32 @@ bool _jokerAidsEnabledFor(ClassicHareegSetup setup) {
   return setup.rulePreset != RulePreset.hardTable17;
 }
 
-String _inspectTitle(HareegCard card, {required bool jokerAidsEnabled}) {
+String _inspectTitle(
+  HareegCard card,
+  AppStrings strings, {
+  required bool jokerAidsEnabled,
+}) {
   final identity = card.identity;
   if (identity != null) {
-    return '${_rankWord(identity.rank)} of ${_suitWord(identity.suit)}';
+    return strings.cardName(identity);
   }
 
   if (!jokerAidsEnabled) {
-    return 'Joker';
+    return strings.joker;
   }
 
   final represented = card.representedIdentity;
   if (represented != null) {
-    return 'Joker as ${_rankWord(represented.rank)} of '
-        '${_suitWord(represented.suit)}';
+    return strings.jokerAs(represented);
   }
 
-  return 'Joker';
+  return strings.joker;
 }
 
 String? _inspectBody(
   HareegCard card,
   TableAids aids, {
+  required AppStrings strings,
   required bool jokerAidsEnabled,
 }) {
   if (aids == TableAids.tableMode) {
@@ -2391,57 +2415,20 @@ String? _inspectBody(
   final identity = card.effectiveIdentity;
   if (identity == null) {
     return aids == TableAids.guided
-        ? 'Unassigned joker. Pick its identity when a legal meld needs it.'
-        : 'Unassigned joker.';
+        ? strings.unassignedJokerGuided
+        : strings.unassignedJoker;
   }
 
   final value = identity.rank.value;
   if (card.isJoker) {
-    final represented = '${identity.rank.label}${identity.suit.label}';
     return aids == TableAids.guided
-        ? 'Represents $represented for melds, covers, and scoring. '
-              'Memory display reveals this briefly, then quiets it.'
-        : 'Represents $represented. Value $value.';
+        ? strings.representedJokerGuided(strings.cardName(identity))
+        : '${strings.representedJoker(strings.cardName(identity))} '
+              '${strings.cardValue(value)}';
   }
 
   if (aids == TableAids.guided) {
-    return 'Value $value. Fits same-rank sets and same-suit runs when legal.';
+    return strings.cardValueGuided(value);
   }
-  return 'Value $value. ${_suitWord(identity.suit)}.';
-}
-
-String _seatLabel(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => 'You',
-    PlayerSeat.east => 'CPU East',
-    PlayerSeat.north => 'CPU North',
-    PlayerSeat.west => 'CPU West',
-  };
-}
-
-String _rankWord(CardRank rank) {
-  return switch (rank) {
-    CardRank.ace => 'Ace',
-    CardRank.two => 'Two',
-    CardRank.three => 'Three',
-    CardRank.four => 'Four',
-    CardRank.five => 'Five',
-    CardRank.six => 'Six',
-    CardRank.seven => 'Seven',
-    CardRank.eight => 'Eight',
-    CardRank.nine => 'Nine',
-    CardRank.ten => 'Ten',
-    CardRank.jack => 'Jack',
-    CardRank.queen => 'Queen',
-    CardRank.king => 'King',
-  };
-}
-
-String _suitWord(CardSuit suit) {
-  return switch (suit) {
-    CardSuit.spades => 'Spades',
-    CardSuit.hearts => 'Hearts',
-    CardSuit.diamonds => 'Diamonds',
-    CardSuit.clubs => 'Clubs',
-  };
+  return strings.cardValueWithSuit(value, strings.suitWord(identity.suit));
 }

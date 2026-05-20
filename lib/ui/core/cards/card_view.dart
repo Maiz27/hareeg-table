@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../l10n/app_strings.dart';
 import '../motion/motion_speed.dart';
 import 'card_painting.dart';
 import 'card_state.dart';
@@ -161,7 +162,8 @@ class _HareegCardViewState extends State<HareegCardView> {
           );
 
     final label =
-        widget.semanticsLabel ?? _defaultSemanticsLabel(effectiveJokerDisplay);
+        widget.semanticsLabel ??
+        _defaultSemanticsLabel(context, effectiveJokerDisplay);
     return Semantics(
       label: label,
       child: AnimatedSwitcher(
@@ -180,44 +182,21 @@ class _HareegCardViewState extends State<HareegCardView> {
     );
   }
 
-  String _defaultSemanticsLabel(JokerDisplay jokerDisplay) {
-    if (widget.faceDown) return 'Face-down card';
+  String _defaultSemanticsLabel(
+    BuildContext context,
+    JokerDisplay jokerDisplay,
+  ) {
+    final strings = context.strings;
+    if (widget.faceDown) return strings.faceDownCard;
     if (widget.card.isJoker) {
       final represented = widget.card.representedIdentity;
       if (represented != null && jokerDisplay != JokerDisplay.unassigned) {
-        return 'Joker representing ${represented.label}';
+        return strings.jokerRepresenting(strings.cardName(represented));
       }
-      return 'Joker';
+      return strings.joker;
     }
     final identity = widget.card.effectiveIdentity!;
-    return '${_rankWord(identity.rank)} of ${_suitWord(identity.suit)}';
-  }
-
-  static String _rankWord(CardRank rank) {
-    return switch (rank) {
-      CardRank.ace => 'Ace',
-      CardRank.two => 'Two',
-      CardRank.three => 'Three',
-      CardRank.four => 'Four',
-      CardRank.five => 'Five',
-      CardRank.six => 'Six',
-      CardRank.seven => 'Seven',
-      CardRank.eight => 'Eight',
-      CardRank.nine => 'Nine',
-      CardRank.ten => 'Ten',
-      CardRank.jack => 'Jack',
-      CardRank.queen => 'Queen',
-      CardRank.king => 'King',
-    };
-  }
-
-  static String _suitWord(CardSuit suit) {
-    return switch (suit) {
-      CardSuit.spades => 'Spades',
-      CardSuit.hearts => 'Hearts',
-      CardSuit.diamonds => 'Diamonds',
-      CardSuit.clubs => 'Clubs',
-    };
+    return strings.cardName(identity);
   }
 }
 

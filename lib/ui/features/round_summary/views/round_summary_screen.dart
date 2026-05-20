@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
@@ -58,13 +59,14 @@ class RoundSummaryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final winner = progress.matchWinner;
     final scoreSeats = previousScores.keys.toList()
       ..sort((left, right) => left.index.compareTo(right.index));
 
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
-      appBar: AppBar(title: const Text('Round summary')),
+      appBar: AppBar(title: Text(strings.roundSummary)),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -78,7 +80,10 @@ class RoundSummaryScreen extends StatelessWidget {
                 LoungeTokens.space8,
               ),
               children: [
-                _SummaryIntro(headline: _headline, details: _details),
+                _SummaryIntro(
+                  headline: _headline(strings),
+                  details: _details(strings),
+                ),
                 const _SectionBreak(),
                 _ScoreSection(
                   scoreSeats: scoreSeats,
@@ -95,13 +100,13 @@ class RoundSummaryScreen extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onContinue,
                     icon: const Icon(Icons.skip_next),
-                    label: const Text('Continue next round'),
+                    label: Text(strings.continueNextRound),
                   )
                 else
                   FilledButton.icon(
                     onPressed: onReturnToMenu,
                     icon: const Icon(Icons.home_outlined),
-                    label: const Text('Return to menu'),
+                    label: Text(strings.returnToMenu),
                   ),
               ],
             ),
@@ -111,24 +116,21 @@ class RoundSummaryScreen extends StatelessWidget {
     );
   }
 
-  String get _headline {
+  String _headline(AppStrings strings) {
     return switch (result.type) {
-      RoundOutcomeType.normalFinish => '${_seatLabel(result.winner!)} finished',
-      RoundOutcomeType.fiftyFinish => '${_seatLabel(result.winner!)} hit Fifty',
-      RoundOutcomeType.draw => 'Round drawn',
+      RoundOutcomeType.normalFinish => strings.playerFinished(result.winner!),
+      RoundOutcomeType.fiftyFinish => strings.playerHitFifty(result.winner!),
+      RoundOutcomeType.draw => strings.roundDrawn,
     };
   }
 
-  String get _details {
+  String _details(AppStrings strings) {
     return switch (result.type) {
-      RoundOutcomeType.normalFinish =>
-        'Winner scores -1. Other active players score their remaining card count.',
-      RoundOutcomeType.fiftyFinish =>
-        result.firstRoundFiftyException
-            ? 'First-round Fifty exception: winner scores -1; discarder takes remaining cards plus 3.'
-            : 'Fifty winner scores -3; discarder takes remaining cards plus 3.',
-      RoundOutcomeType.draw =>
-        'No score changes. The same starter deals again.',
+      RoundOutcomeType.normalFinish => strings.roundSummaryDetailNormal(),
+      RoundOutcomeType.fiftyFinish => strings.roundSummaryDetailFifty(
+        firstRoundException: result.firstRoundFiftyException,
+      ),
+      RoundOutcomeType.draw => strings.roundSummaryDetailDraw(),
     };
   }
 }
@@ -222,14 +224,18 @@ class _ScoreSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: const [
-            Icon(Icons.scoreboard_outlined, color: LoungeTokens.goldAccent),
-            SizedBox(width: LoungeTokens.space2),
-            Expanded(child: Text('Scores', style: LoungeTokens.heading)),
+          children: [
+            const Icon(
+              Icons.scoreboard_outlined,
+              color: LoungeTokens.goldAccent,
+            ),
+            const SizedBox(width: LoungeTokens.space2),
+            Expanded(child: Text(strings.scores, style: LoungeTokens.heading)),
           ],
         ),
         const SizedBox(height: LoungeTokens.space4),
@@ -262,6 +268,7 @@ class _ScoreLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final delta = after - before;
     final deltaText = delta >= 0 ? '+$delta' : '$delta';
 
@@ -273,11 +280,14 @@ class _ScoreLine extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_seatLabel(seat), style: LoungeTokens.titleSmall),
+                Text(strings.seatLabel(seat), style: LoungeTokens.titleSmall),
                 if (eliminated)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Text('Eliminated', style: LoungeTokens.bodyMuted),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      strings.eliminated,
+                      style: LoungeTokens.bodyMuted,
+                    ),
                   ),
               ],
             ),
@@ -299,6 +309,7 @@ class _NextStepLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final hasWinner = winner != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,12 +324,12 @@ class _NextStepLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hasWinner ? 'Match winner' : 'Next starter',
+                hasWinner ? strings.matchWinner : strings.nextStarter,
                 style: LoungeTokens.heading,
               ),
               const SizedBox(height: LoungeTokens.space2),
               Text(
-                _seatLabel(hasWinner ? winner! : nextStarter),
+                strings.seatLabel(hasWinner ? winner! : nextStarter),
                 style: LoungeTokens.body,
               ),
             ],
@@ -354,13 +365,4 @@ class _ThinDivider extends StatelessWidget {
       color: LoungeTokens.sandLine.withValues(alpha: 0.14),
     );
   }
-}
-
-String _seatLabel(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => 'You',
-    PlayerSeat.east => 'CPU East',
-    PlayerSeat.north => 'CPU North',
-    PlayerSeat.west => 'CPU West',
-  };
 }

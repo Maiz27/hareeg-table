@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
+import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -51,15 +52,16 @@ class MeldPickerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     if (selectedCards.length < 3) {
       return const SizedBox.shrink();
     }
 
     final reason = validation.isValid
-        ? _validReason()
+        ? _validReason(strings)
         : (validation.message.isEmpty
-              ? 'Selected cards do not form a legal meld.'
-              : validation.message);
+              ? strings.selectedCardsDoNotFormLegalMeld
+              : strings.gameMessage(validation.message));
 
     return Container(
       padding: const EdgeInsets.all(LoungeTokens.space3),
@@ -120,7 +122,7 @@ class MeldPickerPanel extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: canConfirm ? onConfirm : null,
               icon: const Icon(Icons.table_rows_outlined),
-              label: const Text('Play meld'),
+              label: Text(strings.playMeld),
             ),
           ),
         ],
@@ -128,18 +130,17 @@ class MeldPickerPanel extends StatelessWidget {
     );
   }
 
-  String _validReason() {
+  String _validReason(AppStrings strings) {
     final base = validation.message.isEmpty
-        ? 'Legal meld.'
-        : validation.message;
+        ? strings.legalMeld
+        : strings.gameMessage(validation.message);
     if (hasOpened) {
       return base;
     }
     final remaining = openingRequirement - validation.value;
     if (remaining <= 0) {
-      return '$base Opening ready (value ${validation.value}).';
+      return '$base ${strings.openingReady(validation.value)}';
     }
-    return '$base Value ${validation.value}. '
-        'Needs $openingRequirement to open.';
+    return '$base ${strings.valueNeedsOpening(validation.value, openingRequirement)}';
   }
 }

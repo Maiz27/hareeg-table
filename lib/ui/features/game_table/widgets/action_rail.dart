@@ -85,60 +85,61 @@ class ActionRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final buttons = <Widget>[
       if (actions.canDraw)
         _RailButton(
           icon: Icons.style_outlined,
-          label: AppStrings.drawStock,
+          label: strings.drawStock,
           onPressed: onDraw,
           tone: _RailTone.primary,
         ),
       if (actions.canTakeDiscard)
         _RailButton(
           icon: Icons.move_down_outlined,
-          label: AppStrings.takeDiscard,
+          label: strings.takeDiscard,
           onPressed: onTakeDiscard,
           tone: _RailTone.tonal,
         ),
       if (actions.canClaimFifty)
         _RailButton(
           icon: Icons.local_fire_department_outlined,
-          label: AppStrings.claimFifty,
+          label: strings.claimFifty,
           onPressed: onClaimFifty,
           tone: _RailTone.flame,
         ),
       if (actions.showPlaceCover)
         _RailButton(
           icon: Icons.call_merge,
-          label: AppStrings.placeCover,
+          label: strings.placeCover,
           onPressed: actions.canPlaceCover ? onPlaceCover : null,
           tone: _RailTone.tonal,
         ),
       if (actions.showReplaceJoker)
         _RailButton(
           icon: Icons.change_circle_outlined,
-          label: AppStrings.replaceJoker,
+          label: strings.replaceJoker,
           onPressed: actions.canReplaceJoker ? onReplaceJoker : null,
           tone: _RailTone.tonal,
         ),
       if (actions.canReturnDiscard)
         _RailButton(
           icon: Icons.undo,
-          label: AppStrings.returnDiscard,
+          label: strings.returnDiscard,
           onPressed: onReturnDiscard,
           tone: _RailTone.outlined,
         ),
       if (actions.canReturnOpeningMelds)
         _RailButton(
           icon: Icons.undo_outlined,
-          label: AppStrings.takeBackMelds,
+          label: strings.takeBackMelds,
           onPressed: onReturnOpeningMelds,
           tone: _RailTone.outlined,
         ),
       if (actions.showDiscard)
         _RailButton(
           icon: Icons.remove_circle_outline,
-          label: AppStrings.discardCard,
+          label: strings.discardCard,
           onPressed: actions.canDiscard ? onDiscard : null,
           tone: _RailTone.primary,
         ),

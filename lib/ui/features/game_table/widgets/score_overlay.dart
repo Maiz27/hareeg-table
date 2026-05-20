@@ -40,6 +40,7 @@ class ScoreOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final seats = scores.keys.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
 
@@ -50,11 +51,8 @@ class ScoreOverlay extends StatelessWidget {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final maxHeight =
-                  (constraints.maxHeight - LoungeTokens.space5).clamp(
-                    160.0,
-                    constraints.maxHeight,
-                  );
+              final maxHeight = (constraints.maxHeight - LoungeTokens.space5)
+                  .clamp(160.0, constraints.maxHeight);
               return Center(
                 child: GestureDetector(
                   onTap: () {},
@@ -75,9 +73,11 @@ class ScoreOverlay extends StatelessWidget {
                           children: [
                             _PanelHeader(
                               icon: Icons.emoji_events_outlined,
-                              title: AppStrings.scoresTitle,
-                              subtitle:
-                                  'Round $roundNumber, ${_seatLabel(currentSeat).toLowerCase()} to play',
+                              title: strings.scoresTitle,
+                              subtitle: strings.roundToPlay(
+                                roundNumber,
+                                currentSeat,
+                              ),
                               onClose: onClose,
                             ),
                             const SizedBox(height: LoungeTokens.space4),
@@ -99,8 +99,8 @@ class ScoreOverlay extends StatelessWidget {
                             ),
                             const SizedBox(height: LoungeTokens.space3),
                             _LegendRow(
-                              starterLabel: _seatLabel(starter),
-                              currentLabel: _seatLabel(currentSeat),
+                              starter: starter,
+                              currentSeat: currentSeat,
                             ),
                           ],
                         ),
@@ -138,9 +138,7 @@ class _ScoreList extends StatelessWidget {
       decoration: BoxDecoration(
         color: LoungeTokens.feltGreen.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
@@ -184,6 +182,7 @@ class _ScoreRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final nameColor = eliminated
         ? LoungeTokens.mutedText
         : LoungeTokens.offWhiteText;
@@ -211,7 +210,7 @@ class _ScoreRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _seatLabel(seat),
+                  strings.seatLabel(seat),
                   style: TextStyle(
                     color: nameColor,
                     fontWeight: FontWeight.w700,
@@ -227,18 +226,18 @@ class _ScoreRow extends StatelessWidget {
                     runSpacing: 4,
                     children: [
                       if (isCurrent)
-                        const _StatusTag(
-                          label: 'Turn',
+                        _StatusTag(
+                          label: strings.turn,
                           color: LoungeTokens.fiftyFlame,
                         ),
                       if (isStarter)
-                        const _StatusTag(
-                          label: 'Starter',
+                        _StatusTag(
+                          label: strings.starter,
                           color: LoungeTokens.goldAccent,
                         ),
                       if (eliminated)
-                        const _StatusTag(
-                          label: 'Out',
+                        _StatusTag(
+                          label: strings.out,
                           color: LoungeTokens.deepRed,
                         ),
                     ],
@@ -332,24 +331,27 @@ class _StatusTag extends StatelessWidget {
 }
 
 class _LegendRow extends StatelessWidget {
-  const _LegendRow({required this.starterLabel, required this.currentLabel});
+  const _LegendRow({required this.starter, required this.currentSeat});
 
-  final String starterLabel;
-  final String currentLabel;
+  final PlayerSeat starter;
+  final PlayerSeat currentSeat;
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+    final starterLabel = strings.seatLabel(starter);
+    final currentLabel = strings.seatLabel(currentSeat);
     return Wrap(
       spacing: LoungeTokens.space2,
       runSpacing: LoungeTokens.space2,
       children: [
         _LegendPill(
           icon: Icons.flag_outlined,
-          label: 'Started by $starterLabel',
+          label: strings.startedBy(starterLabel),
         ),
         _LegendPill(
           icon: Icons.local_fire_department_outlined,
-          label: 'On the table: $currentLabel',
+          label: strings.onTheTable(currentLabel),
         ),
       ],
     );
@@ -495,19 +497,10 @@ class _PanelHeader extends StatelessWidget {
         IconButton(
           onPressed: onClose,
           icon: const Icon(Icons.close),
-          tooltip: 'Close',
+          tooltip: context.strings.close,
           color: LoungeTokens.mutedText,
         ),
       ],
     );
   }
-}
-
-String _seatLabel(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => 'You',
-    PlayerSeat.east => 'CPU East',
-    PlayerSeat.north => 'CPU North',
-    PlayerSeat.west => 'CPU West',
-  };
 }

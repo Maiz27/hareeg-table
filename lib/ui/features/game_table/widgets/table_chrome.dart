@@ -32,16 +32,16 @@ class TableChromeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return SizedBox(
       height: 40,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space3,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: LoungeTokens.space3),
         child: Row(
           children: [
             IconButton(
-              tooltip: AppStrings.leaveTable,
+              tooltip: strings.leaveTable,
               onPressed: onLeave,
               icon: const Icon(Icons.arrow_back),
             ),
@@ -61,12 +61,12 @@ class TableChromeBar extends StatelessWidget {
             _OpeningBadge(value: openingRequirement),
             const SizedBox(width: LoungeTokens.space2),
             IconButton(
-              tooltip: AppStrings.scores,
+              tooltip: strings.scores,
               onPressed: onOpenScores,
               icon: const Icon(Icons.bar_chart_outlined),
             ),
             IconButton(
-              tooltip: AppStrings.pauseTable,
+              tooltip: strings.pauseTable,
               onPressed: onOpenPause,
               icon: const Icon(Icons.pause_circle_outline),
             ),
@@ -92,9 +92,7 @@ class _OpeningBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: LoungeTokens.feltRaised,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
