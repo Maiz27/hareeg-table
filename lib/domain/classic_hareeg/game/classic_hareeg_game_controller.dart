@@ -313,6 +313,7 @@ class ClassicHareegGameController {
        _turnCoverPlays = <_TurnCoverPlay>[],
        _turnConsumedPendingDiscard = null,
        _turnSource = FinishCardSource.stock {
+    _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
 
@@ -373,6 +374,7 @@ class ClassicHareegGameController {
        _turnSource = snapshot.pendingDiscard == null
            ? FinishCardSource.stock
            : FinishCardSource.previousDiscard {
+    _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
 
@@ -1180,6 +1182,7 @@ class ClassicHareegGameController {
         seat: _currentSeat,
         value: value,
       );
+      _syncUnlockedBenchmarkWithTable();
     } else {
       _turnOpeningMelds = [..._turnOpeningMelds, ...resolved.melds];
       final opening = ClassicHareegOpeningRules.validateOpening(
@@ -1195,6 +1198,7 @@ class ClassicHareegGameController {
         );
         _turnOpeningMelds = <PlacedMeld>[];
         _turnConsumedPendingDiscard = null;
+        _syncUnlockedBenchmarkWithTable();
         message = 'Opened at ${opening.value}. Select one card to discard.';
       } else {
         message =
@@ -1411,6 +1415,7 @@ class ClassicHareegGameController {
       seat: _currentSeat,
       value: coverValue,
     );
+    _syncUnlockedBenchmarkWithTable();
     _turnCoverPlays = [
       ..._turnCoverPlays,
       _TurnCoverPlay(
@@ -1427,6 +1432,29 @@ class ClassicHareegGameController {
       _turnConsumedPendingDiscard = null;
     }
     return const ApplyActionResult.success('Cover placed.');
+  }
+
+  void _syncUnlockedBenchmarkWithTable() {
+    final owner = _openingState.benchmarkOwner;
+    if (owner == null || _openingState.isLocked) {
+      return;
+    }
+
+    final ownerTableTotal = (_tableMelds[owner] ?? const <PlacedMeld>[])
+        .fold<int>(0, (total, meld) => total + meld.totalValue);
+    final tableRequirement = ownerTableTotal > _openingState.baseRequirement
+        ? ownerTableTotal
+        : _openingState.baseRequirement;
+    if (tableRequirement <= _openingState.currentRequirement) {
+      return;
+    }
+
+    _openingState = OpeningState(
+      baseRequirement: _openingState.baseRequirement,
+      currentRequirement: tableRequirement,
+      benchmarkOwner: owner,
+      openedSeats: _openingState.openedSeats,
+    );
   }
 
   ApplyActionResult _applyReplaceJoker(JokerReplacementActionTarget target) {

@@ -1170,6 +1170,59 @@ void main() {
       expect(controller.openingState.currentRequirement, 57);
     });
 
+    test('restored unlocked benchmark reflects first opener table total', () {
+      final ownerMelds = [
+        PlacedMeld.fromCards([
+          _card(CardRank.ten, CardSuit.clubs, 142),
+          _card(CardRank.ten, CardSuit.diamonds, 142),
+          _card(CardRank.ten, CardSuit.hearts, 142),
+        ]),
+        PlacedMeld.fromCards([
+          _card(CardRank.nine, CardSuit.clubs, 142),
+          _card(CardRank.ten, CardSuit.clubs, 143),
+          _card(CardRank.jack, CardSuit.clubs, 142),
+        ]),
+        PlacedMeld.fromCards([
+          _card(CardRank.two, CardSuit.hearts, 142),
+          _card(CardRank.three, CardSuit.hearts, 142),
+          _card(CardRank.four, CardSuit.hearts, 142),
+        ]),
+      ];
+      expect(
+        ownerMelds.fold<int>(0, (total, meld) => total + meld.totalValue),
+        68,
+      );
+
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          tableMelds: {PlayerSeat.east: ownerMelds},
+          openingState: const OpeningState(
+            baseRequirement: 51,
+            currentRequirement: 54,
+            benchmarkOwner: PlayerSeat.east,
+            openedSeats: {PlayerSeat.east},
+          ),
+        ),
+      );
+
+      expect(controller.openingState.currentRequirement, 68);
+
+      final lockedController = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          tableMelds: {PlayerSeat.east: ownerMelds},
+          openingState: const OpeningState(
+            baseRequirement: 51,
+            currentRequirement: 54,
+            benchmarkOwner: PlayerSeat.east,
+            isLocked: true,
+            openedSeats: {PlayerSeat.east, PlayerSeat.west},
+          ),
+        ),
+      );
+
+      expect(lockedController.openingState.currentRequirement, 54);
+    });
+
     test('legal meld actions include larger and multi-meld opening plays', () {
       final clubRun = [
         _card(CardRank.seven, CardSuit.clubs, 46),

@@ -288,6 +288,42 @@ void main() {
       );
     });
 
+    testWidgets('side meld lanes use the available table height', (
+      tester,
+    ) async {
+      final sideMelds = [
+        PlacedMeld.fromCards([
+          _card(CardRank.queen, CardSuit.clubs, 99),
+          _card(CardRank.queen, CardSuit.diamonds, 99),
+          _card(CardRank.queen, CardSuit.hearts, 99),
+        ]),
+        PlacedMeld.fromCards([
+          _card(CardRank.four, CardSuit.spades, 99),
+          _card(CardRank.five, CardSuit.spades, 99),
+          _card(CardRank.six, CardSuit.spades, 99),
+          _card(CardRank.seven, CardSuit.spades, 99),
+        ]),
+      ];
+
+      await _pumpPlayfield(
+        tester,
+        tableMelds: {PlayerSeat.west: sideMelds, PlayerSeat.east: sideMelds},
+        size: const Size(900, 500),
+      );
+
+      final westLane = tester.getRect(
+        find.byKey(const ValueKey('west-meld-lane')),
+      );
+      final eastLane = tester.getRect(
+        find.byKey(const ValueKey('east-meld-lane')),
+      );
+
+      expect(westLane.top, lessThan(90));
+      expect(eastLane.top, lessThan(90));
+      expect(westLane.height, greaterThan(300));
+      expect(eastLane.height, greaterThan(300));
+    });
+
     testWidgets('pending discard can be returned from the discard pile', (
       tester,
     ) async {

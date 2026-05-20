@@ -293,35 +293,14 @@ class PhysicalTablePlayfield extends StatelessWidget {
         final sideRailTop = ((tableHeight - sideRailHeight) * 0.5)
             .clamp(sideRailMinTop, math.max(sideRailMinTop, sideRailMaxTop))
             .toDouble();
-        // West/east meld lanes sit beside their player rail, facing that
-        // player. The lane is centered around the same side-seat axis and
-        // scrolls when placed melds/covers exceed that centered budget.
-        final leftMeldTopSafe = topInset + opponentCardSize.height;
-        final leftMeldBottomSafe =
-            tableHeight -
-            southMeldBottom -
-            southMeldHeight -
-            (compact ? 6.0 : 10.0);
-        final sideMeldCenter = tableHeight * 0.5;
-        final centeredSideMeldMaxHeight = math.max(
-          0.0,
-          2 *
-              math.min(
-                sideMeldCenter - leftMeldTopSafe,
-                leftMeldBottomSafe - sideMeldCenter,
-              ),
-        );
-        final sideMeldAvailable = math.max(
-          0.0,
-          leftMeldBottomSafe - leftMeldTopSafe,
-        );
-        final sideMeldHeight = math
-            .min(
-              sideMeldAvailable,
-              math.min(compact ? 180.0 : 420.0, centeredSideMeldMaxHeight),
-            )
-            .toDouble();
-        final sideMeldTop = sideMeldCenter - sideMeldHeight * 0.5;
+        // West/east meld lanes use the full safe vertical budget between the
+        // north hand and the south hand. The rail itself stays centered; the
+        // meld lane should only scroll when it exhausts this whole side area.
+        final sideMeldTop =
+            topInset + opponentCardSize.height + (compact ? 18.0 : 24.0);
+        final sideMeldBottomSafe =
+            tableHeight - bottomHandHeight - (compact ? 6.0 : 10.0);
+        final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
         final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
         final sideMeldGap = compact ? 6.0 : 10.0;
         final horizontalMeldInset = (tableWidth * 0.25)
@@ -463,21 +442,24 @@ class PhysicalTablePlayfield extends StatelessWidget {
               top: sideMeldTop,
               width: sideMeldWidth,
               height: sideMeldHeight,
-              child: _SeatMeldLane(
-                theme: theme,
-                owner: PlayerSeat.west,
-                melds: tableMelds[PlayerSeat.west] ?? const <PlacedMeld>[],
-                cardSize: sideMeldCardSize,
-                compact: compact,
-                canAcceptTable: (_) => false,
-                onAcceptTable: onPlayCardOnTable,
-                canAcceptMeld: canPlayCardOnMeld,
-                onAcceptMeld: onPlayCardOnMeld,
-                canRetractMeld: canRetractMeld,
-                onRetractMeld: onRetractMeld,
-                onCardLongPress: onCardLongPress,
-                stackVertically: false,
-                quarterTurns: 1,
+              child: SizedBox.expand(
+                key: const ValueKey('west-meld-lane'),
+                child: _SeatMeldLane(
+                  theme: theme,
+                  owner: PlayerSeat.west,
+                  melds: tableMelds[PlayerSeat.west] ?? const <PlacedMeld>[],
+                  cardSize: sideMeldCardSize,
+                  compact: compact,
+                  canAcceptTable: (_) => false,
+                  onAcceptTable: onPlayCardOnTable,
+                  canAcceptMeld: canPlayCardOnMeld,
+                  onAcceptMeld: onPlayCardOnMeld,
+                  canRetractMeld: canRetractMeld,
+                  onRetractMeld: onRetractMeld,
+                  onCardLongPress: onCardLongPress,
+                  stackVertically: false,
+                  quarterTurns: 1,
+                ),
               ),
             ),
             Positioned(
@@ -485,21 +467,24 @@ class PhysicalTablePlayfield extends StatelessWidget {
               top: sideMeldTop,
               width: sideMeldWidth,
               height: sideMeldHeight,
-              child: _SeatMeldLane(
-                theme: theme,
-                owner: PlayerSeat.east,
-                melds: tableMelds[PlayerSeat.east] ?? const <PlacedMeld>[],
-                cardSize: sideMeldCardSize,
-                compact: compact,
-                canAcceptTable: (_) => false,
-                onAcceptTable: onPlayCardOnTable,
-                canAcceptMeld: canPlayCardOnMeld,
-                onAcceptMeld: onPlayCardOnMeld,
-                canRetractMeld: canRetractMeld,
-                onRetractMeld: onRetractMeld,
-                onCardLongPress: onCardLongPress,
-                stackVertically: false,
-                quarterTurns: 3,
+              child: SizedBox.expand(
+                key: const ValueKey('east-meld-lane'),
+                child: _SeatMeldLane(
+                  theme: theme,
+                  owner: PlayerSeat.east,
+                  melds: tableMelds[PlayerSeat.east] ?? const <PlacedMeld>[],
+                  cardSize: sideMeldCardSize,
+                  compact: compact,
+                  canAcceptTable: (_) => false,
+                  onAcceptTable: onPlayCardOnTable,
+                  canAcceptMeld: canPlayCardOnMeld,
+                  onAcceptMeld: onPlayCardOnMeld,
+                  canRetractMeld: canRetractMeld,
+                  onRetractMeld: onRetractMeld,
+                  onCardLongPress: onCardLongPress,
+                  stackVertically: false,
+                  quarterTurns: 3,
+                ),
               ),
             ),
             Positioned(
