@@ -19,7 +19,7 @@ class HareegCardView extends StatelessWidget {
     required this.card,
     this.variant = CardVariant.full,
     this.visualState = CardVisualState.normal,
-    this.jokerDisplay = JokerDisplay.assisted,
+    this.jokerDisplay,
     this.badge = CardBadge.none,
     this.faceDown = false,
     this.size = const Size(64, 92),
@@ -38,8 +38,8 @@ class HareegCardView extends StatelessWidget {
   /// Visual state overlay.
   final CardVisualState visualState;
 
-  /// Joker display mode.
-  final JokerDisplay jokerDisplay;
+  /// Joker display override. Defaults to [JokerDisplayScope] when omitted.
+  final JokerDisplay? jokerDisplay;
 
   /// Optional badge.
   final CardBadge badge;
@@ -57,12 +57,13 @@ class HareegCardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final motion = MotionScope.of(context);
     final overlay = theme.overlayFor(visualState);
+    final effectiveJokerDisplay = jokerDisplay ?? JokerDisplayScope.of(context);
     final request = CardRenderRequest(
       card: card,
       variant: variant,
       size: size,
       visualState: visualState,
-      jokerDisplay: jokerDisplay,
+      jokerDisplay: effectiveJokerDisplay,
       badge: badge,
       faceDown: faceDown,
     );
@@ -91,7 +92,9 @@ class HareegCardView extends StatelessWidget {
         switchInCurve: motion.curve(Curves.easeOut),
         switchOutCurve: motion.curve(Curves.easeIn),
         child: SizedBox.fromSize(
-          key: ValueKey('${theme.id}-${card.id}-$visualState-$jokerDisplay'),
+          key: ValueKey(
+            '${theme.id}-${card.id}-$visualState-$effectiveJokerDisplay',
+          ),
           size: size,
           child: surface,
         ),

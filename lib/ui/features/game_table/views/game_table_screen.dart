@@ -170,6 +170,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);
     final aids = AidsScope.of(context);
+    final jokerDisplay = widget.preferences.memoryJokerDisplay
+        ? JokerDisplay.memoryReveal
+        : JokerDisplay.assisted;
     final southCards = _orderedSouthHand();
     final meldSuggestions = aids.showsMeldPicker
         ? _meldSuggestions(southCards)
@@ -189,163 +192,167 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
-      child: Stack(
-        children: [
-          PhysicalTablePlayfield(
-            theme: theme,
-            stockCount: _controller.stockCount,
-            discardPile: _controller.discardPile,
-            topDiscard: _controller.topDiscard,
-            pendingDiscard: pending,
-            cardCounts: {
-              for (final seat in PlayerSeat.values)
-                seat: _controller.cardCountFor(seat),
-            },
-            tableMelds: {
-              for (final seat in PlayerSeat.values)
-                seat: _controller.tableMeldsFor(seat),
-            },
-            southCards: southCards,
-            selectedIds: _selectedCardIds,
-            onCardTap: _toggleSelectedCard,
-            onReorderHand: _reorderHand,
-            canDiscardCard: _canDropCardToDiscard,
-            canPlayCardOnTable: _canDropCardToTable,
-            canPlaceMeldOnTable: _canPlaceNewMeldOnTable,
-            canPlayCardOnMeld: _canDropCardToMeld,
-            canRetractMeld: (owner, meldIndex) =>
-                controlActions.contains(
-                  ClassicHareegActionIds.returnOpeningMelds,
-                ) &&
-                _controller.canReturnTablePlayFromMeld(owner, meldIndex),
-            onDiscardCard: (card) => unawaited(_dropCardToDiscard(card)),
-            onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
-            onPlayCardOnMeld: (card, owner, meldIndex) =>
-                unawaited(_dropCardToMeld(card, owner, meldIndex)),
-            onRetractMeld: (_, _) => unawaited(
-              _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+      child: JokerDisplayScope(
+        display: jokerDisplay,
+        child: Stack(
+          children: [
+            PhysicalTablePlayfield(
+              theme: theme,
+              stockCount: _controller.stockCount,
+              discardPile: _controller.discardPile,
+              topDiscard: _controller.topDiscard,
+              pendingDiscard: pending,
+              cardCounts: {
+                for (final seat in PlayerSeat.values)
+                  seat: _controller.cardCountFor(seat),
+              },
+              tableMelds: {
+                for (final seat in PlayerSeat.values)
+                  seat: _controller.tableMeldsFor(seat),
+              },
+              southCards: southCards,
+              selectedIds: _selectedCardIds,
+              onCardTap: _toggleSelectedCard,
+              onReorderHand: _reorderHand,
+              canDiscardCard: _canDropCardToDiscard,
+              canPlayCardOnTable: _canDropCardToTable,
+              canPlaceMeldOnTable: _canPlaceNewMeldOnTable,
+              canPlayCardOnMeld: _canDropCardToMeld,
+              canRetractMeld: (owner, meldIndex) =>
+                  controlActions.contains(
+                    ClassicHareegActionIds.returnOpeningMelds,
+                  ) &&
+                  _controller.canReturnTablePlayFromMeld(owner, meldIndex),
+              onDiscardCard: (card) => unawaited(_dropCardToDiscard(card)),
+              onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
+              onPlayCardOnMeld: (card, owner, meldIndex) =>
+                  unawaited(_dropCardToMeld(card, owner, meldIndex)),
+              onRetractMeld: (_, _) => unawaited(
+                _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+              ),
+              canDrawStock: controlActions.contains(
+                ClassicHareegActionIds.drawStock,
+              ),
+              canTakeDiscard: controlActions.contains(
+                ClassicHareegActionIds.takeDiscard,
+              ),
+              canReturnDiscard: controlActions.contains(
+                ClassicHareegActionIds.returnPendingDiscard,
+              ),
+              canClaimFifty: controlActions.contains(
+                ClassicHareegActionIds.claimFifty,
+              ),
+              canReturnOpeningMelds: controlActions.contains(
+                ClassicHareegActionIds.returnOpeningMelds,
+              ),
+              onDrawStock: () =>
+                  unawaited(_runHumanAction(ClassicHareegActionIds.drawStock)),
+              onTakeDiscard: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.takeDiscard),
+              ),
+              onReturnDiscard: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),
+              ),
+              onClaimFifty: () => unawaited(_claimFifty()),
+              onReturnOpeningMelds: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+              ),
+              fiftySecondsRemaining: _controller.fiftySecondsRemaining,
+              fiftyTotalSeconds: _controller.setup.fiftyTimerSeconds,
+              fiftyPulse: _fiftyPulse,
+              meldRequirement: _controller.openingState.currentRequirement,
+              meldSelectionValue: meldCtaValue,
+              meldSelectionValid: canPlayMeld,
+              meldSelectionHasOpened: hasOpened,
+              onPlaySelectedMeld: primaryMeldAction == null
+                  ? null
+                  : () => unawaited(_runHumanAction(primaryMeldAction)),
+              meldSuggestions: meldSuggestions,
+              showMeldSuggestions: aids.showsMeldPicker,
+              onMeldSuggestion: (actionId) {
+                unawaited(_runHumanAction(actionId));
+              },
+              isHumanTurn: isHumanTurn,
+              isCpuRunning: _isCpuRunning,
+              currentSeat: _controller.currentSeat,
+              activeSeats: _controller.activeSeats.toSet(),
             ),
-            canDrawStock: controlActions.contains(
-              ClassicHareegActionIds.drawStock,
-            ),
-            canTakeDiscard: controlActions.contains(
-              ClassicHareegActionIds.takeDiscard,
-            ),
-            canReturnDiscard: controlActions.contains(
-              ClassicHareegActionIds.returnPendingDiscard,
-            ),
-            canClaimFifty: controlActions.contains(
-              ClassicHareegActionIds.claimFifty,
-            ),
-            canReturnOpeningMelds: controlActions.contains(
-              ClassicHareegActionIds.returnOpeningMelds,
-            ),
-            onDrawStock: () =>
-                unawaited(_runHumanAction(ClassicHareegActionIds.drawStock)),
-            onTakeDiscard: () =>
-                unawaited(_runHumanAction(ClassicHareegActionIds.takeDiscard)),
-            onReturnDiscard: () => unawaited(
-              _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),
-            ),
-            onClaimFifty: () => unawaited(_claimFifty()),
-            onReturnOpeningMelds: () => unawaited(
-              _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
-            ),
-            fiftySecondsRemaining: _controller.fiftySecondsRemaining,
-            fiftyTotalSeconds: _controller.setup.fiftyTimerSeconds,
-            fiftyPulse: _fiftyPulse,
-            meldRequirement: _controller.openingState.currentRequirement,
-            meldSelectionValue: meldCtaValue,
-            meldSelectionValid: canPlayMeld,
-            meldSelectionHasOpened: hasOpened,
-            onPlaySelectedMeld: primaryMeldAction == null
-                ? null
-                : () => unawaited(_runHumanAction(primaryMeldAction)),
-            meldSuggestions: meldSuggestions,
-            showMeldSuggestions: aids.showsMeldPicker,
-            onMeldSuggestion: (actionId) {
-              unawaited(_runHumanAction(actionId));
-            },
-            isHumanTurn: isHumanTurn,
-            isCpuRunning: _isCpuRunning,
-            currentSeat: _controller.currentSeat,
-            activeSeats: _controller.activeSeats.toSet(),
-          ),
-          LayoutBuilder(
-            builder: (context, viewport) {
-              // Score / pause snap to the true safe-area corners. We pull
-              // them OUTSIDE the SafeArea wrapper and add the safe-area
-              // padding ourselves so the buttons can hug the literal edge
-              // (the table's border ornament is decorative — buttons go on
-              // top of it). Sizes scale with viewport width so tablets
-              // don't end up with tiny phone-sized controls.
-              final safe = MediaQuery.paddingOf(context);
-              final isLarge = viewport.maxWidth >= 900;
-              final isTablet = viewport.maxWidth >= 720;
-              final buttonSize = isLarge
-                  ? 56.0
-                  : isTablet
-                  ? 48.0
-                  : 38.0;
-              final iconSize = isLarge
-                  ? 30.0
-                  : isTablet
-                  ? 26.0
-                  : 20.0;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    top: safe.top,
-                    left: safe.left,
-                    child: _RoundTableButton(
-                      tooltip: 'Scores',
-                      icon: Icons.bar_chart_rounded,
-                      diameter: buttonSize,
-                      iconSize: iconSize,
-                      onPressed: () => setState(() => _scoreOpen = true),
-                    ),
-                  ),
-                  Positioned(
-                    top: safe.top,
-                    right: safe.right,
-                    child: _RoundTableButton(
-                      tooltip: 'Pause',
-                      icon: Icons.pause_rounded,
-                      diameter: buttonSize,
-                      iconSize: iconSize,
-                      onPressed: () => setState(() => _pauseOpen = true),
-                    ),
-                  ),
-                  if (_humanFeedback != null)
+            LayoutBuilder(
+              builder: (context, viewport) {
+                // Score / pause snap to the true safe-area corners. We pull
+                // them OUTSIDE the SafeArea wrapper and add the safe-area
+                // padding ourselves so the buttons can hug the literal edge
+                // (the table's border ornament is decorative — buttons go on
+                // top of it). Sizes scale with viewport width so tablets
+                // don't end up with tiny phone-sized controls.
+                final safe = MediaQuery.paddingOf(context);
+                final isLarge = viewport.maxWidth >= 900;
+                final isTablet = viewport.maxWidth >= 720;
+                final buttonSize = isLarge
+                    ? 56.0
+                    : isTablet
+                    ? 48.0
+                    : 38.0;
+                final iconSize = isLarge
+                    ? 30.0
+                    : isTablet
+                    ? 26.0
+                    : 20.0;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
                     Positioned(
-                      top: safe.top + math.max(0.0, (buttonSize - 34) / 2),
-                      left: safe.left + buttonSize + 20,
-                      right: safe.right + buttonSize + 20,
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: IgnorePointer(
-                          child: _FeedbackChip(
-                            message: _humanFeedback!,
-                            isError: _humanFeedbackIsError,
+                      top: safe.top,
+                      left: safe.left,
+                      child: _RoundTableButton(
+                        tooltip: 'Scores',
+                        icon: Icons.bar_chart_rounded,
+                        diameter: buttonSize,
+                        iconSize: iconSize,
+                        onPressed: () => setState(() => _scoreOpen = true),
+                      ),
+                    ),
+                    Positioned(
+                      top: safe.top,
+                      right: safe.right,
+                      child: _RoundTableButton(
+                        tooltip: 'Pause',
+                        icon: Icons.pause_rounded,
+                        diameter: buttonSize,
+                        iconSize: iconSize,
+                        onPressed: () => setState(() => _pauseOpen = true),
+                      ),
+                    ),
+                    if (_humanFeedback != null)
+                      Positioned(
+                        top: safe.top + math.max(0.0, (buttonSize - 34) / 2),
+                        left: safe.left + buttonSize + 20,
+                        right: safe.right + buttonSize + 20,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: IgnorePointer(
+                            child: _FeedbackChip(
+                              message: _humanFeedback!,
+                              isError: _humanFeedbackIsError,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              );
-            },
-          ),
-          if (_cardFlight != null)
-            Positioned.fill(
-              child: _CardFlightOverlay(
-                key: ValueKey(_cardFlight!.serial),
-                flight: _cardFlight!,
-                theme: theme,
-                duration: _scaledDelay(const Duration(milliseconds: 230)),
-              ),
+                  ],
+                );
+              },
             ),
-        ],
+            if (_cardFlight != null)
+              Positioned.fill(
+                child: _CardFlightOverlay(
+                  key: ValueKey(_cardFlight!.serial),
+                  flight: _cardFlight!,
+                  theme: theme,
+                  duration: _scaledDelay(const Duration(milliseconds: 230)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
 

@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
+import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/ui/core/cards/card_state.dart';
+import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/fifty_ring.dart';
@@ -254,6 +257,109 @@ void main() {
       expect(find.byTooltip('Pause'), findsOneWidget);
     });
 
+    testWidgets('pending discard can be returned from the discard pile', (
+      tester,
+    ) async {
+      final pending = _card(CardRank.nine, CardSuit.clubs, 91);
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            pending,
+            _card(CardRank.three, CardSuit.hearts, 91),
+            _card(CardRank.four, CardSuit.hearts, 91),
+            _card(CardRank.five, CardSuit.hearts, 91),
+          ],
+          discardPile: [_card(CardRank.ace, CardSuit.spades, 91)],
+          pendingDiscard: pending,
+        ),
+      );
+
+      expect(
+        find.byKey(ValueKey('south-hand-drag-${pending.id}')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(ValueKey('south-hand-drag-${pending.id}')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('discard-pile-drop-target')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('FiftyRing is present during a claimable Fifty window', (
+      tester,
+    ) async {
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        rulePreset: RulePreset.tablePenalties,
+        fiftyTimerSeconds: 50,
+      );
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          setup: setup,
+          southHand: [
+            _card(CardRank.seven, CardSuit.clubs, 92),
+            _card(CardRank.eight, CardSuit.clubs, 92),
+            _card(CardRank.two, CardSuit.hearts, 92),
+          ],
+          discardPile: [_card(CardRank.nine, CardSuit.clubs, 92)],
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          savedAt: DateTime.now().toUtc(),
+          fiftyWindowOpenedAt: DateTime.now().toUtc().add(
+            const Duration(seconds: 10),
+          ),
+        ),
+      );
+
+      expect(find.byType(FiftyRing), findsOneWidget);
+    });
+
+    testWidgets('memory joker preference flows into table card rendering', (
+      tester,
+    ) async {
+      const represented = CardIdentity(
+        rank: CardRank.queen,
+        suit: CardSuit.hearts,
+      );
+      const joker = HareegCard.joker(
+        deckIndex: 93,
+        jokerIndex: 0,
+        representedIdentity: represented,
+      );
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          memoryJokerDisplay: true,
+        );
+
+      await _openTable(
+        tester,
+        southHand: [
+          joker,
+          _card(CardRank.three, CardSuit.spades, 93),
+          _card(CardRank.four, CardSuit.spades, 93),
+        ],
+        preferencesRepository: preferences,
+      );
+
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('FiftyRing is not present when no Fifty window is open', (
       tester,
     ) async {
@@ -266,29 +372,16 @@ void main() {
 Future<void> _openTable(
   WidgetTester tester, {
   List<HareegCard>? southHand,
+  ClassicHareegMatchSnapshot? savedSnapshot,
+  MemoryPreferencesRepository? preferencesRepository,
 }) async {
-  final snapshot = ClassicHareegRound.deal(
-    setup: ClassicHareegSetup.defaults(),
-    seed: 3,
-  );
-  final hands = southHand == null
-      ? snapshot.hands
-      : {...snapshot.hands, PlayerSeat.south: southHand};
   final repository = MemoryMatchRepository(
-    saved: ClassicHareegMatchSnapshot(
-      setup: snapshot.setup,
-      hands: hands,
-      stock: snapshot.stock,
-      discardPile: snapshot.discardPile,
-      starter: snapshot.starter,
-      currentSeat: PlayerSeat.south,
-      turnPhase: TurnPhase.action,
-      savedAt: DateTime.utc(2026, 5, 18),
-    ),
+    saved: savedSnapshot ?? _savedSnapshot(southHand: southHand),
   );
   await tester.pumpWidget(
     HareegTableApp(
-      preferencesRepository: MemoryPreferencesRepository(),
+      preferencesRepository:
+          preferencesRepository ?? MemoryPreferencesRepository(),
       matchRepository: repository,
       initialRouteOverride: AppRoutes.home,
     ),
@@ -304,6 +397,35 @@ Future<void> _openTable(
       deckIndex: 0,
     ).label,
     'AS',
+  );
+}
+
+ClassicHareegMatchSnapshot _savedSnapshot({
+  List<HareegCard>? southHand,
+  ClassicHareegSetup? setup,
+  PlayerSeat currentSeat = PlayerSeat.south,
+  TurnPhase turnPhase = TurnPhase.action,
+  List<HareegCard>? discardPile,
+  HareegCard? pendingDiscard,
+  DateTime? savedAt,
+  DateTime? fiftyWindowOpenedAt,
+}) {
+  final resolvedSetup = setup ?? ClassicHareegSetup.defaults();
+  final snapshot = ClassicHareegRound.deal(setup: resolvedSetup, seed: 3);
+  final hands = southHand == null
+      ? snapshot.hands
+      : {...snapshot.hands, PlayerSeat.south: southHand};
+  return ClassicHareegMatchSnapshot(
+    setup: resolvedSetup,
+    hands: hands,
+    stock: snapshot.stock,
+    discardPile: discardPile ?? snapshot.discardPile,
+    starter: snapshot.starter,
+    currentSeat: currentSeat,
+    turnPhase: turnPhase,
+    pendingDiscard: pendingDiscard,
+    fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+    savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
   );
 }
 

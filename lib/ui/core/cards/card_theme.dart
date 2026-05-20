@@ -39,6 +39,31 @@ enum JokerDisplay {
   unassigned,
 }
 
+/// Inherits the active joker identity display mode for card rendering.
+class JokerDisplayScope extends InheritedWidget {
+  /// Creates a joker-display scope.
+  const JokerDisplayScope({
+    super.key,
+    required this.display,
+    required super.child,
+  });
+
+  /// Active joker display mode.
+  final JokerDisplay display;
+
+  /// Reads the nearest display mode; falls back to assisted identity display.
+  static JokerDisplay of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<JokerDisplayScope>();
+    return scope?.display ?? JokerDisplay.assisted;
+  }
+
+  @override
+  bool updateShouldNotify(covariant JokerDisplayScope oldWidget) {
+    return oldWidget.display != display;
+  }
+}
+
 /// Optional badge drawn on top of the card face when the player should know
 /// something extra about it (per-deck-copy distinction, joker memory aid).
 enum CardBadge {

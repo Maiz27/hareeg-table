@@ -855,6 +855,7 @@ class _DiscardPile extends StatelessWidget {
     final hitWidth = pileWidth + (compact ? 60 : 90);
     final hitHeight = pileHeight + (compact ? 50 : 70);
     return DragTarget<HareegCard>(
+      key: const ValueKey('discard-pile-drop-target'),
       onWillAcceptWithDetails: (details) => canAcceptDiscard(details.data),
       onAcceptWithDetails: (details) => onAcceptDiscard(details.data),
       builder: (context, candidates, _) {
