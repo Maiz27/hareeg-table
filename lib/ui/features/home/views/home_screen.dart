@@ -48,50 +48,60 @@ class _HomeScreenState extends State<HomeScreen> {
                 final horizontalPadding = constraints.maxWidth >= 520
                     ? LoungeTokens.space8
                     : LoungeTokens.space5;
+                final shortViewport = constraints.maxHeight < 460;
+                final hero = _HeroSection(
+                  savedMatch: _savedMatch,
+                  loadingSavedMatch: _loadingSavedMatch,
+                  onNewGame: () => _openAndRefresh(AppRoutes.newGame),
+                  onContinue: _savedMatch == null
+                      ? null
+                      : () => _openAndRefresh(
+                          AppRoutes.table,
+                          arguments: _savedMatch,
+                        ),
+                  onAbandon: _abandonSavedMatch,
+                );
+                final content = Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    LoungeTokens.space5,
+                    horizontalPadding,
+                    LoungeTokens.space6,
+                  ),
+                  child: Column(
+                    mainAxisSize: shortViewport
+                        ? MainAxisSize.min
+                        : MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _BrandHeader(
+                        onSettings: () =>
+                            Navigator.of(context).pushNamed(AppRoutes.settings),
+                        onRulesHelp: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.rulesHelp),
+                      ),
+                      if (shortViewport) ...[
+                        const SizedBox(height: LoungeTokens.space6),
+                        hero,
+                      ] else
+                        Expanded(child: hero),
+                    ],
+                  ),
+                );
+                if (shortViewport) {
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: content,
+                  );
+                }
                 return SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          horizontalPadding,
-                          LoungeTokens.space5,
-                          horizontalPadding,
-                          LoungeTokens.space6,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _BrandHeader(
-                              onSettings: () => Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.settings),
-                              onRulesHelp: () => Navigator.of(
-                                context,
-                              ).pushNamed(AppRoutes.rulesHelp),
-                            ),
-                            Expanded(
-                              child: _HeroSection(
-                                savedMatch: _savedMatch,
-                                loadingSavedMatch: _loadingSavedMatch,
-                                onNewGame: () =>
-                                    _openAndRefresh(AppRoutes.newGame),
-                                onContinue: _savedMatch == null
-                                    ? null
-                                    : () => _openAndRefresh(
-                                        AppRoutes.table,
-                                        arguments: _savedMatch,
-                                      ),
-                                onAbandon: _abandonSavedMatch,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: IntrinsicHeight(child: content),
                   ),
                 );
               },
@@ -288,6 +298,7 @@ class _HeroSection extends StatelessWidget {
     final hasSavedMatch = savedMatch != null;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

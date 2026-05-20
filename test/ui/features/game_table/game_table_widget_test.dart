@@ -711,6 +711,7 @@ Future<void> _openTable(
     ),
   );
   await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Continue'));
   await tester.tap(find.text('Continue'));
   await tester.pumpAndSettle();
   // Use deterministic playing_card import to satisfy lints.
