@@ -296,10 +296,8 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // West/east meld lanes use the full safe vertical budget between the
         // north hand and the south hand. The rail itself stays centered; the
         // meld lane should only scroll when it exhausts this whole side area.
-        final sideMeldTop =
-            topInset + opponentCardSize.height + (compact ? 18.0 : 24.0);
-        final sideMeldBottomSafe =
-            tableHeight - bottomHandHeight - (compact ? 6.0 : 10.0);
+        final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
+        final sideMeldBottomSafe = tableHeight - (compact ? 12.0 : 16.0);
         final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
         final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
         final sideMeldGap = compact ? 6.0 : 10.0;
@@ -1155,7 +1153,25 @@ class _SeatMeldLaneState extends State<_SeatMeldLane> {
                 children: meldWidgets,
               );
 
-              if (widget.stackVertically || sideFacing) {
+              if (sideFacing) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: meldWidgets,
+                    ),
+                  ),
+                );
+              }
+
+              if (widget.stackVertically) {
                 return SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   physics: const BouncingScrollPhysics(),

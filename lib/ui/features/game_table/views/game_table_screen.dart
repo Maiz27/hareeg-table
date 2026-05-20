@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
-import '../../../../app/app_routes.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
 import '../../../../data/persistence/preferences_repository.dart';
@@ -13,6 +12,7 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
@@ -22,7 +22,6 @@ import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
-import '../../round_summary/views/round_summary_screen.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
@@ -73,6 +72,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
   static const _cpuActionLimit = 64;
   static const _successFeedbackDuration = Duration(milliseconds: 1400);
   static const _errorFeedbackDuration = Duration(milliseconds: 2400);
+  static const _roundResultDisplayDuration = Duration(milliseconds: 2400);
 
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
@@ -84,8 +84,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
   bool _humanFeedbackIsError = false;
   Timer? _fiftyTicker;
   Timer? _feedbackTimer;
+  Timer? _roundAdvanceTimer;
   _CardFlight? _cardFlight;
   HareegCard? _inspectedCard;
+  _RoundResultPresentation? _roundResultPresentation;
   int _flightSerial = 0;
 
   /// Stable display order for the south hand, indexed by card id. The engine
@@ -105,14 +107,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
-    final initialHand = _controller.handFor(PlayerSeat.south);
-    final initialSort = widget.preferences.autoSort
-        ? HandSortMode.byRank
-        : HandSortMode.manual;
-    _displayOrder = HandSorting.sort(
-      initialHand,
-      initialSort,
-    ).map((card) => card.id).toList();
+    _resetDisplayOrder();
     _debugTableLog(
       'init snapshot=${snapshot != null} current=${_controller.currentSeat.name} '
       'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
@@ -134,8 +129,21 @@ class _GameTableScreenState extends State<GameTableScreen> {
     _fiftyTicker = null;
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = null;
     AppOrientation.usePortrait();
     super.dispose();
+  }
+
+  void _resetDisplayOrder() {
+    final initialHand = _controller.handFor(PlayerSeat.south);
+    final initialSort = widget.preferences.autoSort
+        ? HandSortMode.byRank
+        : HandSortMode.manual;
+    _displayOrder = HandSorting.sort(
+      initialHand,
+      initialSort,
+    ).map((card) => card.id).toList();
   }
 
   void _ensureFiftyTicker() {
@@ -408,6 +416,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
               aids: aids,
               jokerAidsEnabled: jokerAidsEnabled,
               onClose: () => setState(() => _inspectedCard = null),
+            ),
+          if (_roundResultPresentation != null)
+            _RoundResultOverlay(
+              presentation: _roundResultPresentation!,
+              onContinueNow: _roundResultPresentation!.nextSnapshot == null
+                  ? null
+                  : () => _advanceToNextRound(
+                      _roundResultPresentation!.nextSnapshot!,
+                    ),
+              onReturnToMenu:
+                  _roundResultPresentation!.progress.matchWinner == null
+                  ? null
+                  : () => Navigator.of(context).pop(),
             ),
         ],
       ),
@@ -1187,6 +1208,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
           'roundOver=${_controller.isRoundOver}',
         );
         if (!mounted) return didPersistOrNavigate;
+        if (_controller.isRoundOver || _roundResultPresentation != null) {
+          return didPersistOrNavigate;
+        }
         await Future<void>.delayed(_scaledDelay(TableMotion.cpuMove));
         safety += 1;
       }
@@ -1239,6 +1263,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
   Future<bool> _persistAndMaybeFinish() async {
     final totalWatch = Stopwatch()..start();
     var persistencePath = 'active';
+    final roundResult = _controller.roundResult;
+    final roundProgress = _controller.roundProgress;
+    final previousScores = _controller.scores;
+    final nextSnapshot = _controller.isRoundOver
+        ? _controller.nextRoundSnapshot()
+        : null;
     _debugTableLog(
       'persist start roundOver=${_controller.isRoundOver} '
       'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
@@ -1248,13 +1278,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
     var persistenceSucceeded = true;
     try {
       if (_controller.isRoundOver) {
-        final next = _controller.nextRoundSnapshot();
-        if (next == null) {
+        if (nextSnapshot == null) {
           persistencePath = 'abandon';
           await widget.matchRepository.abandonActiveMatch();
         } else {
           persistencePath = 'next-round';
-          await widget.matchRepository.saveActiveMatch(next);
+          await widget.matchRepository.saveActiveMatch(nextSnapshot);
         }
       } else {
         persistencePath = 'active';
@@ -1278,27 +1307,80 @@ class _GameTableScreenState extends State<GameTableScreen> {
       'elapsed=${totalWatch.elapsedMilliseconds}ms roundOver=${_controller.isRoundOver}',
     );
     if (!mounted) return persistenceSucceeded;
-    if (_controller.isRoundOver && persistenceSucceeded) {
-      _debugTableLog('round summary navigation requested');
-      _navigateToRoundSummary();
+    if (_controller.isRoundOver &&
+        persistenceSucceeded &&
+        roundResult != null &&
+        roundProgress != null) {
+      _debugTableLog('round result overlay requested');
+      _showRoundResultOverlay(
+        result: roundResult,
+        progress: roundProgress,
+        previousScores: previousScores,
+        nextSnapshot: nextSnapshot,
+      );
     }
     return persistenceSucceeded;
   }
 
-  void _navigateToRoundSummary() {
-    final result = _controller.roundResult;
-    final progress = _controller.roundProgress;
-    if (result == null || progress == null) return;
+  void _showRoundResultOverlay({
+    required RoundProgressResult result,
+    required MatchProgressState progress,
+    required Map<PlayerSeat, int> previousScores,
+    required ClassicHareegMatchSnapshot? nextSnapshot,
+  }) {
+    if (_roundResultPresentation != null) {
+      return;
+    }
     unawaited(_haptics.fire(TableHapticEvent.roundEnd));
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.roundSummary,
-      arguments: RoundSummaryArguments(
+    setState(() {
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _inspectedCard = null;
+      _roundResultPresentation = _RoundResultPresentation(
         result: result,
         progress: progress,
-        previousScores: _controller.scores,
-        nextSnapshot: _controller.nextRoundSnapshot(),
-      ),
-    );
+        previousScores: previousScores,
+        nextSnapshot: nextSnapshot,
+      );
+    });
+    if (nextSnapshot == null) {
+      return;
+    }
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = Timer(_roundResultDisplayDuration, () {
+      if (!mounted) return;
+      _advanceToNextRound(nextSnapshot);
+    });
+  }
+
+  void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = null;
+    _fiftyTicker?.cancel();
+    _fiftyTicker = null;
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    setState(() {
+      _controller = ClassicHareegGameController.fromSnapshot(snapshot);
+      _resetDisplayOrder();
+      _selectedCardIds.clear();
+      _isCpuRunning = false;
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _fiftyPulse = false;
+      _humanFeedback = null;
+      _humanFeedbackIsError = false;
+      _cardFlight = null;
+      _inspectedCard = null;
+      _roundResultPresentation = null;
+    });
+    _ensureFiftyTicker();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final didPersistOrNavigate = await _runCpuTurns();
+      if (!didPersistOrNavigate && mounted) {
+        await _persistAndMaybeFinish();
+      }
+    });
   }
 }
 
@@ -1337,6 +1419,443 @@ class _RoundTableButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RoundResultPresentation {
+  const _RoundResultPresentation({
+    required this.result,
+    required this.progress,
+    required this.previousScores,
+    required this.nextSnapshot,
+  });
+
+  final RoundProgressResult result;
+  final MatchProgressState progress;
+  final Map<PlayerSeat, int> previousScores;
+  final ClassicHareegMatchSnapshot? nextSnapshot;
+}
+
+class _RoundResultOverlay extends StatelessWidget {
+  const _RoundResultOverlay({
+    required this.presentation,
+    required this.onContinueNow,
+    required this.onReturnToMenu,
+  });
+
+  final _RoundResultPresentation presentation;
+  final VoidCallback? onContinueNow;
+  final VoidCallback? onReturnToMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final seats = PlayerSeat.values.toList();
+    final compact = MediaQuery.sizeOf(context).height < 390;
+    final winner = presentation.progress.matchWinner;
+    return Positioned.fill(
+      key: const ValueKey('round-result-overlay'),
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.50),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 14 : 22,
+                vertical: compact ? 10 : 18,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: compact ? 620 : 700,
+                  maxHeight: MediaQuery.sizeOf(context).height - 24,
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.36),
+                        blurRadius: 28,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(compact ? 12 : 18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _RoundResultHeader(
+                          headline: _roundHeadline(presentation.result),
+                          detail: _roundDetail(presentation),
+                          compact: compact,
+                        ),
+                        SizedBox(height: compact ? 10 : 14),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: _RoundScoreBreakdown(
+                              seats: seats,
+                              presentation: presentation,
+                              compact: compact,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: compact ? 10 : 14),
+                        if (winner == null)
+                          _RoundAdvanceLine(
+                            nextStarter: presentation.progress.nextStarter,
+                            onContinueNow: onContinueNow,
+                            compact: compact,
+                          )
+                        else
+                          _MatchWinnerLine(
+                            winner: winner,
+                            onReturnToMenu: onReturnToMenu,
+                            compact: compact,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundResultHeader extends StatelessWidget {
+  const _RoundResultHeader({
+    required this.headline,
+    required this.detail,
+    required this.compact,
+  });
+
+  final String headline;
+  final String detail;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          Icons.scoreboard_outlined,
+          color: LoungeTokens.goldAccent,
+          size: compact ? 20 : 24,
+        ),
+        SizedBox(width: compact ? 8 : 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Round score',
+                style: TextStyle(
+                  color: LoungeTokens.goldAccent,
+                  fontSize: compact ? 10 : 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                headline,
+                style: TextStyle(
+                  color: LoungeTokens.offWhiteText,
+                  fontSize: compact ? 17 : 22,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: TextStyle(
+                  color: LoungeTokens.offWhiteText.withValues(alpha: 0.74),
+                  fontSize: compact ? 11 : 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundScoreBreakdown extends StatelessWidget {
+  const _RoundScoreBreakdown({
+    required this.seats,
+    required this.presentation,
+    required this.compact,
+  });
+
+  final List<PlayerSeat> seats;
+  final _RoundResultPresentation presentation;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.20),
+        ),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < seats.length; index++) ...[
+            _RoundScoreRow(
+              seat: seats[index],
+              before: presentation.previousScores[seats[index]] ?? 0,
+              after: presentation.progress.scores[seats[index]] ?? 0,
+              cards: presentation.result.remainingCardCounts[seats[index]],
+              eliminated: !presentation.progress.activeSeats.contains(
+                seats[index],
+              ),
+              compact: compact,
+            ),
+            if (index < seats.length - 1)
+              Divider(
+                height: 1,
+                color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundScoreRow extends StatelessWidget {
+  const _RoundScoreRow({
+    required this.seat,
+    required this.before,
+    required this.after,
+    required this.cards,
+    required this.eliminated,
+    required this.compact,
+  });
+
+  final PlayerSeat seat;
+  final int before;
+  final int after;
+  final int? cards;
+  final bool eliminated;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = after - before;
+    final deltaText = delta > 0 ? '+$delta' : '$delta';
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 14,
+        vertical: compact ? 7 : 10,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  _seatLabel(seat),
+                  style: TextStyle(
+                    color: eliminated
+                        ? LoungeTokens.mutedText
+                        : LoungeTokens.offWhiteText,
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: FontWeight.w800,
+                    decoration: eliminated ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                if (cards != null)
+                  _MiniResultTag(label: 'cards $cards', compact: compact),
+                if (eliminated) _MiniResultTag(label: 'out', compact: compact),
+              ],
+            ),
+          ),
+          Text('$before', style: _scoreNumberStyle(compact)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            child: Text(
+              delta == 0 ? '+0' : deltaText,
+              style: TextStyle(
+                color: delta <= 0
+                    ? LoungeTokens.goldAccent
+                    : LoungeTokens.fiftyFlame,
+                fontSize: compact ? 12 : 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            '$after',
+            style: _scoreNumberStyle(compact).copyWith(
+              color: eliminated
+                  ? LoungeTokens.mutedText
+                  : LoungeTokens.goldAccent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniResultTag extends StatelessWidget {
+  const _MiniResultTag({required this.label, required this.compact});
+
+  final String label;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 7, vertical: 2),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: LoungeTokens.offWhiteText.withValues(alpha: 0.72),
+            fontSize: compact ? 9 : 10,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundAdvanceLine extends StatelessWidget {
+  const _RoundAdvanceLine({
+    required this.nextStarter,
+    required this.onContinueNow,
+    required this.compact,
+  });
+
+  final PlayerSeat nextStarter;
+  final VoidCallback? onContinueNow;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Next round starts with ${_seatLabel(nextStarter)}.',
+            style: TextStyle(
+              color: LoungeTokens.offWhiteText.withValues(alpha: 0.76),
+              fontSize: compact ? 11 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onContinueNow,
+          style: _roundResultActionStyle(compact),
+          child: const Text('Next now'),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchWinnerLine extends StatelessWidget {
+  const _MatchWinnerLine({
+    required this.winner,
+    required this.onReturnToMenu,
+    required this.compact,
+  });
+
+  final PlayerSeat winner;
+  final VoidCallback? onReturnToMenu;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '${_seatLabel(winner)} wins the match.',
+            style: TextStyle(
+              color: LoungeTokens.goldAccent,
+              fontSize: compact ? 12 : 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onReturnToMenu,
+          style: _roundResultActionStyle(compact),
+          child: const Text('Menu'),
+        ),
+      ],
+    );
+  }
+}
+
+ButtonStyle _roundResultActionStyle(bool compact) {
+  return TextButton.styleFrom(
+    fixedSize: Size(compact ? 92 : 108, compact ? 34 : 40),
+    minimumSize: Size.zero,
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+  );
+}
+
+TextStyle _scoreNumberStyle(bool compact) {
+  return TextStyle(
+    color: LoungeTokens.offWhiteText,
+    fontSize: compact ? 14 : 17,
+    fontWeight: FontWeight.w900,
+  );
+}
+
+String _roundHeadline(RoundProgressResult result) {
+  return switch (result.type) {
+    RoundOutcomeType.normalFinish => '${_seatLabel(result.winner!)} finished',
+    RoundOutcomeType.fiftyFinish => '${_seatLabel(result.winner!)} hit Fifty',
+    RoundOutcomeType.draw => 'Round drawn',
+  };
+}
+
+String _roundDetail(_RoundResultPresentation presentation) {
+  final result = presentation.result;
+  return switch (result.type) {
+    RoundOutcomeType.normalFinish =>
+      'Remaining cards were added. Winner receives -1.',
+    RoundOutcomeType.fiftyFinish =>
+      result.firstRoundFiftyException
+          ? 'First-round Fifty: winner receives -1; discarder takes cards plus 3.'
+          : 'Fifty: winner receives -3; discarder takes cards plus 3.',
+    RoundOutcomeType.draw => 'Stock exhausted. No score changes.',
+  };
 }
 
 class _CardInspectOverlay extends StatelessWidget {

@@ -318,10 +318,10 @@ void main() {
         find.byKey(const ValueKey('east-meld-lane')),
       );
 
-      expect(westLane.top, lessThan(90));
-      expect(eastLane.top, lessThan(90));
-      expect(westLane.height, greaterThan(300));
-      expect(eastLane.height, greaterThan(300));
+      expect(westLane.top, lessThan(32));
+      expect(eastLane.top, lessThan(32));
+      expect(westLane.height, greaterThan(440));
+      expect(eastLane.height, greaterThan(440));
     });
 
     testWidgets('pending discard can be returned from the discard pile', (
@@ -358,6 +358,61 @@ void main() {
         find.byKey(const ValueKey('discard-pile-drop-target')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('round result stays in table and auto advances', (
+      tester,
+    ) async {
+      final meldCards = [
+        _card(CardRank.seven, CardSuit.clubs, 100),
+        _card(CardRank.eight, CardSuit.clubs, 100),
+        _card(CardRank.nine, CardSuit.clubs, 100),
+      ];
+      final finalDiscard = _card(CardRank.two, CardSuit.spades, 100);
+
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [...meldCards, finalDiscard],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      for (final label in [
+        'Seven of Clubs',
+        'Eight of Clubs',
+        'Nine of Clubs',
+      ]) {
+        await tester.tap(
+          find.bySemanticsLabel(label).first,
+          warnIfMissed: false,
+        );
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Play meld'));
+      await tester.pumpAndSettle();
+
+      final discard = find.bySemanticsLabel('Two of Spades').first;
+      final dropTarget = find.byKey(const ValueKey('discard-pile-drop-target'));
+      await tester.dragFrom(
+        tester.getCenter(discard),
+        tester.getCenter(dropTarget) - tester.getCenter(discard),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('round-result-overlay')),
+        findsOneWidget,
+      );
+      expect(find.text('Round score'), findsOneWidget);
+      expect(find.textContaining('You finished'), findsOneWidget);
+      expect(find.textContaining('cards 0'), findsWidgets);
+
+      await tester.pump(const Duration(milliseconds: 2500));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('round-result-overlay')), findsNothing);
+      expect(find.byTooltip('Scores'), findsOneWidget);
     });
 
     testWidgets('FiftyRing is present during a claimable Fifty window', (
@@ -751,6 +806,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   TurnPhase turnPhase = TurnPhase.action,
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
+  OpeningState? openingState,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
 }) {
@@ -768,8 +824,17 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     currentSeat: currentSeat,
     turnPhase: turnPhase,
     pendingDiscard: pendingDiscard,
+    openingState: openingState,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
+  );
+}
+
+OpeningState _opened(PlayerSeat seat) {
+  return ClassicHareegOpeningRules.applyOpening(
+    state: OpeningState.initial(51),
+    seat: seat,
+    melds: [const PlacedMeld(cards: [], valueSnapshot: 51)],
   );
 }
 

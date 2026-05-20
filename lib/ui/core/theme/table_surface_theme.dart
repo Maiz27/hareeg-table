@@ -1,10 +1,16 @@
 /// Available table surface themes.
 enum TableSurfaceTheme {
-  /// Current dark felt lounge table.
+  /// Warm dark felt lounge table.
   felt('Dark felt'),
 
-  /// Light wood physical tabletop.
-  wood('Light wood');
+  /// Light wood physical tabletop with herbal accent.
+  wood('Light wood'),
+
+  /// Cool midnight sapphire velvet table.
+  sapphire('Midnight sapphire'),
+
+  /// Warm Sudanese clay surface with brass hairline.
+  clay('Crimson clay');
 
   const TableSurfaceTheme(this.label);
 
