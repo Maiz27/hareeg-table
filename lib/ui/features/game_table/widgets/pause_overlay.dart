@@ -76,100 +76,116 @@ class PauseOverlay extends StatelessWidget {
                         maxHeight: maxHeight,
                       ),
                       child: _LoungePanel(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                      _PanelHeader(
-                        icon: Icons.pause_circle_outline,
-                        title: AppStrings.pauseTitle,
-                        subtitle: AppStrings.pauseInMatchControls,
-                        onClose: onResume,
-                        closeTooltip: AppStrings.resumeTable,
-                      ),
-                      const SizedBox(height: LoungeTokens.space5),
-                      _OverlaySection(
-                        icon: Icons.visibility_outlined,
-                        title: AppStrings.aidsLabel,
-                        helper: AppStrings.aidsHelp,
-                        child: SegmentedButton<TableAids>(
-                          segments: [
-                            for (final aid in TableAids.values)
-                              ButtonSegment(
-                                value: aid,
-                                label: Text(aid.label),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _PanelHeader(
+                              icon: Icons.pause_circle_outline,
+                              title: AppStrings.pauseTitle,
+                              subtitle: AppStrings.pauseInMatchControls,
+                              onClose: onResume,
+                              closeTooltip: AppStrings.resumeTable,
+                            ),
+                            const SizedBox(height: LoungeTokens.space4),
+                            // Sections scroll if the available height is
+                            // tighter than the content (compact Android
+                            // landscape). Header and actions stay pinned so
+                            // the primary affordances never disappear.
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _OverlaySection(
+                                      icon: Icons.visibility_outlined,
+                                      title: AppStrings.aidsLabel,
+                                      helper: AppStrings.aidsHelp,
+                                      child: SegmentedButton<TableAids>(
+                                        segments: [
+                                          for (final aid in TableAids.values)
+                                            ButtonSegment(
+                                              value: aid,
+                                              label: Text(aid.label),
+                                            ),
+                                        ],
+                                        selected: {aids},
+                                        showSelectedIcon: false,
+                                        onSelectionChanged: (selection) =>
+                                            onAidsChanged(selection.first),
+                                      ),
+                                    ),
+                                    const _PanelDivider(),
+                                    _OverlaySection(
+                                      icon: Icons.timer_outlined,
+                                      title: AppStrings.motionSpeedLabel,
+                                      child: SegmentedButton<MotionSpeed>(
+                                        segments: const [
+                                          ButtonSegment(
+                                            value: MotionSpeed.normal,
+                                            label: Text('Normal'),
+                                          ),
+                                          ButtonSegment(
+                                            value: MotionSpeed.fast,
+                                            label: Text('Fast'),
+                                          ),
+                                          ButtonSegment(
+                                            value: MotionSpeed.reduced,
+                                            label: Text('Reduced'),
+                                          ),
+                                        ],
+                                        selected: {motionSpeed},
+                                        showSelectedIcon: false,
+                                        onSelectionChanged: (selection) =>
+                                            onMotionSpeedChanged(
+                                              selection.first,
+                                            ),
+                                      ),
+                                    ),
+                                    const _PanelDivider(),
+                                    _OverlayToggle(
+                                      icon: Icons.vibration,
+                                      title: AppStrings.hapticsLabel,
+                                      subtitle: AppStrings.hapticsHelp,
+                                      value: hapticsEnabled,
+                                      onChanged: onHapticsChanged,
+                                    ),
+                                    const _PanelDivider(),
+                                    _OverlayToggle(
+                                      icon: Icons.graphic_eq_outlined,
+                                      title: AppStrings.soundLabel,
+                                      subtitle: AppStrings.soundHelp,
+                                      value: soundEnabled,
+                                      onChanged: onSoundChanged,
+                                    ),
+                                  ],
+                                ),
                               ),
-                          ],
-                          selected: {aids},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (selection) =>
-                              onAidsChanged(selection.first),
-                        ),
-                      ),
-                      const _PanelDivider(),
-                      _OverlaySection(
-                        icon: Icons.timer_outlined,
-                        title: AppStrings.motionSpeedLabel,
-                        child: SegmentedButton<MotionSpeed>(
-                          segments: const [
-                            ButtonSegment(
-                              value: MotionSpeed.normal,
-                              label: Text('Normal'),
                             ),
-                            ButtonSegment(
-                              value: MotionSpeed.fast,
-                              label: Text('Fast'),
-                            ),
-                            ButtonSegment(
-                              value: MotionSpeed.reduced,
-                              label: Text('Reduced'),
+                            const SizedBox(height: LoungeTokens.space4),
+                            _PanelActions(
+                              primary: _PanelAction(
+                                icon: Icons.play_arrow,
+                                label: AppStrings.resumeTable,
+                                onTap: onResume,
+                                tone: _ActionTone.primary,
+                              ),
+                              secondary: _PanelAction(
+                                icon: Icons.exit_to_app,
+                                label: AppStrings.leaveTable,
+                                onTap: onLeave,
+                                tone: _ActionTone.danger,
+                              ),
                             ),
                           ],
-                          selected: {motionSpeed},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (selection) =>
-                              onMotionSpeedChanged(selection.first),
                         ),
                       ),
-                      const _PanelDivider(),
-                      _OverlayToggle(
-                        icon: Icons.vibration,
-                        title: AppStrings.hapticsLabel,
-                        subtitle: AppStrings.hapticsHelp,
-                        value: hapticsEnabled,
-                        onChanged: onHapticsChanged,
-                      ),
-                      const _PanelDivider(),
-                      _OverlayToggle(
-                        icon: Icons.graphic_eq_outlined,
-                        title: AppStrings.soundLabel,
-                        subtitle: AppStrings.soundHelp,
-                        value: soundEnabled,
-                        onChanged: onSoundChanged,
-                      ),
-                      const SizedBox(height: LoungeTokens.space5),
-                      _PanelActions(
-                        primary: _PanelAction(
-                          icon: Icons.play_arrow,
-                          label: AppStrings.resumeTable,
-                          onTap: onResume,
-                          tone: _ActionTone.primary,
-                        ),
-                        secondary: _PanelAction(
-                          icon: Icons.exit_to_app,
-                          label: AppStrings.leaveTable,
-                          onTap: onLeave,
-                          tone: _ActionTone.danger,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
               );
             },
           ),

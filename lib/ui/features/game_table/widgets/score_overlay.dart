@@ -69,33 +69,40 @@ class ScoreOverlay extends StatelessWidget {
                         maxHeight: maxHeight,
                       ),
                       child: _LoungePanel(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _PanelHeader(
-                                icon: Icons.emoji_events_outlined,
-                                title: AppStrings.scoresTitle,
-                                subtitle:
-                                    'Round $roundNumber, ${_seatLabel(currentSeat).toLowerCase()} to play',
-                                onClose: onClose,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _PanelHeader(
+                              icon: Icons.emoji_events_outlined,
+                              title: AppStrings.scoresTitle,
+                              subtitle:
+                                  'Round $roundNumber, ${_seatLabel(currentSeat).toLowerCase()} to play',
+                              onClose: onClose,
+                            ),
+                            const SizedBox(height: LoungeTokens.space4),
+                            // The seat list scrolls when the panel is shorter
+                            // than the content (compact landscape). The
+                            // header and legend stay pinned so the round
+                            // context is never hidden.
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: SingleChildScrollView(
+                                child: _ScoreList(
+                                  seats: seats,
+                                  scores: scores,
+                                  activeSeats: activeSeats,
+                                  starter: starter,
+                                  currentSeat: currentSeat,
+                                ),
                               ),
-                              const SizedBox(height: LoungeTokens.space4),
-                              _ScoreList(
-                                seats: seats,
-                                scores: scores,
-                                activeSeats: activeSeats,
-                                starter: starter,
-                                currentSeat: currentSeat,
-                              ),
-                              const SizedBox(height: LoungeTokens.space3),
-                              _LegendRow(
-                                starterLabel: _seatLabel(starter),
-                                currentLabel: _seatLabel(currentSeat),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: LoungeTokens.space3),
+                            _LegendRow(
+                              starterLabel: _seatLabel(starter),
+                              currentLabel: _seatLabel(currentSeat),
+                            ),
+                          ],
                         ),
                       ),
                     ),
