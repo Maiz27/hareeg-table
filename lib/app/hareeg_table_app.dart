@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../data/persistence/app_repositories.dart';
 import '../data/persistence/match_repository.dart';
@@ -17,6 +18,7 @@ import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
 import '../ui/features/round_summary/views/round_summary_screen.dart';
+import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
 import '../ui/features/settings/views/settings_screen.dart';
 import '../ui/features/splash/views/splash_screen.dart';
@@ -98,17 +100,24 @@ class _HareegTableAppState extends State<HareegTableApp> {
   @override
   Widget build(BuildContext context) {
     final activeTheme = CardThemeRegistry.byId(_values.cardThemeId);
+    final strings = AppStrings.forLanguageCode(_values.language.code);
 
     return MaterialApp(
-      title: AppStrings.appTitle,
+      title: strings.appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.dark,
+      locale: Locale(_values.language.code),
+      supportedLocales: AppStrings.supportedLocales,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       initialRoute: widget.initialRouteOverride ?? AppRoutes.splash,
       builder: (context, child) {
-        final osReduced =
-            MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+        final osReduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
         final motion = MotionSettings(
           speed: _values.motionSpeed,
           osReducedMotion: osReduced,
@@ -121,7 +130,13 @@ class _HareegTableAppState extends State<HareegTableApp> {
               aids: _values.tableAids,
               child: HapticsScope(
                 haptics: _haptics,
-                child: child ?? const SizedBox.shrink(),
+                child: AppStringsScope(
+                  strings: strings,
+                  child: Directionality(
+                    textDirection: strings.textDirection,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                ),
               ),
             ),
           ),
@@ -133,21 +148,30 @@ class _HareegTableAppState extends State<HareegTableApp> {
               Navigator.of(context).pushReplacementNamed(AppRoutes.home),
         ),
         AppRoutes.home: (context) => HomeScreen(matchRepository: _matches),
-        AppRoutes.newGame: (context) => NewGameSetupScreen(
-          preferencesRepository: _preferences,
-        ),
-        AppRoutes.settings: (context) => SettingsScreen(
-          preferences: _values,
-          onUpdate: _updatePreferences,
-          cardThemes: CardThemeRegistry.all(),
-          isMatchActive: false,
-        ),
-        AppRoutes.licenses: (context) => LicensesScreen(
-          themes: CardThemeRegistry.all(),
-        ),
+        AppRoutes.newGame: (context) =>
+            NewGameSetupScreen(preferencesRepository: _preferences),
+        AppRoutes.licenses: (context) =>
+            LicensesScreen(themes: CardThemeRegistry.all()),
         AppRoutes.rulesHelp: (context) => const RulesHelpScreen(),
       },
       onGenerateRoute: (settings) {
+        if (settings.name == AppRoutes.settings) {
+          final args = settings.arguments;
+          final initialSection = args is SettingsRouteArguments
+              ? args.initialSection
+              : null;
+          return MaterialPageRoute<void>(
+            builder: (context) => SettingsScreen(
+              preferences: _values,
+              onUpdate: _updatePreferences,
+              cardThemes: CardThemeRegistry.all(),
+              isMatchActive: false,
+              initialSection: initialSection,
+            ),
+            settings: settings,
+          );
+        }
+
         if (settings.name == AppRoutes.table) {
           final arguments = settings.arguments;
           final snapshot = arguments is ClassicHareegMatchSnapshot

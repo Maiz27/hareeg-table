@@ -27,9 +27,11 @@ class _LicensesScreenState extends State<LicensesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
-      appBar: AppBar(title: const Text(AppStrings.aboutLicenses)),
+      appBar: AppBar(title: Text(strings.aboutLicenses)),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -47,10 +49,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 const _SectionBreak(),
                 _LicenseSection(themes: widget.themes),
                 const _SectionBreak(),
-                const Text(
-                  AppStrings.licensesFooter,
-                  style: LoungeTokens.bodyMuted,
-                ),
+                Text(strings.licensesFooter, style: LoungeTokens.bodyMuted),
               ],
             ),
           ],
@@ -103,6 +102,8 @@ class _AboutIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -122,21 +123,21 @@ class _AboutIntro extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(AppStrings.aboutHeader, style: LoungeTokens.display),
+              Text(strings.aboutHeader, style: LoungeTokens.display),
               const SizedBox(height: LoungeTokens.space2),
-              const Text(AppStrings.aboutBody, style: LoungeTokens.body),
+              Text(strings.aboutBody, style: LoungeTokens.body),
               const SizedBox(height: LoungeTokens.space4),
               Wrap(
                 spacing: LoungeTokens.space2,
                 runSpacing: LoungeTokens.space2,
-                children: const [
+                children: [
                   _LicensePill(
                     icon: Icons.offline_bolt_outlined,
-                    label: 'Offline-first',
+                    label: strings.offlineFirst,
                   ),
                   _LicensePill(
                     icon: Icons.favorite_border,
-                    label: 'No ads or paid locks',
+                    label: strings.noAdsOrPaidLocks,
                   ),
                 ],
               ),
@@ -155,16 +156,18 @@ class _LicenseSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: const [
-            Icon(Icons.style_outlined, color: LoungeTokens.goldAccent),
-            SizedBox(width: LoungeTokens.space2),
+          children: [
+            const Icon(Icons.style_outlined, color: LoungeTokens.goldAccent),
+            const SizedBox(width: LoungeTokens.space2),
             Expanded(
               child: Text(
-                AppStrings.licensesThemesHeader,
+                strings.licensesThemesHeader,
                 style: LoungeTokens.heading,
               ),
             ),
@@ -191,6 +194,7 @@ class _ThemeLicenseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -209,7 +213,7 @@ class _ThemeLicenseRow extends StatelessWidget {
               Text(theme.label, style: LoungeTokens.titleSmall),
               const SizedBox(height: 3),
               Text(
-                theme.licenseAttribution ?? 'License not declared.',
+                theme.licenseAttribution ?? strings.licenseNotDeclared,
                 style: LoungeTokens.bodyMuted,
               ),
               if (theme.sourceUrl != null) ...[

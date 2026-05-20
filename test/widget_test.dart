@@ -15,11 +15,10 @@ void main() {
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Hareeg Table'), findsWidgets);
     expect(find.text('New Game'), findsOneWidget);
     expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Rules / Help'), findsOneWidget);
+    expect(find.byTooltip('Settings'), findsOneWidget);
+    expect(find.byTooltip('Rules / Help'), findsOneWidget);
   });
 
   testWidgets('new game opens the setup form with defaults', (tester) async {
@@ -30,25 +29,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Classic Hareeg setup'), findsWidgets);
+    expect(find.text('CPU difficulty'), findsOneWidget);
     expect(find.text('Casual'), findsOneWidget);
-    expect(find.text('Human starts'), findsOneWidget);
+    expect(find.text('First starter'), findsOneWidget);
+    expect(find.text('You start'), findsOneWidget);
+    expect(find.text('House rules'), findsOneWidget);
   });
 
   testWidgets('rules-help and settings routes are reachable', (tester) async {
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Rules / Help'));
+    await tester.tap(find.byTooltip('Rules / Help'));
     await tester.pumpAndSettle();
     expect(find.text('Classic Hareeg rules'), findsWidgets);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
-    expect(find.text('Match defaults'), findsOneWidget);
-    expect(find.text('CPU difficulty'), findsOneWidget);
+    expect(find.text('Table rules'), findsOneWidget);
+    expect(find.text('Assistance'), findsOneWidget);
+    expect(find.text('Look'), findsOneWidget);
+    expect(find.text('Feel'), findsOneWidget);
   });
 
   testWidgets('settings → About & Licenses opens the attribution screen', (
@@ -57,7 +61,7 @@ void main() {
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -79,7 +83,8 @@ void main() {
     await tester.pumpWidget(testApp(matchRepository: repository));
     await tester.pumpAndSettle();
 
-    expect(find.text('Resume saved Classic Hareeg table'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
+    expect(find.text('Abandon saved match'), findsOneWidget);
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();

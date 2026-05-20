@@ -23,62 +23,63 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final sections = [
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.groups_outlined,
-        title: AppStrings.helpSetupTitle,
-        body: AppStrings.helpSetupBody,
+        title: strings.helpSetupTitle,
+        body: strings.helpSetupBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.swap_horiz_outlined,
-        title: AppStrings.helpTurnFlowTitle,
-        body: AppStrings.helpTurnFlowBody,
+        title: strings.helpTurnFlowTitle,
+        body: strings.helpTurnFlowBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.flag_outlined,
-        title: AppStrings.helpOpeningTitle,
-        body: AppStrings.helpOpeningBody,
+        title: strings.helpOpeningTitle,
+        body: strings.helpOpeningBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.add_circle_outline,
-        title: AppStrings.helpCoversTitle,
-        body: AppStrings.helpCoversBody,
+        title: strings.helpCoversTitle,
+        body: strings.helpCoversBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.casino_outlined,
-        title: AppStrings.helpJokersTitle,
-        body: AppStrings.helpJokersBody,
+        title: strings.helpJokersTitle,
+        body: strings.helpJokersBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.local_fire_department_outlined,
-        title: AppStrings.helpFiftyTitle,
-        body: AppStrings.helpFiftyBody,
+        title: strings.helpFiftyTitle,
+        body: strings.helpFiftyBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.scoreboard_outlined,
-        title: AppStrings.helpScoringTitle,
-        body: AppStrings.helpScoringBody,
+        title: strings.helpScoringTitle,
+        body: strings.helpScoringBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.warning_amber_outlined,
-        title: AppStrings.helpMistakePresetsTitle,
-        body: AppStrings.helpMistakePresetsBody,
+        title: strings.helpMistakePresetsTitle,
+        body: strings.helpMistakePresetsBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.pause_circle_outline,
-        title: AppStrings.helpPauseResumeTitle,
-        body: AppStrings.helpPauseResumeBody,
+        title: strings.helpPauseResumeTitle,
+        body: strings.helpPauseResumeBody,
       ),
-      const _HelpSectionData(
+      _HelpSectionData(
         icon: Icons.lock_clock_outlined,
-        title: AppStrings.helpPlannedModesTitle,
-        body: AppStrings.helpPlannedModesBody,
+        title: strings.helpPlannedModesTitle,
+        body: strings.helpPlannedModesBody,
       ),
     ];
 
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
-      appBar: AppBar(title: const Text(AppStrings.helpTitle)),
+      appBar: AppBar(title: Text(strings.helpTitle)),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -156,6 +157,8 @@ class _HelpIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -174,13 +177,10 @@ class _HelpIntro extends StatelessWidget {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(AppStrings.helpTitle, style: LoungeTokens.display),
-              SizedBox(height: LoungeTokens.space2),
-              Text(
-                'A quick table reference for Classic Hareeg rules, scoring, Fifty, and resume behavior.',
-                style: LoungeTokens.bodyMuted,
-              ),
+            children: [
+              Text(strings.helpTitle, style: LoungeTokens.display),
+              const SizedBox(height: LoungeTokens.space2),
+              Text(strings.helpIntro, style: LoungeTokens.bodyMuted),
             ],
           ),
         ),

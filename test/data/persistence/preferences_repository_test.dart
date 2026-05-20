@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/ui/core/motion/motion_speed.dart';
 import 'package:hareeg_table/ui/core/theme/table_surface_theme.dart';
 
 void main() {
@@ -15,6 +16,7 @@ void main() {
       expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
       expect(preferences.setup.rulePreset, RulePreset.assisted);
       expect(preferences.autoSort, isTrue);
+      expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
       expect(preferences.tableSurfaceTheme, TableSurfaceTheme.felt);
@@ -33,7 +35,7 @@ void main() {
           rulePreset: RulePreset.hardTable17,
         ),
         autoSort: false,
-        reducedMotion: true,
+        motionSpeed: MotionSpeed.reduced,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
         tableSurfaceTheme: TableSurfaceTheme.wood,
@@ -49,6 +51,7 @@ void main() {
       expect(restored.setup.fiftyTimerSeconds, 6);
       expect(restored.setup.rulePreset, RulePreset.hardTable17);
       expect(restored.autoSort, isFalse);
+      expect(restored.motionSpeed, MotionSpeed.reduced);
       expect(restored.reducedMotion, isTrue);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
-import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/aids/table_aids.dart';
 import '../../../core/cards/card_theme.dart';
@@ -11,6 +10,8 @@ import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../../core/theme/table_surface_theme.dart';
+import '../../game_table/widgets/table_background.dart';
+import '../models/settings_section.dart';
 import 'card_theme_preview.dart';
 
 /// Settings screen.
@@ -27,6 +28,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onUpdate,
     required this.cardThemes,
     required this.isMatchActive,
+    this.initialSection,
   });
 
   /// Current preferences (driven by the app shell).
@@ -42,31 +44,71 @@ class SettingsScreen extends StatefulWidget {
   /// in that case.
   final bool isMatchActive;
 
+  /// Section to expand on first frame, e.g. when the Start screen deep-links
+  /// here from the "Edit in Settings" affordance.
+  final SettingsSection? initialSection;
+
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final Map<SettingsSection, GlobalKey> _sectionKeys = {
+    for (final section in SettingsSection.values) section: GlobalKey(),
+  };
+  SettingsSection? _openSection;
+
   @override
   void initState() {
     super.initState();
     AppOrientation.usePortrait();
+    _openSection = widget.initialSection;
+    if (widget.initialSection != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollSectionIntoView(widget.initialSection!);
+      });
+    }
   }
 
   GamePreferences get _preferences => widget.preferences;
 
   void _save(GamePreferences next) => widget.onUpdate(next);
 
+  void _toggle(SettingsSection section) {
+    setState(() {
+      _openSection = _openSection == section ? null : section;
+    });
+    if (_openSection == section) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollSectionIntoView(section);
+      });
+    }
+  }
+
+  void _scrollSectionIntoView(SettingsSection section) {
+    final ctx = _sectionKeys[section]?.currentContext;
+    if (ctx == null) {
+      return;
+    }
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.08,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final selectedTheme = widget.cardThemes.firstWhere(
+    final strings = context.strings;
+    final selectedCardTheme = widget.cardThemes.firstWhere(
       (theme) => theme.id == _preferences.cardThemeId,
       orElse: () => widget.cardThemes.first,
     );
 
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
-      appBar: AppBar(title: const Text(AppStrings.settingsTitle)),
+      appBar: AppBar(title: Text(strings.settingsTitle)),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -75,211 +117,188 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
+                LoungeTokens.space4,
                 LoungeTokens.space5,
-                LoungeTokens.space5,
-                LoungeTokens.space8 * 4,
+                LoungeTokens.space8 * 2,
               ),
               children: [
-                _SettingsIntro(
-                  aids: _preferences.tableAids,
-                  themeLabel: selectedTheme.label,
-                ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: 'Match defaults',
-                  subtitle: 'Used when a new Classic table is created.',
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.tableRules],
                   icon: Icons.tune_outlined,
-                  children: [
-                    _DropdownSetting<CpuDifficulty>(
-                      label: 'CPU difficulty',
-                      value: _preferences.setup.cpuDifficulty,
-                      values: CpuDifficulty.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(
-                            cpuDifficulty: value,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _DropdownSetting<RulePreset>(
-                      label: 'Rule preset',
-                      value: _preferences.setup.rulePreset,
-                      values: RulePreset.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(rulePreset: value),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _DropdownSetting<int>(
-                      label: 'Opening requirement',
-                      value: _preferences.setup.openingRequirement,
-                      values: const [51, 75],
-                      labelFor: (value) => '$value',
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(
-                            openingRequirement: value,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _DropdownSetting<int>(
-                      label: 'Deck count',
-                      value: _preferences.setup.deckCount,
-                      values: const [2, 3, 4],
-                      labelFor: (value) => '$value decks',
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(deckCount: value),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _DropdownSetting<int>(
-                      label: 'Jokers',
-                      value: _preferences.setup.jokerCount,
-                      values: const [0, 1, 2, 3, 4],
-                      labelFor: (value) => '$value',
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(jokerCount: value),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _DropdownSetting<int>(
-                      label: 'Fifty timer',
-                      value: _preferences.setup.fiftyTimerSeconds,
-                      values: const [2, 3, 4, 5, 6],
-                      labelFor: (value) => '${value}s',
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          setup: _preferences.setup.copyWith(
-                            fiftyTimerSeconds: value,
-                          ),
-                        ),
-                      ),
+                  title: strings.tableRules,
+                  description: strings.tableRulesDescription,
+                  preview: [
+                    strings.decksValue(_preferences.setup.deckCount),
+                    strings.fiftySecondsValue(
+                      _preferences.setup.fiftyTimerSeconds,
                     ),
                   ],
+                  expanded: _openSection == SettingsSection.tableRules,
+                  onToggle: () => _toggle(SettingsSection.tableRules),
+                  child: Column(
+                    children: [
+                      _DropdownSetting<int>(
+                        label: strings.deckCount,
+                        value: _preferences.setup.deckCount,
+                        values: const [2, 3, 4],
+                        labelFor: strings.decksValue,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(
+                            setup: _preferences.setup.copyWith(
+                              deckCount: value,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: LoungeTokens.space4),
+                      _DropdownSetting<int>(
+                        label: strings.fiftyTimer,
+                        value: _preferences.setup.fiftyTimerSeconds,
+                        values: const [2, 3, 4, 5, 6],
+                        labelFor: strings.fiftySecondsValue,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(
+                            setup: _preferences.setup.copyWith(
+                              fiftyTimerSeconds: value,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: AppStrings.aidsLabel,
-                  subtitle: AppStrings.aidsHelp,
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.assistance],
                   icon: Icons.visibility_outlined,
-                  children: [
-                    _AidsPicker(
-                      value: _preferences.tableAids,
-                      onChanged: (value) =>
-                          _save(_preferences.copyWith(tableAids: value)),
-                    ),
+                  title: strings.assistance,
+                  description: strings.assistanceDescription,
+                  preview: [
+                    _aidsLabel(_preferences.tableAids, strings),
+                    if (_preferences.autoSort) strings.autoSort,
                   ],
-                ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: 'Language',
-                  subtitle: 'English ships first; Arabic is already planned.',
-                  icon: Icons.language_outlined,
-                  children: [
-                    _DropdownSetting<AppLanguage>(
-                      label: 'Language',
-                      value: _preferences.language,
-                      values: AppLanguage.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) =>
-                          _save(_preferences.copyWith(language: value)),
-                    ),
-                  ],
-                ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: 'Motion, sound & feel',
-                  subtitle: 'Fast feedback without idle animation loops.',
-                  icon: Icons.touch_app_outlined,
-                  children: [
-                    _MotionSpeedPicker(
-                      value: _preferences.motionSpeed,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(
-                          motionSpeed: value,
-                          reducedMotion: value == MotionSpeed.reduced,
+                  expanded: _openSection == SettingsSection.assistance,
+                  onToggle: () => _toggle(SettingsSection.assistance),
+                  child: Column(
+                    children: [
+                      _AidsPicker(
+                        value: _preferences.tableAids,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(tableAids: value)),
+                      ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.sort_outlined,
+                        title: strings.autoSortHand,
+                        subtitle: strings.autoSortHandDescription,
+                        value: _preferences.autoSort,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(autoSort: value)),
+                      ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.casino_outlined,
+                        title: strings.memoryJokerDisplay,
+                        subtitle: strings.memoryJokerDisplayDescription,
+                        value: _preferences.memoryJokerDisplay,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(memoryJokerDisplay: value),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: LoungeTokens.space4),
-                    _SwitchSetting(
-                      icon: Icons.vibration_outlined,
-                      title: AppStrings.hapticsLabel,
-                      subtitle: AppStrings.hapticsHelp,
-                      value: _preferences.hapticsEnabled,
-                      onChanged: (value) =>
-                          _save(_preferences.copyWith(hapticsEnabled: value)),
-                    ),
-                    const _ThinDivider(),
-                    _SwitchSetting(
-                      icon: Icons.volume_up_outlined,
-                      title: AppStrings.soundLabel,
-                      subtitle: AppStrings.soundHelp,
-                      value: _preferences.soundEnabled,
-                      onChanged: (value) =>
-                          _save(_preferences.copyWith(soundEnabled: value)),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: 'Hand & joker',
-                  subtitle: 'Card handling preferences used during play.',
-                  icon: Icons.back_hand_outlined,
-                  children: [
-                    _SwitchSetting(
-                      icon: Icons.sort_outlined,
-                      title: 'Auto-sort hand',
-                      subtitle: 'Keep cards grouped during play.',
-                      value: _preferences.autoSort,
-                      onChanged: (value) =>
-                          _save(_preferences.copyWith(autoSort: value)),
-                    ),
-                    const _ThinDivider(),
-                    _SwitchSetting(
-                      icon: Icons.casino_outlined,
-                      title: 'Memory joker display',
-                      subtitle: 'Briefly show represented joker identities.',
-                      value: _preferences.memoryJokerDisplay,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(memoryJokerDisplay: value),
-                      ),
-                    ),
-                  ],
-                ),
-                const _SectionBreak(),
-                _SettingsSection(
-                  title: 'Cards & table surface',
-                  subtitle: AppStrings.cardThemeHelp,
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.look],
                   icon: Icons.style_outlined,
-                  children: [
-                    _CardThemePicker(
-                      themes: widget.cardThemes,
-                      value: _preferences.cardThemeId,
-                      locked: widget.isMatchActive,
-                      onChanged: (id) =>
-                          _save(_preferences.copyWith(cardThemeId: id)),
-                    ),
-                    const _ThinDivider(),
-                    _SurfaceSetting(
-                      value: _preferences.tableSurfaceTheme,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(tableSurfaceTheme: value),
-                      ),
-                    ),
+                  title: strings.look,
+                  description: strings.lookDescription,
+                  preview: [
+                    selectedCardTheme.label,
+                    _surfaceLabel(_preferences.tableSurfaceTheme, strings),
                   ],
+                  expanded: _openSection == SettingsSection.look,
+                  onToggle: () => _toggle(SettingsSection.look),
+                  child: Column(
+                    children: [
+                      _CardThemePicker(
+                        themes: widget.cardThemes,
+                        value: _preferences.cardThemeId,
+                        locked: widget.isMatchActive,
+                        onChanged: (id) =>
+                            _save(_preferences.copyWith(cardThemeId: id)),
+                      ),
+                      const _ThinDivider(),
+                      _SurfaceSetting(
+                        value: _preferences.tableSurfaceTheme,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(tableSurfaceTheme: value),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.feel],
+                  icon: Icons.touch_app_outlined,
+                  title: strings.feel,
+                  description: strings.feelDescription,
+                  preview: [
+                    _motionLabel(_preferences.motionSpeed, strings),
+                    strings.hapticsLabel,
+                    if (_preferences.soundEnabled) strings.soundLabel,
+                  ],
+                  expanded: _openSection == SettingsSection.feel,
+                  onToggle: () => _toggle(SettingsSection.feel),
+                  child: Column(
+                    children: [
+                      _MotionSpeedPicker(
+                        value: _preferences.motionSpeed,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(motionSpeed: value)),
+                      ),
+                      const SizedBox(height: LoungeTokens.space4),
+                      _SwitchSetting(
+                        icon: Icons.vibration_outlined,
+                        title: strings.hapticsLabel,
+                        subtitle: strings.hapticsHelp,
+                        value: _preferences.hapticsEnabled,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(hapticsEnabled: value)),
+                      ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.volume_up_outlined,
+                        title: strings.soundLabel,
+                        subtitle: strings.soundHelp,
+                        value: _preferences.soundEnabled,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(soundEnabled: value)),
+                      ),
+                    ],
+                  ),
+                ),
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.language],
+                  icon: Icons.language_outlined,
+                  title: strings.language,
+                  description: strings.languageDescription,
+                  preview: [_languageLabel(_preferences.language, strings)],
+                  expanded: _openSection == SettingsSection.language,
+                  onToggle: () => _toggle(SettingsSection.language),
+                  isLast: true,
+                  child: _DropdownSetting<AppLanguage>(
+                    label: strings.language,
+                    value: _preferences.language,
+                    values: AppLanguage.values,
+                    labelFor: (value) => _languageLabel(value, strings),
+                    onChanged: (value) =>
+                        _save(_preferences.copyWith(language: value)),
+                  ),
+                ),
+                const SizedBox(height: LoungeTokens.space5),
+                _AboutLink(
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.licenses),
                 ),
               ],
             ),
@@ -287,6 +306,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  static String _motionLabel(MotionSpeed speed, AppStrings strings) {
+    return switch (speed) {
+      MotionSpeed.normal => strings.normalMotion,
+      MotionSpeed.fast => strings.fastMotion,
+      MotionSpeed.reduced => strings.reducedMotion,
+    };
+  }
+
+  static String _aidsLabel(TableAids aid, AppStrings strings) {
+    return switch (aid) {
+      TableAids.guided => strings.guided,
+      TableAids.standard => strings.standard,
+      TableAids.tableMode => strings.tableMode,
+    };
+  }
+
+  static String _languageLabel(AppLanguage language, AppStrings strings) {
+    return switch (language) {
+      AppLanguage.english => strings.englishLanguage,
+      AppLanguage.arabic => strings.arabicLanguage,
+    };
+  }
+
+  static String _surfaceLabel(TableSurfaceTheme surface, AppStrings strings) {
+    return switch (surface) {
+      TableSurfaceTheme.felt => strings.darkFelt,
+      TableSurfaceTheme.wood => strings.lightWood,
+      TableSurfaceTheme.sapphire => strings.midnightSapphire,
+      TableSurfaceTheme.clay => strings.crimsonClay,
+    };
   }
 }
 
@@ -328,115 +379,207 @@ class _SettingsBackdrop extends StatelessWidget {
   }
 }
 
-class _SettingsIntro extends StatelessWidget {
-  const _SettingsIntro({required this.aids, required this.themeLabel});
-
-  final TableAids aids;
-  final String themeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox.square(
-          dimension: 48,
-          child: CustomPaint(
-            painter: GeometricMotifPainter(
-              variant: LoungeMotifVariant.medallion,
-              opacity: 0.38,
-              strokeWidth: 1.0,
-              density: 3,
-            ),
-          ),
-        ),
-        const SizedBox(width: LoungeTokens.space4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(AppStrings.settingsTitle, style: LoungeTokens.display),
-              const SizedBox(height: LoungeTokens.space2),
-              const Text(
-                'Tune the table before play. Rule-changing choices lock once a match starts.',
-                style: LoungeTokens.bodyMuted,
-              ),
-              const SizedBox(height: LoungeTokens.space4),
-              Wrap(
-                spacing: LoungeTokens.space2,
-                runSpacing: LoungeTokens.space2,
-                children: [
-                  _MetaPill(icon: Icons.visibility_outlined, label: aids.label),
-                  _MetaPill(icon: Icons.style_outlined, label: themeLabel),
-                ],
-              ),
-              const SizedBox(height: LoungeTokens.space3),
-              _IntroLink(
-                icon: Icons.article_outlined,
-                label: AppStrings.aboutLicenses,
-                onTap: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.licenses),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.title,
-    required this.subtitle,
+class _AccordionSection extends StatelessWidget {
+  const _AccordionSection({
+    super.key,
     required this.icon,
-    required this.children,
+    required this.title,
+    required this.description,
+    required this.preview,
+    required this.expanded,
+    required this.onToggle,
+    required this.child,
+    this.isLast = false,
   });
 
-  final String title;
-  final String subtitle;
   final IconData icon;
-  final List<Widget> children;
+  final String title;
+  final String description;
+  final List<String> preview;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget child;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: LoungeTokens.goldAccent, size: 20),
-            const SizedBox(width: LoungeTokens.space2),
-            Expanded(
-              child: Column(
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: LoungeTokens.space3,
+                horizontal: LoungeTokens.space2,
+              ),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: LoungeTokens.heading),
-                  const SizedBox(height: 3),
-                  Text(subtitle, style: LoungeTokens.bodyMuted),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(icon, color: LoungeTokens.goldAccent, size: 20),
+                  ),
+                  const SizedBox(width: LoungeTokens.space3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: LoungeTokens.heading),
+                        const SizedBox(height: 3),
+                        Text(description, style: LoungeTokens.bodyMuted),
+                        if (preview.isNotEmpty && !expanded) ...[
+                          const SizedBox(height: LoungeTokens.space2),
+                          Wrap(
+                            spacing: LoungeTokens.space2,
+                            runSpacing: LoungeTokens.space1,
+                            children: [
+                              for (final pill in preview) _PreviewPill(pill),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: LoungeTokens.space2),
+                  _RotatingChevron(expanded: expanded),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-        const SizedBox(height: LoungeTokens.space4),
-        ...children,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: ClipRect(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              opacity: expanded ? 1 : 0,
+              child: expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        LoungeTokens.space2,
+                        LoungeTokens.space2,
+                        LoungeTokens.space2,
+                        LoungeTokens.space5,
+                      ),
+                      child: child,
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ),
+        ),
+        if (!isLast)
+          Divider(
+            height: 1,
+            color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+          ),
       ],
     );
   }
 }
 
-class _SectionBreak extends StatelessWidget {
-  const _SectionBreak();
+class _PreviewPill extends StatelessWidget {
+  const _PreviewPill(this.label);
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space5),
-      child: Divider(
-        height: 1,
-        color: LoungeTokens.sandLine.withValues(alpha: 0.24),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space2,
+          vertical: 3,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: LoungeTokens.offWhiteText,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.4,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RotatingChevron extends StatelessWidget {
+  const _RotatingChevron({required this.expanded});
+
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: expanded ? 0.5 : 0),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return Transform.rotate(
+          angle: value * 3.141592653589793,
+          child: const Icon(
+            Icons.expand_more,
+            color: LoungeTokens.sandLine,
+            size: 22,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AboutLink extends StatelessWidget {
+  const _AboutLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: LoungeTokens.space3,
+            horizontal: LoungeTokens.space2,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.article_outlined,
+                size: 18,
+                color: LoungeTokens.goldAccent,
+              ),
+              const SizedBox(width: LoungeTokens.space3),
+              Expanded(
+                child: Text(
+                  strings.aboutLicenses,
+                  style: LoungeTokens.titleSmall,
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -517,41 +660,6 @@ class _SwitchSetting extends StatelessWidget {
   }
 }
 
-class _IntroLink extends StatelessWidget {
-  const _IntroLink({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: LoungeTokens.goldAccent),
-              const SizedBox(width: LoungeTokens.space2),
-              Text(label, style: LoungeTokens.titleSmall),
-              const SizedBox(width: LoungeTokens.space1),
-              const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _AidsPicker extends StatelessWidget {
   const _AidsPicker({required this.value, required this.onChanged});
 
@@ -560,6 +668,8 @@ class _AidsPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Column(
       children: [
         for (final aid in TableAids.values) ...[
@@ -571,8 +681,8 @@ class _AidsPicker extends StatelessWidget {
               TableAids.standard => Icons.route_outlined,
               TableAids.tableMode => Icons.table_restaurant_outlined,
             },
-            title: aid.label,
-            subtitle: _aidDescription(aid),
+            title: _SettingsScreenState._aidsLabel(aid, strings),
+            subtitle: _aidDescription(aid, strings),
             onChanged: onChanged,
           ),
           if (aid != TableAids.values.last) const _ThinDivider(),
@@ -581,11 +691,11 @@ class _AidsPicker extends StatelessWidget {
     );
   }
 
-  static String _aidDescription(TableAids aid) {
+  static String _aidDescription(TableAids aid, AppStrings strings) {
     return switch (aid) {
-      TableAids.guided => AppStrings.aidGuidedDescription,
-      TableAids.standard => AppStrings.aidStandardDescription,
-      TableAids.tableMode => AppStrings.aidTableModeDescription,
+      TableAids.guided => strings.aidGuidedDescription,
+      TableAids.standard => strings.aidStandardDescription,
+      TableAids.tableMode => strings.aidTableModeDescription,
     };
   }
 }
@@ -660,6 +770,8 @@ class _MotionSpeedPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return SegmentedButton<MotionSpeed>(
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith((states) {
@@ -679,10 +791,10 @@ class _MotionSpeedPicker extends StatelessWidget {
         ),
         textStyle: WidgetStateProperty.all(LoungeTokens.titleSmall),
       ),
-      segments: const [
-        ButtonSegment(value: MotionSpeed.normal, label: Text('Normal')),
-        ButtonSegment(value: MotionSpeed.fast, label: Text('Fast')),
-        ButtonSegment(value: MotionSpeed.reduced, label: Text('Reduced')),
+      segments: [
+        ButtonSegment(value: MotionSpeed.normal, label: Text(strings.normal)),
+        ButtonSegment(value: MotionSpeed.fast, label: Text(strings.fast)),
+        ButtonSegment(value: MotionSpeed.reduced, label: Text(strings.reduced)),
       ],
       selected: {value},
       onSelectionChanged: (selection) => onChanged(selection.first),
@@ -698,6 +810,8 @@ class _SurfaceSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -710,24 +824,155 @@ class _SurfaceSetting extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Table surface', style: LoungeTokens.titleSmall),
+              Text(strings.tableSurface, style: LoungeTokens.titleSmall),
               const SizedBox(height: 3),
-              const Text(
-                'Sets the material under the cards and meld zones. Rules and card art stay unchanged.',
+              Text(
+                strings.tableSurfaceDescription,
                 style: LoungeTokens.bodyMuted,
               ),
               const SizedBox(height: LoungeTokens.space3),
-              _DropdownSetting<TableSurfaceTheme>(
-                label: 'Surface style',
-                value: value,
-                values: TableSurfaceTheme.values,
-                labelFor: (surface) => surface.label,
-                onChanged: onChanged,
+              Wrap(
+                spacing: LoungeTokens.space2,
+                runSpacing: LoungeTokens.space3,
+                children: [
+                  for (final surface in TableSurfaceTheme.values)
+                    _SurfaceTile(
+                      surface: surface,
+                      selected: surface == value,
+                      onTap: () => onChanged(surface),
+                    ),
+                ],
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SurfaceTile extends StatelessWidget {
+  const _SurfaceTile({
+    required this.surface,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final TableSurfaceTheme surface;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _tileWidth = 152.0;
+  static const _previewHeight = 92.0;
+  // Source canvas matches a landscape mobile aspect so motifs and frame
+  // padding read at thumbnail scale instead of collapsing to single pixels.
+  static const _sourceWidth = 520.0;
+  static const _sourceHeight = 312.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final surfaceLabel = _SettingsScreenState._surfaceLabel(surface, strings);
+    final borderColor = selected
+        ? LoungeTokens.goldAccent
+        : LoungeTokens.sandLine.withValues(alpha: 0.28);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: surfaceLabel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+          child: SizedBox(
+            width: _tileWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: _tileWidth,
+                  height: _previewHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      LoungeTokens.radiusButton,
+                    ),
+                    border: Border.all(
+                      color: borderColor,
+                      width: selected ? 2 : 1,
+                    ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: LoungeTokens.goldAccent.withValues(
+                                alpha: 0.32,
+                              ),
+                              blurRadius: 14,
+                              spreadRadius: -2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: _sourceWidth,
+                          height: _sourceHeight,
+                          child: TableBackground(surface: surface),
+                        ),
+                      ),
+                      if (selected)
+                        const Positioned(
+                          top: 6,
+                          right: 6,
+                          child: _SelectedBadge(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: LoungeTokens.space2),
+                Text(
+                  surfaceLabel,
+                  style: TextStyle(
+                    color: selected
+                        ? LoungeTokens.goldAccent
+                        : LoungeTokens.offWhiteText,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedBadge extends StatelessWidget {
+  const _SelectedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: const BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.check_circle,
+        color: LoungeTokens.goldAccent,
+        size: 18,
+      ),
     );
   }
 }
@@ -747,6 +992,7 @@ class _CardThemePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Column(
       children: [
         for (final theme in themes) ...[
@@ -759,10 +1005,10 @@ class _CardThemePicker extends StatelessWidget {
           if (theme != themes.last) const _ThinDivider(),
         ],
         if (locked)
-          const Padding(
-            padding: EdgeInsets.only(top: LoungeTokens.space3),
+          Padding(
+            padding: const EdgeInsets.only(top: LoungeTokens.space3),
             child: Text(
-              'Theme picker is locked during an active match.',
+              strings.themeLockedActiveMatch,
               style: LoungeTokens.bodyMuted,
             ),
           ),
@@ -786,6 +1032,8 @@ class _CardThemeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Opacity(
       opacity: enabled ? 1 : 0.64,
       child: Material(
@@ -820,16 +1068,16 @@ class _CardThemeRow extends StatelessWidget {
                             label:
                                 theme.source ==
                                     CardThemeAssetSource.codeRendered
-                                ? 'Code-rendered'
-                                : 'Bundled asset',
+                                ? strings.codeRendered
+                                : strings.bundledAsset,
                           ),
                           _MetaPill(
                             icon: theme.readableOnCompactLayouts
                                 ? Icons.check_circle_outline
                                 : Icons.visibility_off_outlined,
                             label: theme.readableOnCompactLayouts
-                                ? 'Small-table ready'
-                                : 'Compact QA pending',
+                                ? strings.smallTableReady
+                                : strings.compactQaPending,
                           ),
                         ],
                       ),

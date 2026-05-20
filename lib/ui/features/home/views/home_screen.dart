@@ -1,13 +1,14 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/match_repository.dart';
-import '../../../../domain/classic_hareeg/rules/classic_hareeg_rules.dart';
+import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_theme.dart';
+import '../../../core/cards/card_view.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Main menu and navigation shell.
@@ -35,88 +36,67 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final rules = ClassicHareegRules.defaults();
-
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth >= 520
-                ? LoungeTokens.space8
-                : LoungeTokens.space5;
-
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                const _MenuBackdrop(),
-                ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    LoungeTokens.space6,
-                    horizontalPadding,
-                    LoungeTokens.space8,
-                  ),
-                  children: [
-                    _BrandHeader(rules: rules),
-                    const SizedBox(height: LoungeTokens.space8),
-                    FilledButton.icon(
-                      onPressed: () => _openAndRefresh(AppRoutes.newGame),
-                      icon: const Icon(Icons.table_bar_outlined),
-                      label: const Text(AppStrings.newGame),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const _MenuBackdrop(),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final horizontalPadding = constraints.maxWidth >= 520
+                    ? LoungeTokens.space8
+                    : LoungeTokens.space5;
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                    const SizedBox(height: LoungeTokens.space3),
-                    _CommandStack(
-                      children: [
-                        _CommandRow(
-                          icon: Icons.play_circle_outline,
-                          label: AppStrings.continueGame,
-                          subtitle: _savedMatch == null
-                              ? (_loadingSavedMatch
-                                    ? AppStrings.checkingSavedMatch
-                                    : AppStrings.noSavedMatch)
-                              : AppStrings.resumeSavedMatch,
-                          onTap: _savedMatch == null
-                              ? null
-                              : () => _openAndRefresh(
-                                  AppRoutes.table,
-                                  arguments: _savedMatch,
-                                ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          LoungeTokens.space5,
+                          horizontalPadding,
+                          LoungeTokens.space6,
                         ),
-                        _CommandRow(
-                          icon: Icons.settings_outlined,
-                          label: AppStrings.settings,
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.settings),
-                        ),
-                        _CommandRow(
-                          icon: Icons.menu_book_outlined,
-                          label: AppStrings.rulesHelp,
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.rulesHelp),
-                        ),
-                      ],
-                    ),
-                    if (_savedMatch != null) ...[
-                      const SizedBox(height: LoungeTokens.space2),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: _abandonSavedMatch,
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text(AppStrings.abandonSavedMatch),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _BrandHeader(
+                              onSettings: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.settings),
+                              onRulesHelp: () => Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.rulesHelp),
+                            ),
+                            Expanded(
+                              child: _HeroSection(
+                                savedMatch: _savedMatch,
+                                loadingSavedMatch: _loadingSavedMatch,
+                                onNewGame: () =>
+                                    _openAndRefresh(AppRoutes.newGame),
+                                onContinue: _savedMatch == null
+                                    ? null
+                                    : () => _openAndRefresh(
+                                        AppRoutes.table,
+                                        arguments: _savedMatch,
+                                      ),
+                                onAbandon: _abandonSavedMatch,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                    const SizedBox(height: LoungeTokens.space8),
-                    const _ClassicContext(),
-                  ],
-                ),
-              ],
-            );
-          },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -196,64 +176,51 @@ class _MenuBackdrop extends StatelessWidget {
 }
 
 class _BrandHeader extends StatelessWidget {
-  const _BrandHeader({required this.rules});
+  const _BrandHeader({required this.onSettings, required this.onRulesHelp});
 
-  final ClassicHareegRules rules;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 380;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Expanded(child: _BrandCopy()),
-                if (!compact) ...[
-                  const SizedBox(width: LoungeTokens.space4),
-                  const _MenuCardFan(width: 112, height: 84),
-                ],
-              ],
-            ),
-            if (compact) ...[
-              const SizedBox(height: LoungeTokens.space5),
-              const Center(child: _MenuCardFan(width: 138, height: 82)),
-            ],
-            const SizedBox(height: LoungeTokens.space5),
-            _RuleLine(rules: rules),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _BrandCopy extends StatelessWidget {
-  const _BrandCopy();
+  final VoidCallback onSettings;
+  final VoidCallback onRulesHelp;
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          const TextSpan(
-            children: [
-              TextSpan(text: 'Hareeg ', style: _brandTitle),
-              TextSpan(text: 'Table', style: _brandTitleGold),
-            ],
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: LoungeTokens.space2),
+                child: Text(strings.homeTitle, style: _brandTitle),
+              ),
+            ),
+            const SizedBox(width: LoungeTokens.space2),
+            _ChromeIconButton(
+              icon: Icons.menu_book_outlined,
+              tooltip: strings.rulesHelp,
+              onPressed: onRulesHelp,
+            ),
+            _ChromeIconButton(
+              icon: Icons.settings_outlined,
+              tooltip: strings.settings,
+              onPressed: onSettings,
+            ),
+          ],
         ),
-        const SizedBox(height: LoungeTokens.space2),
-        const Text(
-          AppStrings.homeSubtitle,
-          style: TextStyle(
-            color: LoungeTokens.mutedText,
-            fontSize: 15,
-            height: 1.35,
+        const SizedBox(height: LoungeTokens.space3),
+        Padding(
+          padding: const EdgeInsets.only(right: LoungeTokens.space4),
+          child: Text(
+            strings.classicModeDescription,
+            style: const TextStyle(
+              color: LoungeTokens.mutedText,
+              fontSize: 14.5,
+              height: 1.45,
+              letterSpacing: 0.1,
+            ),
           ),
         ),
       ],
@@ -262,62 +229,197 @@ class _BrandCopy extends StatelessWidget {
 
   static const _brandTitle = TextStyle(
     color: LoungeTokens.offWhiteText,
-    fontSize: 36,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0.1,
-    height: 1.0,
-  );
-
-  static const _brandTitleGold = TextStyle(
-    color: LoungeTokens.goldAccent,
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: FontWeight.w800,
     letterSpacing: 0.1,
     height: 1.0,
   );
 }
 
-class _RuleLine extends StatelessWidget {
-  const _RuleLine({required this.rules});
+class _ChromeIconButton extends StatelessWidget {
+  const _ChromeIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
 
-  final ClassicHareegRules rules;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: LoungeTokens.space2,
-      runSpacing: LoungeTokens.space2,
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 22),
+      tooltip: tooltip,
+      color: LoungeTokens.mutedText,
+      splashRadius: 22,
+      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        foregroundColor: LoungeTokens.mutedText,
+        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+        side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.18)),
+        shape: const CircleBorder(),
+        padding: const EdgeInsets.all(LoungeTokens.space2),
+      ),
+    );
+  }
+}
+
+class _HeroSection extends StatelessWidget {
+  const _HeroSection({
+    required this.savedMatch,
+    required this.loadingSavedMatch,
+    required this.onNewGame,
+    required this.onContinue,
+    required this.onAbandon,
+  });
+
+  final ClassicHareegMatchSnapshot? savedMatch;
+  final bool loadingSavedMatch;
+  final VoidCallback onNewGame;
+  final VoidCallback? onContinue;
+  final Future<void> Function() onAbandon;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final hasSavedMatch = savedMatch != null;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _InlineFact(label: '${rules.seatCount} seats'),
-        _InlineFact(label: '${rules.openingRequirement} opening'),
-        _InlineFact(label: 'Fifty ${rules.fiftyClaimSeconds}s'),
+        const Center(child: _MenuCardFan(width: 232, height: 134)),
+        const SizedBox(height: LoungeTokens.space8),
+        FilledButton.icon(
+          onPressed: onNewGame,
+          icon: const Icon(Icons.table_bar_outlined),
+          label: Text(strings.newGame),
+        ),
+        const SizedBox(height: LoungeTokens.space3),
+        _ContinueButton(
+          enabled: hasSavedMatch,
+          loading: loadingSavedMatch,
+          onPressed: onContinue,
+        ),
+        SizedBox(
+          height: hasSavedMatch ? LoungeTokens.space2 : LoungeTokens.space5,
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: hasSavedMatch
+              ? Align(
+                  key: const ValueKey('abandon'),
+                  alignment: Alignment.center,
+                  child: TextButton.icon(
+                    onPressed: onAbandon,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: Text(strings.abandonSavedMatch),
+                    style: TextButton.styleFrom(
+                      foregroundColor: LoungeTokens.mutedText,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(key: ValueKey('no-abandon')),
+        ),
       ],
     );
   }
 }
 
-class _InlineFact extends StatelessWidget {
-  const _InlineFact({required this.label});
+class _ContinueButton extends StatelessWidget {
+  const _ContinueButton({
+    required this.enabled,
+    required this.loading,
+    required this.onPressed,
+  });
 
-  final String label;
+  final bool enabled;
+  final bool loading;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.28),
+    final strings = context.strings;
+    final caption = enabled
+        ? null
+        : (loading ? strings.checkingSavedMatch : strings.noSavedMatch);
+
+    final borderColor = enabled
+        ? LoungeTokens.goldAccent.withValues(alpha: 0.6)
+        : LoungeTokens.sandLine.withValues(alpha: 0.18);
+    final backgroundColor = enabled
+        ? LoungeTokens.coffeeCharcoal.withValues(alpha: 0.4)
+        : Colors.transparent;
+    final foregroundColor = enabled
+        ? LoungeTokens.goldAccent
+        : LoungeTokens.mutedText.withValues(alpha: 0.55);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(
+            Icons.play_circle_outline,
+            color: foregroundColor,
+            size: 20,
+          ),
+          label: Text(
+            strings.continueGame,
+            style: TextStyle(
+              color: foregroundColor,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: foregroundColor,
+            disabledForegroundColor: foregroundColor,
+            backgroundColor: backgroundColor,
+            side: BorderSide(color: borderColor, width: 1.2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: LoungeTokens.space5,
+              vertical: LoungeTokens.space3,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+            ),
+            minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space3,
-          vertical: LoungeTokens.space2,
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: caption == null
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  padding: const EdgeInsets.only(top: LoungeTokens.space2),
+                  child: Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    style: LoungeTokens.bodyMuted.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
         ),
-        child: Text(label, style: LoungeTokens.bodyMuted),
-      ),
+      ],
     );
   }
 }
@@ -328,191 +430,105 @@ class _MenuCardFan extends StatelessWidget {
   final double width;
   final double height;
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: CustomPaint(painter: _MenuCardFanPainter()),
-    );
-  }
-}
+  /// Showcase hand: one card from each suit plus a joker, used to preview the
+  /// active card theme on the main menu. Order matters — index 2 sits at the
+  /// fan centre and the painter draws sequentially, so the rightmost card
+  /// lands on top of the stack.
+  static final List<HareegCard> _showcase = [
+    HareegCard.standard(
+      rank: CardRank.king,
+      suit: CardSuit.spades,
+      deckIndex: 0,
+    ),
+    HareegCard.standard(
+      rank: CardRank.queen,
+      suit: CardSuit.hearts,
+      deckIndex: 0,
+    ),
+    const HareegCard.joker(deckIndex: 0, jokerIndex: 0),
+    HareegCard.standard(
+      rank: CardRank.jack,
+      suit: CardSuit.diamonds,
+      deckIndex: 0,
+    ),
+    HareegCard.standard(rank: CardRank.ace, suit: CardSuit.clubs, deckIndex: 0),
+  ];
 
-class _MenuCardFanPainter extends CustomPainter {
-  static const _cardCount = 5;
+  /// Half-angle of the outermost card from vertical, in radians (~25.8°).
+  static const _maxAngle = 0.45;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cardWidth = size.width * 0.34;
-    final cardHeight = size.height * 0.92;
-    final center = Offset(size.width / 2, size.height * 0.98);
-
-    for (var i = 0; i < _cardCount; i++) {
-      final t = (i - (_cardCount - 1) / 2) / (_cardCount - 1);
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(t * 0.54);
-      canvas.translate(-cardWidth / 2, -cardHeight);
-
-      final rect = Rect.fromLTWH(0, 0, cardWidth, cardHeight);
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6));
-      canvas.drawRRect(
-        rrect.shift(const Offset(0, 2)),
-        Paint()
-          ..color = const Color(0x560B0A08)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-      );
-      canvas.drawRRect(rrect, Paint()..color = LoungeTokens.cardIvory);
-      canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = LoungeTokens.sandLine
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
-      canvas.restore();
-    }
-
-    canvas.drawCircle(
-      Offset(size.width * 0.74, size.height * 0.37),
-      math.min(size.width, size.height) * 0.08,
-      Paint()..color = LoungeTokens.fiftyFlame,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _CommandStack extends StatelessWidget {
-  const _CommandStack({required this.children});
-
-  final List<_CommandRow> children;
+  /// Horizontal offset between adjacent card pivots, in logical pixels.
+  /// Each card's bottom is shifted by `step * _stepSpread` so the cards
+  /// fan from distinct anchor points rather than converging to one.
+  static const _stepSpread = 16.0;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            children[i],
-            if (i < children.length - 1)
-              Divider(
-                height: 1,
-                color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+    final theme = CardThemeScope.of(context);
+    final strings = context.strings;
+    final cardSize = Size(width * 0.3, height * 0.78);
+    final last = _showcase.length - 1;
+
+    return Semantics(
+      label: strings.cardThemePreview(theme.label),
+      excludeSemantics: true,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            for (var i = 0; i < _showcase.length; i++)
+              Transform.translate(
+                offset: Offset((i - last / 2) * _stepSpread, 0),
+                child: Transform.rotate(
+                  angle: ((i - last / 2) / (last / 2)) * _maxAngle,
+                  alignment: Alignment.bottomCenter,
+                  child: _FannedCard(
+                    theme: theme,
+                    card: _showcase[i],
+                    size: cardSize,
+                  ),
+                ),
               ),
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
-class _CommandRow extends StatelessWidget {
-  const _CommandRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.subtitle,
+class _FannedCard extends StatelessWidget {
+  const _FannedCard({
+    required this.theme,
+    required this.card,
+    required this.size,
   });
 
-  final IconData icon;
-  final String label;
-  final String? subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: LoungeTokens.space4,
-            vertical: LoungeTokens.space4,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: enabled
-                    ? LoungeTokens.goldAccent
-                    : LoungeTokens.mutedText,
-              ),
-              const SizedBox(width: LoungeTokens.space4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: LoungeTokens.titleSmall.copyWith(
-                        fontSize: 15,
-                        color: enabled
-                            ? LoungeTokens.offWhiteText
-                            : LoungeTokens.mutedText,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 3),
-                      Text(subtitle!, style: LoungeTokens.bodyMuted),
-                    ],
-                  ],
-                ),
-              ),
-              if (enabled)
-                const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ClassicContext extends StatelessWidget {
-  const _ClassicContext();
+  final HareegCardTheme theme;
+  final HareegCard card;
+  final Size size;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.28)),
-        ),
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            offset: Offset(0, 2),
+            blurRadius: 3,
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(top: LoungeTokens.space5),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Icon(
-                  Icons.style_outlined,
-                  color: LoungeTokens.goldAccent,
-                  size: 18,
-                ),
-                SizedBox(width: LoungeTokens.space2),
-                Text(AppStrings.classicModeTitle, style: LoungeTokens.heading),
-              ],
-            ),
-            const SizedBox(height: LoungeTokens.space2),
-            const Text(
-              AppStrings.classicModeDescription,
-              style: LoungeTokens.body,
-            ),
-          ],
-        ),
+      child: HareegCardView(
+        theme: theme,
+        card: card,
+        variant: CardVariant.picker,
+        size: size,
+        jokerDisplay: JokerDisplay.assisted,
       ),
     );
   }

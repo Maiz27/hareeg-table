@@ -5,10 +5,17 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/aids/table_aids.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../settings/models/settings_section.dart';
 
 /// Classic Hareeg pre-game setup flow.
+///
+/// Shows only the rules a player tends to re-decide each game: CPU difficulty,
+/// who starts, rule preset, opening requirement, and joker count. Deck count,
+/// fifty timer, aids, and visuals live on the Settings screen and are
+/// summarised in the "House rules" footer.
 class NewGameSetupScreen extends StatefulWidget {
   /// Creates the setup screen.
   const NewGameSetupScreen({required this.preferencesRepository, super.key});
@@ -33,9 +40,11 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
+
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
-      appBar: AppBar(title: const Text(AppStrings.setupTitle)),
+      appBar: AppBar(title: Text(strings.setupTitle)),
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -44,114 +53,115 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
-                LoungeTokens.space5,
+                LoungeTokens.space4,
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
               children: [
-                const _SetupIntro(),
-                const _SectionBreak(),
-                _SetupSection(
-                  title: 'Players & turn order',
-                  subtitle:
-                      'Sets who starts and how sharp the CPU table feels.',
-                  icon: Icons.groups_outlined,
-                  children: [
-                    _SettingDropdown<CpuDifficulty>(
-                      title: 'CPU difficulty',
-                      description:
-                          'Changes opponent decision quality and reaction timing.',
-                      value: _setup.cpuDifficulty,
-                      values: CpuDifficulty.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(cpuDifficulty: value)),
+                _StartChoice<CpuDifficulty>(
+                  icon: Icons.smart_toy_outlined,
+                  title: strings.cpuDifficulty,
+                  segments: [
+                    ButtonSegment(
+                      value: CpuDifficulty.beginner,
+                      label: Text(strings.beginner),
                     ),
-                    const _ThinDivider(),
-                    _SettingDropdown<StarterMode>(
-                      title: 'First starter',
-                      description:
-                          'The starter receives 15 cards and skips the first draw.',
-                      value: _setup.starterMode,
-                      values: StarterMode.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(starterMode: value)),
+                    ButtonSegment(
+                      value: CpuDifficulty.casual,
+                      label: Text(strings.casual),
+                    ),
+                    ButtonSegment(
+                      value: CpuDifficulty.skilled,
+                      label: Text(strings.skilled),
+                    ),
+                    ButtonSegment(
+                      value: CpuDifficulty.expert,
+                      label: Text(strings.expert),
                     ),
                   ],
+                  value: _setup.cpuDifficulty,
+                  onChanged: (value) =>
+                      _update(_setup.copyWith(cpuDifficulty: value)),
                 ),
-                const _SectionBreak(),
-                _SetupSection(
-                  title: 'Classic table rules',
-                  subtitle:
-                      'These values affect legality, scoring, and the pressure to open.',
-                  icon: Icons.tune_outlined,
-                  children: [
-                    _SettingDropdown<int>(
-                      title: 'Opening requirement',
-                      description:
-                          'Minimum meld value needed before you can add covers.',
-                      value: _setup.openingRequirement,
-                      values: const [51, 75],
-                      labelFor: (value) => '$value',
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(openingRequirement: value)),
+                const SizedBox(height: LoungeTokens.space5),
+                _StartChoice<StarterMode>(
+                  icon: Icons.flag_outlined,
+                  title: strings.firstStarter,
+                  segments: [
+                    ButtonSegment(
+                      value: StarterMode.human,
+                      label: Text(strings.youStart),
                     ),
-                    const _ThinDivider(),
-                    _SettingDropdown<int>(
-                      title: 'Deck count',
-                      description:
-                          'More decks add card copies without changing Classic rules.',
-                      value: _setup.deckCount,
-                      values: const [2, 3, 4],
-                      labelFor: (value) => '$value decks',
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(deckCount: value)),
-                    ),
-                    const _ThinDivider(),
-                    _SettingDropdown<int>(
-                      title: 'Jokers',
-                      description:
-                          'Jokers can stand in melds and may later be replaced.',
-                      value: _setup.jokerCount,
-                      values: const [0, 1, 2, 3, 4],
-                      labelFor: (value) => '$value',
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(jokerCount: value)),
+                    ButtonSegment(
+                      value: StarterMode.random,
+                      label: Text(strings.random),
                     ),
                   ],
+                  value: _setup.starterMode,
+                  onChanged: (value) =>
+                      _update(_setup.copyWith(starterMode: value)),
                 ),
-                const _SectionBreak(),
-                _SetupSection(
-                  title: 'Pressure & penalties',
-                  subtitle:
-                      'Controls the Fifty window and how strict mistakes should feel.',
-                  icon: Icons.local_fire_department_outlined,
-                  children: [
-                    _SettingDropdown<int>(
-                      title: 'Fifty timer',
-                      description:
-                          'How long the next player has to claim a valid Fifty.',
-                      value: _setup.fiftyTimerSeconds,
-                      values: const [2, 3, 4, 5, 6],
-                      labelFor: (value) => '${value}s',
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(fiftyTimerSeconds: value)),
+                const SizedBox(height: LoungeTokens.space5),
+                _StartChoice<RulePreset>(
+                  icon: Icons.gavel_outlined,
+                  title: strings.rulePreset,
+                  segments: [
+                    ButtonSegment(
+                      value: RulePreset.assisted,
+                      label: Text(strings.assisted),
                     ),
-                    const _ThinDivider(),
-                    _SettingDropdown<RulePreset>(
-                      title: 'Rule preset',
-                      description:
-                          'Assisted blocks mistakes; table presets allow penalties.',
-                      value: _setup.rulePreset,
-                      values: RulePreset.values,
-                      labelFor: (value) => value.label,
-                      onChanged: (value) =>
-                          _update(_setup.copyWith(rulePreset: value)),
+                    ButtonSegment(
+                      value: RulePreset.tablePenalties,
+                      label: Text(strings.penalties),
                     ),
-                    const SizedBox(height: LoungeTokens.space3),
-                    _RulePresetNote(description: _setup.rulePreset.description),
+                    ButtonSegment(
+                      value: RulePreset.hardTable17,
+                      label: Text(strings.hard17),
+                    ),
                   ],
+                  value: _setup.rulePreset,
+                  onChanged: (value) =>
+                      _update(_setup.copyWith(rulePreset: value)),
+                  note: _rulePresetDescription(_setup.rulePreset, strings),
+                ),
+                const SizedBox(height: LoungeTokens.space5),
+                _StartChoice<int>(
+                  icon: Icons.timeline_outlined,
+                  title: strings.openingRequirement,
+                  segments: const [
+                    ButtonSegment(value: 51, label: Text('51')),
+                    ButtonSegment(value: 75, label: Text('75')),
+                  ],
+                  value: _setup.openingRequirement,
+                  onChanged: (value) =>
+                      _update(_setup.copyWith(openingRequirement: value)),
+                ),
+                const SizedBox(height: LoungeTokens.space5),
+                _StartChoice<int>(
+                  icon: Icons.casino_outlined,
+                  title: strings.jokers,
+                  segments: const [
+                    ButtonSegment(value: 0, label: Text('0')),
+                    ButtonSegment(value: 1, label: Text('1')),
+                    ButtonSegment(value: 2, label: Text('2')),
+                    ButtonSegment(value: 3, label: Text('3')),
+                    ButtonSegment(value: 4, label: Text('4')),
+                  ],
+                  value: _setup.jokerCount,
+                  onChanged: (value) =>
+                      _update(_setup.copyWith(jokerCount: value)),
+                ),
+                const SizedBox(height: LoungeTokens.space6),
+                _HouseRulesFooter(
+                  deckCount: _setup.deckCount,
+                  fiftyTimerSeconds: _setup.fiftyTimerSeconds,
+                  aidsLabel: _aidsLabel(_preferences.tableAids, strings),
+                  onEdit: () => Navigator.of(context).pushNamed(
+                    AppRoutes.settings,
+                    arguments: const SettingsRouteArguments(
+                      initialSection: SettingsSection.tableRules,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: LoungeTokens.space6),
                 FilledButton.icon(
@@ -159,7 +169,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                     context,
                   ).pushNamed(AppRoutes.table, arguments: _setup),
                   icon: const Icon(Icons.table_bar_outlined),
-                  label: const Text(AppStrings.startTable),
+                  label: Text(strings.startTable),
                 ),
               ],
             ),
@@ -193,6 +203,25 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
       _preferences = preferences;
       _setup = preferences.setup;
     });
+  }
+
+  static String _aidsLabel(TableAids aid, AppStrings strings) {
+    return switch (aid) {
+      TableAids.guided => strings.guided,
+      TableAids.standard => strings.standard,
+      TableAids.tableMode => strings.tableMode,
+    };
+  }
+
+  static String _rulePresetDescription(RulePreset preset, AppStrings strings) {
+    if (!strings.isRtl) {
+      return preset.description;
+    }
+    return switch (preset) {
+      RulePreset.assisted => 'يمنع الحركات غير القانونية أثناء التعلم.',
+      RulePreset.tablePenalties => 'يسمح بأخطاء محددة مع +3.',
+      RulePreset.hardTable17 => 'يسمح بأخطاء محددة مع +17.',
+    };
   }
 }
 
@@ -234,56 +263,22 @@ class _SetupBackdrop extends StatelessWidget {
   }
 }
 
-class _SetupIntro extends StatelessWidget {
-  const _SetupIntro();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox.square(
-          dimension: 50,
-          child: CustomPaint(
-            painter: GeometricMotifPainter(
-              variant: LoungeMotifVariant.medallion,
-              opacity: 0.38,
-              strokeWidth: 1.0,
-              density: 3,
-            ),
-          ),
-        ),
-        const SizedBox(width: LoungeTokens.space4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(AppStrings.setupTitle, style: LoungeTokens.display),
-              SizedBox(height: LoungeTokens.space2),
-              Text(
-                'Choose the table rhythm before the first deal. These preferences are saved for next time.',
-                style: LoungeTokens.bodyMuted,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SetupSection extends StatelessWidget {
-  const _SetupSection({
-    required this.title,
-    required this.subtitle,
+class _StartChoice<T> extends StatelessWidget {
+  const _StartChoice({
     required this.icon,
-    required this.children,
+    required this.title,
+    required this.segments,
+    required this.value,
+    required this.onChanged,
+    this.note,
   });
 
-  final String title;
-  final String subtitle;
   final IconData icon;
-  final List<Widget> children;
+  final String title;
+  final List<ButtonSegment<T>> segments;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -291,147 +286,162 @@ class _SetupSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: LoungeTokens.goldAccent, size: 20),
+            Icon(icon, size: 18, color: LoungeTokens.goldAccent),
             const SizedBox(width: LoungeTokens.space2),
+            Text(title, style: LoungeTokens.titleSmall),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space3),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SegmentedButton<T>(
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return LoungeTokens.goldAccent;
+                }
+                return LoungeTokens.coffeeCharcoal.withValues(alpha: 0.74);
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return LoungeTokens.coffeeCharcoal;
+                }
+                return LoungeTokens.offWhiteText;
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.42),
+                ),
+              ),
+              textStyle: WidgetStateProperty.all(
+                const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(
+                  horizontal: LoungeTokens.space3,
+                  vertical: LoungeTokens.space2,
+                ),
+              ),
+            ),
+            showSelectedIcon: false,
+            segments: segments,
+            selected: {value},
+            onSelectionChanged: (selection) => onChanged(selection.first),
+          ),
+        ),
+        if (note != null) ...[
+          const SizedBox(height: LoungeTokens.space2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 14,
+                color: LoungeTokens.sandLine,
+              ),
+              const SizedBox(width: LoungeTokens.space2),
+              Expanded(child: Text(note!, style: LoungeTokens.bodyMuted)),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _HouseRulesFooter extends StatelessWidget {
+  const _HouseRulesFooter({
+    required this.deckCount,
+    required this.fiftyTimerSeconds,
+    required this.aidsLabel,
+    required this.onEdit,
+  });
+
+  final int deckCount;
+  final int fiftyTimerSeconds;
+  final String aidsLabel;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          LoungeTokens.space4,
+          LoungeTokens.space3,
+          LoungeTokens.space2,
+          LoungeTokens.space3,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: LoungeTokens.heading),
-                  const SizedBox(height: 3),
-                  Text(subtitle, style: LoungeTokens.bodyMuted),
+                  Text(strings.houseRules, style: LoungeTokens.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    strings.houseRulesSummary(
+                      deckCount: deckCount,
+                      fiftyTimerSeconds: fiftyTimerSeconds,
+                      aidsLabel: aidsLabel,
+                    ),
+                    style: LoungeTokens.bodyMuted,
+                  ),
                 ],
+              ),
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onEdit,
+                borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LoungeTokens.space3,
+                    vertical: LoungeTokens.space2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.tune,
+                        size: 16,
+                        color: LoungeTokens.goldAccent,
+                      ),
+                      const SizedBox(width: LoungeTokens.space2),
+                      Text(
+                        strings.edit,
+                        style: const TextStyle(
+                          color: LoungeTokens.goldAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: LoungeTokens.space4),
-        ...children,
-      ],
-    );
-  }
-}
-
-class _SettingDropdown<T> extends StatelessWidget {
-  const _SettingDropdown({
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.values,
-    required this.labelFor,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String description;
-  final T value;
-  final List<T> values;
-  final String Function(T value) labelFor;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: LoungeTokens.titleSmall),
-        const SizedBox(height: 3),
-        Text(description, style: LoungeTokens.bodyMuted),
-        const SizedBox(height: LoungeTokens.space3),
-        _DropdownSetting<T>(
-          label: title,
-          value: value,
-          values: values,
-          labelFor: labelFor,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _RulePresetNote extends StatelessWidget {
-  const _RulePresetNote({required this.description});
-
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          Icons.info_outline,
-          size: 18,
-          color: LoungeTokens.goldAccent,
-        ),
-        const SizedBox(width: LoungeTokens.space2),
-        Expanded(child: Text(description, style: LoungeTokens.bodyMuted)),
-      ],
-    );
-  }
-}
-
-class _DropdownSetting<T> extends StatelessWidget {
-  const _DropdownSetting({
-    required this.label,
-    required this.value,
-    required this.values,
-    required this.labelFor,
-    required this.onChanged,
-  });
-
-  final String label;
-  final T value;
-  final List<T> values;
-  final String Function(T value) labelFor;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<T>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label),
-      dropdownColor: LoungeTokens.coffeeCharcoal,
-      items: [
-        for (final item in values)
-          DropdownMenuItem<T>(value: item, child: Text(labelFor(item))),
-      ],
-      onChanged: (value) {
-        if (value != null) {
-          onChanged(value);
-        }
-      },
-    );
-  }
-}
-
-class _SectionBreak extends StatelessWidget {
-  const _SectionBreak();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space5),
-      child: Divider(
-        height: 1,
-        color: LoungeTokens.sandLine.withValues(alpha: 0.24),
       ),
-    );
-  }
-}
-
-class _ThinDivider extends StatelessWidget {
-  const _ThinDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Divider(
-      height: LoungeTokens.space5,
-      color: LoungeTokens.sandLine.withValues(alpha: 0.14),
     );
   }
 }

@@ -14,8 +14,8 @@ enum AppLanguage {
   /// English launch language.
   english('English', 'en'),
 
-  /// Arabic-ready setting, pending translated strings.
-  arabic('Arabic (planned)', 'ar');
+  /// Arabic language.
+  arabic('العربية', 'ar');
 
   const AppLanguage(this.label, this.code);
 
@@ -31,32 +31,13 @@ enum AppLanguage {
   }
 }
 
-/// Display style selected by the player.
-enum VisualStyle {
-  /// Launch visual direction.
-  warmSudaneseLounge('Warm Sudanese lounge');
-
-  const VisualStyle(this.label);
-
-  /// Settings label.
-  final String label;
-
-  /// Parses a saved enum name.
-  static VisualStyle fromName(String? name) {
-    return _enumByName(VisualStyle.values, name) ??
-        VisualStyle.warmSudaneseLounge;
-  }
-}
-
 /// Saved app preferences that can seed new games and table behavior.
 class GamePreferences {
   /// Creates app preferences.
   const GamePreferences({
     required this.setup,
     required this.autoSort,
-    required this.reducedMotion,
     required this.memoryJokerDisplay,
-    required this.visualStyle,
     required this.language,
     required this.motionSpeed,
     required this.hapticsEnabled,
@@ -71,9 +52,7 @@ class GamePreferences {
     return GamePreferences(
       setup: ClassicHareegSetup.defaults(),
       autoSort: true,
-      reducedMotion: false,
       memoryJokerDisplay: false,
-      visualStyle: VisualStyle.warmSudaneseLounge,
       language: AppLanguage.english,
       motionSpeed: MotionSpeed.normal,
       hapticsEnabled: true,
@@ -88,24 +67,19 @@ class GamePreferences {
   factory GamePreferences.fromJson(Map<String, Object?> json) {
     final defaults = GamePreferences.defaults();
     final setupJson = _asMap(json['setup']);
-    final reducedMotion =
-        _asBool(json['reducedMotion']) ?? defaults.reducedMotion;
-    final storedMotionSpeed = MotionSpeed.fromName(
-      _asString(json['motionSpeed']),
-    );
+    final legacyReducedMotion = _asBool(json['reducedMotion']) ?? false;
+    final motionSpeed = json.containsKey('motionSpeed')
+        ? MotionSpeed.fromName(_asString(json['motionSpeed']))
+        : (legacyReducedMotion ? MotionSpeed.reduced : MotionSpeed.normal);
     return GamePreferences(
       setup: setupJson != null
           ? ClassicHareegSetup.fromJson(setupJson)
           : ClassicHareegSetup.defaults(),
       autoSort: _asBool(json['autoSort']) ?? defaults.autoSort,
-      reducedMotion: reducedMotion,
       memoryJokerDisplay:
           _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
-      visualStyle: VisualStyle.fromName(_asString(json['visualStyle'])),
       language: AppLanguage.fromName(_asString(json['language'])),
-      motionSpeed: json.containsKey('motionSpeed')
-          ? storedMotionSpeed
-          : (reducedMotion ? MotionSpeed.reduced : MotionSpeed.normal),
+      motionSpeed: motionSpeed,
       hapticsEnabled:
           _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
       soundEnabled: _asBool(json['soundEnabled']) ?? defaults.soundEnabled,
@@ -123,15 +97,8 @@ class GamePreferences {
   /// Whether human hands should be auto-sorted.
   final bool autoSort;
 
-  /// Legacy reduced-motion bool. Retained for backwards compatibility; new
-  /// reads should prefer [motionSpeed].
-  final bool reducedMotion;
-
   /// Whether represented jokers should use a memory-oriented display.
   final bool memoryJokerDisplay;
-
-  /// Visual direction selection.
-  final VisualStyle visualStyle;
 
   /// Language setting.
   final AppLanguage language;
@@ -155,13 +122,15 @@ class GamePreferences {
   /// Selected table surface theme.
   final TableSurfaceTheme tableSurfaceTheme;
 
+  /// Derived reduced-motion bool, kept as a getter so callers reading the
+  /// older API keep working without storing a redundant field.
+  bool get reducedMotion => motionSpeed == MotionSpeed.reduced;
+
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
     bool? autoSort,
-    bool? reducedMotion,
     bool? memoryJokerDisplay,
-    VisualStyle? visualStyle,
     AppLanguage? language,
     MotionSpeed? motionSpeed,
     bool? hapticsEnabled,
@@ -173,9 +142,7 @@ class GamePreferences {
     return GamePreferences(
       setup: setup ?? this.setup,
       autoSort: autoSort ?? this.autoSort,
-      reducedMotion: reducedMotion ?? this.reducedMotion,
       memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
-      visualStyle: visualStyle ?? this.visualStyle,
       language: language ?? this.language,
       motionSpeed: motionSpeed ?? this.motionSpeed,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
@@ -191,9 +158,7 @@ class GamePreferences {
     return {
       'setup': setup.toJson(),
       'autoSort': autoSort,
-      'reducedMotion': reducedMotion,
       'memoryJokerDisplay': memoryJokerDisplay,
-      'visualStyle': visualStyle.name,
       'language': language.name,
       'motionSpeed': motionSpeed.name,
       'hapticsEnabled': hapticsEnabled,

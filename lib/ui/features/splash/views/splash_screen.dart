@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -88,6 +89,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return Scaffold(
       backgroundColor: LoungeTokens.coffeeCharcoal,
       body: GestureDetector(
@@ -114,8 +116,8 @@ class _SplashScreenState extends State<SplashScreen>
                         const SizedBox(height: LoungeTokens.space3),
                         Opacity(
                           opacity: _wordmarkFade.value * 0.8,
-                          child: const Text(
-                            'Offline Classic Hareeg',
+                          child: Text(
+                            strings.splashTagline,
                             style: LoungeTokens.bodyMuted,
                           ),
                         ),
@@ -128,10 +130,10 @@ class _SplashScreenState extends State<SplashScreen>
                     right: 0,
                     child: Opacity(
                       opacity: _wordmarkFade.value * 0.55,
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Tap to continue',
-                          style: TextStyle(
+                          strings.splashTapToContinue,
+                          style: const TextStyle(
                             color: LoungeTokens.mutedText,
                             fontSize: 12,
                             letterSpacing: 1.2,
@@ -293,10 +295,7 @@ class _Wordmark extends StatelessWidget {
             ),
           ),
         ),
-        Opacity(
-          opacity: opacity,
-          child: const _WordmarkText(),
-        ),
+        Opacity(opacity: opacity, child: const _WordmarkText()),
       ],
     );
   }
@@ -308,21 +307,12 @@ class _WordmarkText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RichText(
-      text: const TextSpan(
+      text: TextSpan(
         children: [
           TextSpan(
-            text: 'Hareeg ',
-            style: TextStyle(
+            text: context.strings.homeTitle,
+            style: const TextStyle(
               color: LoungeTokens.offWhiteText,
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
-          ),
-          TextSpan(
-            text: 'Table',
-            style: TextStyle(
-              color: LoungeTokens.goldAccent,
               fontSize: 34,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.4,
