@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Modal-style score overlay shown above the table when the score button is
-/// tapped. Blocks table interaction while open.
+/// tapped. Visually matches the home menu's coffee-charcoal + sand-line
+/// panel language so the table chrome reads as one product.
 class ScoreOverlay extends StatelessWidget {
   /// Creates the score overlay.
   const ScoreOverlay({
@@ -41,25 +43,117 @@ class ScoreOverlay extends StatelessWidget {
     final seats = scores.keys.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
 
-    return _OverlayShell(
-      title: AppStrings.scoresTitle,
-      onClose: onClose,
-      footer: Wrap(
-        spacing: LoungeTokens.space2,
-        children: [
-          _Pill(label: 'Round', value: '$roundNumber'),
-          _Pill(label: 'Starter', value: _seatLabel(starter)),
-          _Pill(label: 'Turn', value: _seatLabel(currentSeat)),
-        ],
+    return GestureDetector(
+      onTap: onClose,
+      child: ColoredBox(
+        color: LoungeTokens.overlayScrim,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxHeight =
+                  (constraints.maxHeight - LoungeTokens.space5).clamp(
+                    160.0,
+                    constraints.maxHeight,
+                  );
+              return Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: LoungeTokens.space4,
+                      vertical: LoungeTokens.space3,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: 480,
+                        maxHeight: maxHeight,
+                      ),
+                      child: _LoungePanel(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _PanelHeader(
+                                icon: Icons.emoji_events_outlined,
+                                title: AppStrings.scoresTitle,
+                                subtitle:
+                                    'Round $roundNumber, ${_seatLabel(currentSeat).toLowerCase()} to play',
+                                onClose: onClose,
+                              ),
+                              const SizedBox(height: LoungeTokens.space4),
+                              _ScoreList(
+                                seats: seats,
+                                scores: scores,
+                                activeSeats: activeSeats,
+                                starter: starter,
+                                currentSeat: currentSeat,
+                              ),
+                              const SizedBox(height: LoungeTokens.space3),
+                              _LegendRow(
+                                starterLabel: _seatLabel(starter),
+                                currentLabel: _seatLabel(currentSeat),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScoreList extends StatelessWidget {
+  const _ScoreList({
+    required this.seats,
+    required this.scores,
+    required this.activeSeats,
+    required this.starter,
+    required this.currentSeat,
+  });
+
+  final List<PlayerSeat> seats;
+  final Map<PlayerSeat, int> scores;
+  final List<PlayerSeat> activeSeats;
+  final PlayerSeat starter;
+  final PlayerSeat currentSeat;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.feltGreen.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         children: [
-          for (final seat in seats)
+          for (var i = 0; i < seats.length; i++) ...[
             _ScoreRow(
-              seat: seat,
-              score: scores[seat] ?? 0,
-              eliminated: !activeSeats.contains(seat),
+              seat: seats[i],
+              score: scores[seats[i]] ?? 0,
+              eliminated: !activeSeats.contains(seats[i]),
+              isStarter: seats[i] == starter,
+              isCurrent: seats[i] == currentSeat,
             ),
+            if (i < seats.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+                indent: LoungeTokens.space4,
+                endIndent: LoungeTokens.space4,
+              ),
+          ],
         ],
       ),
     );
@@ -71,45 +165,90 @@ class _ScoreRow extends StatelessWidget {
     required this.seat,
     required this.score,
     required this.eliminated,
+    required this.isStarter,
+    required this.isCurrent,
   });
 
   final PlayerSeat seat;
   final int score;
   final bool eliminated;
+  final bool isStarter;
+  final bool isCurrent;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    final nameColor = eliminated
+        ? LoungeTokens.mutedText
+        : LoungeTokens.offWhiteText;
+    final scoreColor = eliminated
+        ? LoungeTokens.mutedText
+        : (isCurrent ? LoungeTokens.fiftyFlame : LoungeTokens.goldAccent);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LoungeTokens.space4,
+        vertical: LoungeTokens.space2,
+      ),
+      decoration: BoxDecoration(
+        color: isCurrent
+            ? LoungeTokens.goldAccent.withValues(alpha: 0.08)
+            : Colors.transparent,
+      ),
       child: Row(
         children: [
-          Icon(
-            seat == PlayerSeat.south ? Icons.person : Icons.smart_toy,
-            size: 18,
-            color: eliminated
-                ? LoungeTokens.mutedText
-                : LoungeTokens.offWhiteText,
-          ),
-          const SizedBox(width: LoungeTokens.space2),
+          _SeatBadge(seat: seat, eliminated: eliminated, highlight: isCurrent),
+          const SizedBox(width: LoungeTokens.space3),
           Expanded(
-            child: Text(
-              _seatLabel(seat),
-              style: TextStyle(
-                color: eliminated
-                    ? LoungeTokens.mutedText
-                    : LoungeTokens.offWhiteText,
-                fontWeight: FontWeight.w700,
-                decoration: eliminated ? TextDecoration.lineThrough : null,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _seatLabel(seat),
+                  style: TextStyle(
+                    color: nameColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    letterSpacing: 0.2,
+                    decoration: eliminated ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                if (isStarter || isCurrent || eliminated) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      if (isCurrent)
+                        const _StatusTag(
+                          label: 'Turn',
+                          color: LoungeTokens.fiftyFlame,
+                        ),
+                      if (isStarter)
+                        const _StatusTag(
+                          label: 'Starter',
+                          color: LoungeTokens.goldAccent,
+                        ),
+                      if (eliminated)
+                        const _StatusTag(
+                          label: 'Out',
+                          color: LoungeTokens.deepRed,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
+          const SizedBox(width: LoungeTokens.space3),
           Text(
             '$score',
-            style: LoungeTokens.numericChip.copyWith(
-              color: eliminated
-                  ? LoungeTokens.mutedText
-                  : LoungeTokens.goldAccent,
-              fontSize: 16,
+            style: TextStyle(
+              color: scoreColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              letterSpacing: 0.4,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -118,97 +257,241 @@ class _ScoreRow extends StatelessWidget {
   }
 }
 
-class _OverlayShell extends StatelessWidget {
-  const _OverlayShell({
-    required this.title,
-    required this.child,
-    required this.onClose,
-    this.footer,
+class _SeatBadge extends StatelessWidget {
+  const _SeatBadge({
+    required this.seat,
+    required this.eliminated,
+    required this.highlight,
   });
 
-  final String title;
-  final Widget child;
-  final Widget? footer;
-  final VoidCallback onClose;
+  final PlayerSeat seat;
+  final bool eliminated;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onClose,
-      child: ColoredBox(
-        color: LoungeTokens.overlayScrim,
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Material(
-                color: LoungeTokens.coffeeCharcoal,
-                borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-                clipBehavior: Clip.antiAlias,
-                child: Padding(
-                  padding: const EdgeInsets.all(LoungeTokens.space5),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(title, style: LoungeTokens.heading),
-                          ),
-                          IconButton(
-                            onPressed: onClose,
-                            icon: const Icon(Icons.close),
-                            tooltip: 'Close',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: LoungeTokens.space2),
-                      child,
-                      if (footer != null) ...[
-                        const SizedBox(height: LoungeTokens.space3),
-                        footer!,
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+    final iconColor = eliminated
+        ? LoungeTokens.mutedText
+        : (highlight ? LoungeTokens.fiftyFlame : LoungeTokens.offWhiteText);
+    final borderColor = eliminated
+        ? LoungeTokens.mutedText.withValues(alpha: 0.4)
+        : (highlight
+              ? LoungeTokens.fiftyFlame.withValues(alpha: 0.55)
+              : LoungeTokens.sandLine.withValues(alpha: 0.4));
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: LoungeTokens.feltRaised,
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: highlight ? 1.4 : 1.0),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        seat == PlayerSeat.south ? Icons.person : Icons.smart_toy_outlined,
+        size: 18,
+        color: iconColor,
+      ),
+    );
+  }
+}
+
+class _StatusTag extends StatelessWidget {
+  const _StatusTag({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
         ),
       ),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.value});
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({required this.starterLabel, required this.currentLabel});
 
+  final String starterLabel;
+  final String currentLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: LoungeTokens.space2,
+      runSpacing: LoungeTokens.space2,
+      children: [
+        _LegendPill(
+          icon: Icons.flag_outlined,
+          label: 'Started by $starterLabel',
+        ),
+        _LegendPill(
+          icon: Icons.local_fire_department_outlined,
+          label: 'On the table: $currentLabel',
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendPill extends StatelessWidget {
+  const _LegendPill({required this.icon, required this.label});
+
+  final IconData icon;
   final String label;
-  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: LoungeTokens.space3,
-        vertical: 4,
+        vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: LoungeTokens.feltRaised,
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.5),
+          color: LoungeTokens.sandLine.withValues(alpha: 0.28),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label ', style: LoungeTokens.bodyMuted),
-          Text(value, style: LoungeTokens.numericChip),
+          Icon(icon, size: 14, color: LoungeTokens.goldAccent),
+          const SizedBox(width: 6),
+          Text(label, style: LoungeTokens.bodyMuted),
         ],
       ),
+    );
+  }
+}
+
+class _LoungePanel extends StatelessWidget {
+  const _LoungePanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+          border: Border.all(
+            color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 28,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -34,
+                right: -42,
+                child: IgnorePointer(
+                  child: SizedBox.square(
+                    dimension: 168,
+                    child: CustomPaint(
+                      painter: const GeometricMotifPainter(
+                        variant: LoungeMotifVariant.medallion,
+                        opacity: 0.05,
+                        strokeWidth: 1.0,
+                        density: 4,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  LoungeTokens.space5,
+                  LoungeTokens.space4,
+                  LoungeTokens.space5,
+                  LoungeTokens.space4,
+                ),
+                child: child,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onClose,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: LoungeTokens.feltRaised,
+            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+            border: Border.all(
+              color: LoungeTokens.sandLine.withValues(alpha: 0.4),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: LoungeTokens.goldAccent, size: 22),
+        ),
+        const SizedBox(width: LoungeTokens.space4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: LoungeTokens.display.copyWith(fontSize: 22)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: LoungeTokens.bodyMuted),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onClose,
+          icon: const Icon(Icons.close),
+          tooltip: 'Close',
+          color: LoungeTokens.mutedText,
+        ),
+      ],
     );
   }
 }
