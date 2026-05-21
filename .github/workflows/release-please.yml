@@ -87,7 +87,7 @@ jobs:
       - name: Build release APK
         if: ${{ steps.release.outputs.release_created == 'true' }}
         env:
-          ANDROID_KEYSTORE_PATH: android/app/release-keystore.jks
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release-keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
