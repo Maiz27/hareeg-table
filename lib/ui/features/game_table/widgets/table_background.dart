@@ -66,164 +66,6 @@ class _SandlineSurface extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Shared frame: inner hairline, optional pinstripe, top/bottom motif strip,
-// and four geometric corner ornaments. Each surface composes the same frame
-// in its own accent tone so the brand mark stays consistent across themes.
-// ---------------------------------------------------------------------------
-
-class _TableFrame extends StatelessWidget {
-  const _TableFrame({
-    required this.hairline,
-    required this.motifColor,
-    this.hairlineOpacity = 0.32,
-    this.motifBorderOpacity = 0.16,
-    this.cornerOpacity = 0.22,
-    this.innerPinstripe,
-    this.innerPinstripeOpacity = 0.18,
-  });
-
-  final Color hairline;
-  final Color motifColor;
-  final double hairlineOpacity;
-  final double motifBorderOpacity;
-  final double cornerOpacity;
-  final Color? innerPinstripe;
-  final double innerPinstripeOpacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(LoungeTokens.space3),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-              border: Border.all(
-                color: hairline.withValues(alpha: hairlineOpacity),
-                width: 1,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: LoungeTokens.space2,
-              ),
-              child: Stack(
-                children: [
-                  if (innerPinstripe != null)
-                    Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            LoungeTokens.radiusPanel - 5,
-                          ),
-                          border: Border.all(
-                            color: innerPinstripe!.withValues(
-                              alpha: innerPinstripeOpacity,
-                            ),
-                            width: 0.6,
-                          ),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    top: 4,
-                    left: 0,
-                    right: 0,
-                    child: SizedBox(
-                      height: 8,
-                      child: CustomPaint(
-                        painter: GeometricMotifPainter(
-                          variant: LoungeMotifVariant.border,
-                          color: motifColor,
-                          opacity: motifBorderOpacity,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 4,
-                    left: 0,
-                    right: 0,
-                    child: SizedBox(
-                      height: 8,
-                      child: CustomPaint(
-                        painter: GeometricMotifPainter(
-                          variant: LoungeMotifVariant.border,
-                          color: motifColor,
-                          opacity: motifBorderOpacity,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        _CornerMotifs(color: motifColor, opacity: cornerOpacity),
-      ],
-    );
-  }
-}
-
-class _CornerMotifs extends StatelessWidget {
-  const _CornerMotifs({required this.color, required this.opacity});
-
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    const cornerSize = 46.0;
-    final cornerPainter = GeometricMotifPainter(
-      variant: LoungeMotifVariant.corner,
-      color: color,
-      opacity: opacity,
-    );
-    final motif = SizedBox.square(
-      dimension: cornerSize,
-      child: CustomPaint(painter: cornerPainter),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.all(LoungeTokens.space5),
-      child: Stack(
-        children: [
-          Align(alignment: Alignment.topLeft, child: motif),
-          Align(
-            alignment: Alignment.topRight,
-            child: Transform(
-              transform: Matrix4.diagonal3Values(-1, 1, 1),
-              alignment: Alignment.center,
-              child: motif,
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomLeft,
-            child: Transform(
-              transform: Matrix4.diagonal3Values(1, -1, 1),
-              alignment: Alignment.center,
-              child: motif,
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Transform(
-              transform: Matrix4.diagonal3Values(-1, -1, 1),
-              alignment: Alignment.center,
-              child: motif,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // 1. Dark felt — the lounge primary.
 // ---------------------------------------------------------------------------
 
@@ -240,15 +82,6 @@ class _FeltSurface extends StatelessWidget {
           _FeltGradient(),
           Positioned.fill(child: CustomPaint(painter: _FeltFibers())),
           _FeltCenterHalo(),
-          _TableFrame(
-            hairline: LoungeTokens.sandLine,
-            motifColor: LoungeTokens.sandLine,
-            hairlineOpacity: 0.38,
-            motifBorderOpacity: 0.18,
-            cornerOpacity: 0.24,
-            innerPinstripe: LoungeTokens.goldAccent,
-            innerPinstripeOpacity: 0.22,
-          ),
         ],
       ),
     );
@@ -367,13 +200,6 @@ class _WoodSurface extends StatelessWidget {
               height: 132,
               child: CustomPaint(painter: _HerbSprig()),
             ),
-          ),
-          _TableFrame(
-            hairline: Color(0xFF6B4825),
-            motifColor: Color(0xFF8C5C2E),
-            hairlineOpacity: 0.32,
-            motifBorderOpacity: 0.20,
-            cornerOpacity: 0.28,
           ),
         ],
       ),
@@ -616,15 +442,6 @@ class _SapphireSurface extends StatelessWidget {
           _SapphireGradient(),
           Positioned.fill(child: CustomPaint(painter: _VelvetWeave())),
           _SapphireCenterHalo(),
-          _TableFrame(
-            hairline: Color(0xFFB9C5D5),
-            motifColor: Color(0xFFB9C5D5),
-            hairlineOpacity: 0.30,
-            motifBorderOpacity: 0.16,
-            cornerOpacity: 0.22,
-            innerPinstripe: Color(0xFF7CA0CC),
-            innerPinstripeOpacity: 0.22,
-          ),
         ],
       ),
     );
@@ -732,15 +549,6 @@ class _ClaySurface extends StatelessWidget {
           _ClayGradient(),
           Positioned.fill(child: CustomPaint(painter: _ClaySpeckle())),
           _ClayCenterStamp(),
-          _TableFrame(
-            hairline: Color(0xFFD9B07A),
-            motifColor: Color(0xFFE8C68A),
-            hairlineOpacity: 0.36,
-            motifBorderOpacity: 0.22,
-            cornerOpacity: 0.28,
-            innerPinstripe: Color(0xFF8E5430),
-            innerPinstripeOpacity: 0.30,
-          ),
         ],
       ),
     );
