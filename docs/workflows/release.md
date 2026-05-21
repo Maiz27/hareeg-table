@@ -24,6 +24,15 @@ When the release pull request is merged, the same workflow:
 
 No manual tag push is required.
 
+The release APK is signed with a release keystore from GitHub Actions secrets.
+Configure these repository secrets before merging a Release Please PR that should
+publish an APK:
+
+- `ANDROID_RELEASE_KEYSTORE_BASE64`: base64-encoded Android keystore file
+- `ANDROID_RELEASE_KEYSTORE_PASSWORD`
+- `ANDROID_RELEASE_KEY_ALIAS`
+- `ANDROID_RELEASE_KEY_PASSWORD`
+
 ## What Maintainers Do
 
 To make a specific implementation PR eligible for the next release:
