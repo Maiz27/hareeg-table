@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "a95423c3454ea8413f0cfa0e016d60e0460181d6",
+  "packages": {
+    ".": {
+      "release-type": "dart",
+      "package-name": "hareeg-table",
+      "versioning": "prerelease",
+      "prerelease-type": "alpha",
+      "prerelease": true,
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "include-v-in-release-name": true
+    }
+  }
+}

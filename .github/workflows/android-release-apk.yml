@@ -1,4 +1,4 @@
-name: Android Release APK
+name: Android APK Artifact
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build-release-apk:
-    name: Build release APK
+  build-apk-artifact:
+    name: Build APK artifact
     runs-on: ubuntu-latest
 
     steps:
@@ -36,10 +36,10 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --build-number "${{ github.run_number }}"
 
-      - name: Upload release APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hareeg-table-release-apk-${{ github.run_number }}
+          name: hareeg-table-main-apk-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
