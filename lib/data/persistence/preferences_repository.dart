@@ -61,7 +61,7 @@ class GamePreferences {
       tableAids: TableAids.guided,
       cardThemeId: CardThemeRegistry.defaultThemeId,
       highContrastCards: false,
-      tableSurfaceTheme: TableSurfaceTheme.felt,
+      tableSurfaceTheme: TableSurfaceTheme.sandline,
     );
   }
 

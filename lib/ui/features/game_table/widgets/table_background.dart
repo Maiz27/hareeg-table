@@ -11,7 +11,7 @@ class TableBackground extends StatelessWidget {
   /// Creates a table background.
   const TableBackground({
     super.key,
-    this.surface = TableSurfaceTheme.felt,
+    this.surface = TableSurfaceTheme.sandline,
     this.child,
   });
 
@@ -24,6 +24,7 @@ class TableBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = switch (surface) {
+      TableSurfaceTheme.sandline => const _SandlineSurface(),
       TableSurfaceTheme.felt => const _FeltSurface(),
       TableSurfaceTheme.wood => const _WoodSurface(),
       TableSurfaceTheme.sapphire => const _SapphireSurface(),
@@ -35,6 +36,30 @@ class TableBackground extends StatelessWidget {
       children: [
         Positioned.fill(child: background),
         if (child != null) Positioned.fill(child: child!),
+      ],
+    );
+  }
+}
+
+class _SandlineSurface extends StatelessWidget {
+  const _SandlineSurface();
+
+  static const _assetPath = 'assets/table_surfaces/sandline_lounge.webp';
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: LoungeTokens.feltGreen),
+        Image.asset(
+          _assetPath,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+        ),
       ],
     );
   }

@@ -192,6 +192,7 @@ class AppStrings {
   String get guided => _v('guided');
   String get standard => _v('standard');
   String get tableMode => _v('tableMode');
+  String get sandlineLounge => _v('sandlineLounge');
   String get darkFelt => _v('darkFelt');
   String get lightWood => _v('lightWood');
   String get midnightSapphire => _v('midnightSapphire');
@@ -756,6 +757,7 @@ const _englishValues = {
   'guided': 'Guided',
   'standard': 'Standard',
   'tableMode': 'Table mode',
+  'sandlineLounge': 'Sandline Lounge',
   'darkFelt': 'Dark felt',
   'lightWood': 'Light wood',
   'midnightSapphire': 'Midnight sapphire',
@@ -946,6 +948,7 @@ const _arabicValues = {
   'guided': 'موجهة',
   'standard': 'قياسية',
   'tableMode': 'وضع الطاولة',
+  'sandlineLounge': 'Sandline Lounge',
   'darkFelt': 'لباد داكن',
   'lightWood': 'خشب فاتح',
   'midnightSapphire': 'ياقوت ليلي',

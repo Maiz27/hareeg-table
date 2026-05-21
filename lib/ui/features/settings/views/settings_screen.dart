@@ -345,6 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static String _surfaceLabel(TableSurfaceTheme surface, AppStrings strings) {
     return switch (surface) {
+      TableSurfaceTheme.sandline => strings.sandlineLounge,
       TableSurfaceTheme.felt => strings.darkFelt,
       TableSurfaceTheme.wood => strings.lightWood,
       TableSurfaceTheme.sapphire => strings.midnightSapphire,

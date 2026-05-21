@@ -1,5 +1,8 @@
 /// Available table surface themes.
 enum TableSurfaceTheme {
+  /// Generated Sandline Lounge surface matching the default card theme.
+  sandline('Sandline Lounge'),
+
   /// Warm dark felt lounge table.
   felt('Dark felt'),
 
@@ -24,6 +27,6 @@ enum TableSurfaceTheme {
         return theme;
       }
     }
-    return TableSurfaceTheme.felt;
+    return TableSurfaceTheme.sandline;
   }
 }

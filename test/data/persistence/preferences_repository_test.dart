@@ -20,7 +20,7 @@ void main() {
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
       expect(preferences.highContrastCards, isFalse);
-      expect(preferences.tableSurfaceTheme, TableSurfaceTheme.felt);
+      expect(preferences.tableSurfaceTheme, TableSurfaceTheme.sandline);
     });
 
     test('saves and restores setup and display preferences', () async {
