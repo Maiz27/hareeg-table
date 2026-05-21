@@ -52,6 +52,7 @@ dev_dependencies:
   # `flutter_native_splash:` below and applied by running
   # `dart run flutter_native_splash:create`.
   flutter_native_splash: ^2.4.6
+  flutter_launcher_icons: ^0.14.4
 
 # Native splash configuration applied by `dart run flutter_native_splash:create`.
 # Charcoal background + coloured icon stamp so the launch frame matches the
@@ -59,16 +60,28 @@ dev_dependencies:
 flutter_native_splash:
   color: "#15110E"
   color_dark: "#15110E"
-  image: assets/brand/app-icon-concept-v2.png
-  image_dark: assets/brand/app-icon-concept-v2.png
+  image: assets/brand/launcher/sandline_joker_foreground.png
+  image_dark: assets/brand/launcher/sandline_joker_foreground.png
   android_12:
     color: "#15110E"
     color_dark: "#15110E"
-    image: assets/brand/app-icon-concept-v2.png
-    image_dark: assets/brand/app-icon-concept-v2.png
+    image: assets/brand/launcher/sandline_joker_foreground.png
+    image_dark: assets/brand/launcher/sandline_joker_foreground.png
   android: true
   ios: true
   web: false
+
+# Launcher icon configuration applied by
+# `dart run flutter_launcher_icons`.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/brand/launcher/sandline_joker_composite.png
+  remove_alpha_ios: true
+  adaptive_icon_background: assets/brand/launcher/sandline_joker_background.png
+  adaptive_icon_foreground: assets/brand/launcher/sandline_joker_foreground.png
+  adaptive_icon_foreground_inset: 0
+  adaptive_icon_monochrome: assets/brand/launcher/sandline_joker_monochrome.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
