@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
+import '../../../core/brand/app_brand_mark.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
@@ -107,17 +108,7 @@ class _AboutIntro extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox.square(
-          dimension: 50,
-          child: CustomPaint(
-            painter: GeometricMotifPainter(
-              variant: LoungeMotifVariant.medallion,
-              opacity: 0.38,
-              strokeWidth: 1.0,
-              density: 3,
-            ),
-          ),
-        ),
+        AppBrandMark(semanticLabel: strings.appTitle),
         const SizedBox(width: LoungeTokens.space4),
         Expanded(
           child: Column(

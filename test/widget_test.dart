@@ -7,6 +7,7 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/ui/core/brand/app_brand_mark.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 
 import 'support/test_fixtures.dart';
@@ -92,6 +93,7 @@ void main() {
     await tester.tap(find.byTooltip('Rules / Help'));
     await tester.pumpAndSettle();
     expect(find.text('Classic Hareeg rules'), findsWidgets);
+    expect(find.byType(AppBrandMark), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -123,6 +125,7 @@ void main() {
 
     expect(find.text('Card themes'), findsOneWidget);
     expect(find.text('Sandline Lounge'), findsWidgets);
+    expect(find.byType(AppBrandMark), findsOneWidget);
   });
 
   testWidgets('saved match resumes onto the table and can be abandoned', (
