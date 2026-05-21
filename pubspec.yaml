@@ -83,6 +83,7 @@ flutter:
 
   assets:
     - assets/cards/kenney_classic/
+    - assets/cards/sandline_lounge/
     - assets/cards/wikimedia_english/
 
   # An image asset can refer to one or more resolution-specific "variants", see
