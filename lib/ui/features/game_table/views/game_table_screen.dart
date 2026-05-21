@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/app_routes.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
@@ -133,6 +134,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
     _roundAdvanceTimer = null;
     AppOrientation.usePortrait();
     super.dispose();
+  }
+
+  void _returnToMainMenu() {
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
   }
 
   void _resetDisplayOrder() {
@@ -286,7 +293,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
               meldSelectionHasOpened: hasOpened,
               onPlaySelectedMeld: primaryMeldAction == null
                   ? null
-                  : () => unawaited(_runHumanAction(primaryMeldAction)),
+                  : () => unawaited(_playSelectedMeld(primaryMeldAction)),
               meldSuggestions: meldSuggestions,
               showMeldSuggestions: aids.showsMeldPicker,
               onMeldSuggestion: (actionId) {
@@ -299,32 +306,35 @@ class _GameTableScreenState extends State<GameTableScreen> {
             ),
             LayoutBuilder(
               builder: (context, viewport) {
-                // Score / pause snap to the true safe-area corners. We pull
-                // them OUTSIDE the SafeArea wrapper and add the safe-area
-                // padding ourselves so the buttons can hug the literal edge
-                // (the table's border ornament is decorative — buttons go on
-                // top of it). Sizes scale with viewport width so tablets
-                // don't end up with tiny phone-sized controls.
+                // Score / pause sit just inside the safe-area corners with a
+                // small breathing margin so they don't graze the screen edge.
+                // Sizes scale with viewport width so tablets don't end up
+                // with tiny phone-sized controls.
                 final safe = MediaQuery.paddingOf(context);
                 final isLarge = viewport.maxWidth >= 900;
                 final isTablet = viewport.maxWidth >= 720;
                 final buttonSize = isLarge
-                    ? 56.0
+                    ? 44.0
                     : isTablet
-                    ? 48.0
-                    : 38.0;
+                    ? 38.0
+                    : 30.0;
                 final iconSize = isLarge
-                    ? 30.0
+                    ? 24.0
                     : isTablet
-                    ? 26.0
-                    : 20.0;
+                    ? 21.0
+                    : 17.0;
+                final edgeInset = isLarge
+                    ? 18.0
+                    : isTablet
+                    ? 14.0
+                    : 10.0;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Positioned(
-                      top: safe.top,
-                      left: safe.left,
-                      child: _RoundTableButton(
+                      top: safe.top + edgeInset,
+                      left: safe.left + edgeInset,
+                      child: _TableChromeButton(
                         tooltip: strings.scores,
                         icon: Icons.bar_chart_rounded,
                         diameter: buttonSize,
@@ -333,9 +343,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
                       ),
                     ),
                     Positioned(
-                      top: safe.top,
-                      right: safe.right,
-                      child: _RoundTableButton(
+                      top: safe.top + edgeInset,
+                      right: safe.right + edgeInset,
+                      child: _TableChromeButton(
                         tooltip: strings.pauseTable,
                         icon: Icons.pause_rounded,
                         diameter: buttonSize,
@@ -345,9 +355,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
                     ),
                     if (_humanFeedback != null)
                       Positioned(
-                        top: safe.top + math.max(0.0, (buttonSize - 34) / 2),
-                        left: safe.left + buttonSize + 20,
-                        right: safe.right + buttonSize + 20,
+                        top:
+                            safe.top +
+                            edgeInset +
+                            math.max(0.0, (buttonSize - 34) / 2),
+                        left: safe.left + edgeInset + buttonSize + 14,
+                        right: safe.right + edgeInset + buttonSize + 14,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
@@ -376,83 +389,88 @@ class _GameTableScreenState extends State<GameTableScreen> {
       ),
     );
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          body,
-          _AnimatedOverlaySlot(
-            visible: _scoreOpen,
-            overlayKey: 'score-overlay',
-            duration: _scaledDelay(const Duration(milliseconds: 180)),
-            child: ScoreOverlay(
-              scores: _controller.scores,
-              activeSeats: _controller.activeSeats,
-              starter: _controller.starter,
-              currentSeat: _controller.currentSeat,
-              roundNumber: _controller.roundNumber,
-              onClose: () => setState(() => _scoreOpen = false),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _returnToMainMenu();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            body,
+            _AnimatedOverlaySlot(
+              visible: _scoreOpen,
+              overlayKey: 'score-overlay',
+              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              child: ScoreOverlay(
+                scores: _controller.scores,
+                activeSeats: _controller.activeSeats,
+                starter: _controller.starter,
+                currentSeat: _controller.currentSeat,
+                roundNumber: _controller.roundNumber,
+                onClose: () => setState(() => _scoreOpen = false),
+              ),
             ),
-          ),
-          _AnimatedOverlaySlot(
-            visible: _pauseOpen,
-            overlayKey: 'pause-overlay',
-            duration: _scaledDelay(const Duration(milliseconds: 180)),
-            child: PauseOverlay(
-              aids: widget.preferences.tableAids,
-              motionSpeed: widget.preferences.motionSpeed,
-              hapticsEnabled: widget.preferences.hapticsEnabled,
-              soundEnabled: widget.preferences.soundEnabled,
-              highContrastCards: widget.preferences.highContrastCards,
-              onAidsChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(tableAids: v),
+            _AnimatedOverlaySlot(
+              visible: _pauseOpen,
+              overlayKey: 'pause-overlay',
+              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              child: PauseOverlay(
+                aids: widget.preferences.tableAids,
+                motionSpeed: widget.preferences.motionSpeed,
+                hapticsEnabled: widget.preferences.hapticsEnabled,
+                soundEnabled: widget.preferences.soundEnabled,
+                highContrastCards: widget.preferences.highContrastCards,
+                onAidsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(tableAids: v),
+                ),
+                onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(motionSpeed: v),
+                ),
+                onHapticsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(hapticsEnabled: v),
+                ),
+                onSoundChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(soundEnabled: v),
+                ),
+                onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(highContrastCards: v),
+                ),
+                onResume: () => setState(() => _pauseOpen = false),
+                onLeave: _returnToMainMenu,
               ),
-              onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(motionSpeed: v),
-              ),
-              onHapticsChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(hapticsEnabled: v),
-              ),
-              onSoundChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(soundEnabled: v),
-              ),
-              onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
-                widget.preferences.copyWith(highContrastCards: v),
-              ),
-              onResume: () => setState(() => _pauseOpen = false),
-              onLeave: () {
-                Navigator.of(context).pop();
-              },
             ),
-          ),
-          if (_inspectedCard != null)
-            _CardInspectOverlay(
-              card: _inspectedCard!,
-              theme: theme,
-              aids: aids,
-              jokerAidsEnabled: jokerAidsEnabled,
-              onClose: () => setState(() => _inspectedCard = null),
+            if (_inspectedCard != null)
+              _CardInspectOverlay(
+                card: _inspectedCard!,
+                theme: theme,
+                aids: aids,
+                jokerAidsEnabled: jokerAidsEnabled,
+                onClose: () => setState(() => _inspectedCard = null),
+              ),
+            _AnimatedOverlaySlot(
+              visible: _roundResultPresentation != null,
+              overlayKey: 'round-result-overlay-slot',
+              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              child: _roundResultPresentation == null
+                  ? const SizedBox.shrink()
+                  : _RoundResultOverlay(
+                      presentation: _roundResultPresentation!,
+                      onContinueNow:
+                          _roundResultPresentation!.nextSnapshot == null
+                          ? null
+                          : () => _advanceToNextRound(
+                              _roundResultPresentation!.nextSnapshot!,
+                            ),
+                      onReturnToMenu:
+                          _roundResultPresentation!.progress.matchWinner == null
+                          ? null
+                          : _returnToMainMenu,
+                    ),
             ),
-          _AnimatedOverlaySlot(
-            visible: _roundResultPresentation != null,
-            overlayKey: 'round-result-overlay-slot',
-            duration: _scaledDelay(const Duration(milliseconds: 220)),
-            child: _roundResultPresentation == null
-                ? const SizedBox.shrink()
-                : _RoundResultOverlay(
-                    presentation: _roundResultPresentation!,
-                    onContinueNow:
-                        _roundResultPresentation!.nextSnapshot == null
-                        ? null
-                        : () => _advanceToNextRound(
-                            _roundResultPresentation!.nextSnapshot!,
-                          ),
-                    onReturnToMenu:
-                        _roundResultPresentation!.progress.matchWinner == null
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -692,6 +710,77 @@ class _GameTableScreenState extends State<GameTableScreen> {
     yield [card.id];
   }
 
+  Future<void> _playSelectedMeld(String fallbackActionId) async {
+    final cardIds = _selectedCardIds.toList(growable: false);
+    final jokerChoices = _jokerMeldChoicesForCardIds(cardIds);
+    if (jokerChoices.length > 1) {
+      final choice = await _showJokerChoiceDialog(jokerChoices);
+      if (!mounted || choice == null) return;
+      await _runHumanAction(choice.actionId);
+      return;
+    }
+
+    await _runHumanAction(fallbackActionId);
+  }
+
+  Future<_JokerMeldChoice?> _showJokerChoiceDialog(
+    List<_JokerMeldChoice> choices,
+  ) {
+    final theme = CardThemeScope.of(context);
+    return showDialog<_JokerMeldChoice>(
+      context: context,
+      builder: (dialogContext) {
+        final strings = dialogContext.strings;
+        return AlertDialog(
+          key: const ValueKey('joker-choice-dialog'),
+          title: const Text('Choose joker identity'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final choice in choices)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: OutlinedButton(
+                        key: ValueKey('joker-choice-${choice.identity.key}'),
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(choice),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(strings.jokerAs(choice.identity)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: [
+                                  for (final card in choice.cards)
+                                    HareegCardView(
+                                      theme: theme,
+                                      card: card,
+                                      size: const Size(30, 42),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Returns a play action for the exact selected single meld. This bypasses
   /// controller-wide opening-combination enumeration so the picker never pulls
   /// unselected cards from the rest of the hand.
@@ -719,6 +808,23 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
     for (final group in _selectedMeldCandidateGroups(selectedCards)) {
       final ids = group.map((card) => card.id).toList(growable: false);
+      final jokerChoices = _jokerMeldChoicesForCardIds(ids);
+      if (jokerChoices.isNotEmpty) {
+        for (final choice in jokerChoices) {
+          if (!seen.add(choice.actionId)) continue;
+          suggestions.add(
+            TableMeldSuggestion(actionId: choice.actionId, cards: choice.cards),
+          );
+          if (suggestions.length == 5) {
+            break;
+          }
+        }
+        if (suggestions.length == 5) {
+          break;
+        }
+        continue;
+      }
+
       final actionId = _meldActionForCardIds(ids);
       if (actionId == null) continue;
       final key = (List<String>.of(ids)..sort()).join('|');
@@ -729,6 +835,71 @@ class _GameTableScreenState extends State<GameTableScreen> {
       }
     }
     return suggestions;
+  }
+
+  List<_JokerMeldChoice> _jokerMeldChoicesForCardIds(List<String> cardIds) {
+    final options = _controller.jokerRepresentationOptionsFor(
+      PlayerSeat.south,
+      cardIds,
+    );
+    if (options.length <= 1) {
+      return const [];
+    }
+
+    final cards = _southHandCardsForIds(cardIds);
+    if (cards == null) {
+      return const [];
+    }
+    final joker = _unresolvedJokerIn(cards);
+    if (joker == null) {
+      return const [];
+    }
+
+    return [
+      for (final identity in options)
+        _JokerMeldChoice(
+          identity: identity,
+          actionId: ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
+            cardIds: cardIds,
+            jokerId: joker.id,
+            identity: identity,
+          ),
+          cards: _cardsWithJokerIdentity(cards, joker.id, identity),
+        ),
+    ];
+  }
+
+  List<HareegCard>? _southHandCardsForIds(List<String> cardIds) {
+    final hand = _orderedSouthHand();
+    final cards = <HareegCard>[];
+    for (final id in cardIds) {
+      final index = hand.indexWhere((card) => card.id == id);
+      if (index == -1) {
+        return null;
+      }
+      cards.add(hand[index]);
+    }
+    return cards;
+  }
+
+  HareegCard? _unresolvedJokerIn(List<HareegCard> cards) {
+    for (final card in cards) {
+      if (card.isJoker && card.representedIdentity == null) {
+        return card;
+      }
+    }
+    return null;
+  }
+
+  List<HareegCard> _cardsWithJokerIdentity(
+    List<HareegCard> cards,
+    String jokerId,
+    CardIdentity identity,
+  ) {
+    return [
+      for (final card in cards)
+        if (card.id == jokerId) card.asRepresenting(identity) else card,
+    ];
   }
 
   Iterable<List<HareegCard>> _selectedMeldCandidateGroups(
@@ -944,8 +1115,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
         serial: ++_flightSerial,
         card: card,
         begin: _FlightAnchor.hand.alignment,
-        end: _alignmentForSeat(cover.targetSeat),
+        end: _FlightAnchor.hand.alignment,
         beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: _TableMeldFlightSlot(
+          seat: cover.targetSeat,
+          index: cover.meldIndex,
+        ),
       );
     }
 
@@ -957,8 +1132,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
         serial: ++_flightSerial,
         card: card,
         begin: _FlightAnchor.hand.alignment,
-        end: _alignmentForSeat(replacement.targetSeat),
+        end: _FlightAnchor.hand.alignment,
         beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: _TableMeldFlightSlot(
+          seat: replacement.targetSeat,
+          index: replacement.meldIndex,
+        ),
       );
     }
 
@@ -970,8 +1149,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
         serial: ++_flightSerial,
         card: card,
         begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.southMeld.alignment,
+        end: _FlightAnchor.hand.alignment,
         beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: const _TableMeldFlightSlot(seat: PlayerSeat.south),
       );
     }
 
@@ -1389,8 +1569,25 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 }
 
-class _RoundTableButton extends StatelessWidget {
-  const _RoundTableButton({
+class _JokerMeldChoice {
+  const _JokerMeldChoice({
+    required this.identity,
+    required this.actionId,
+    required this.cards,
+  });
+
+  final CardIdentity identity;
+  final String actionId;
+  final List<HareegCard> cards;
+}
+
+/// Softly-rounded chrome button used for the score / pause shortcuts in the
+/// table's top corners. Matches the open-need pill's surface treatment
+/// (charcoal fill, hairline border, soft shadow) so the corner controls read
+/// as part of the same chrome family across every table theme rather than
+/// floating dark blobs.
+class _TableChromeButton extends StatelessWidget {
+  const _TableChromeButton({
     required this.tooltip,
     required this.icon,
     required this.onPressed,
@@ -1406,15 +1603,20 @@ class _RoundTableButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(diameter * 0.32);
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.10), width: 1),
+    );
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.88),
-        shape: const CircleBorder(),
-        elevation: 6,
-        shadowColor: Colors.black.withValues(alpha: 0.35),
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+        shape: shape,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.38),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          borderRadius: radius,
           onTap: onPressed,
           child: SizedBox.square(
             dimension: diameter,
@@ -2099,8 +2301,7 @@ class _CardInspectOverlay extends StatelessWidget {
 enum _FlightAnchor {
   stock(Alignment(-0.86, 0.56)),
   discard(Alignment(0, 0)),
-  hand(Alignment(0, 0.82)),
-  southMeld(Alignment(0, 0.48));
+  hand(Alignment(0, 0.82));
 
   const _FlightAnchor(this.alignment);
 
@@ -2133,6 +2334,7 @@ class _CardFlight {
     this.faceDown = false,
     this.beginHandSlot,
     this.endHandSlot,
+    this.endMeldSlot,
   });
 
   final int serial;
@@ -2142,6 +2344,7 @@ class _CardFlight {
   final bool faceDown;
   final _SeatHandFlightSlot? beginHandSlot;
   final _SeatHandFlightSlot? endHandSlot;
+  final _TableMeldFlightSlot? endMeldSlot;
 }
 
 class _SeatHandFlightSlot {
@@ -2154,6 +2357,13 @@ class _SeatHandFlightSlot {
   final PlayerSeat seat;
   final int index;
   final int count;
+}
+
+class _TableMeldFlightSlot {
+  const _TableMeldFlightSlot({required this.seat, this.index = 0});
+
+  final PlayerSeat seat;
+  final int index;
 }
 
 class _CardFlightOverlay extends StatelessWidget {
@@ -2182,12 +2392,14 @@ class _CardFlightOverlay extends StatelessWidget {
             size,
             cardSize,
             flight.beginHandSlot,
+            null,
           );
           final end = _resolveFlightPoint(
             flight.end,
             size,
             cardSize,
             flight.endHandSlot,
+            flight.endMeldSlot,
           );
           return TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
@@ -2237,9 +2449,13 @@ class _CardFlightOverlay extends StatelessWidget {
     Size size,
     Size cardSize,
     _SeatHandFlightSlot? handSlot,
+    _TableMeldFlightSlot? meldSlot,
   ) {
     if (handSlot != null) {
       return _resolveSeatHandSlot(handSlot, size, cardSize);
+    }
+    if (meldSlot != null) {
+      return _resolveTableMeldSlot(meldSlot, size, cardSize);
     }
     return Offset(
       ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
@@ -2350,6 +2566,74 @@ class _CardFlightOverlay extends StatelessWidget {
     final centerX = left + cardSize.width / 2;
     final centerY = top + index * gap + cardSize.height / 2;
     return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveTableMeldSlot(
+    _TableMeldFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
+    final opponentCardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final sideMeldCardSize = compact ? const Size(28, 40) : const Size(34, 48);
+    final sideRailWidth = compact ? 46.0 : 56.0;
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
+    final southMeldHeight = compact ? 50.0 : 60.0;
+    final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
+    final sideMeldBottomSafe = size.height - (compact ? 12.0 : 16.0);
+    final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
+    final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
+    final sideMeldGap = compact ? 6.0 : 10.0;
+    final horizontalMeldInset = (size.width * 0.25)
+        .clamp(compact ? 126.0 : 210.0, compact ? 180.0 : 390.0)
+        .toDouble();
+
+    final (centerX, centerY) = switch (slot.seat) {
+      PlayerSeat.south => (
+        size.width * 0.5,
+        size.height - southMeldBottom - southMeldHeight * 0.5,
+      ),
+      PlayerSeat.north => (
+        size.width * 0.5,
+        topInset +
+            opponentCardSize.height +
+            (compact ? 18.0 : 24.0) +
+            (compact ? 58.0 : 70.0) * 0.5,
+      ),
+      PlayerSeat.west => (
+        edgeInset + sideRailWidth + sideMeldGap + sideMeldWidth * 0.5,
+        sideMeldTop + sideMeldHeight * 0.5,
+      ),
+      PlayerSeat.east => (
+        size.width -
+            edgeInset -
+            sideRailWidth -
+            sideMeldGap -
+            sideMeldWidth * 0.5,
+        sideMeldTop + sideMeldHeight * 0.5,
+      ),
+    };
+
+    final laneInset = switch (slot.seat) {
+      PlayerSeat.south || PlayerSeat.north => horizontalMeldInset,
+      PlayerSeat.east || PlayerSeat.west => 0.0,
+    };
+    final clampedCenterX = centerX.clamp(
+      laneInset + flightCardSize.width * 0.5,
+      size.width - laneInset - flightCardSize.width * 0.5,
+    );
+    return _centeredFlightOffset(
+      clampedCenterX.toDouble(),
+      centerY,
+      flightCardSize,
+    );
   }
 
   Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {

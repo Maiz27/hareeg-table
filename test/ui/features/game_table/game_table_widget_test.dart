@@ -126,7 +126,9 @@ void main() {
       );
     });
 
-    testWidgets('selected ambiguous joker set can be played', (tester) async {
+    testWidgets('selected ambiguous joker set asks which identity to use', (
+      tester,
+    ) async {
       const joker = HareegCard.joker(deckIndex: 83, jokerIndex: 0);
       final aceHearts = _card(CardRank.ace, CardSuit.hearts, 83);
       final aceSpades = _card(CardRank.ace, CardSuit.spades, 83);
@@ -162,10 +164,107 @@ void main() {
       await tester.tap(find.byTooltip('Play selected meld'));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const ValueKey('joker-choice-dialog')), findsOneWidget);
+      expect(find.text('Joker as Ace of Clubs'), findsOneWidget);
+      expect(find.text('Joker as Ace of Diamonds'), findsOneWidget);
+
+      await tester.tap(find.text('Joker as Ace of Diamonds'));
+      await tester.pumpAndSettle();
+
       expect(
-        find.bySemanticsLabel('Joker representing Ace of Clubs'),
+        find.bySemanticsLabel('Joker representing Ace of Diamonds'),
         findsOneWidget,
       );
+    });
+
+    testWidgets(
+      'selected same-suit face-card joker run asks which edge to use',
+      (tester) async {
+        const joker = HareegCard.joker(deckIndex: 84, jokerIndex: 0);
+        final jackHearts = _card(CardRank.jack, CardSuit.hearts, 84);
+        final queenHearts = _card(CardRank.queen, CardSuit.hearts, 84);
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            southHand: [
+              jackHearts,
+              queenHearts,
+              joker,
+              _card(CardRank.four, CardSuit.clubs, 84),
+            ],
+            openingState: _opened(PlayerSeat.south),
+          ),
+        );
+
+        await tester.tap(
+          find.bySemanticsLabel('Jack of Hearts').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Queen of Hearts').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Joker').first,
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Play selected meld'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Play selected meld'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('joker-choice-dialog')),
+          findsOneWidget,
+        );
+        expect(find.text('Joker as Ten of Hearts'), findsOneWidget);
+        expect(find.text('Joker as King of Hearts'), findsOneWidget);
+
+        await tester.tap(find.text('Joker as King of Hearts'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.bySemanticsLabel('Joker representing King of Hearts'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('selected mixed-suit face cards with joker are not a meld', (
+      tester,
+    ) async {
+      const joker = HareegCard.joker(deckIndex: 85, jokerIndex: 0);
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            _card(CardRank.jack, CardSuit.diamonds, 85),
+            _card(CardRank.queen, CardSuit.hearts, 85),
+            joker,
+            _card(CardRank.four, CardSuit.clubs, 85),
+          ],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      await tester.tap(
+        find.bySemanticsLabel('Jack of Diamonds').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Queen of Hearts').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Joker').first,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Play selected meld'), findsNothing);
+      expect(find.byKey(const ValueKey('joker-choice-dialog')), findsNothing);
     });
 
     testWidgets('hand reorder accepts a drop after the last card', (
@@ -485,6 +584,36 @@ void main() {
 
       expect(find.byType(FiftyRing), findsOneWidget);
     });
+
+    testWidgets(
+      'FiftyRing still shows the human claim window in assisted mode',
+      (tester) async {
+        final now = DateTime.now().toUtc();
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            southHand: [
+              _card(CardRank.two, CardSuit.clubs, 93),
+              _card(CardRank.five, CardSuit.diamonds, 93),
+              _card(CardRank.king, CardSuit.hearts, 93),
+            ],
+            discardPile: [_card(CardRank.nine, CardSuit.clubs, 93)],
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.draw,
+            savedAt: now,
+            fiftyWindowOpenedAt: now,
+          ),
+        );
+
+        expect(
+          find.byType(FiftyRing),
+          findsOneWidget,
+          reason:
+              'The timer is the visual claim window even when Assisted mode '
+              'does not expose an invalid claim action.',
+        );
+      },
+    );
 
     testWidgets('memory joker preference flows into table card rendering', (
       tester,

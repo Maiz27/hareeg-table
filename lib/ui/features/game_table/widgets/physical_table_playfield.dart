@@ -405,7 +405,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onTake: onTakeDiscard,
                 onReturn: onReturnDiscard,
                 onCardLongPress: onCardLongPress,
-                fiftySecondsRemaining: fiftySecondsRemaining,
+                fiftySecondsRemaining: isHumanTurn
+                    ? fiftySecondsRemaining
+                    : null,
                 fiftyTotalSeconds: fiftyTotalSeconds,
                 fiftyPulse: fiftyPulse,
                 canClaimFifty: isHumanTurn && canClaimFifty,
@@ -981,15 +983,15 @@ class _DiscardPile extends StatelessWidget {
                   ),
                 ),
               ),
-              // Fifty timer is the human's affordance only — CPUs are coded to
-              // claim automatically, so a countdown above the discard is just
-              // visual noise during their turn.
-              if (fiftySecondsRemaining != null && canClaimFifty)
+              // Fifty is core table state in a digital game, not an assisted
+              // hint. Show the human claim window even when Assisted mode
+              // disables the tap because the claim is not valid.
+              if (fiftySecondsRemaining != null)
                 Positioned(
                   right: 0,
                   top: compact ? -3 : -6,
                   child: GestureDetector(
-                    onTap: onClaimFifty,
+                    onTap: canClaimFifty ? onClaimFifty : null,
                     child: FiftyRing(
                       secondsRemaining: fiftySecondsRemaining,
                       totalSeconds: fiftyTotalSeconds,
