@@ -565,7 +565,14 @@ abstract final class CardPainting {
     ];
     final color = colors[deckIndex % colors.length];
     final paint = Paint()..color = color.withValues(alpha: 0.7);
-    canvas.drawCircle(Offset(size.width - 8, 8), 2.4, paint);
+    final shortSide = size.shortestSide;
+    final inset = shortSide * 0.07;
+    final dotRadius = shortSide * 0.022;
+    canvas.drawCircle(
+      Offset(size.width - inset, inset),
+      dotRadius,
+      paint,
+    );
   }
 
   static List<Offset> _pipPositionsFor(CardRank rank) {
