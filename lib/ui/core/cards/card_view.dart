@@ -165,6 +165,8 @@ class _HareegCardViewState extends State<HareegCardView> {
         widget.semanticsLabel ??
         _defaultSemanticsLabel(context, effectiveJokerDisplay);
     return Semantics(
+      container: true,
+      excludeSemantics: true,
       label: label,
       child: AnimatedSwitcher(
         duration: motion.scale(const Duration(milliseconds: 120)),

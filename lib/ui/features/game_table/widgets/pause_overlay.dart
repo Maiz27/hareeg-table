@@ -8,8 +8,9 @@ import '../../../core/theme/lounge_tokens.dart';
 
 /// Landscape pause overlay.
 ///
-/// Table-safe controls only (motion speed, aids, haptics, sound, resume,
-/// leave). The full settings surface lives in the main-menu Settings route.
+/// Table-safe controls only (motion speed, aids, card contrast, haptics,
+/// sound, resume, leave). The full settings surface lives in the main-menu
+/// Settings route.
 /// Visually anchored to the home menu's coffee-charcoal panel + sand-line
 /// border language so pausing reads as the same product, not a stock dialog.
 class PauseOverlay extends StatelessWidget {
@@ -20,10 +21,12 @@ class PauseOverlay extends StatelessWidget {
     required this.motionSpeed,
     required this.hapticsEnabled,
     required this.soundEnabled,
+    required this.highContrastCards,
     required this.onAidsChanged,
     required this.onMotionSpeedChanged,
     required this.onHapticsChanged,
     required this.onSoundChanged,
+    required this.onHighContrastCardsChanged,
     required this.onResume,
     required this.onLeave,
   });
@@ -40,11 +43,15 @@ class PauseOverlay extends StatelessWidget {
   /// Whether sound is enabled.
   final bool soundEnabled;
 
+  /// Whether card faces use the high-contrast accessibility renderer.
+  final bool highContrastCards;
+
   /// Callbacks.
   final ValueChanged<TableAids> onAidsChanged;
   final ValueChanged<MotionSpeed> onMotionSpeedChanged;
   final ValueChanged<bool> onHapticsChanged;
   final ValueChanged<bool> onSoundChanged;
+  final ValueChanged<bool> onHighContrastCardsChanged;
   final VoidCallback onResume;
   final VoidCallback onLeave;
 
@@ -145,6 +152,15 @@ class PauseOverlay extends StatelessWidget {
                                               selection.first,
                                             ),
                                       ),
+                                    ),
+                                    const _PanelDivider(),
+                                    _OverlayToggle(
+                                      icon: Icons.contrast_outlined,
+                                      title: strings.highContrastCards,
+                                      subtitle:
+                                          strings.highContrastCardsDescription,
+                                      value: highContrastCards,
+                                      onChanged: onHighContrastCardsChanged,
                                     ),
                                     const _PanelDivider(),
                                     _OverlayToggle(

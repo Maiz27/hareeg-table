@@ -99,7 +99,10 @@ class _HareegTableAppState extends State<HareegTableApp> {
 
   @override
   Widget build(BuildContext context) {
-    final activeTheme = CardThemeRegistry.byId(_values.cardThemeId);
+    final selectedTheme = CardThemeRegistry.byId(_values.cardThemeId);
+    final activeTheme = _values.highContrastCards
+        ? CardThemeRegistry.highContrastTheme
+        : selectedTheme;
     final strings = AppStrings.forLanguageCode(_values.language.code);
 
     return MaterialApp(

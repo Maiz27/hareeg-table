@@ -19,6 +19,7 @@ void main() {
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
+      expect(preferences.highContrastCards, isFalse);
       expect(preferences.tableSurfaceTheme, TableSurfaceTheme.felt);
     });
 
@@ -38,6 +39,7 @@ void main() {
         motionSpeed: MotionSpeed.reduced,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
+        highContrastCards: true,
         tableSurfaceTheme: TableSurfaceTheme.wood,
       );
 
@@ -55,6 +57,7 @@ void main() {
       expect(restored.reducedMotion, isTrue);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
+      expect(restored.highContrastCards, isTrue);
       expect(restored.tableSurfaceTheme, TableSurfaceTheme.wood);
     });
 

@@ -121,6 +121,8 @@ class AppStrings {
   String get soundHelp => _v('soundHelp');
   String get cardThemeLabel => _v('cardThemeLabel');
   String get cardThemeHelp => _v('cardThemeHelp');
+  String get highContrastCards => _v('highContrastCards');
+  String get highContrastCardsDescription => _v('highContrastCardsDescription');
   String get aboutLicenses => _v('aboutLicenses');
   String get aboutHeader => _v('aboutHeader');
   String get aboutBody => _v('aboutBody');
@@ -678,6 +680,9 @@ const _englishValues = {
   'soundHelp': 'Sounds will arrive in a future update.',
   'cardThemeLabel': 'Card theme',
   'cardThemeHelp': 'Themes can only be changed outside an active match.',
+  'highContrastCards': 'High-contrast cards',
+  'highContrastCardsDescription':
+      'Use a plain high-contrast card renderer while keeping your selected deck saved.',
   'aboutLicenses': 'About & Licenses',
   'aboutHeader': 'Hareeg Table',
   'aboutBody':
@@ -865,6 +870,9 @@ const _arabicValues = {
   'soundHelp': 'الأصوات ستصل في تحديث لاحق.',
   'cardThemeLabel': 'سمة الأوراق',
   'cardThemeHelp': 'يمكن تغيير السمات خارج المباراة النشطة فقط.',
+  'highContrastCards': 'أوراق عالية التباين',
+  'highContrastCardsDescription':
+      'استخدم رسما بسيطا عالي التباين للأوراق مع حفظ السمة المختارة.',
   'aboutLicenses': 'حول التطبيق والتراخيص',
   'aboutHeader': 'طاولة حريق',
   'aboutBody':

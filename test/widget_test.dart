@@ -73,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Card themes'), findsOneWidget);
-    expect(find.text('Hareeg Original'), findsWidgets);
+    expect(find.text('Sandline Lounge'), findsWidgets);
   });
 
   testWidgets('saved match resumes onto the table and can be abandoned', (

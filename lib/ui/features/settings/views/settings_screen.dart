@@ -214,6 +214,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   description: strings.lookDescription,
                   preview: [
                     selectedCardTheme.label,
+                    if (_preferences.highContrastCards)
+                      strings.highContrastCards,
                     _surfaceLabel(_preferences.tableSurfaceTheme, strings),
                   ],
                   expanded: _openSection == SettingsSection.look,
@@ -226,6 +228,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         locked: widget.isMatchActive,
                         onChanged: (id) =>
                             _save(_preferences.copyWith(cardThemeId: id)),
+                      ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.contrast_outlined,
+                        title: strings.highContrastCards,
+                        subtitle: strings.highContrastCardsDescription,
+                        value: _preferences.highContrastCards,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(highContrastCards: value),
+                        ),
                       ),
                       const _ThinDivider(),
                       _SurfaceSetting(

@@ -44,6 +44,7 @@ class GamePreferences {
     required this.soundEnabled,
     required this.tableAids,
     required this.cardThemeId,
+    required this.highContrastCards,
     required this.tableSurfaceTheme,
   });
 
@@ -59,6 +60,7 @@ class GamePreferences {
       soundEnabled: false,
       tableAids: TableAids.guided,
       cardThemeId: CardThemeRegistry.defaultThemeId,
+      highContrastCards: false,
       tableSurfaceTheme: TableSurfaceTheme.felt,
     );
   }
@@ -85,6 +87,8 @@ class GamePreferences {
       soundEnabled: _asBool(json['soundEnabled']) ?? defaults.soundEnabled,
       tableAids: TableAids.fromName(_asString(json['tableAids'])),
       cardThemeId: _asString(json['cardThemeId']) ?? defaults.cardThemeId,
+      highContrastCards:
+          _asBool(json['highContrastCards']) ?? defaults.highContrastCards,
       tableSurfaceTheme: TableSurfaceTheme.fromName(
         _asString(json['tableSurfaceTheme']),
       ),
@@ -119,6 +123,9 @@ class GamePreferences {
   /// Selected card theme id (see [CardThemeRegistry]).
   final String cardThemeId;
 
+  /// Whether card faces should use the high-contrast accessibility renderer.
+  final bool highContrastCards;
+
   /// Selected table surface theme.
   final TableSurfaceTheme tableSurfaceTheme;
 
@@ -137,6 +144,7 @@ class GamePreferences {
     bool? soundEnabled,
     TableAids? tableAids,
     String? cardThemeId,
+    bool? highContrastCards,
     TableSurfaceTheme? tableSurfaceTheme,
   }) {
     return GamePreferences(
@@ -149,6 +157,7 @@ class GamePreferences {
       soundEnabled: soundEnabled ?? this.soundEnabled,
       tableAids: tableAids ?? this.tableAids,
       cardThemeId: cardThemeId ?? this.cardThemeId,
+      highContrastCards: highContrastCards ?? this.highContrastCards,
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
     );
   }
@@ -165,6 +174,7 @@ class GamePreferences {
       'soundEnabled': soundEnabled,
       'tableAids': tableAids.name,
       'cardThemeId': cardThemeId,
+      'highContrastCards': highContrastCards,
       'tableSurfaceTheme': tableSurfaceTheme.name,
     };
   }

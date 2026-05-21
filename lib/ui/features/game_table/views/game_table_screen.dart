@@ -402,6 +402,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
               motionSpeed: widget.preferences.motionSpeed,
               hapticsEnabled: widget.preferences.hapticsEnabled,
               soundEnabled: widget.preferences.soundEnabled,
+              highContrastCards: widget.preferences.highContrastCards,
               onAidsChanged: (v) => widget.onPreferencesChanged(
                 widget.preferences.copyWith(tableAids: v),
               ),
@@ -413,6 +414,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
               ),
               onSoundChanged: (v) => widget.onPreferencesChanged(
                 widget.preferences.copyWith(soundEnabled: v),
+              ),
+              onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
+                widget.preferences.copyWith(highContrastCards: v),
               ),
               onResume: () => setState(() => _pauseOpen = false),
               onLeave: () {
