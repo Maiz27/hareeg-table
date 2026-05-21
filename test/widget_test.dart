@@ -62,6 +62,29 @@ void main() {
     expect(find.text('House rules'), findsOneWidget);
   });
 
+  testWidgets('leaving a newly started table returns to the main menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(testApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Game'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Start Table'), 300);
+    await tester.tap(find.text('Start Table'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Pause'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Pause'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leave table'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Game'), findsOneWidget);
+    expect(find.text('Classic Hareeg setup'), findsNothing);
+  });
+
   testWidgets('rules-help and settings routes are reachable', (tester) async {
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();

@@ -167,7 +167,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                 FilledButton.icon(
                   onPressed: () => Navigator.of(
                     context,
-                  ).pushNamed(AppRoutes.table, arguments: _setup),
+                  ).pushReplacementNamed(AppRoutes.table, arguments: _setup),
                   icon: const Icon(Icons.table_bar_outlined),
                   label: Text(strings.startTable),
                 ),
