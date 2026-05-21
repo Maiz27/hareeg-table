@@ -1,0 +1,73 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release and publish APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Check out release tag
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+
+      - name: Set up Java
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: flutter pub get
+
+      - name: Build release APK
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: flutter build apk --release --build-name "${{ steps.release.outputs.version }}" --build-number "${{ github.run_number }}"
+
+      - name: Prepare release asset
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        id: asset
+        shell: bash
+        run: |
+          mkdir -p release
+          apk="release/hareeg-table-${{ steps.release.outputs.tag_name }}-android.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$apk"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK to GitHub Release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ steps.release.outputs.tag_name }}" "${{ steps.asset.outputs.apk }}" --clobber

@@ -21,3 +21,4 @@ The project is early, but the first playable Classic Hareeg slice is now in plac
 - [Design direction](docs/design/direction.md)
 - [Product PRD](docs/product/prd.md)
 - [Future ideas](docs/roadmap/future-ideas.md)
+- [Release workflow](docs/workflows/release.md)
