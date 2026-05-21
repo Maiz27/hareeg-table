@@ -408,6 +408,51 @@ void main() {
       );
     });
 
+    test('exact selected joker meld action resolves ambiguous final set', () {
+      final joker = HareegCard.joker(deckIndex: 128, jokerIndex: 0);
+      final meldCards = [
+        _card(CardRank.ace, CardSuit.hearts, 128),
+        _card(CardRank.ace, CardSuit.spades, 128),
+        joker,
+      ];
+      final finalDiscard = _card(CardRank.four, CardSuit.clubs, 128);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [...meldCards, finalDiscard],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      final actionId = controller.selectedMeldActionIdFor(
+        PlayerSeat.south,
+        meldCards.map((card) => card.id).toList(),
+      );
+
+      expect(
+        actionId,
+        startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix),
+      );
+      expect(
+        ClassicHareegActionIds.jokerMeldChoice(actionId!)?.identity.rank,
+        CardRank.ace,
+      );
+
+      final play = controller.applyAction(actionId);
+      final discard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${finalDiscard.id}',
+      );
+
+      expect(play.isSuccess, isTrue);
+      expect(discard.isSuccess, isTrue);
+      expect(controller.isRoundOver, isTrue);
+      expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
+    });
+
     test('opened players can replace represented table jokers', () {
       final joker = HareegCard.joker(deckIndex: 29, jokerIndex: 0);
       final replacement = _card(CardRank.seven, CardSuit.clubs, 30);
@@ -637,6 +682,86 @@ void main() {
       });
     }
 
+    test('specific turn cover retract only returns covers on that meld', () {
+      final eastMeld = [
+        _card(CardRank.three, CardSuit.clubs, 134),
+        _card(CardRank.four, CardSuit.clubs, 134),
+        _card(CardRank.five, CardSuit.clubs, 134),
+      ];
+      final westMeld = [
+        _card(CardRank.three, CardSuit.diamonds, 134),
+        _card(CardRank.four, CardSuit.diamonds, 134),
+        _card(CardRank.five, CardSuit.diamonds, 134),
+      ];
+      final eastCover = _card(CardRank.six, CardSuit.clubs, 134);
+      final westCover = _card(CardRank.six, CardSuit.diamonds, 134);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [
+              eastCover,
+              westCover,
+              ...defaults[PlayerSeat.south]!,
+            ],
+          },
+          tableMelds: {
+            PlayerSeat.east: [PlacedMeld.fromCards(eastMeld)],
+            PlayerSeat.west: [PlacedMeld.fromCards(westMeld)],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      final eastAction = controller.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [eastCover.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+      );
+      final westAction = controller.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [westCover.id],
+        targetSeat: PlayerSeat.west,
+        meldIndex: 0,
+      );
+      expect(controller.applyAction(eastAction!).isSuccess, isTrue);
+      expect(controller.applyAction(westAction!).isSuccess, isTrue);
+
+      final returned = controller.applyAction(
+        ClassicHareegActionIds.returnTablePlayActionId(
+          owner: PlayerSeat.east,
+          meldIndex: 0,
+        ),
+      );
+
+      expect(returned.isSuccess, isTrue);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.east)
+            .single
+            .cards
+            .map((card) => card.label),
+        ['3C', '4C', '5C'],
+      );
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.west)
+            .single
+            .cards
+            .map((card) => card.label),
+        ['3D', '4D', '5D', '6D'],
+      );
+      final handIds = controller
+          .handFor(PlayerSeat.south)
+          .map((card) => card.id);
+      expect(handIds, contains(eastCover.id));
+      expect(handIds, isNot(contains(westCover.id)));
+      expect(controller.canReturnTablePlayFromMeld(PlayerSeat.west, 0), isTrue);
+    });
+
     test('turn cover cannot be returned in hard table mode', () {
       final eastMeld = [
         _card(CardRank.three, CardSuit.clubs, 133),
@@ -789,6 +914,58 @@ void main() {
         expect(result.isSuccess, isTrue);
         expect(controller.scores[PlayerSeat.south], 3);
         expect(controller.topDiscard?.id, cover.id);
+      },
+    );
+
+    test(
+      'assisted mode blocks discarding a card that can replace a table joker',
+      () {
+        const represented = CardIdentity(
+          rank: CardRank.two,
+          suit: CardSuit.clubs,
+        );
+        const tableJoker = HareegCard.joker(
+          deckIndex: 135,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        );
+        final tableMeld = [
+          _card(CardRank.two, CardSuit.diamonds, 135),
+          tableJoker,
+          _card(CardRank.two, CardSuit.spades, 135),
+        ];
+        final replacement = _card(CardRank.two, CardSuit.clubs, 136);
+        final controller = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.south: [replacement, ...defaults[PlayerSeat.south]!],
+            },
+            tableMelds: {
+              PlayerSeat.east: [PlacedMeld.fromCards(tableMeld)],
+            },
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.action,
+            openingState: _opened(PlayerSeat.south),
+          ),
+        );
+
+        expect(
+          controller
+              .legalActionIdsFor(PlayerSeat.south)
+              .where(
+                (id) =>
+                    ClassicHareegActionIds.discardCardId(id) == replacement.id,
+              ),
+          isEmpty,
+        );
+
+        final result = controller.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}${replacement.id}',
+        );
+
+        expect(result.isSuccess, isFalse);
+        expect(controller.topDiscard?.id, isNot(replacement.id));
       },
     );
 
@@ -1404,6 +1581,87 @@ void main() {
             .controlActionIdsFor(PlayerSeat.south)
             .where((id) => id.startsWith(ClassicHareegActionIds.discardPrefix)),
         isNotEmpty,
+      );
+    });
+
+    test('specific staged opening meld can be taken back alone', () {
+      final tenSet = [
+        _card(CardRank.ten, CardSuit.clubs, 149),
+        _card(CardRank.ten, CardSuit.diamonds, 149),
+        _card(CardRank.ten, CardSuit.hearts, 149),
+      ];
+      final nineSet = [
+        _card(CardRank.nine, CardSuit.clubs, 149),
+        _card(CardRank.nine, CardSuit.diamonds, 149),
+        _card(CardRank.nine, CardSuit.hearts, 149),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [
+              ...tenSet,
+              ...nineSet,
+              _card(CardRank.two, CardSuit.spades, 149),
+              _card(CardRank.three, CardSuit.spades, 149),
+            ],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: const OpeningState(
+            baseRequirement: 51,
+            currentRequirement: 70,
+            benchmarkOwner: PlayerSeat.north,
+            openedSeats: {PlayerSeat.north},
+          ),
+        ),
+      );
+
+      expect(
+        controller
+            .applyAction(
+              ClassicHareegActionIds.playMeldActionId(
+                tenSet.map((card) => card.id),
+              ),
+            )
+            .isSuccess,
+        isTrue,
+      );
+      expect(
+        controller
+            .applyAction(
+              ClassicHareegActionIds.playMeldActionId(
+                nineSet.map((card) => card.id),
+              ),
+            )
+            .isSuccess,
+        isTrue,
+      );
+
+      final returned = controller.applyAction(
+        ClassicHareegActionIds.returnTablePlayActionId(
+          owner: PlayerSeat.south,
+          meldIndex: 0,
+        ),
+      );
+
+      expect(returned.isSuccess, isTrue);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.south)
+            .single
+            .cards
+            .map((card) => card.label),
+        ['9D', '9C', '9H'],
+      );
+      final handIds = controller
+          .handFor(PlayerSeat.south)
+          .map((card) => card.id);
+      expect(handIds, containsAll(tenSet.map((card) => card.id)));
+      expect(handIds, isNot(contains(nineSet.first.id)));
+      expect(
+        controller.controlActionIdsFor(PlayerSeat.south),
+        contains(ClassicHareegActionIds.returnOpeningMelds),
       );
     });
 

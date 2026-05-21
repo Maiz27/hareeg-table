@@ -55,6 +55,9 @@ abstract final class ClassicHareegActionIds {
   /// Take back uncommitted opening melds that did not satisfy the benchmark.
   static const returnOpeningMelds = 'return-opening-melds';
 
+  /// Take back one specific reversible table play from this turn.
+  static const returnTablePlayPrefix = 'return-table-play:';
+
   /// Claim Fifty / Khamsin from the immediate previous discard.
   static const claimFifty = 'claim-fifty';
 
@@ -181,6 +184,32 @@ abstract final class ClassicHareegActionIds {
     );
   }
 
+  /// Creates a specific table-play return action id.
+  static String returnTablePlayActionId({
+    required PlayerSeat owner,
+    required int meldIndex,
+  }) {
+    return '$returnTablePlayPrefix${owner.name}:$meldIndex';
+  }
+
+  /// Parses a specific table-play return action id.
+  static ReturnTablePlayTarget? returnTablePlayTarget(String actionId) {
+    if (!actionId.startsWith(returnTablePlayPrefix)) {
+      return null;
+    }
+    final payload = actionId.substring(returnTablePlayPrefix.length);
+    final parts = payload.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+    final owner = PlayerSeat.fromName(parts[0]);
+    final meldIndex = int.tryParse(parts[1]);
+    if (owner == null || meldIndex == null) {
+      return null;
+    }
+    return ReturnTablePlayTarget(owner: owner, meldIndex: meldIndex);
+  }
+
   /// Creates a joker replacement action id.
   static String replaceJokerActionId({
     required PlayerSeat targetSeat,
@@ -268,6 +297,18 @@ class JokerReplacementActionTarget {
 
   /// Physical replacement card id from the current player's hand.
   final String cardId;
+}
+
+/// Parsed target for returning one reversible table play.
+class ReturnTablePlayTarget {
+  /// Creates a parsed table-play return target.
+  const ReturnTablePlayTarget({required this.owner, required this.meldIndex});
+
+  /// Seat that owns the affected meld.
+  final PlayerSeat owner;
+
+  /// Index of the meld in the owner's table area.
+  final int meldIndex;
 }
 
 /// Live Classic Hareeg game state controller.
@@ -820,6 +861,11 @@ class ClassicHareegGameController {
       return _applyPlaceCover(coverTarget);
     }
 
+    final returnTarget = ClassicHareegActionIds.returnTablePlayTarget(actionId);
+    if (returnTarget != null) {
+      return _applyReturnTablePlay(returnTarget);
+    }
+
     if (!controlActionIdsFor(_currentSeat).contains(actionId)) {
       return ApplyActionResult.failure(
         'Action "$actionId" is not legal right now.',
@@ -886,6 +932,66 @@ class ClassicHareegGameController {
       );
     }
     return _resolveMeldCards(cards).result;
+  }
+
+  /// Returns the exact action id for selected cards as one meld, including
+  /// an explicit represented identity when the selection contains an
+  /// otherwise ambiguous joker.
+  String? selectedMeldActionIdFor(PlayerSeat seat, List<String> cardIds) {
+    if (seat != _currentSeat || _phase != TurnPhase.action) {
+      return null;
+    }
+    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
+      return null;
+    }
+    final pending = _pendingDiscard;
+    if (pending != null && !cardIds.contains(pending.id)) {
+      return null;
+    }
+
+    final cards = _cardsFromHand(seat, cardIds);
+    if (cards == null) {
+      return null;
+    }
+    if ((_hands[seat]?.length ?? 0) - cards.length == 0) {
+      return null;
+    }
+
+    final direct = _resolveMeldCards(cards);
+    if (direct.result.isValid) {
+      return ClassicHareegActionIds.playMeldActionId(cardIds);
+    }
+
+    final unresolvedJokers = cards
+        .where((card) => card.isJoker && card.representedIdentity == null)
+        .toList(growable: false);
+    if (unresolvedJokers.length != 1) {
+      return null;
+    }
+
+    final joker = unresolvedJokers.single;
+    final options = ClassicHareegJokerRules.representationOptionsForMeld(
+      cards: cards,
+      joker: joker,
+    );
+    if (options.isEmpty) {
+      return null;
+    }
+
+    final chosenIdentity = options.first;
+    final resolved = _resolveMeldCards(
+      cards,
+      jokerId: joker.id,
+      jokerIdentity: chosenIdentity,
+    );
+    if (!resolved.result.isValid) {
+      return null;
+    }
+    return ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
+      cardIds: cardIds,
+      jokerId: joker.id,
+      identity: chosenIdentity,
+    );
   }
 
   /// Returns explicit represented-card choices needed for an ambiguous joker.
@@ -1332,6 +1438,120 @@ class ClassicHareegGameController {
     return ApplyActionResult.success(message);
   }
 
+  ApplyActionResult _applyReturnTablePlay(ReturnTablePlayTarget target) {
+    if (!canReturnTablePlayFromMeld(target.owner, target.meldIndex)) {
+      return const ApplyActionResult.failure(
+        'That table play cannot be taken back right now.',
+      );
+    }
+
+    final coverPlays = _turnCoverPlays
+        .where(
+          (play) =>
+              play.targetSeat == target.owner &&
+              play.meldIndex == target.meldIndex,
+        )
+        .toList(growable: false);
+    if (coverPlays.isNotEmpty) {
+      return _applyReturnCoverPlays(target, coverPlays);
+    }
+
+    return _applyReturnOpeningMeld(target);
+  }
+
+  ApplyActionResult _applyReturnOpeningMeld(ReturnTablePlayTarget target) {
+    if (_openingState.hasOpened(_currentSeat) ||
+        target.owner != _currentSeat ||
+        _turnOpeningMelds.isEmpty) {
+      return const ApplyActionResult.failure(
+        'That opening meld cannot be taken back right now.',
+      );
+    }
+
+    final tableMelds = _tableMelds[target.owner];
+    if (tableMelds == null ||
+        target.meldIndex < 0 ||
+        target.meldIndex >= tableMelds.length) {
+      return const ApplyActionResult.failure(
+        'That meld is no longer on table.',
+      );
+    }
+
+    final tableMeld = tableMelds[target.meldIndex];
+    final stagedIndex = _turnOpeningMelds.indexWhere((staged) {
+      return _samePhysicalCards(staged.cards, tableMeld.cards);
+    });
+    if (stagedIndex == -1) {
+      return const ApplyActionResult.failure(
+        'That opening meld cannot be taken back right now.',
+      );
+    }
+
+    final staged = _turnOpeningMelds[stagedIndex];
+    tableMelds.removeAt(target.meldIndex);
+    final hand = _handFor(_currentSeat);
+    for (final card in staged.cards) {
+      hand.add(card.isJoker ? card.withoutRepresentation() : card);
+    }
+    _removeTurnFinishPlay(staged);
+    _turnOpeningMelds = [
+      ..._turnOpeningMelds.take(stagedIndex),
+      ..._turnOpeningMelds.skip(stagedIndex + 1),
+    ];
+
+    final consumed = _turnConsumedPendingDiscard;
+    if (consumed != null &&
+        staged.cards.any((card) => card.id == consumed.id)) {
+      _pendingDiscard = consumed;
+      _turnConsumedPendingDiscard = null;
+      _turnSource = FinishCardSource.previousDiscard;
+    }
+    return const ApplyActionResult.success(
+      'Opening melds returned to your hand.',
+    );
+  }
+
+  ApplyActionResult _applyReturnCoverPlays(
+    ReturnTablePlayTarget target,
+    List<_TurnCoverPlay> coverPlays,
+  ) {
+    final targetMelds = _tableMelds[target.owner];
+    if (targetMelds == null ||
+        target.meldIndex < 0 ||
+        target.meldIndex >= targetMelds.length) {
+      return const ApplyActionResult.failure(
+        'That meld is no longer on table.',
+      );
+    }
+
+    targetMelds[target.meldIndex] = coverPlays.first.previousMeld;
+    final hand = _handFor(_currentSeat);
+    HareegCard? restoredPending;
+    for (final play in coverPlays.reversed) {
+      _removeTurnFinishPlay(play.coverMeld);
+      restoredPending = play.consumedPendingDiscard ?? restoredPending;
+    }
+    for (final play in coverPlays) {
+      for (final card in play.coverMeld.cards) {
+        hand.add(card.isJoker ? card.withoutRepresentation() : card);
+      }
+    }
+
+    _turnCoverPlays = _turnCoverPlays
+        .where(
+          (play) =>
+              play.targetSeat != target.owner ||
+              play.meldIndex != target.meldIndex,
+        )
+        .toList(growable: false);
+    _syncUnlockedBenchmarkWithTable(allowLower: true);
+    if (restoredPending != null) {
+      _pendingDiscard = restoredPending;
+      _turnSource = FinishCardSource.previousDiscard;
+    }
+    return const ApplyActionResult.success('Covers returned to your hand.');
+  }
+
   void _removeTurnFinishPlay(PlacedMeld play) {
     final index = _turnFinishPlays.lastIndexWhere((meld) {
       return _samePhysicalCards(meld.cards, play.cards);
@@ -1434,7 +1654,7 @@ class ClassicHareegGameController {
     return const ApplyActionResult.success('Cover placed.');
   }
 
-  void _syncUnlockedBenchmarkWithTable() {
+  void _syncUnlockedBenchmarkWithTable({bool allowLower = false}) {
     final owner = _openingState.benchmarkOwner;
     if (owner == null || _openingState.isLocked) {
       return;
@@ -1445,7 +1665,8 @@ class ClassicHareegGameController {
     final tableRequirement = ownerTableTotal > _openingState.baseRequirement
         ? ownerTableTotal
         : _openingState.baseRequirement;
-    if (tableRequirement <= _openingState.currentRequirement) {
+    if (tableRequirement == _openingState.currentRequirement ||
+        (!allowLower && tableRequirement < _openingState.currentRequirement)) {
       return;
     }
 
@@ -1551,6 +1772,22 @@ class ClassicHareegGameController {
       final mistake = _resolveMistake(MistakeType.illegalCoverDiscard);
       if (mistake == null) {
         return ApplyActionResult.failure(coverResult.message);
+      }
+      final removal = _applyMistake(mistake);
+      if (removal != null) {
+        return removal;
+      }
+    }
+
+    final blocksJokerReplacement =
+        !isFinalDiscard &&
+        _replacementActionIdForCardId(_currentSeat, card.id) != null;
+    if (blocksJokerReplacement) {
+      final mistake = _resolveMistake(MistakeType.illegalCoverDiscard);
+      if (mistake == null) {
+        return const ApplyActionResult.failure(
+          'This card can replace a table joker and cannot be discarded normally.',
+        );
       }
       final removal = _applyMistake(mistake);
       if (removal != null) {
@@ -2965,10 +3202,14 @@ class ClassicHareegGameController {
         candidate: card,
         isFinalDiscard: isFinalDiscard,
       );
-      if (!coverResult.canDiscard && setup.rulePreset == RulePreset.assisted) {
+      final blocksJokerReplacement =
+          !isFinalDiscard &&
+          _replacementActionIdForCardId(seat, card.id) != null;
+      if ((!coverResult.canDiscard || blocksJokerReplacement) &&
+          setup.rulePreset == RulePreset.assisted) {
         continue;
       }
-      final prefix = !coverResult.canDiscard
+      final prefix = !coverResult.canDiscard || blocksJokerReplacement
           ? ClassicHareegActionIds.discardBlockedCoverPrefix
           : ClassicHareegActionIds.discardPrefix;
       ids.add('$prefix${card.id}');
