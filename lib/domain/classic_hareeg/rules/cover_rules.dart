@@ -133,17 +133,16 @@ abstract final class ClassicHareegCoverRules {
         ? 14
         : candidateIdentity.rank.order;
 
-    if (_isConsecutive(lowOrders)) {
-      return candidateLow == lowOrders.first - 1 ||
-          candidateLow == lowOrders.last + 1;
-    }
+    final extendsLow =
+        _isConsecutive(lowOrders) &&
+        (candidateLow == lowOrders.first - 1 ||
+            candidateLow == lowOrders.last + 1);
+    final extendsHigh =
+        _isConsecutive(highOrders) &&
+        (candidateHigh == highOrders.first - 1 ||
+            candidateHigh == highOrders.last + 1);
 
-    if (_isConsecutive(highOrders)) {
-      return candidateHigh == highOrders.first - 1 ||
-          candidateHigh == highOrders.last + 1;
-    }
-
-    return false;
+    return extendsLow || extendsHigh;
   }
 
   static bool _isConsecutive(List<int> orders) {

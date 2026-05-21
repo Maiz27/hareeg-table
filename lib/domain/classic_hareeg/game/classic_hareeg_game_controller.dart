@@ -351,6 +351,7 @@ class ClassicHareegGameController {
        _roundResult = null,
        _turnFinishPlays = <PlacedMeld>[],
        _turnOpeningMelds = <PlacedMeld>[],
+       _turnMeldPlays = <_TurnMeldPlay>[],
        _turnCoverPlays = <_TurnCoverPlay>[],
        _turnConsumedPendingDiscard = null,
        _turnSource = FinishCardSource.stock {
@@ -410,6 +411,7 @@ class ClassicHareegGameController {
        _roundResult = null,
        _turnFinishPlays = <PlacedMeld>[],
        _turnOpeningMelds = <PlacedMeld>[],
+       _turnMeldPlays = <_TurnMeldPlay>[],
        _turnCoverPlays = <_TurnCoverPlay>[],
        _turnConsumedPendingDiscard = null,
        _turnSource = snapshot.pendingDiscard == null
@@ -446,6 +448,7 @@ class ClassicHareegGameController {
   RoundProgressResult? _roundResult;
   List<PlacedMeld> _turnFinishPlays;
   List<PlacedMeld> _turnOpeningMelds;
+  List<_TurnMeldPlay> _turnMeldPlays;
   List<_TurnCoverPlay> _turnCoverPlays;
   HareegCard? _turnConsumedPendingDiscard;
   FinishCardSource _turnSource;
@@ -1161,6 +1164,7 @@ class ClassicHareegGameController {
     _fiftyWindowOpenedAt = null;
     _turnFinishPlays = <PlacedMeld>[];
     _turnOpeningMelds = <PlacedMeld>[];
+    _turnMeldPlays = <_TurnMeldPlay>[];
     _turnCoverPlays = <_TurnCoverPlay>[];
     _turnConsumedPendingDiscard = null;
     _turnSource = FinishCardSource.stock;
@@ -1176,6 +1180,7 @@ class ClassicHareegGameController {
     _fiftyWindowOpenedAt = null;
     _turnFinishPlays = <PlacedMeld>[];
     _turnOpeningMelds = <PlacedMeld>[];
+    _turnMeldPlays = <_TurnMeldPlay>[];
     _turnCoverPlays = <_TurnCoverPlay>[];
     _turnConsumedPendingDiscard = null;
     _turnSource = FinishCardSource.previousDiscard;
@@ -1205,6 +1210,7 @@ class ClassicHareegGameController {
     _fiftyWindowOpenedAt = null;
     _turnFinishPlays = <PlacedMeld>[];
     _turnOpeningMelds = <PlacedMeld>[];
+    _turnMeldPlays = <_TurnMeldPlay>[];
     _turnCoverPlays = <_TurnCoverPlay>[];
     _turnConsumedPendingDiscard = null;
     _turnSource = FinishCardSource.stock;
@@ -1283,6 +1289,19 @@ class ClassicHareegGameController {
         0,
         (total, meld) => total + meld.valueSnapshot,
       );
+      _turnMeldPlays = [
+        ..._turnMeldPlays,
+        for (final meld in resolved.melds)
+          _TurnMeldPlay(
+            owner: _currentSeat,
+            meld: meld,
+            consumedPendingDiscard:
+                pending != null &&
+                    meld.cards.any((card) => card.id == pending.id)
+                ? pending
+                : null,
+          ),
+      ];
       _openingState = ClassicHareegOpeningRules.recordBenchmarkContribution(
         state: _openingState,
         seat: _currentSeat,
@@ -1334,7 +1353,14 @@ class ClassicHareegGameController {
     if (!_openingState.hasOpened(seat) && _turnOpeningMelds.isNotEmpty) {
       return true;
     }
-    return _canReturnTurnCovers(seat);
+    return _canReturnTurnMelds(seat) || _canReturnTurnCovers(seat);
+  }
+
+  bool _canReturnTurnMelds(PlayerSeat seat) {
+    return seat == _currentSeat &&
+        _phase == TurnPhase.action &&
+        setup.rulePreset != RulePreset.hardTable17 &&
+        _turnMeldPlays.isNotEmpty;
   }
 
   bool _canReturnTurnCovers(PlayerSeat seat) {
@@ -1358,16 +1384,24 @@ class ClassicHareegGameController {
       return true;
     }
 
-    if (_openingState.hasOpened(_currentSeat) ||
-        owner != _currentSeat ||
-        _turnOpeningMelds.isEmpty) {
-      return false;
-    }
     final melds = _tableMelds[owner] ?? const <PlacedMeld>[];
     if (meldIndex < 0 || meldIndex >= melds.length) {
       return false;
     }
     final meld = melds[meldIndex];
+    if (_canReturnTurnMelds(_currentSeat) &&
+        owner == _currentSeat &&
+        _turnMeldPlays.any(
+          (play) => _samePhysicalCards(play.meld.cards, meld.cards),
+        )) {
+      return true;
+    }
+
+    if (_openingState.hasOpened(_currentSeat) ||
+        owner != _currentSeat ||
+        _turnOpeningMelds.isEmpty) {
+      return false;
+    }
     return _turnOpeningMelds.any((staged) {
       return _samePhysicalCards(meld.cards, staged.cards);
     });
@@ -1381,6 +1415,7 @@ class ClassicHareegGameController {
     }
 
     final stagedMelds = List<PlacedMeld>.of(_turnOpeningMelds);
+    final turnMeldPlays = List<_TurnMeldPlay>.of(_turnMeldPlays);
     final coverPlays = List<_TurnCoverPlay>.of(_turnCoverPlays);
     if (stagedMelds.isNotEmpty) {
       final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
@@ -1393,15 +1428,36 @@ class ClassicHareegGameController {
         }
       }
     }
+    if (turnMeldPlays.isNotEmpty) {
+      final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
+      for (final play in turnMeldPlays.reversed) {
+        final index = tableMelds.lastIndexWhere((meld) {
+          return _samePhysicalCards(meld.cards, play.meld.cards);
+        });
+        if (index != -1) {
+          tableMelds.removeAt(index);
+        }
+      }
+    }
 
     final hand = _handFor(_currentSeat);
     for (final meld in stagedMelds) {
       for (final card in meld.cards) {
         hand.add(card.isJoker ? card.withoutRepresentation() : card);
       }
+      _removeTurnFinishPlay(meld);
+    }
+    for (final play in turnMeldPlays) {
+      for (final card in play.meld.cards) {
+        hand.add(card.isJoker ? card.withoutRepresentation() : card);
+      }
+      _removeTurnFinishPlay(play.meld);
     }
 
     HareegCard? restoredPending = _turnConsumedPendingDiscard;
+    for (final play in turnMeldPlays.reversed) {
+      restoredPending = play.consumedPendingDiscard ?? restoredPending;
+    }
     for (final play in coverPlays.reversed) {
       final targetMelds = _tableMelds[play.targetSeat];
       if (targetMelds != null &&
@@ -1421,19 +1477,21 @@ class ClassicHareegGameController {
     }
 
     _turnOpeningMelds = <PlacedMeld>[];
-    if (stagedMelds.isNotEmpty) {
-      _turnFinishPlays = <PlacedMeld>[];
-    }
+    _turnMeldPlays = <_TurnMeldPlay>[];
     _turnCoverPlays = <_TurnCoverPlay>[];
+    _syncUnlockedBenchmarkWithTable(allowLower: true);
     _pendingDiscard = restoredPending;
     _turnConsumedPendingDiscard = null;
     _turnSource = _pendingDiscard == null
         ? FinishCardSource.stock
         : FinishCardSource.previousDiscard;
-    final message = stagedMelds.isNotEmpty && coverPlays.isNotEmpty
+    final meldsReturned = stagedMelds.isNotEmpty || turnMeldPlays.isNotEmpty;
+    final message = meldsReturned && coverPlays.isNotEmpty
         ? 'Table plays returned to your hand.'
         : coverPlays.isNotEmpty
         ? 'Covers returned to your hand.'
+        : turnMeldPlays.isNotEmpty
+        ? 'Melds returned to your hand.'
         : 'Opening melds returned to your hand.';
     return ApplyActionResult.success(message);
   }
@@ -1456,7 +1514,63 @@ class ClassicHareegGameController {
       return _applyReturnCoverPlays(target, coverPlays);
     }
 
+    final turnMeldPlay = _turnMeldPlayForTarget(target);
+    if (turnMeldPlay != null) {
+      return _applyReturnTurnMeld(target, turnMeldPlay);
+    }
+
     return _applyReturnOpeningMeld(target);
+  }
+
+  _TurnMeldPlay? _turnMeldPlayForTarget(ReturnTablePlayTarget target) {
+    if (!_canReturnTurnMelds(_currentSeat) || target.owner != _currentSeat) {
+      return null;
+    }
+    final tableMelds = _tableMelds[target.owner];
+    if (tableMelds == null ||
+        target.meldIndex < 0 ||
+        target.meldIndex >= tableMelds.length) {
+      return null;
+    }
+    final tableMeld = tableMelds[target.meldIndex];
+    for (final play in _turnMeldPlays) {
+      if (play.owner == target.owner &&
+          _samePhysicalCards(play.meld.cards, tableMeld.cards)) {
+        return play;
+      }
+    }
+    return null;
+  }
+
+  ApplyActionResult _applyReturnTurnMeld(
+    ReturnTablePlayTarget target,
+    _TurnMeldPlay play,
+  ) {
+    final tableMelds = _tableMelds[target.owner];
+    if (tableMelds == null ||
+        target.meldIndex < 0 ||
+        target.meldIndex >= tableMelds.length) {
+      return const ApplyActionResult.failure(
+        'That meld is no longer on table.',
+      );
+    }
+
+    tableMelds.removeAt(target.meldIndex);
+    final hand = _handFor(_currentSeat);
+    for (final card in play.meld.cards) {
+      hand.add(card.isJoker ? card.withoutRepresentation() : card);
+    }
+    _removeTurnFinishPlay(play.meld);
+    _turnMeldPlays = _turnMeldPlays
+        .where((candidate) => !identical(candidate, play))
+        .toList(growable: false);
+    _syncUnlockedBenchmarkWithTable(allowLower: true);
+    final consumed = play.consumedPendingDiscard;
+    if (consumed != null) {
+      _pendingDiscard = consumed;
+      _turnSource = FinishCardSource.previousDiscard;
+    }
+    return const ApplyActionResult.success('Melds returned to your hand.');
   }
 
   ApplyActionResult _applyReturnOpeningMeld(ReturnTablePlayTarget target) {
@@ -1828,6 +1942,7 @@ class ClassicHareegGameController {
       _phase = TurnPhase.draw;
       _turnFinishPlays = <PlacedMeld>[];
       _turnOpeningMelds = <PlacedMeld>[];
+      _turnMeldPlays = <_TurnMeldPlay>[];
       _turnCoverPlays = <_TurnCoverPlay>[];
       _turnConsumedPendingDiscard = null;
       _turnSource = FinishCardSource.stock;
@@ -1940,6 +2055,7 @@ class ClassicHareegGameController {
     _fiftyWindowOpenedAt = null;
     _turnFinishPlays = <PlacedMeld>[];
     _turnOpeningMelds = <PlacedMeld>[];
+    _turnMeldPlays = <_TurnMeldPlay>[];
     _turnCoverPlays = <_TurnCoverPlay>[];
     _turnSource = FinishCardSource.stock;
     _removedSeats.add(removedSeat);
@@ -3233,6 +3349,18 @@ class _TurnCoverPlay {
   final PlacedMeld previousMeld;
   final PlacedMeld coverMeld;
   final OpeningState previousOpeningState;
+  final HareegCard? consumedPendingDiscard;
+}
+
+class _TurnMeldPlay {
+  const _TurnMeldPlay({
+    required this.owner,
+    required this.meld,
+    this.consumedPendingDiscard,
+  });
+
+  final PlayerSeat owner;
+  final PlacedMeld meld;
   final HareegCard? consumedPendingDiscard;
 }
 

@@ -41,6 +41,42 @@ void main() {
       );
     });
 
+    test('detects ace as the high-end cover for face-card sequences', () {
+      final queenKingJack = [
+        card(CardRank.jack, CardSuit.spades),
+        card(CardRank.queen, CardSuit.spades),
+        card(CardRank.king, CardSuit.spades),
+      ];
+      final tenToKing = [
+        card(CardRank.ten, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.queen, CardSuit.hearts),
+        card(CardRank.king, CardSuit.hearts),
+      ];
+
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: queenKingJack,
+          candidate: card(CardRank.ace, CardSuit.spades),
+        ),
+        isTrue,
+      );
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: tenToKing,
+          candidate: card(CardRank.ace, CardSuit.hearts),
+        ),
+        isTrue,
+      );
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: tenToKing,
+          candidate: card(CardRank.ace, CardSuit.clubs),
+        ),
+        isFalse,
+      );
+    });
+
     test('detects missing-suit set covers', () {
       final meld = [
         card(CardRank.nine, CardSuit.clubs),
@@ -59,6 +95,37 @@ void main() {
         ClassicHareegCoverRules.isCover(
           tableMeld: meld,
           candidate: card(CardRank.nine, CardSuit.clubs, deckIndex: 1),
+        ),
+        isFalse,
+      );
+    });
+
+    test('represented jokers do not make duplicate set suits covers', () {
+      const represented = CardIdentity(
+        rank: CardRank.jack,
+        suit: CardSuit.clubs,
+      );
+      final meld = [
+        const HareegCard.joker(
+          deckIndex: 0,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        ),
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.spades),
+      ];
+
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: meld,
+          candidate: card(CardRank.jack, CardSuit.diamonds),
+        ),
+        isTrue,
+      );
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: meld,
+          candidate: card(CardRank.jack, CardSuit.hearts, deckIndex: 1),
         ),
         isFalse,
       );
