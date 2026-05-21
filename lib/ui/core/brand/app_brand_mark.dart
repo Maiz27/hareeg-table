@@ -23,35 +23,35 @@ class AppBrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(size * 0.24);
-    return Semantics(
-      image: true,
-      label: semanticLabel,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border.all(
-            color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: size * 0.22,
-              offset: Offset(0, size * 0.08),
-            ),
-          ],
+    final decorated = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        border: Border.all(
+          color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
         ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: Image.asset(
-            AppBrandAssets.launcherIcon,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.high,
-            excludeFromSemantics: true,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.24),
+            blurRadius: size * 0.22,
+            offset: Offset(0, size * 0.08),
           ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Image.asset(
+          AppBrandAssets.launcherIcon,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          excludeFromSemantics: true,
         ),
       ),
     );
+    if (semanticLabel == null) {
+      return decorated;
+    }
+    return Semantics(image: true, label: semanticLabel, child: decorated);
   }
 }
