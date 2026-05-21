@@ -13,7 +13,10 @@ void main() {
       );
 
       expect(find.text('You finished'), findsOneWidget);
-      expect(find.text('0 -> -1 (-1)'), findsOneWidget);
+      // The new lounge summary splits "before -> after" and the signed delta
+      // into separate Text widgets for a calmer scoreboard.
+      expect(find.text('0 -> -1'), findsOneWidget);
+      expect(find.text('-1'), findsWidgets);
       expect(find.text('Continue next round'), findsOneWidget);
     },
   );
@@ -43,7 +46,8 @@ void main() {
         find.textContaining('First-round Fifty exception'),
         findsOneWidget,
       );
-      expect(find.text('0 -> 14 (+14)'), findsOneWidget);
+      expect(find.text('0 -> 14'), findsOneWidget);
+      expect(find.text('+14'), findsOneWidget);
     },
   );
 
@@ -69,7 +73,10 @@ void main() {
 
     expect(find.text('Round drawn'), findsOneWidget);
     expect(find.textContaining('No score changes'), findsOneWidget);
-    expect(find.text('Next starter: CPU North'), findsOneWidget);
+    // The lounge summary breaks "Next starter" onto its own line so the
+    // seat label can stand on its own typography.
+    expect(find.text('Next starter'), findsOneWidget);
+    expect(find.text('CPU North'), findsWidgets);
   });
 
   testWidgets('match end shows eliminated players and return action', (
@@ -103,7 +110,15 @@ void main() {
     );
 
     expect(find.text('Eliminated'), findsNWidgets(3));
-    expect(find.text('Match winner: CPU East'), findsOneWidget);
+    expect(find.text('Match winner'), findsOneWidget);
+    expect(find.text('CPU East'), findsWidgets);
+    // The new summary list scrolls; bring the action button on-screen before
+    // asserting it is present.
+    await tester.scrollUntilVisible(
+      find.text('Return to menu'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Return to menu'), findsOneWidget);
   });
 }

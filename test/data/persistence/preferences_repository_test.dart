@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/ui/core/motion/motion_speed.dart';
+import 'package:hareeg_table/ui/core/theme/table_surface_theme.dart';
 
 void main() {
   group('LocalPreferencesRepository', () {
@@ -14,8 +16,12 @@ void main() {
       expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
       expect(preferences.setup.rulePreset, RulePreset.assisted);
       expect(preferences.autoSort, isTrue);
+      expect(preferences.motionSpeed, MotionSpeed.normal);
+      expect(preferences.fastCpuTurns, isTrue);
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
+      expect(preferences.highContrastCards, isFalse);
+      expect(preferences.tableSurfaceTheme, TableSurfaceTheme.sandline);
     });
 
     test('saves and restores setup and display preferences', () async {
@@ -31,9 +37,12 @@ void main() {
           rulePreset: RulePreset.hardTable17,
         ),
         autoSort: false,
-        reducedMotion: true,
+        motionSpeed: MotionSpeed.reduced,
+        fastCpuTurns: false,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
+        highContrastCards: true,
+        tableSurfaceTheme: TableSurfaceTheme.wood,
       );
 
       await repository.savePreferences(saved);
@@ -46,9 +55,13 @@ void main() {
       expect(restored.setup.fiftyTimerSeconds, 6);
       expect(restored.setup.rulePreset, RulePreset.hardTable17);
       expect(restored.autoSort, isFalse);
+      expect(restored.motionSpeed, MotionSpeed.reduced);
+      expect(restored.fastCpuTurns, isFalse);
       expect(restored.reducedMotion, isTrue);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
+      expect(restored.highContrastCards, isTrue);
+      expect(restored.tableSurfaceTheme, TableSurfaceTheme.wood);
     });
 
     test('invalid saved preferences fall back to defaults', () async {

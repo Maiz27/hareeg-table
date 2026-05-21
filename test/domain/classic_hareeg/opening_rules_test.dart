@@ -173,6 +173,26 @@ void main() {
       expect(covered.totalValue, 24);
       expect(replayedWithFive.valueSnapshot, 15);
     });
+
+    test('placed sequence cards are displayed in rank order', () {
+      final placed = meld([
+        card(CardRank.nine, CardSuit.diamonds),
+        card(CardRank.ten, CardSuit.diamonds),
+        card(CardRank.eight, CardSuit.diamonds),
+      ]);
+
+      expect(placed.cards.map((card) => card.label), ['8D', '9D', '10D']);
+    });
+
+    test('placed set cards alternate red and black suits', () {
+      final placed = meld([
+        card(CardRank.jack, CardSuit.diamonds),
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.clubs),
+      ]);
+
+      expect(placed.cards.map((card) => card.label), ['JD', 'JC', 'JH']);
+    });
   });
 }
 

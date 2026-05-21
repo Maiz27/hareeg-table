@@ -1,46 +1,70 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
+import '../../../../app/app_orientation.dart';
+import '../../../../cpu/classic_hareeg/classic_hareeg_cpu_turn_runner.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
+import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
-import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
+import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../round_summary/views/round_summary_screen.dart';
+import '../../../core/cards/card_state.dart';
+import '../../../core/cards/card_theme.dart';
+import '../../../core/cards/card_view.dart';
+import '../../../core/aids/table_aids.dart';
+import '../../../core/haptics/table_haptics.dart';
+import '../../../core/motion/motion_speed.dart';
+import '../../../core/scopes/app_scopes.dart';
+import '../../../core/theme/lounge_tokens.dart';
+import '../table_interaction_adapter.dart';
+import '../widgets/pause_overlay.dart';
+import '../widgets/physical_table_playfield.dart';
+import '../widgets/score_overlay.dart';
+import '../widgets/south_seat.dart';
+import '../widgets/table_background.dart';
 
-/// First playable Classic Hareeg table slice.
+/// Live Classic Hareeg table.
 ///
-/// All gameplay state is owned by [ClassicHareegGameController]. Human and CPU
-/// moves are routed through `controller.applyAction` so the rules engine
-/// remains the single point of legality enforcement.
+/// Owns the [ClassicHareegGameController] and orchestrates every player /
+/// CPU action through it. Visual / motion / aid / theme / haptics
+/// preferences flow in via [preferences] from the app shell so the same
+/// surface keeps responding to settings changes made from the pause overlay.
 class GameTableScreen extends StatefulWidget {
-  /// Creates a table screen from setup values.
+  /// Creates a live table.
   const GameTableScreen({
+    super.key,
     required this.setup,
     required this.matchRepository,
+    required this.preferences,
+    required this.onPreferencesChanged,
     this.initialSnapshot,
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
-    super.key,
   });
 
-  /// Setup values used to deal the round.
+  /// Setup used to deal the round.
   final ClassicHareegSetup setup;
 
   /// Active match persistence.
   final MatchRepository matchRepository;
 
-  /// Saved match state to resume instead of dealing.
+  /// Player preferences (motion, haptics, aids, theme).
+  final GamePreferences preferences;
+
+  /// Called by the pause overlay when a preference is toggled mid-match.
+  final ValueChanged<GamePreferences> onPreferencesChanged;
+
+  /// Saved snapshot to resume (else deal a fresh round).
   final ClassicHareegMatchSnapshot? initialSnapshot;
 
-  /// CPU strategy used for non-human seats. Injected for tests.
+  /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
 
   @override
@@ -48,20 +72,33 @@ class GameTableScreen extends StatefulWidget {
 }
 
 class _GameTableScreenState extends State<GameTableScreen> {
-  /// Safety bound for CPU action loops to prevent UI hangs from a strategy
-  /// that returns the same action repeatedly. A real CPU turn sequence is at
-  /// most ~3 actions per seat (take + use + discard); 64 covers all CPU
-  /// seats with generous headroom.
   static const _cpuActionLimit = 64;
-  static const _cpuActionDelay = Duration(milliseconds: 220);
+  static const _successFeedbackDuration = Duration(milliseconds: 1400);
+  static const _errorFeedbackDuration = Duration(milliseconds: 2400);
+  static const _roundResultDisplayDuration = Duration(milliseconds: 2400);
 
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
   bool _isCpuRunning = false;
-  String? _turnStatus;
+  bool _scoreOpen = false;
+  bool _pauseOpen = false;
+  bool _fiftyPulse = false;
   String? _humanFeedback;
   bool _humanFeedbackIsError = false;
   Timer? _fiftyTicker;
+  Timer? _feedbackTimer;
+  Timer? _roundAdvanceTimer;
+  _CardFlight? _cardFlight;
+  HareegCard? _inspectedCard;
+  _RoundResultPresentation? _roundResultPresentation;
+  int _flightSerial = 0;
+
+  /// Stable display order for the south hand, indexed by card id. The engine
+  /// hand list reorders freely as cards leave/enter; the player's visual
+  /// order persists so freshly-drawn cards always land at the right end
+  /// (regardless of the Settings `autoSort` preset, which only sorts on
+  /// initial deal).
+  late List<String> _displayOrder;
 
   @override
   void initState() {
@@ -73,11 +110,14 @@ class _GameTableScreenState extends State<GameTableScreen> {
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
-    _fiftyTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    _resetDisplayOrder();
+    _debugTableLog(
+      'init snapshot=${snapshot != null} current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
+      'discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
+    _ensureFiftyTicker();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final didPersistOrNavigate = await _runCpuTurns();
       if (!didPersistOrNavigate && mounted) {
@@ -89,228 +129,561 @@ class _GameTableScreenState extends State<GameTableScreen> {
   @override
   void dispose() {
     _fiftyTicker?.cancel();
+    _fiftyTicker = null;
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = null;
     AppOrientation.usePortrait();
     super.dispose();
   }
 
+  void _returnToMainMenu() {
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+  }
+
+  void _resetDisplayOrder() {
+    final initialHand = _controller.handFor(PlayerSeat.south);
+    final initialSort = widget.preferences.autoSort
+        ? HandSortMode.byRank
+        : HandSortMode.manual;
+    _displayOrder = HandSorting.sort(
+      initialHand,
+      initialSort,
+    ).map((card) => card.id).toList();
+  }
+
+  void _ensureFiftyTicker() {
+    final fiftyOpen =
+        _controller.fiftySecondsRemaining != null &&
+        _controller.fiftySecondsRemaining! > 0;
+    if (fiftyOpen && _fiftyTicker == null) {
+      _fiftyTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        if (!mounted) return;
+        if (_controller.fiftySecondsRemaining == null) {
+          _fiftyTicker?.cancel();
+          _fiftyTicker = null;
+          return;
+        }
+        setState(() {});
+      });
+    } else if (!fiftyOpen && _fiftyTicker != null) {
+      _fiftyTicker?.cancel();
+      _fiftyTicker = null;
+    }
+  }
+
+  TableHaptics get _haptics => HapticsScope.of(context);
+
+  Duration _scaledDelay(Duration base) => MotionScope.of(context).scale(base);
+
+  Duration get _cpuReadPause => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.fastCpuReadPause)
+      : _scaledDelay(TableMotion.cpuReadPause);
+
+  Duration get _cpuBetweenActionPause => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.fastCpuActionGap)
+      : _scaledDelay(TableMotion.cpuMove);
+
+  Duration get _cpuFlightDuration => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.fastCpuFlight)
+      : _scaledDelay(TableMotion.cpuFlight);
+
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final humanSeat = PlayerSeat.south;
-    final setup = _controller.setup;
     final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
-    final legalActions = isHumanTurn
+    final controlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
     final pending = _controller.pendingDiscard;
-    final canDraw = legalActions.contains(ClassicHareegActionIds.drawStock);
-    final canTakeDiscard = legalActions.contains(
-      ClassicHareegActionIds.takeDiscard,
-    );
-    final canClaimFifty = legalActions.contains(
-      ClassicHareegActionIds.claimFifty,
-    );
-    final canReturnDiscard = legalActions.contains(
-      ClassicHareegActionIds.returnPendingDiscard,
-    );
-    final canReturnOpeningMelds = legalActions.contains(
-      ClassicHareegActionIds.returnOpeningMelds,
-    );
-    final hasDiscardActions = legalActions.any(
-      (actionId) => ClassicHareegActionIds.discardCardId(actionId) != null,
-    );
-    final selectedCards = _selectedCards();
-    final selectedMeld = _controller.meldValidationFor(
-      humanSeat,
-      _selectedCardIds.toList(),
-    );
-    final jokerOptions = _controller.jokerRepresentationOptionsFor(
-      humanSeat,
-      _selectedCardIds.toList(),
-    );
-    final pendingIsSelected =
-        pending == null || _selectedCardIds.contains(pending.id);
-    final showPlayMeld = isHumanTurn && selectedCards.length >= 3;
-    final canPlayMeld =
-        isHumanTurn &&
-        (selectedMeld.isValid || jokerOptions.isNotEmpty) &&
-        pendingIsSelected;
-    final coverActionId = isHumanTurn
-        ? _controller.coverActionIdFor(humanSeat, _selectedCardIds.toList())
-        : null;
-    final canPlaceCover = coverActionId != null && pendingIsSelected;
-    final replaceJokerActionId = isHumanTurn
-        ? _controller.jokerReplacementActionIdFor(
+    final theme = CardThemeScope.of(context);
+    final aids = AidsScope.of(context);
+    final jokerAidsEnabled = _jokerAidsEnabledFor(_controller.setup);
+    final jokerDisplay = !jokerAidsEnabled
+        ? JokerDisplay.unassigned
+        : widget.preferences.memoryJokerDisplay
+        ? JokerDisplay.memoryReveal
+        : JokerDisplay.assisted;
+    final southCards = _orderedSouthHand();
+    final tableInteraction = _tableInteraction(southCards);
+    final meldSuggestions = aids.showsMeldPicker
+        ? _meldSuggestions(tableInteraction)
+        : const <TableMeldSuggestion>[];
+    final meldValidation = isHumanTurn && _selectedCardIds.isNotEmpty
+        ? _controller.singleMeldValidationFor(
             humanSeat,
             _selectedCardIds.toList(),
           )
         : null;
-    final canReplaceJoker = replaceJokerActionId != null && pendingIsSelected;
-    final selectedCardId = selectedCards.length == 1
-        ? selectedCards.single.id
+    final primaryMeldAction = isHumanTurn
+        ? tableInteraction.selectedMeldActionId()
         : null;
-    String? discardActionId;
-    if (selectedCardId != null) {
-      for (final actionId in legalActions) {
-        if (ClassicHareegActionIds.discardCardId(actionId) == selectedCardId) {
-          discardActionId = actionId;
-          break;
-        }
-      }
-    }
-    final canDiscard = discardActionId != null;
-    final showDiscard =
-        isHumanTurn && (hasDiscardActions || selectedCardId != null);
-    VoidCallback? onReplaceJoker;
-    final replaceActionId = replaceJokerActionId;
-    if (replaceActionId != null) {
-      onReplaceJoker = () => _runHumanAction(replaceActionId);
-    }
-    VoidCallback? onDiscard;
-    final selectedDiscardActionId = discardActionId;
-    if (selectedDiscardActionId != null) {
-      onDiscard = () => _runHumanAction(selectedDiscardActionId);
-    }
+    final canPlayMeld = primaryMeldAction != null;
+    final hasOpened = _controller.openingState.hasOpened(humanSeat);
+    final meldCtaValue = canPlayMeld && meldValidation?.isValid == true
+        ? meldValidation?.value
+        : null;
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _TableLayoutMetrics.from(constraints);
-
-          return SafeArea(
-            top: false,
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.all(metrics.padding),
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: metrics.headerHeight,
-                    child: _TableHeader(
-                      height: metrics.headerHeight,
-                      setup: setup,
-                      starter: _controller.starter,
-                      currentSeat: _controller.currentSeat,
-                      turnPhase: _controller.turnPhase,
-                      onLeave: () => Navigator.of(context).pop(),
-                    ),
+    final body = TableBackground(
+      surface: widget.preferences.tableSurfaceTheme,
+      child: JokerDisplayScope(
+        display: jokerDisplay,
+        child: Stack(
+          children: [
+            PhysicalTablePlayfield(
+              theme: theme,
+              stockCount: _controller.stockCount,
+              discardPile: _controller.discardPile,
+              topDiscard: _controller.topDiscard,
+              pendingDiscard: pending,
+              cardCounts: {
+                for (final seat in PlayerSeat.values)
+                  seat: _controller.cardCountFor(seat),
+              },
+              tableMelds: {
+                for (final seat in PlayerSeat.values)
+                  seat: _controller.tableMeldsFor(seat),
+              },
+              southCards: southCards,
+              selectedIds: _selectedCardIds,
+              onCardTap: _toggleSelectedCard,
+              onCardLongPress: _showCardInspect,
+              onReorderHand: _reorderHand,
+              canDiscardCard: tableInteraction.canDropCardToDiscard,
+              canPlayCardOnTable: tableInteraction.canDropCardToTable,
+              canPlaceMeldOnTable: tableInteraction.canPlaceNewMeldOnTable,
+              canPlayCardOnMeld: tableInteraction.canDropCardToMeld,
+              canRetractMeld: (owner, meldIndex) =>
+                  controlActions.contains(
+                    ClassicHareegActionIds.returnOpeningMelds,
+                  ) &&
+                  _controller.canReturnTablePlayFromMeld(owner, meldIndex),
+              onDiscardCard: (card) => unawaited(_dropCardToDiscard(card)),
+              onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
+              onPlayCardOnMeld: (card, owner, meldIndex) =>
+                  unawaited(_dropCardToMeld(card, owner, meldIndex)),
+              onRetractMeld: (owner, meldIndex) => unawaited(
+                _runHumanAction(
+                  ClassicHareegActionIds.returnTablePlayActionId(
+                    owner: owner,
+                    meldIndex: meldIndex,
                   ),
-                  SizedBox(height: metrics.gap),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SeatPanel(
-                          seat: PlayerSeat.west,
-                          count: _controller.cardCountFor(PlayerSeat.west),
-                          width: metrics.sideSeatWidth,
-                        ),
-                        SizedBox(width: metrics.gap),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              _SeatPanel(
-                                seat: PlayerSeat.north,
-                                count: _controller.cardCountFor(
-                                  PlayerSeat.north,
-                                ),
-                                horizontal: true,
-                                height: metrics.topSeatHeight,
-                              ),
-                              SizedBox(height: metrics.gap),
-                              Expanded(
-                                child: _TableStage(
-                                  metrics: metrics,
-                                  stockCount: _controller.stockCount,
-                                  topDiscard: _controller.topDiscard,
-                                  tableMelds: _controller.tableMelds,
-                                  pendingDiscard: pending,
-                                  turnStatus: _turnStatus,
-                                  selectedMeldResult: selectedMeld,
-                                  openingRequirement: setup.openingRequirement,
-                                  humanFeedback: _humanFeedback,
-                                  humanFeedbackIsError: _humanFeedbackIsError,
-                                  canDraw: canDraw,
-                                  canTakeDiscard: canTakeDiscard,
-                                  canClaimFifty: canClaimFifty,
-                                  showPlayMeld: showPlayMeld,
-                                  canPlayMeld: canPlayMeld,
-                                  showPlaceCover:
-                                      isHumanTurn &&
-                                      _selectedCardIds.isNotEmpty &&
-                                      _controller.tableMeldCount > 0,
-                                  canPlaceCover: canPlaceCover,
-                                  showReplaceJoker:
-                                      isHumanTurn &&
-                                      selectedCards.length == 1 &&
-                                      _controller.tableMeldCount > 0,
-                                  canReplaceJoker: canReplaceJoker,
-                                  showDiscard: showDiscard,
-                                  canDiscard: canDiscard,
-                                  canReturnDiscard: canReturnDiscard,
-                                  canReturnOpeningMelds: canReturnOpeningMelds,
-                                  onDraw: () => _runHumanAction(
-                                    ClassicHareegActionIds.drawStock,
-                                  ),
-                                  onTakeDiscard: () => _runHumanAction(
-                                    ClassicHareegActionIds.takeDiscard,
-                                  ),
-                                  onClaimFifty: () => _runHumanAction(
-                                    ClassicHareegActionIds.claimFifty,
-                                  ),
-                                  onReturnDiscard: () => _runHumanAction(
-                                    ClassicHareegActionIds.returnPendingDiscard,
-                                  ),
-                                  onReturnOpeningMelds: () => _runHumanAction(
-                                    ClassicHareegActionIds.returnOpeningMelds,
-                                  ),
-                                  onPlayMeld: () =>
-                                      _playSelectedMeld(jokerOptions),
-                                  onPlaceCover: coverActionId == null
-                                      ? null
-                                      : () => _runHumanAction(coverActionId),
-                                  onReplaceJoker: onReplaceJoker,
-                                  onDiscard: onDiscard,
-                                  onAutoSort: _sortHumanHand,
-                                ),
-                              ),
-                            ],
+                ),
+              ),
+              canDrawStock: controlActions.contains(
+                ClassicHareegActionIds.drawStock,
+              ),
+              canTakeDiscard: controlActions.contains(
+                ClassicHareegActionIds.takeDiscard,
+              ),
+              canReturnDiscard: controlActions.contains(
+                ClassicHareegActionIds.returnPendingDiscard,
+              ),
+              canClaimFifty: controlActions.contains(
+                ClassicHareegActionIds.claimFifty,
+              ),
+              canReturnOpeningMelds: controlActions.contains(
+                ClassicHareegActionIds.returnOpeningMelds,
+              ),
+              onDrawStock: () =>
+                  unawaited(_runHumanAction(ClassicHareegActionIds.drawStock)),
+              onTakeDiscard: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.takeDiscard),
+              ),
+              onReturnDiscard: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),
+              ),
+              onClaimFifty: () => unawaited(_claimFifty()),
+              onReturnOpeningMelds: () => unawaited(
+                _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+              ),
+              fiftySecondsRemaining: _controller.fiftySecondsRemaining,
+              fiftyTotalSeconds: _controller.setup.fiftyTimerSeconds,
+              fiftyPulse: _fiftyPulse,
+              meldRequirement: _controller.openingState.currentRequirement,
+              meldSelectionValue: meldCtaValue,
+              meldSelectionValid: canPlayMeld,
+              meldSelectionHasOpened: hasOpened,
+              onPlaySelectedMeld: primaryMeldAction == null
+                  ? null
+                  : () => unawaited(_playSelectedMeld(primaryMeldAction)),
+              meldSuggestions: meldSuggestions,
+              showMeldSuggestions: aids.showsMeldPicker,
+              onMeldSuggestion: (actionId) {
+                unawaited(_runHumanAction(actionId));
+              },
+              isHumanTurn: isHumanTurn,
+              isCpuRunning: _isCpuRunning,
+              currentSeat: _controller.currentSeat,
+              activeSeats: _controller.activeSeats.toSet(),
+            ),
+            LayoutBuilder(
+              builder: (context, viewport) {
+                // Score / pause sit just inside the safe-area corners with a
+                // small breathing margin so they don't graze the screen edge.
+                // Sizes scale with viewport width so tablets don't end up
+                // with tiny phone-sized controls.
+                final safe = MediaQuery.paddingOf(context);
+                final isLarge = viewport.maxWidth >= 900;
+                final isTablet = viewport.maxWidth >= 720;
+                final buttonSize = isLarge
+                    ? 44.0
+                    : isTablet
+                    ? 38.0
+                    : 30.0;
+                final iconSize = isLarge
+                    ? 24.0
+                    : isTablet
+                    ? 21.0
+                    : 17.0;
+                final edgeInset = isLarge
+                    ? 18.0
+                    : isTablet
+                    ? 14.0
+                    : 10.0;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: safe.top + edgeInset,
+                      left: safe.left + edgeInset,
+                      child: _TableChromeButton(
+                        tooltip: strings.scores,
+                        icon: Icons.bar_chart_rounded,
+                        diameter: buttonSize,
+                        iconSize: iconSize,
+                        onPressed: () => setState(() => _scoreOpen = true),
+                      ),
+                    ),
+                    Positioned(
+                      top: safe.top + edgeInset,
+                      right: safe.right + edgeInset,
+                      child: _TableChromeButton(
+                        tooltip: strings.pauseTable,
+                        icon: Icons.pause_rounded,
+                        diameter: buttonSize,
+                        iconSize: iconSize,
+                        onPressed: () => setState(() => _pauseOpen = true),
+                      ),
+                    ),
+                    if (_humanFeedback != null)
+                      Positioned(
+                        top:
+                            safe.top +
+                            edgeInset +
+                            math.max(0.0, (buttonSize - 34) / 2),
+                        left: safe.left + edgeInset + buttonSize + 14,
+                        right: safe.right + edgeInset + buttonSize + 14,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: IgnorePointer(
+                            child: _FeedbackChip(
+                              message: _humanFeedback!,
+                              isError: _humanFeedbackIsError,
+                            ),
                           ),
                         ),
-                        SizedBox(width: metrics.gap),
-                        _SeatPanel(
-                          seat: PlayerSeat.east,
-                          count: _controller.cardCountFor(PlayerSeat.east),
-                          width: metrics.sideSeatWidth,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: metrics.gap),
-                  SizedBox(
-                    height: metrics.handHeaderHeight,
-                    child: _HumanHandHeader(
-                      count: _controller.cardCountFor(PlayerSeat.south),
-                    ),
-                  ),
-                  SizedBox(height: metrics.handGap),
-                  _HumanHand(
-                    height: metrics.handListHeight,
-                    cardWidth: metrics.handCardWidth,
-                    cardHeight: metrics.handCardHeight,
-                    cards: _controller.handFor(PlayerSeat.south),
-                    selectedIds: _selectedCardIds,
-                    onSelected: _toggleSelectedCard,
-                  ),
-                ],
+                      ),
+                  ],
+                );
+              },
+            ),
+            if (_cardFlight != null)
+              Positioned.fill(
+                child: _CardFlightOverlay(
+                  key: ValueKey(_cardFlight!.serial),
+                  flight: _cardFlight!,
+                  theme: theme,
+                  duration: _scaledDelay(const Duration(milliseconds: 230)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _returnToMainMenu();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            body,
+            _AnimatedOverlaySlot(
+              visible: _scoreOpen,
+              overlayKey: 'score-overlay',
+              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              child: ScoreOverlay(
+                scores: _controller.scores,
+                activeSeats: _controller.activeSeats,
+                starter: _controller.starter,
+                currentSeat: _controller.currentSeat,
+                roundNumber: _controller.roundNumber,
+                onClose: () => setState(() => _scoreOpen = false),
               ),
             ),
-          );
-        },
+            _AnimatedOverlaySlot(
+              visible: _pauseOpen,
+              overlayKey: 'pause-overlay',
+              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              child: PauseOverlay(
+                aids: widget.preferences.tableAids,
+                motionSpeed: widget.preferences.motionSpeed,
+                fastCpuTurns: widget.preferences.fastCpuTurns,
+                hapticsEnabled: widget.preferences.hapticsEnabled,
+                soundEnabled: widget.preferences.soundEnabled,
+                highContrastCards: widget.preferences.highContrastCards,
+                onAidsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(tableAids: v),
+                ),
+                onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(motionSpeed: v),
+                ),
+                onFastCpuTurnsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(fastCpuTurns: v),
+                ),
+                onHapticsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(hapticsEnabled: v),
+                ),
+                onSoundChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(soundEnabled: v),
+                ),
+                onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(highContrastCards: v),
+                ),
+                onResume: () => setState(() => _pauseOpen = false),
+                onLeave: _returnToMainMenu,
+              ),
+            ),
+            if (_inspectedCard != null)
+              _CardInspectOverlay(
+                card: _inspectedCard!,
+                theme: theme,
+                aids: aids,
+                jokerAidsEnabled: jokerAidsEnabled,
+                onClose: () => setState(() => _inspectedCard = null),
+              ),
+            _AnimatedOverlaySlot(
+              visible: _roundResultPresentation != null,
+              overlayKey: 'round-result-overlay-slot',
+              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              child: _roundResultPresentation == null
+                  ? const SizedBox.shrink()
+                  : _RoundResultOverlay(
+                      presentation: _roundResultPresentation!,
+                      onContinueNow:
+                          _roundResultPresentation!.nextSnapshot == null
+                          ? null
+                          : () => _advanceToNextRound(
+                              _roundResultPresentation!.nextSnapshot!,
+                            ),
+                      onReturnToMenu:
+                          _roundResultPresentation!.progress.matchWinner == null
+                          ? null
+                          : _returnToMainMenu,
+                      onDismiss: () {
+                        setState(() => _roundResultPresentation = null);
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  /// Returns the human hand in the player's chosen display order.
+  ///
+  /// Reconciles `_displayOrder` against the controller's hand each build:
+  /// cards no longer in hand drop off, freshly-drawn cards are appended to
+  /// the right end so the player can see their newest card. Players may
+  /// drag-reorder freely after that — sort never reasserts mid-round.
+  List<HareegCard> _orderedSouthHand() {
+    final hand = _controller.handFor(PlayerSeat.south);
+    final byId = {for (final card in hand) card.id: card};
+    final ordered = <HareegCard>[];
+    final seen = <String>{};
+    // Keep existing ordering for cards still in the hand.
+    final keptOrder = <String>[];
+    for (final id in _displayOrder) {
+      if (byId.containsKey(id) && seen.add(id)) {
+        keptOrder.add(id);
+        ordered.add(byId[id]!);
+      }
+    }
+    // Append any new cards (e.g., just drawn) at the right end.
+    for (final card in hand) {
+      if (!seen.contains(card.id)) {
+        keptOrder.add(card.id);
+        ordered.add(card);
+      }
+    }
+    if (!_displayOrderMatches(keptOrder)) {
+      _displayOrder = keptOrder;
+    }
+    return ordered;
+  }
+
+  bool _displayOrderMatches(List<String> other) {
+    if (other.length != _displayOrder.length) return false;
+    for (var i = 0; i < other.length; i++) {
+      if (other[i] != _displayOrder[i]) return false;
+    }
+    return true;
+  }
+
+  void _reorderHand(HareegCard card, int targetIndex) {
+    final src = _displayOrder.indexOf(card.id);
+    if (src < 0 || src == targetIndex) return;
+    setState(() {
+      _displayOrder.removeAt(src);
+      final insertAt = targetIndex > src ? targetIndex - 1 : targetIndex;
+      _displayOrder.insert(
+        insertAt.clamp(0, _displayOrder.length).toInt(),
+        card.id,
+      );
+    });
+  }
+
+  ClassicHareegTableInteractionAdapter _tableInteraction([
+    List<HareegCard>? southCards,
+  ]) {
+    return ClassicHareegTableInteractionAdapter(
+      reader: ClassicHareegControllerTableInteractionReader(_controller),
+      seat: PlayerSeat.south,
+      selectedCardIds: _selectedCardIds,
+      handCards: southCards ?? _orderedSouthHand(),
+      inputLocked: _isCpuRunning,
+    );
+  }
+
+  Future<void> _dropCardToDiscard(HareegCard card) async {
+    if (_isCpuRunning) return;
+    await _runTableInteraction(_tableInteraction().resolveDiscard(card));
+  }
+
+  Future<void> _dropCardToTable(HareegCard card) async {
+    if (_isCpuRunning) return;
+    await _runTableInteraction(_tableInteraction().resolveTableDrop(card));
+  }
+
+  Future<void> _dropCardToMeld(
+    HareegCard card,
+    PlayerSeat owner,
+    int meldIndex,
+  ) async {
+    if (_isCpuRunning) return;
+    await _runTableInteraction(
+      _tableInteraction().resolveMeldDrop(card, owner, meldIndex),
+    );
+  }
+
+  Future<void> _runTableInteraction(
+    TableInteractionResolution resolution,
+  ) async {
+    final actionId = resolution.actionId;
+    if (actionId != null) {
+      await _runHumanAction(actionId, playFlight: false);
+      return;
+    }
+    _showInvalidFeedback(
+      resolution.failureMessage ?? 'That move is not legal.',
+    );
+  }
+
+  Future<void> _playSelectedMeld(String fallbackActionId) async {
+    final cardIds = _selectedCardIds.toList(growable: false);
+    final jokerChoices = _tableInteraction().jokerChoicesForCardIds(cardIds);
+    if (jokerChoices.length > 1) {
+      final choice = await _showJokerChoiceDialog(jokerChoices);
+      if (!mounted || choice == null) return;
+      await _runHumanAction(choice.actionId);
+      return;
+    }
+
+    await _runHumanAction(fallbackActionId);
+  }
+
+  Future<TableInteractionJokerChoice?> _showJokerChoiceDialog(
+    List<TableInteractionJokerChoice> choices,
+  ) {
+    final theme = CardThemeScope.of(context);
+    return showDialog<TableInteractionJokerChoice>(
+      context: context,
+      builder: (dialogContext) {
+        final strings = dialogContext.strings;
+        return AlertDialog(
+          key: const ValueKey('joker-choice-dialog'),
+          title: const Text('Choose joker identity'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final choice in choices)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: OutlinedButton(
+                        key: ValueKey('joker-choice-${choice.identity.key}'),
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(choice),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(strings.jokerAs(choice.identity)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: [
+                                  for (final card in choice.cards)
+                                    HareegCardView(
+                                      theme: theme,
+                                      card: card,
+                                      jokerDisplay: JokerDisplay.assisted,
+                                      size: const Size(30, 42),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<TableMeldSuggestion> _meldSuggestions(
+    ClassicHareegTableInteractionAdapter tableInteraction,
+  ) {
+    return [
+      for (final suggestion in tableInteraction.meldSuggestions())
+        TableMeldSuggestion(
+          actionId: suggestion.actionId,
+          cards: suggestion.cards,
+        ),
+    ];
+  }
+
   void _toggleSelectedCard(HareegCard card) {
+    unawaited(_haptics.fire(TableHapticEvent.cardTap));
     setState(() {
       if (_selectedCardIds.contains(card.id)) {
         _selectedCardIds.remove(card.id);
@@ -320,592 +693,1030 @@ class _GameTableScreenState extends State<GameTableScreen> {
     });
   }
 
-  List<HareegCard> _selectedCards() {
-    if (_selectedCardIds.isEmpty) {
-      return const [];
-    }
-
-    final hand = _controller.handFor(PlayerSeat.south);
-    final byId = {for (final card in hand) card.id: card};
-    return [
-      for (final id in _selectedCardIds)
-        if (byId[id] != null) byId[id]!,
-    ];
+  void _showCardInspect(HareegCard card) {
+    unawaited(_haptics.fire(TableHapticEvent.cardTap));
+    setState(() => _inspectedCard = card);
   }
 
-  Future<void> _sortHumanHand() async {
-    setState(() {
-      _controller.sortHandFor(PlayerSeat.south);
-    });
-    await _persistAndMaybeFinish();
-  }
+  void _replaceHumanFeedback(String? message, {required bool isError}) {
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    final nextMessage = message == null || message.isEmpty
+        ? null
+        : context.strings.gameMessage(message);
+    _humanFeedback = nextMessage;
+    _humanFeedbackIsError = isError;
+    if (nextMessage == null) return;
 
-  Future<void> _playSelectedMeld(List<CardIdentity> jokerOptions) async {
-    var actionId = ClassicHareegActionIds.playMeldActionId(_selectedCardIds);
-    if (jokerOptions.isNotEmpty) {
-      final joker = _selectedCards().firstWhere(
-        (card) => card.isJoker && card.representedIdentity == null,
-      );
-      final identity = await showDialog<CardIdentity>(
-        context: context,
-        builder: (context) {
-          return SimpleDialog(
-            title: const Text('Choose joker'),
-            children: [
-              for (final option in jokerOptions)
-                SimpleDialogOption(
-                  onPressed: () => Navigator.of(context).pop(option),
-                  child: Text(option.label),
-                ),
-            ],
-          );
-        },
-      );
-      if (identity == null || !mounted) {
-        return;
-      }
-      actionId = ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
-        cardIds: _selectedCardIds,
-        jokerId: joker.id,
-        identity: identity,
-      );
-    }
-
-    await _runHumanAction(actionId);
-  }
-
-  Future<void> _runHumanAction(String actionId) async {
-    if (_isCpuRunning) {
-      return;
-    }
-
-    final result = _controller.applyAction(actionId);
-    if (!result.isSuccess) {
+    final duration = _scaledDelay(
+      isError ? _errorFeedbackDuration : _successFeedbackDuration,
+    );
+    _feedbackTimer = Timer(duration, () {
+      if (!mounted) return;
       setState(() {
-        _humanFeedback = result.message;
-        _humanFeedbackIsError = true;
+        if (_humanFeedback == nextMessage && _humanFeedbackIsError == isError) {
+          _humanFeedback = null;
+        }
+      });
+    });
+  }
+
+  void _showInvalidFeedback(String message) {
+    unawaited(_haptics.fire(TableHapticEvent.illegalAction));
+    setState(() {
+      _replaceHumanFeedback(message, isError: true);
+    });
+  }
+
+  /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
+  /// action so the human can see which seat acted and where the card went.
+  Future<void> _playFlightForCpuAction(PlayerSeat seat, String actionId) async {
+    final flight = _flightForCpuAction(seat, actionId);
+    if (flight == null) return;
+    setState(() => _cardFlight = flight);
+    await Future<void>.delayed(_cpuFlightDuration);
+    if (mounted && identical(_cardFlight, flight)) {
+      setState(() => _cardFlight = null);
+    }
+  }
+
+  _CardFlight? _flightForCpuAction(PlayerSeat seat, String actionId) {
+    final seatAnchor = _alignmentForSeat(seat);
+    final action = ClassicHareegActionIds.describe(actionId);
+    if (action.kind == ClassicHareegActionKind.drawStock) {
+      final handSlot = _appendHandSlotForSeat(seat);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: _backSeed(_flightSerial),
+        faceDown: true,
+        begin: _FlightAnchor.stock.alignment,
+        end: seatAnchor,
+        endHandSlot: handSlot,
+      );
+    }
+    if (action.kind == ClassicHareegActionKind.takeDiscard) {
+      final card = _controller.topDiscard;
+      if (card == null) return null;
+      final handSlot = _appendHandSlotForSeat(seat);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.discard.alignment,
+        end: seatAnchor,
+        endHandSlot: handSlot,
+      );
+    }
+    if (action.kind == ClassicHareegActionKind.returnPendingDiscard) {
+      final card = _controller.pendingDiscard;
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: seatAnchor,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _lastHandSlotForSeat(seat),
+      );
+    }
+    final discardCardId = action.isDiscard ? action.cardId : null;
+    if (discardCardId != null) {
+      final card = _cardInHand(seat, discardCardId);
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card ?? _backSeed(_flightSerial),
+        faceDown: card == null,
+        begin: seatAnchor,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _lastHandSlotForSeat(seat),
+      );
+    }
+    return null;
+  }
+
+  Future<void> _playFlightForAction(String actionId) async {
+    final flight = _flightForAction(actionId);
+    if (flight == null) return;
+    setState(() => _cardFlight = flight);
+    await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 230)));
+    if (mounted && identical(_cardFlight, flight)) {
+      setState(() => _cardFlight = null);
+    }
+  }
+
+  _CardFlight? _flightForAction(String actionId) {
+    final action = ClassicHareegActionIds.describe(actionId);
+    if (action.kind == ClassicHareegActionKind.drawStock) {
+      final handSlot = _southHandAppendSlot();
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: _backSeed(_flightSerial),
+        faceDown: true,
+        begin: _FlightAnchor.stock.alignment,
+        end: _FlightAnchor.hand.alignment,
+        endHandSlot: handSlot,
+      );
+    }
+
+    if (action.kind == ClassicHareegActionKind.takeDiscard) {
+      final card = _controller.topDiscard;
+      if (card == null) return null;
+      final handSlot = _southHandAppendSlot();
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.discard.alignment,
+        end: _FlightAnchor.hand.alignment,
+        endHandSlot: handSlot,
+      );
+    }
+
+    if (action.kind == ClassicHareegActionKind.returnPendingDiscard) {
+      final card = _controller.pendingDiscard;
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final discardCardId = action.isDiscard ? action.cardId : null;
+    if (discardCardId != null) {
+      final card = _cardInSouthHand(discardCardId);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.discard.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+      );
+    }
+
+    final cover = action.coverTarget;
+    if (cover != null && cover.cardIds.isNotEmpty) {
+      final card = _cardInSouthHand(cover.cardIds.first);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.hand.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: _TableMeldFlightSlot(
+          seat: cover.targetSeat,
+          index: cover.meldIndex,
+        ),
+      );
+    }
+
+    final replacement = action.jokerReplacementTarget;
+    if (replacement != null) {
+      final card = _cardInSouthHand(replacement.cardId);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.hand.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: _TableMeldFlightSlot(
+          seat: replacement.targetSeat,
+          index: replacement.meldIndex,
+        ),
+      );
+    }
+
+    final meldIds = action.isMeldPlay ? action.cardIds : null;
+    if (meldIds != null && meldIds.isNotEmpty) {
+      final card = _cardInSouthHand(meldIds.first);
+      if (card == null) return null;
+      return _CardFlight(
+        serial: ++_flightSerial,
+        card: card,
+        begin: _FlightAnchor.hand.alignment,
+        end: _FlightAnchor.hand.alignment,
+        beginHandSlot: _southHandCardSlot(card.id),
+        endMeldSlot: const _TableMeldFlightSlot(seat: PlayerSeat.south),
+      );
+    }
+
+    return null;
+  }
+
+  _SeatHandFlightSlot _southHandAppendSlot() {
+    final count = _controller.handFor(PlayerSeat.south).length + 1;
+    return _SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: count - 1,
+      count: count,
+    );
+  }
+
+  _SeatHandFlightSlot? _southHandCardSlot(String cardId) {
+    final cards = _orderedSouthHand();
+    final index = cards.indexWhere((card) => card.id == cardId);
+    if (index == -1) {
+      return null;
+    }
+    return _SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: index,
+      count: cards.length,
+    );
+  }
+
+  _SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      return _southHandAppendSlot();
+    }
+    final count = _controller.cardCountFor(seat) + 1;
+    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  _SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      final cards = _orderedSouthHand();
+      if (cards.isEmpty) return null;
+      return _SeatHandFlightSlot(
+        seat: PlayerSeat.south,
+        index: cards.length - 1,
+        count: cards.length,
+      );
+    }
+    final count = _controller.cardCountFor(seat);
+    if (count <= 0) return null;
+    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  HareegCard? _cardInSouthHand(String id) {
+    return _cardInHand(PlayerSeat.south, id);
+  }
+
+  HareegCard? _cardInHand(PlayerSeat seat, String id) {
+    for (final card in _controller.handFor(seat)) {
+      if (card.id == id) return card;
+    }
+    return null;
+  }
+
+  Future<void> _claimFifty() async {
+    await _runHumanAction(ClassicHareegActionIds.claimFifty);
+    if (!mounted) return;
+    setState(() => _fiftyPulse = true);
+    unawaited(_haptics.fire(TableHapticEvent.fiftyClaim));
+    Future.delayed(_scaledDelay(TableMotion.fiftyHeatPulse), () {
+      if (mounted) setState(() => _fiftyPulse = false);
+    });
+  }
+
+  Future<void> _runHumanAction(
+    String actionId, {
+    bool playFlight = true,
+  }) async {
+    if (_isCpuRunning) return;
+    final totalWatch = Stopwatch()..start();
+    _debugTableLog(
+      'human action start action=$actionId current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
+    );
+    if (playFlight) {
+      await _playFlightForAction(actionId);
+    }
+    if (!mounted) return;
+    final applyWatch = Stopwatch()..start();
+    final result = _controller.applyAction(actionId);
+    applyWatch.stop();
+    _debugTableLog(
+      'human action applied action=$actionId success=${result.isSuccess} '
+      'applyElapsed=${applyWatch.elapsedMilliseconds}ms '
+      'totalElapsed=${totalWatch.elapsedMilliseconds}ms '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+    );
+    if (!result.isSuccess) {
+      unawaited(_haptics.fire(TableHapticEvent.illegalAction));
+      setState(() {
+        _replaceHumanFeedback(result.message, isError: true);
       });
       return;
     }
-
+    unawaited(_haptics.fire(_hapticForAction(actionId)));
     setState(() {
-      _humanFeedback = result.message.isEmpty ? null : result.message;
-      _humanFeedbackIsError = false;
-      _turnStatus = _describeHumanAction(actionId);
-      if (ClassicHareegActionIds.discardCardId(actionId) != null ||
-          actionId.startsWith(ClassicHareegActionIds.playMeldPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
-          actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
-          actionId == ClassicHareegActionIds.returnOpeningMelds ||
-          actionId == ClassicHareegActionIds.returnPendingDiscard) {
+      _replaceHumanFeedback(result.message, isError: false);
+      if (_clearsSelection(actionId)) {
         _selectedCardIds.clear();
       }
     });
+    _ensureFiftyTicker();
     await _persistAndMaybeFinish();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     await _runCpuTurns();
+    totalWatch.stop();
+    _debugTableLog(
+      'human action end action=$actionId '
+      'elapsed=${totalWatch.elapsedMilliseconds}ms '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+    );
   }
 
-  /// Runs CPU-owned turns and returns whether persistence/navigation ran.
+  TableHapticEvent _hapticForAction(String actionId) {
+    return switch (ClassicHareegActionIds.describe(actionId).kind) {
+      ClassicHareegActionKind.drawStock => TableHapticEvent.drawCard,
+      ClassicHareegActionKind.returnPendingDiscard =>
+        TableHapticEvent.pendingReturn,
+      ClassicHareegActionKind.claimFifty => TableHapticEvent.fiftyClaim,
+      _ => TableHapticEvent.buttonTap,
+    };
+  }
+
+  bool _clearsSelection(String actionId) {
+    return ClassicHareegActionIds.describe(actionId).clearsSelection;
+  }
+
   Future<bool> _runCpuTurns() async {
     if (_isCpuRunning ||
         _controller.isRoundOver ||
         _controller.currentSeat == PlayerSeat.south) {
+      _debugTableLog(
+        'cpu loop skip running=$_isCpuRunning roundOver=${_controller.isRoundOver} '
+        'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
+      );
       return false;
     }
 
+    final totalWatch = Stopwatch()..start();
+    _debugTableLog(
+      'cpu loop start current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
+      'discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
     setState(() {
       _isCpuRunning = true;
-      _turnStatus = '${_seatLabel(_controller.currentSeat)} is thinking...';
     });
-
-    var safety = 0;
-    var didPersistOrNavigate = false;
-    while (mounted &&
-        !_controller.isRoundOver &&
-        _controller.currentSeat != PlayerSeat.south &&
-        safety < _cpuActionLimit) {
-      final seat = _controller.currentSeat;
-      setState(() {
-        _turnStatus = '${_seatLabel(seat)} is thinking...';
-      });
-      await Future<void>.delayed(_cpuActionDelay);
-      if (!mounted) {
-        return didPersistOrNavigate;
-      }
-
-      final legal = _controller.legalActionIdsFor(seat);
-      if (legal.isEmpty) {
-        break;
-      }
-
-      final intent = widget.cpuStrategy.chooseMove(
-        CpuTurnSnapshot(
-          seat: seat,
-          legalActionIds: legal,
-          difficulty: _controller.setup.cpuDifficulty,
+    try {
+      final runner = ClassicHareegCpuTurnRunner(
+        controller: _controller,
+        strategy: widget.cpuStrategy,
+        actionLimit: _cpuActionLimit,
+        hooks: ClassicHareegCpuTurnHooks(
+          beforeDecision: (step) async {
+            _debugTableLog(
+              'cpu step ${step.index} start seat=${step.seat.name} '
+              'phase=${step.phase} pending=${step.pendingDiscard?.label} '
+              'stock=${step.stockCount} discard=${step.discardCount}',
+            );
+            if (_cpuReadPause > Duration.zero) {
+              await Future<void>.delayed(_cpuReadPause);
+            }
+            return mounted;
+          },
+          onLegalActions: (step, legal) {
+            _debugTableLog(
+              'cpu step ${step.index} legal seat=${step.seat.name} '
+              'count=${legal.length} actions=${_debugActionSummary(legal)}',
+            );
+            if (legal.isEmpty) {
+              _debugTableLog('cpu step ${step.index} break no legal actions');
+            }
+          },
+          onActionChosen: (decision) {
+            _debugTableLog(
+              'cpu step ${decision.step.index} chose '
+              'action=${decision.actionId}',
+            );
+          },
+          beforeApply: (decision) async {
+            final flightWatch = Stopwatch()..start();
+            await _playFlightForCpuAction(decision.seat, decision.actionId);
+            flightWatch.stop();
+            _debugTableLog(
+              'cpu step ${decision.step.index} flight '
+              'action=${decision.actionId} '
+              'elapsed=${flightWatch.elapsedMilliseconds}ms',
+            );
+            return mounted;
+          },
+          afterApply: (decision, result) async {
+            _debugTableLog(
+              'cpu step ${decision.step.index} applied '
+              'action=${decision.actionId} success=${result.isSuccess} '
+              'current=${_controller.currentSeat.name} '
+              'phase=${_controller.turnPhase}',
+            );
+            _ensureFiftyTicker();
+            final persistWatch = Stopwatch()..start();
+            await _persistAndMaybeFinish();
+            persistWatch.stop();
+            _debugTableLog(
+              'cpu step ${decision.step.index} persist returned '
+              'elapsed=${persistWatch.elapsedMilliseconds}ms '
+              'roundOver=${_controller.isRoundOver}',
+            );
+            if (!mounted) return false;
+            return !_controller.isRoundOver && _roundResultPresentation == null;
+          },
+          beforeNextAction: (_) async {
+            if (_cpuBetweenActionPause > Duration.zero) {
+              await Future<void>.delayed(_cpuBetweenActionPause);
+            }
+            return mounted;
+          },
         ),
       );
-      final result = _controller.applyAction(intent.actionId);
-      if (!result.isSuccess) {
-        if (mounted) {
-          setState(() {
-            _isCpuRunning = false;
-            _humanFeedback = result.message;
-            _humanFeedbackIsError = true;
-          });
-        }
-        throw StateError(
-          'CPU strategy returned illegal action ${intent.actionId}: '
-          '${result.message}',
-        );
-      }
-      setState(() {
-        _selectedCardIds.clear();
-        _turnStatus = _describeCpuAction(seat, intent.actionId);
-      });
-      didPersistOrNavigate = true;
-      await _persistAndMaybeFinish();
+
+      final result = await runner.run();
       if (!mounted) {
-        return didPersistOrNavigate;
+        return result.didApplyAction;
       }
-      await Future<void>.delayed(_cpuActionDelay);
-      safety += 1;
+      _prewarmHumanDrawControls();
+      final hitCpuSafetyLimit = result.reachedSafetyLimit;
+      setState(() {
+        _isCpuRunning = false;
+        _cardFlight = null;
+        if (hitCpuSafetyLimit) {
+          _replaceHumanFeedback(
+            context.strings.cpuTurnSafetyCapReached(
+              _cpuActionLimit,
+              _controller.currentSeat,
+            ),
+            isError: true,
+          );
+        }
+      });
+      totalWatch.stop();
+      _debugTableLog(
+        'cpu loop end elapsed=${totalWatch.elapsedMilliseconds}ms '
+        'steps=${result.appliedActionCount} '
+        'reason=${result.stopReason.name} '
+        'hitSafety=$hitCpuSafetyLimit '
+        'didPersist=${result.didApplyAction} current=${_controller.currentSeat.name} '
+        'phase=${_controller.turnPhase} roundOver=${_controller.isRoundOver}',
+      );
+      return result.didApplyAction;
+    } catch (error, stackTrace) {
+      totalWatch.stop();
+      _debugTableLog(
+        'cpu loop failed elapsed=${totalWatch.elapsedMilliseconds}ms '
+        'current=${_controller.currentSeat.name} '
+        'phase=${_controller.turnPhase} error=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        setState(() {
+          _isCpuRunning = false;
+          _cardFlight = null;
+          _replaceHumanFeedback(
+            context.strings.cpuTurnPaused(_controller.currentSeat),
+            isError: true,
+          );
+        });
+      }
+      return false;
+    }
+  }
+
+  void _prewarmHumanDrawControls() {
+    if (_controller.isRoundOver ||
+        _controller.currentSeat != PlayerSeat.south ||
+        _controller.turnPhase != TurnPhase.draw) {
+      return;
     }
 
-    if (!mounted) {
-      return didPersistOrNavigate;
-    }
-    final hitCpuSafetyLimit =
-        safety >= _cpuActionLimit &&
-        !_controller.isRoundOver &&
-        _controller.currentSeat != PlayerSeat.south;
-    setState(() {
-      _isCpuRunning = false;
-      _selectedCardIds.clear();
-      if (hitCpuSafetyLimit) {
-        _humanFeedback =
-            'CPU turn safety cap $_cpuActionLimit reached at '
-            '${_seatLabel(_controller.currentSeat)}.';
-        _humanFeedbackIsError = true;
-      } else if (_controller.currentSeat == PlayerSeat.south) {
-        _turnStatus = 'Your turn.';
-      }
-    });
-    if (hitCpuSafetyLimit) {
-      throw StateError(
-        'CPU turn safety cap $_cpuActionLimit reached while currentSeat is '
-        '${_controller.currentSeat}.',
+    final watch = Stopwatch()..start();
+    _controller.controlActionIdsFor(PlayerSeat.south);
+    watch.stop();
+    if (watch.elapsedMilliseconds >= 16) {
+      _debugTableLog(
+        'human draw controls prewarm elapsed=${watch.elapsedMilliseconds}ms',
       );
     }
-    return didPersistOrNavigate;
   }
 
   Future<bool> _persistAndMaybeFinish() async {
+    final totalWatch = Stopwatch()..start();
+    var persistencePath = 'active';
+    final roundResult = _controller.roundResult;
+    final roundProgress = _controller.roundProgress;
+    final previousScores = _controller.scores;
+    final nextSnapshot = _controller.isRoundOver
+        ? _controller.nextRoundSnapshot()
+        : null;
+    _debugTableLog(
+      'persist start roundOver=${_controller.isRoundOver} '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
+      'stock=${_controller.stockCount} discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
     var persistenceSucceeded = true;
     try {
       if (_controller.isRoundOver) {
-        final nextSnapshot = _controller.nextRoundSnapshot();
         if (nextSnapshot == null) {
+          persistencePath = 'abandon';
           await widget.matchRepository.abandonActiveMatch();
         } else {
+          persistencePath = 'next-round';
           await widget.matchRepository.saveActiveMatch(nextSnapshot);
         }
       } else {
+        persistencePath = 'active';
         await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
       }
     } catch (error, stackTrace) {
       persistenceSucceeded = false;
-      debugPrint('Failed to persist active match: $error');
+      _debugTableLog('persist failed path=$persistencePath error=$error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not save the table. You can keep playing.'),
-          ),
+          SnackBar(content: Text(context.strings.couldNotSaveTable)),
         );
       }
     }
-    if (!mounted) {
-      return persistenceSucceeded;
-    }
-    if (_controller.isRoundOver && persistenceSucceeded) {
-      _navigateToRoundSummary();
+    totalWatch.stop();
+    _debugTableLog(
+      'persist end success=$persistenceSucceeded path=$persistencePath '
+      'elapsed=${totalWatch.elapsedMilliseconds}ms roundOver=${_controller.isRoundOver}',
+    );
+    if (!mounted) return persistenceSucceeded;
+    if (_controller.isRoundOver &&
+        persistenceSucceeded &&
+        roundResult != null &&
+        roundProgress != null) {
+      _debugTableLog('round result overlay requested');
+      _showRoundResultOverlay(
+        result: roundResult,
+        progress: roundProgress,
+        previousScores: previousScores,
+        nextSnapshot: nextSnapshot,
+      );
     }
     return persistenceSucceeded;
   }
 
-  void _navigateToRoundSummary() {
-    final result = _controller.roundResult;
-    final progress = _controller.roundProgress;
-    if (result == null || progress == null) {
+  void _showRoundResultOverlay({
+    required RoundProgressResult result,
+    required MatchProgressState progress,
+    required Map<PlayerSeat, int> previousScores,
+    required ClassicHareegMatchSnapshot? nextSnapshot,
+  }) {
+    if (_roundResultPresentation != null) {
       return;
     }
-
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.roundSummary,
-      arguments: RoundSummaryArguments(
+    unawaited(_haptics.fire(TableHapticEvent.roundEnd));
+    setState(() {
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _inspectedCard = null;
+      _roundResultPresentation = _RoundResultPresentation(
         result: result,
         progress: progress,
-        previousScores: _controller.scores,
-        nextSnapshot: _controller.nextRoundSnapshot(),
+        previousScores: previousScores,
+        nextSnapshot: nextSnapshot,
+      );
+    });
+    if (nextSnapshot == null) {
+      return;
+    }
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = Timer(_roundResultDisplayDuration, () {
+      if (!mounted) return;
+      _advanceToNextRound(nextSnapshot);
+    });
+  }
+
+  void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = null;
+    _fiftyTicker?.cancel();
+    _fiftyTicker = null;
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    setState(() {
+      _controller = ClassicHareegGameController.fromSnapshot(snapshot);
+      _resetDisplayOrder();
+      _selectedCardIds.clear();
+      _isCpuRunning = false;
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _fiftyPulse = false;
+      _humanFeedback = null;
+      _humanFeedbackIsError = false;
+      _cardFlight = null;
+      _inspectedCard = null;
+      _roundResultPresentation = null;
+    });
+    _ensureFiftyTicker();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final didPersistOrNavigate = await _runCpuTurns();
+      if (!didPersistOrNavigate && mounted) {
+        await _persistAndMaybeFinish();
+      }
+    });
+  }
+}
+
+/// Softly-rounded chrome button used for the score / pause shortcuts in the
+/// table's top corners. Matches the open-need pill's surface treatment
+/// (charcoal fill, hairline border, soft shadow) so the corner controls read
+/// as part of the same chrome family across every table theme rather than
+/// floating dark blobs.
+class _TableChromeButton extends StatelessWidget {
+  const _TableChromeButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.diameter = 40,
+    this.iconSize = 22,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final double diameter;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(diameter * 0.32);
+    final shape = RoundedRectangleBorder(
+      borderRadius: radius,
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.10), width: 1),
+    );
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+        shape: shape,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.38),
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: diameter,
+            child: Icon(icon, color: LoungeTokens.offWhiteText, size: iconSize),
+          ),
+        ),
       ),
     );
   }
 }
 
-String _describeHumanAction(String actionId) {
-  if (actionId == ClassicHareegActionIds.drawStock) {
-    return 'You drew from stock.';
-  }
-  if (actionId == ClassicHareegActionIds.takeDiscard) {
-    return 'You took the discard.';
-  }
-  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
-    return 'You returned the discard and drew.';
-  }
-  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
-    return 'You took back your opening melds.';
-  }
-  if (actionId == ClassicHareegActionIds.claimFifty) {
-    return 'You claimed Fifty.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
-    return 'You played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
-    return 'You played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
-    return 'You replaced a joker.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
-    return 'You placed a cover.';
-  }
-  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
-    return 'You discarded.';
-  }
-  return 'Action applied.';
-}
-
-String _describeCpuAction(PlayerSeat seat, String actionId) {
-  final seatName = _seatLabel(seat);
-  if (actionId == ClassicHareegActionIds.drawStock) {
-    return '$seatName drew from stock.';
-  }
-  if (actionId == ClassicHareegActionIds.takeDiscard) {
-    return '$seatName took the discard.';
-  }
-  if (actionId == ClassicHareegActionIds.returnPendingDiscard) {
-    return '$seatName returned the discard and drew.';
-  }
-  if (actionId == ClassicHareegActionIds.returnOpeningMelds) {
-    return '$seatName took back opening melds.';
-  }
-  if (actionId == ClassicHareegActionIds.claimFifty) {
-    return '$seatName claimed Fifty.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix)) {
-    return '$seatName played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.playMeldPrefix)) {
-    return '$seatName played a meld.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix)) {
-    return '$seatName replaced a joker.';
-  }
-  if (actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix)) {
-    return '$seatName placed a cover.';
-  }
-  if (ClassicHareegActionIds.discardCardId(actionId) != null) {
-    return '$seatName discarded.';
-  }
-  return '$seatName acted.';
-}
-
-class _TableLayoutMetrics {
-  const _TableLayoutMetrics({
-    required this.compact,
-    required this.padding,
-    required this.gap,
-    required this.handGap,
-    required this.headerHeight,
-    required this.sideSeatWidth,
-    required this.topSeatHeight,
-    required this.actionDockWidth,
-    required this.handHeaderHeight,
-    required this.handListHeight,
-    required this.handCardWidth,
-    required this.handCardHeight,
+class _AnimatedOverlaySlot extends StatelessWidget {
+  const _AnimatedOverlaySlot({
+    required this.visible,
+    required this.overlayKey,
+    required this.duration,
+    required this.child,
   });
 
-  final bool compact;
-  final double padding;
-  final double gap;
-  final double handGap;
-  final double headerHeight;
-  final double sideSeatWidth;
-  final double topSeatHeight;
-  final double actionDockWidth;
-  final double handHeaderHeight;
-  final double handListHeight;
-  final double handCardWidth;
-  final double handCardHeight;
+  final bool visible;
+  final String overlayKey;
+  final Duration duration;
+  final Widget child;
 
-  factory _TableLayoutMetrics.from(BoxConstraints constraints) {
-    final compact = constraints.maxHeight < 430 || constraints.maxWidth < 700;
-    final padding = compact ? 6.0 : 12.0;
-    final gap = compact ? 4.0 : 8.0;
-    final sideSeatWidth = (constraints.maxWidth * 0.12)
-        .clamp(compact ? 64.0 : 84.0, compact ? 86.0 : 104.0)
-        .toDouble();
-    final handCardHeight = (constraints.maxHeight * 0.16)
-        .clamp(compact ? 52.0 : 64.0, 76.0)
-        .toDouble();
-
-    return _TableLayoutMetrics(
-      compact: compact,
-      padding: padding,
-      gap: gap,
-      handGap: compact ? 3.0 : 6.0,
-      headerHeight: compact ? 44.0 : 48.0,
-      sideSeatWidth: sideSeatWidth,
-      topSeatHeight: (constraints.maxHeight * 0.15)
-          .clamp(compact ? 46.0 : 56.0, compact ? 58.0 : 68.0)
-          .toDouble(),
-      actionDockWidth: (constraints.maxWidth * 0.26)
-          .clamp(compact ? 186.0 : 200.0, compact ? 210.0 : 240.0)
-          .toDouble(),
-      handHeaderHeight: compact ? 18.0 : 22.0,
-      handListHeight: handCardHeight + (compact ? 8.0 : 16.0),
-      handCardWidth: (handCardHeight * 0.68).clamp(36.0, 52.0).toDouble(),
-      handCardHeight: handCardHeight,
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: AnimatedSwitcher(
+        duration: duration,
+        reverseDuration: duration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.985, end: 1).animate(curved),
+              child: child,
+            ),
+          );
+        },
+        child: visible
+            ? KeyedSubtree(key: ValueKey(overlayKey), child: child)
+            : const SizedBox.shrink(key: ValueKey('overlay-empty')),
+      ),
     );
   }
 }
 
-class _TableStage extends StatelessWidget {
-  const _TableStage({
-    required this.metrics,
-    required this.stockCount,
-    required this.topDiscard,
-    required this.tableMelds,
-    required this.pendingDiscard,
-    required this.turnStatus,
-    required this.selectedMeldResult,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
+class _RoundResultPresentation {
+  const _RoundResultPresentation({
+    required this.result,
+    required this.progress,
+    required this.previousScores,
+    required this.nextSnapshot,
   });
 
-  final _TableLayoutMetrics metrics;
-  final int stockCount;
-  final HareegCard? topDiscard;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
-  final HareegCard? pendingDiscard;
-  final String? turnStatus;
-  final MeldValidationResult selectedMeldResult;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
+  final RoundProgressResult result;
+  final MatchProgressState progress;
+  final Map<PlayerSeat, int> previousScores;
+  final ClassicHareegMatchSnapshot? nextSnapshot;
+}
+
+class _RoundResultOverlay extends StatelessWidget {
+  const _RoundResultOverlay({
+    required this.presentation,
+    required this.onContinueNow,
+    required this.onReturnToMenu,
+    required this.onDismiss,
+  });
+
+  final _RoundResultPresentation presentation;
+  final VoidCallback? onContinueNow;
+  final VoidCallback? onReturnToMenu;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSideDock = constraints.maxWidth >= 420;
-        final actionDock = _ActionDock(
-          metrics: metrics,
-          pendingDiscard: pendingDiscard,
-          turnStatus: turnStatus,
-          selectedMeldResult: selectedMeldResult,
-          openingRequirement: openingRequirement,
-          humanFeedback: humanFeedback,
-          humanFeedbackIsError: humanFeedbackIsError,
-          canDraw: canDraw,
-          canTakeDiscard: canTakeDiscard,
-          canClaimFifty: canClaimFifty,
-          showPlayMeld: showPlayMeld,
-          canPlayMeld: canPlayMeld,
-          showPlaceCover: showPlaceCover,
-          canPlaceCover: canPlaceCover,
-          showReplaceJoker: showReplaceJoker,
-          canReplaceJoker: canReplaceJoker,
-          showDiscard: showDiscard,
-          canDiscard: canDiscard,
-          canReturnDiscard: canReturnDiscard,
-          canReturnOpeningMelds: canReturnOpeningMelds,
-          onDraw: onDraw,
-          onTakeDiscard: onTakeDiscard,
-          onClaimFifty: onClaimFifty,
-          onReturnDiscard: onReturnDiscard,
-          onReturnOpeningMelds: onReturnOpeningMelds,
-          onPlayMeld: onPlayMeld,
-          onPlaceCover: onPlaceCover,
-          onReplaceJoker: onReplaceJoker,
-          onDiscard: onDiscard,
-          onAutoSort: onAutoSort,
-        );
-
-        if (!useSideDock) {
-          final preferredDockHeight = (constraints.maxHeight * 0.42)
-              .clamp(56.0, 150.0)
-              .toDouble();
-          final maxDockHeight = constraints.maxHeight > metrics.gap
-              ? constraints.maxHeight - metrics.gap
-              : 0.0;
-          final dockHeight = preferredDockHeight > maxDockHeight
-              ? maxDockHeight
-              : preferredDockHeight;
-
-          return Column(
-            children: [
-              Expanded(
-                child: _TableCenter(
-                  compact: true,
-                  stockCount: stockCount,
-                  topDiscard: topDiscard,
-                  tableMelds: tableMelds,
+    final strings = context.strings;
+    final highContrast = CardContrastScope.enabledOf(context);
+    final seats = PlayerSeat.values.toList();
+    final compact = MediaQuery.sizeOf(context).height < 390;
+    final winner = presentation.progress.matchWinner;
+    return GestureDetector(
+      key: const ValueKey('round-result-overlay'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onDismiss,
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: highContrast ? 0.72 : 0.50),
+        child: SafeArea(
+          child: Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 14 : 22,
+                  vertical: compact ? 10 : 18,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: compact ? 620 : 700,
+                    maxHeight: MediaQuery.sizeOf(context).height - 24,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: highContrast
+                          ? Colors.black.withValues(alpha: 0.98)
+                          : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: highContrast
+                            ? const Color(0xFFFFD400)
+                            : LoungeTokens.goldAccent.withValues(alpha: 0.34),
+                        width: highContrast ? 2 : 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.36),
+                          blurRadius: 28,
+                          offset: const Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(compact ? 12 : 18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _RoundResultHeader(
+                            headline: _roundHeadline(
+                              presentation.result,
+                              strings,
+                            ),
+                            detail: _roundDetail(presentation, strings),
+                            compact: compact,
+                          ),
+                          SizedBox(height: compact ? 10 : 14),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              child: _RoundScoreBreakdown(
+                                seats: seats,
+                                presentation: presentation,
+                                compact: compact,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: compact ? 10 : 14),
+                          if (winner == null)
+                            _RoundAdvanceLine(
+                              nextStarter: presentation.progress.nextStarter,
+                              onContinueNow: onContinueNow,
+                              compact: compact,
+                            )
+                          else
+                            _MatchWinnerLine(
+                              winner: winner,
+                              onReturnToMenu: onReturnToMenu,
+                              compact: compact,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              SizedBox(height: metrics.gap),
-              SizedBox(height: dockHeight, child: actionDock),
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: _TableCenter(
-                compact: metrics.compact,
-                stockCount: stockCount,
-                topDiscard: topDiscard,
-                tableMelds: tableMelds,
-              ),
             ),
-            SizedBox(width: metrics.gap),
-            SizedBox(width: metrics.actionDockWidth, child: actionDock),
-          ],
-        );
-      },
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _TableHeader extends StatelessWidget {
-  const _TableHeader({
-    required this.height,
-    required this.setup,
-    required this.starter,
-    required this.currentSeat,
-    required this.turnPhase,
-    required this.onLeave,
+class _RoundResultHeader extends StatelessWidget {
+  const _RoundResultHeader({
+    required this.headline,
+    required this.detail,
+    required this.compact,
   });
 
-  final double height;
-  final ClassicHareegSetup setup;
-  final PlayerSeat starter;
-  final PlayerSeat currentSeat;
-  final TurnPhase turnPhase;
-  final VoidCallback onLeave;
+  final String headline;
+  final String detail;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
+    return Row(
+      children: [
+        Icon(
+          Icons.scoreboard_outlined,
+          color: LoungeTokens.goldAccent,
+          size: compact ? 20 : 24,
+        ),
+        SizedBox(width: compact ? 8 : 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.strings.roundScore,
+                style: TextStyle(
+                  color: LoungeTokens.goldAccent,
+                  fontSize: compact ? 10 : 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                headline,
+                style: TextStyle(
+                  color: LoungeTokens.offWhiteText,
+                  fontSize: compact ? 17 : 22,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: TextStyle(
+                  color: LoungeTokens.offWhiteText.withValues(alpha: 0.74),
+                  fontSize: compact ? 11 : 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundScoreBreakdown extends StatelessWidget {
+  const _RoundScoreBreakdown({
+    required this.seats,
+    required this.presentation,
+    required this.compact,
+  });
+
+  final List<PlayerSeat> seats;
+  final _RoundResultPresentation presentation;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.20),
+        ),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < seats.length; index++) ...[
+            _RoundScoreRow(
+              seat: seats[index],
+              before: presentation.previousScores[seats[index]] ?? 0,
+              after: presentation.progress.scores[seats[index]] ?? 0,
+              cards: presentation.result.remainingCardCounts[seats[index]],
+              eliminated: !presentation.progress.activeSeats.contains(
+                seats[index],
+              ),
+              compact: compact,
+            ),
+            if (index < seats.length - 1)
+              Divider(
+                height: 1,
+                color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundScoreRow extends StatelessWidget {
+  const _RoundScoreRow({
+    required this.seat,
+    required this.before,
+    required this.after,
+    required this.cards,
+    required this.eliminated,
+    required this.compact,
+  });
+
+  final PlayerSeat seat;
+  final int before;
+  final int after;
+  final int? cards;
+  final bool eliminated;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final delta = after - before;
+    final deltaText = delta > 0 ? '+$delta' : '$delta';
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 14,
+        vertical: compact ? 7 : 10,
+      ),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Leave table',
-            onPressed: onLeave,
-            constraints: BoxConstraints.tightFor(width: height, height: height),
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 180,
-            child: Text(
-              AppStrings.tableTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  strings.seatLabel(seat),
+                  style: TextStyle(
+                    color: eliminated
+                        ? LoungeTokens.mutedText
+                        : LoungeTokens.offWhiteText,
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: FontWeight.w800,
+                    decoration: eliminated ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                if (cards != null)
+                  _MiniResultTag(
+                    label: strings.cardsCountTag(cards!),
+                    compact: compact,
+                  ),
+                if (eliminated)
+                  _MiniResultTag(label: strings.out, compact: compact),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _HeaderFact(label: 'Starter', value: _seatLabel(starter)),
-                  const SizedBox(width: 8),
-                  _HeaderFact(label: 'Turn', value: _seatLabel(currentSeat)),
-                  const SizedBox(width: 8),
-                  _HeaderFact(label: 'Phase', value: turnPhase.name),
-                  const SizedBox(width: 8),
-                  _HeaderFact(
-                    label: 'Opening',
-                    value: '${setup.openingRequirement}',
-                  ),
-                  const SizedBox(width: 8),
-                  _HeaderFact(
-                    label: 'Fifty',
-                    value: '${setup.fiftyTimerSeconds}s',
-                  ),
-                ],
+          Text('$before', style: _scoreNumberStyle(compact)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            child: Text(
+              delta == 0 ? '+0' : deltaText,
+              style: TextStyle(
+                color: delta <= 0
+                    ? LoungeTokens.goldAccent
+                    : LoungeTokens.fiftyFlame,
+                fontSize: compact ? 12 : 14,
+                fontWeight: FontWeight.w900,
               ),
+            ),
+          ),
+          Text(
+            '$after',
+            style: _scoreNumberStyle(compact).copyWith(
+              color: eliminated
+                  ? LoungeTokens.mutedText
+                  : LoungeTokens.goldAccent,
             ),
           ),
         ],
@@ -914,747 +1725,808 @@ class _TableHeader extends StatelessWidget {
   }
 }
 
-class _HeaderFact extends StatelessWidget {
-  const _HeaderFact({required this.label, required this.value});
+class _MiniResultTag extends StatelessWidget {
+  const _MiniResultTag({required this.label, required this.compact});
 
   final String label;
-  final String value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(label: Text('$label $value'));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 7, vertical: 2),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: LoungeTokens.offWhiteText.withValues(alpha: 0.72),
+            fontSize: compact ? 9 : 10,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
+      ),
+    );
   }
 }
 
-class _SeatPanel extends StatelessWidget {
-  const _SeatPanel({
+class _RoundAdvanceLine extends StatelessWidget {
+  const _RoundAdvanceLine({
+    required this.nextStarter,
+    required this.onContinueNow,
+    required this.compact,
+  });
+
+  final PlayerSeat nextStarter;
+  final VoidCallback? onContinueNow;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            strings.nextRoundStartsWith(nextStarter),
+            style: TextStyle(
+              color: LoungeTokens.offWhiteText.withValues(alpha: 0.76),
+              fontSize: compact ? 11 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onContinueNow,
+          style: _roundResultActionStyle(compact),
+          child: Text(strings.nextNow),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchWinnerLine extends StatelessWidget {
+  const _MatchWinnerLine({
+    required this.winner,
+    required this.onReturnToMenu,
+    required this.compact,
+  });
+
+  final PlayerSeat winner;
+  final VoidCallback? onReturnToMenu;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            strings.playerWinsMatch(winner),
+            style: TextStyle(
+              color: LoungeTokens.goldAccent,
+              fontSize: compact ? 12 : 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: onReturnToMenu,
+          style: _roundResultActionStyle(compact),
+          child: Text(strings.menu),
+        ),
+      ],
+    );
+  }
+}
+
+ButtonStyle _roundResultActionStyle(bool compact) {
+  return TextButton.styleFrom(
+    fixedSize: Size(compact ? 92 : 108, compact ? 34 : 40),
+    minimumSize: Size.zero,
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.compact,
+  );
+}
+
+TextStyle _scoreNumberStyle(bool compact) {
+  return TextStyle(
+    color: LoungeTokens.offWhiteText,
+    fontSize: compact ? 14 : 17,
+    fontWeight: FontWeight.w900,
+  );
+}
+
+String _roundHeadline(RoundProgressResult result, AppStrings strings) {
+  return switch (result.type) {
+    RoundOutcomeType.normalFinish => strings.playerFinished(result.winner!),
+    RoundOutcomeType.fiftyFinish => strings.playerHitFifty(result.winner!),
+    RoundOutcomeType.draw => strings.roundDrawn,
+  };
+}
+
+String _roundDetail(_RoundResultPresentation presentation, AppStrings strings) {
+  final result = presentation.result;
+  return switch (result.type) {
+    RoundOutcomeType.normalFinish => strings.roundResultDetailNormal(),
+    RoundOutcomeType.fiftyFinish => strings.roundResultDetailFifty(
+      firstRoundException: result.firstRoundFiftyException,
+    ),
+    RoundOutcomeType.draw => strings.roundResultDetailDraw(),
+  };
+}
+
+class _CardInspectOverlay extends StatelessWidget {
+  const _CardInspectOverlay({
+    required this.card,
+    required this.theme,
+    required this.aids,
+    required this.jokerAidsEnabled,
+    required this.onClose,
+  });
+
+  final HareegCard card;
+  final HareegCardTheme theme;
+  final TableAids aids;
+  final bool jokerAidsEnabled;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final highContrast = CardContrastScope.enabledOf(context);
+    final title = _inspectTitle(
+      card,
+      strings,
+      jokerAidsEnabled: jokerAidsEnabled,
+    );
+    final body = _inspectBody(
+      card,
+      aids,
+      strings: strings,
+      jokerAidsEnabled: jokerAidsEnabled,
+    );
+    final inspectJokerDisplay = jokerAidsEnabled
+        ? JokerDisplay.assisted
+        : JokerDisplay.unassigned;
+    return Positioned.fill(
+      key: const ValueKey('card-inspect-overlay'),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onClose,
+        child: Material(
+          color: Colors.black.withValues(alpha: highContrast ? 0.68 : 0.48),
+          child: SafeArea(
+            child: Center(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact =
+                      constraints.maxWidth < 560 || constraints.maxHeight < 390;
+                  final cardSize = compact
+                      ? const Size(88, 124)
+                      : const Size(128, 180);
+                  final details = Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: compact
+                        ? CrossAxisAlignment.center
+                        : CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        key: const ValueKey('card-inspect-title'),
+                        textAlign: compact ? TextAlign.center : TextAlign.start,
+                        style: TextStyle(
+                          color: LoungeTokens.offWhiteText,
+                          fontSize: compact ? 17 : 20,
+                          fontWeight: FontWeight.w900,
+                          height: 1.05,
+                        ),
+                      ),
+                      if (body != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          body,
+                          key: const ValueKey('card-inspect-body'),
+                          textAlign: compact
+                              ? TextAlign.center
+                              : TextAlign.start,
+                          style: TextStyle(
+                            color: LoungeTokens.offWhiteText.withValues(
+                              alpha: 0.82,
+                            ),
+                            fontSize: compact ? 12 : 13,
+                            height: 1.25,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+
+                  final content = compact
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            HareegCardView(
+                              theme: theme,
+                              card: card,
+                              size: cardSize,
+                              jokerDisplay: inspectJokerDisplay,
+                            ),
+                            const SizedBox(height: 12),
+                            details,
+                          ],
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            HareegCardView(
+                              theme: theme,
+                              card: card,
+                              size: cardSize,
+                              jokerDisplay: inspectJokerDisplay,
+                            ),
+                            const SizedBox(width: 18),
+                            Flexible(child: details),
+                          ],
+                        );
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxWidth: math.max(
+                          0.0,
+                          math.min(constraints.maxWidth - 28, 520.0),
+                        ),
+                        maxHeight: math.max(0.0, constraints.maxHeight - 28),
+                      ),
+                      margin: const EdgeInsets.all(14),
+                      padding: EdgeInsets.fromLTRB(
+                        compact ? 14 : 18,
+                        compact ? 14 : 18,
+                        compact ? 14 : 18,
+                        compact ? 16 : 18,
+                      ),
+                      decoration: BoxDecoration(
+                        color: highContrast
+                            ? Colors.black.withValues(alpha: 0.98)
+                            : LoungeTokens.coffeeCharcoal.withValues(
+                                alpha: 0.96,
+                              ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: highContrast
+                              ? const Color(0xFFFFD400)
+                              : LoungeTokens.goldAccent.withValues(alpha: 0.36),
+                          width: highContrast ? 2 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.34),
+                            blurRadius: 28,
+                            offset: const Offset(0, 14),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          SingleChildScrollView(
+                            child: Padding(
+                              padding: EdgeInsets.only(right: compact ? 0 : 28),
+                              child: content,
+                            ),
+                          ),
+                          Positioned(
+                            top: -8,
+                            right: -8,
+                            child: Tooltip(
+                              message: strings.close,
+                              child: IconButton(
+                                key: const ValueKey('card-inspect-close'),
+                                onPressed: onClose,
+                                icon: const Icon(Icons.close_rounded),
+                                color: LoungeTokens.offWhiteText,
+                                iconSize: 20,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _FlightAnchor {
+  stock(Alignment(-0.86, 0.56)),
+  discard(Alignment(0, 0)),
+  hand(Alignment(0, 0.82));
+
+  const _FlightAnchor(this.alignment);
+
+  final Alignment alignment;
+}
+
+Alignment _alignmentForSeat(PlayerSeat seat) {
+  return switch (seat) {
+    PlayerSeat.south => const Alignment(0, 0.48),
+    PlayerSeat.north => const Alignment(0, -0.48),
+    PlayerSeat.east => const Alignment(0.68, 0),
+    PlayerSeat.west => const Alignment(-0.68, 0),
+  };
+}
+
+HareegCard _backSeed(int index) {
+  return HareegCard.standard(
+    rank: CardRank.ace,
+    suit: CardSuit.spades,
+    deckIndex: 700 + index,
+  );
+}
+
+class _CardFlight {
+  const _CardFlight({
+    required this.serial,
+    required this.card,
+    required this.begin,
+    required this.end,
+    this.faceDown = false,
+    this.beginHandSlot,
+    this.endHandSlot,
+    this.endMeldSlot,
+  });
+
+  final int serial;
+  final HareegCard card;
+  final Alignment begin;
+  final Alignment end;
+  final bool faceDown;
+  final _SeatHandFlightSlot? beginHandSlot;
+  final _SeatHandFlightSlot? endHandSlot;
+  final _TableMeldFlightSlot? endMeldSlot;
+}
+
+class _SeatHandFlightSlot {
+  const _SeatHandFlightSlot({
     required this.seat,
+    required this.index,
     required this.count,
-    this.horizontal = false,
-    this.width = 104,
-    this.height = 68,
   });
 
   final PlayerSeat seat;
+  final int index;
   final int count;
-  final bool horizontal;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(seat == PlayerSeat.south ? Icons.person : Icons.smart_toy),
-        const SizedBox(height: 4),
-        Text(_seatLabel(seat)),
-        Text('$count cards', style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: SizedBox(
-        width: horizontal ? double.infinity : width,
-        height: horizontal ? height : double.infinity,
-        child: Center(
-          child: FittedBox(fit: BoxFit.scaleDown, child: child),
-        ),
-      ),
-    );
-  }
 }
 
-class _TableCenter extends StatelessWidget {
-  const _TableCenter({
-    required this.compact,
-    required this.stockCount,
-    required this.topDiscard,
-    required this.tableMelds,
+class _TableMeldFlightSlot {
+  const _TableMeldFlightSlot({required this.seat, this.index = 0});
+
+  final PlayerSeat seat;
+  final int index;
+}
+
+class _CardFlightOverlay extends StatelessWidget {
+  const _CardFlightOverlay({
+    super.key,
+    required this.flight,
+    required this.theme,
+    required this.duration,
   });
 
-  final bool compact;
-  final int stockCount;
-  final HareegCard? topDiscard;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
+  final _CardFlight flight;
+  final HareegCardTheme theme;
+  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 8 : 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Expanded(
-              child: _Pile(
-                compact: compact,
-                label: AppStrings.stock,
-                value: '$stockCount',
-              ),
-            ),
-            SizedBox(width: compact ? 4 : 8),
-            Expanded(
-              child: _MeldPile(compact: compact, tableMelds: tableMelds),
-            ),
-            SizedBox(width: compact ? 4 : 8),
-            Expanded(
-              child: _Pile(
-                compact: compact,
-                label: AppStrings.discard,
-                value: topDiscard?.label ?? 'Empty',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Pile extends StatelessWidget {
-  const _Pile({
-    required this.compact,
-    required this.label,
-    required this.value,
-  });
-
-  final bool compact;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        SizedBox(height: compact ? 3 : 4),
-        Flexible(
-          child: Container(
-            width: compact ? 64 : 72,
-            height: compact ? 38 : 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(value, textAlign: TextAlign.center),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MeldPile extends StatelessWidget {
-  const _MeldPile({required this.compact, required this.tableMelds});
-
-  final bool compact;
-  final Map<PlayerSeat, List<PlacedMeld>> tableMelds;
-
-  @override
-  Widget build(BuildContext context) {
-    final melds = [
-      for (final entry in tableMelds.entries)
-        for (final meld in entry.value) (seat: entry.key, meld: meld),
-    ];
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          AppStrings.meldZone,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        SizedBox(height: compact ? 3 : 4),
-        Flexible(
-          child: melds.isEmpty
-              ? _MeldTile(compact: compact, label: 'Empty')
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: melds.length,
-                  separatorBuilder: (context, index) =>
-                      SizedBox(width: compact ? 4 : 6),
-                  itemBuilder: (context, index) {
-                    final entry = melds[index];
-                    final label = entry.meld.cards
-                        .map((card) => card.label)
-                        .join(' ');
-                    return _MeldTile(
-                      compact: compact,
-                      label: '${_seatLabel(entry.seat)}: $label',
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MeldTile extends StatelessWidget {
-  const _MeldTile({required this.compact, required this.label});
-
-  final bool compact;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        minWidth: compact ? 64 : 72,
-        maxWidth: compact ? 118 : 152,
-      ),
-      height: compact ? 38 : 44,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.secondary),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-class _ActionDock extends StatelessWidget {
-  const _ActionDock({
-    required this.metrics,
-    required this.pendingDiscard,
-    required this.turnStatus,
-    required this.selectedMeldResult,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
-  });
-
-  final _TableLayoutMetrics metrics;
-  final HareegCard? pendingDiscard;
-  final String? turnStatus;
-  final MeldValidationResult selectedMeldResult;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: EdgeInsets.all(metrics.compact ? 6 : 8),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _TurnStatusBanner(message: turnStatus),
-              if (turnStatus != null) SizedBox(height: metrics.gap),
-              _PendingDiscardBanner(card: pendingDiscard),
-              if (pendingDiscard != null) SizedBox(height: metrics.gap),
-              _SelectedMeldFeedback(
-                result: selectedMeldResult,
-                openingRequirement: openingRequirement,
-                humanFeedback: humanFeedback,
-                humanFeedbackIsError: humanFeedbackIsError,
-              ),
-              SizedBox(height: metrics.gap),
-              _ActionBar(
-                canDraw: canDraw,
-                canTakeDiscard: canTakeDiscard,
-                canClaimFifty: canClaimFifty,
-                showPlayMeld: showPlayMeld,
-                canPlayMeld: canPlayMeld,
-                showPlaceCover: showPlaceCover,
-                canPlaceCover: canPlaceCover,
-                showReplaceJoker: showReplaceJoker,
-                canReplaceJoker: canReplaceJoker,
-                showDiscard: showDiscard,
-                canDiscard: canDiscard,
-                canReturnDiscard: canReturnDiscard,
-                canReturnOpeningMelds: canReturnOpeningMelds,
-                onDraw: onDraw,
-                onTakeDiscard: onTakeDiscard,
-                onClaimFifty: onClaimFifty,
-                onReturnDiscard: onReturnDiscard,
-                onReturnOpeningMelds: onReturnOpeningMelds,
-                onPlayMeld: onPlayMeld,
-                onPlaceCover: onPlaceCover,
-                onReplaceJoker: onReplaceJoker,
-                onDiscard: onDiscard,
-                onAutoSort: onAutoSort,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.canDraw,
-    required this.canTakeDiscard,
-    required this.canClaimFifty,
-    required this.showPlayMeld,
-    required this.canPlayMeld,
-    required this.showPlaceCover,
-    required this.canPlaceCover,
-    required this.showReplaceJoker,
-    required this.canReplaceJoker,
-    required this.showDiscard,
-    required this.canDiscard,
-    required this.canReturnDiscard,
-    required this.canReturnOpeningMelds,
-    required this.onDraw,
-    required this.onTakeDiscard,
-    required this.onClaimFifty,
-    required this.onReturnDiscard,
-    required this.onReturnOpeningMelds,
-    required this.onPlayMeld,
-    required this.onPlaceCover,
-    required this.onReplaceJoker,
-    required this.onDiscard,
-    required this.onAutoSort,
-  });
-
-  final bool canDraw;
-  final bool canTakeDiscard;
-  final bool canClaimFifty;
-  final bool showPlayMeld;
-  final bool canPlayMeld;
-  final bool showPlaceCover;
-  final bool canPlaceCover;
-  final bool showReplaceJoker;
-  final bool canReplaceJoker;
-  final bool showDiscard;
-  final bool canDiscard;
-  final bool canReturnDiscard;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onDraw;
-  final VoidCallback onTakeDiscard;
-  final VoidCallback onClaimFifty;
-  final VoidCallback onReturnDiscard;
-  final VoidCallback onReturnOpeningMelds;
-  final VoidCallback onPlayMeld;
-  final VoidCallback? onPlaceCover;
-  final VoidCallback? onReplaceJoker;
-  final VoidCallback? onDiscard;
-  final VoidCallback onAutoSort;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: [
-        if (canDraw)
-          FilledButton.icon(
-            onPressed: onDraw,
-            icon: const Icon(Icons.add),
-            label: const Text(AppStrings.drawStock),
-          ),
-        if (canTakeDiscard)
-          FilledButton.tonalIcon(
-            onPressed: onTakeDiscard,
-            icon: const Icon(Icons.move_down_outlined),
-            label: const Text(AppStrings.takeDiscard),
-          ),
-        if (canClaimFifty)
-          FilledButton.icon(
-            onPressed: onClaimFifty,
-            icon: const Icon(Icons.local_fire_department_outlined),
-            label: const Text('Fifty'),
-          ),
-        if (showPlayMeld)
-          FilledButton.icon(
-            onPressed: canPlayMeld ? onPlayMeld : null,
-            icon: const Icon(Icons.table_rows_outlined),
-            label: const Text('Play Meld'),
-          ),
-        if (showPlaceCover)
-          FilledButton.icon(
-            onPressed: canPlaceCover ? onPlaceCover : null,
-            icon: const Icon(Icons.call_merge),
-            label: const Text('Place Cover'),
-          ),
-        if (showReplaceJoker)
-          FilledButton.icon(
-            onPressed: canReplaceJoker ? onReplaceJoker : null,
-            icon: const Icon(Icons.change_circle_outlined),
-            label: const Text('Replace Joker'),
-          ),
-        if (canReturnDiscard)
-          FilledButton.icon(
-            onPressed: onReturnDiscard,
-            icon: const Icon(Icons.undo),
-            label: const Text(AppStrings.returnDiscard),
-          ),
-        if (canReturnOpeningMelds)
-          FilledButton.icon(
-            onPressed: onReturnOpeningMelds,
-            icon: const Icon(Icons.undo_outlined),
-            label: const Text(AppStrings.takeBackMelds),
-          ),
-        if (showDiscard)
-          FilledButton.icon(
-            onPressed: canDiscard ? onDiscard : null,
-            icon: const Icon(Icons.remove_circle_outline),
-            label: const Text(AppStrings.discardCard),
-          ),
-        OutlinedButton.icon(
-          onPressed: onAutoSort,
-          icon: const Icon(Icons.sort),
-          label: const Text(AppStrings.autoSort),
-        ),
-      ],
-    );
-  }
-}
-
-class _PendingDiscardBanner extends StatelessWidget {
-  const _PendingDiscardBanner({required this.card});
-
-  final HareegCard? card;
-
-  @override
-  Widget build(BuildContext context) {
-    final pending = card;
-    if (pending == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 34,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.priority_high, size: 18),
-              const SizedBox(width: 8),
-              Text('${AppStrings.pendingDiscard}: ${pending.label}'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TurnStatusBanner extends StatelessWidget {
-  const _TurnStatusBanner({required this.message});
-
-  final String? message;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = message;
-    if (text == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SizedBox(
-      height: 34,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const Icon(Icons.timer_outlined, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectedMeldFeedback extends StatelessWidget {
-  const _SelectedMeldFeedback({
-    required this.result,
-    required this.openingRequirement,
-    required this.humanFeedback,
-    required this.humanFeedbackIsError,
-  });
-
-  final MeldValidationResult result;
-  final int openingRequirement;
-  final String? humanFeedback;
-  final bool humanFeedbackIsError;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    if (humanFeedback != null) {
-      final color = humanFeedbackIsError ? colors.error : colors.primary;
-      return ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: color),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Icon(
-                  humanFeedbackIsError
-                      ? Icons.error_outline
-                      : Icons.check_circle_outline,
-                  size: 18,
-                  color: color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    humanFeedback!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          final cardSize = constraints.maxHeight <= 390
+              ? const Size(44, 62)
+              : const Size(58, 82);
+          final begin = _resolveFlightPoint(
+            flight.begin,
+            size,
+            cardSize,
+            flight.beginHandSlot,
+            null,
+          );
+          final end = _resolveFlightPoint(
+            flight.end,
+            size,
+            cardSize,
+            flight.endHandSlot,
+            flight.endMeldSlot,
+          );
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              final lifted = math.sin(value * math.pi) * 24;
+              final offset = Offset.lerp(begin, end, value)!;
+              return Stack(
+                children: [
+                  Positioned(
+                    left: offset.dx,
+                    top: offset.dy - lifted,
+                    child: Transform.rotate(
+                      angle: (1 - value) * -0.10,
+                      child: Opacity(
+                        opacity: (1 - (value * 0.18))
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                        child: child,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              );
+            },
+            child: Material(
+              color: Colors.transparent,
+              elevation: 14,
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
+              child: HareegCardView(
+                theme: theme,
+                card: flight.card,
+                size: cardSize,
+                faceDown: flight.faceDown,
+                visualState: CardVisualState.selected,
+              ),
             ),
-          ),
-        ),
-      );
-    }
-
-    final openingText = result.value >= openingRequirement
-        ? 'opening ready'
-        : 'needs $openingRequirement to open';
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 44),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: result.isValid ? colors.primary : colors.outline,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                result.isValid
-                    ? Icons.check_circle_outline
-                    : Icons.info_outline,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  result.isValid
-                      ? '${result.message} Value ${result.value}, $openingText.'
-                      : result.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HumanHand extends StatelessWidget {
-  const _HumanHand({
-    required this.height,
-    required this.cardWidth,
-    required this.cardHeight,
-    required this.cards,
-    required this.selectedIds,
-    required this.onSelected,
-  });
-
-  final double height;
-  final double cardWidth;
-  final double cardHeight;
-  final List<HareegCard> cards;
-  final Set<String> selectedIds;
-  final ValueChanged<HareegCard> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: cards.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 6),
-        itemBuilder: (context, index) {
-          final card = cards[index];
-          return _HandCard(
-            width: cardWidth,
-            height: cardHeight,
-            card: card,
-            selected: selectedIds.contains(card.id),
-            onTap: () => onSelected(card),
           );
         },
       ),
     );
   }
-}
 
-class _HumanHandHeader extends StatelessWidget {
-  const _HumanHandHeader({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(Icons.person, size: 18),
-        const SizedBox(width: 6),
-        const Text(AppStrings.humanSeat),
-        const SizedBox(width: 8),
-        Text('$count cards', style: Theme.of(context).textTheme.bodySmall),
-      ],
+  Offset _resolveFlightPoint(
+    Alignment alignment,
+    Size size,
+    Size cardSize,
+    _SeatHandFlightSlot? handSlot,
+    _TableMeldFlightSlot? meldSlot,
+  ) {
+    if (handSlot != null) {
+      return _resolveSeatHandSlot(handSlot, size, cardSize);
+    }
+    if (meldSlot != null) {
+      return _resolveTableMeldSlot(meldSlot, size, cardSize);
+    }
+    return Offset(
+      ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
+      ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
     );
+  }
+
+  Offset _resolveSeatHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    return switch (slot.seat) {
+      PlayerSeat.south => _resolveSouthHandSlot(slot, size, flightCardSize),
+      PlayerSeat.north => _resolveNorthHandSlot(slot, size, flightCardSize),
+      PlayerSeat.west ||
+      PlayerSeat.east => _resolveSideHandSlot(slot, size, flightCardSize),
+    };
+  }
+
+  Offset _resolveSouthHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
+    final controlWidth = compact ? 60.0 : 72.0;
+    final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final handRightInset = controlWidth + edgeInset + (compact ? 10.0 : 16.0);
+    final handLeft = compact ? 70.0 : 96.0;
+    final handBottom = compact ? 0.0 : 2.0;
+    final handWidth = math.max(0.0, size.width - handLeft - handRightInset);
+    final count = math.max(1, slot.count);
+    final index = slot.index.clamp(0, count - 1).toInt();
+    final minGap = handCardSize.width * 0.42;
+    final preferredGap = handCardSize.width * 0.78;
+    final available = math.max(0.0, handWidth - 8);
+    final fittedGap = count <= 1
+        ? 0.0
+        : ((available - handCardSize.width) / (count - 1))
+              .clamp(minGap, preferredGap)
+              .toDouble();
+    final stripWidth = handCardSize.width + math.max(0, count - 1) * fittedGap;
+    final canvasWidth = math.max(stripWidth, available);
+    final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
+    final handTop = size.height - handBottom - bottomHandHeight;
+    final centerX =
+        handLeft + start + index * fittedGap + handCardSize.width / 2;
+    final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveNorthHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final visibleCount = compact ? 9 : 12;
+    final shown = math.min(math.max(1, slot.count), visibleCount);
+    final index = slot.index.clamp(0, shown - 1).toInt();
+    final gap = cardSize.width * 0.38;
+    final stackWidth = cardSize.width + (shown - 1) * gap;
+    final left = (size.width - stackWidth) / 2;
+    final top = topInset + (compact ? 6.0 : 8.0);
+    final centerX = left + index * gap + cardSize.width / 2;
+    final centerY = top + cardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveSideHandSlot(
+    _SeatHandFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final sideRailWidth = compact ? 46.0 : 56.0;
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final sideRailVisibleCount = compact ? 5 : 6;
+    final sideRailHeight = cardSize.height + (sideRailVisibleCount - 1) * 14.0;
+    final sideRailTop = topInset + cardSize.height + 12;
+    final visibleCount = compact ? 8 : 11;
+    final shown = math.min(math.max(1, slot.count), visibleCount);
+    final index = slot.index.clamp(0, shown - 1).toInt();
+    final gap = 16.0;
+    final stackHeight = cardSize.height + (shown - 1) * gap;
+    final top = sideRailTop + (sideRailHeight - stackHeight) / 2;
+    final left = switch (slot.seat) {
+      PlayerSeat.west => edgeInset,
+      PlayerSeat.east =>
+        size.width - edgeInset - sideRailWidth + sideRailWidth - cardSize.width,
+      PlayerSeat.north || PlayerSeat.south => 0.0,
+    };
+    final centerX = left + cardSize.width / 2;
+    final centerY = top + index * gap + cardSize.height / 2;
+    return _centeredFlightOffset(centerX, centerY, flightCardSize);
+  }
+
+  Offset _resolveTableMeldSlot(
+    _TableMeldFlightSlot slot,
+    Size size,
+    Size flightCardSize,
+  ) {
+    final compact = size.height <= 390 || size.width <= 700;
+    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
+    final opponentCardSize = compact ? const Size(26, 36) : const Size(32, 44);
+    final sideMeldCardSize = compact ? const Size(28, 40) : const Size(34, 48);
+    final sideRailWidth = compact ? 46.0 : 56.0;
+    final edgeInset = (size.width * 0.026)
+        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+        .toDouble();
+    final topInset = (size.height * 0.032)
+        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+        .toDouble();
+    final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
+    final southMeldHeight = compact ? 50.0 : 60.0;
+    final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
+    final sideMeldBottomSafe = size.height - (compact ? 12.0 : 16.0);
+    final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
+    final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
+    final sideMeldGap = compact ? 6.0 : 10.0;
+    final horizontalMeldInset = (size.width * 0.25)
+        .clamp(compact ? 126.0 : 210.0, compact ? 180.0 : 390.0)
+        .toDouble();
+
+    final (centerX, centerY) = switch (slot.seat) {
+      PlayerSeat.south => (
+        size.width * 0.5,
+        size.height - southMeldBottom - southMeldHeight * 0.5,
+      ),
+      PlayerSeat.north => (
+        size.width * 0.5,
+        topInset +
+            opponentCardSize.height +
+            (compact ? 18.0 : 24.0) +
+            (compact ? 58.0 : 70.0) * 0.5,
+      ),
+      PlayerSeat.west => (
+        edgeInset + sideRailWidth + sideMeldGap + sideMeldWidth * 0.5,
+        sideMeldTop + sideMeldHeight * 0.5,
+      ),
+      PlayerSeat.east => (
+        size.width -
+            edgeInset -
+            sideRailWidth -
+            sideMeldGap -
+            sideMeldWidth * 0.5,
+        sideMeldTop + sideMeldHeight * 0.5,
+      ),
+    };
+
+    final laneInset = switch (slot.seat) {
+      PlayerSeat.south || PlayerSeat.north => horizontalMeldInset,
+      PlayerSeat.east || PlayerSeat.west => 0.0,
+    };
+    final clampedCenterX = centerX.clamp(
+      laneInset + flightCardSize.width * 0.5,
+      size.width - laneInset - flightCardSize.width * 0.5,
+    );
+    return _centeredFlightOffset(
+      clampedCenterX.toDouble(),
+      centerY,
+      flightCardSize,
+    );
+  }
+
+  Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {
+    return Offset(centerX - cardSize.width / 2, centerY - cardSize.height / 2);
   }
 }
 
-class _HandCard extends StatelessWidget {
-  const _HandCard({
-    required this.width,
-    required this.height,
-    required this.card,
-    required this.selected,
-    required this.onTap,
-  });
+class _FeedbackChip extends StatelessWidget {
+  const _FeedbackChip({required this.message, required this.isError});
 
-  final double width;
-  final double height;
-  final HareegCard card;
-  final bool selected;
-  final VoidCallback onTap;
+  final String message;
+  final bool isError;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        width: width,
-        height: height,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F0DD),
-          border: Border.all(
-            color: selected ? colors.primary : const Color(0xFFD7BD83),
-            width: selected ? 3 : 1,
+    final color = isError ? LoungeTokens.deepRed : LoungeTokens.goldAccent;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
+      padding: const EdgeInsets.symmetric(
+        horizontal: LoungeTokens.space3,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        border: Border.all(color: color),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isError ? Icons.error_outline : Icons.check_circle_outline,
+            size: 16,
+            color: color,
           ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          card.label,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF15110E),
-            fontWeight: FontWeight.w800,
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              message,
+              style: LoungeTokens.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-String _seatLabel(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => AppStrings.humanSeat,
-    PlayerSeat.east => 'CPU East',
-    PlayerSeat.north => 'CPU North',
-    PlayerSeat.west => 'CPU West',
-  };
+void _debugTableLog(String message) {
+  assert(() {
+    debugPrint('[hareeg:table] $message');
+    return true;
+  }());
+}
+
+String _debugSeatCounts(ClassicHareegGameController controller) {
+  return PlayerSeat.values
+      .map((seat) => '${seat.name}:${controller.cardCountFor(seat)}')
+      .join(',');
+}
+
+String _debugActionSummary(Iterable<String> actionIds) {
+  final ids = actionIds.toList(growable: false);
+  if (ids.isEmpty) {
+    return '[]';
+  }
+  const maxShown = 5;
+  final shown = ids.take(maxShown).join(', ');
+  if (ids.length <= maxShown) {
+    return '[$shown]';
+  }
+  return '[$shown, +${ids.length - maxShown} more]';
+}
+
+bool _jokerAidsEnabledFor(ClassicHareegSetup setup) {
+  return setup.rulePreset != RulePreset.hardTable17;
+}
+
+String _inspectTitle(
+  HareegCard card,
+  AppStrings strings, {
+  required bool jokerAidsEnabled,
+}) {
+  final identity = card.identity;
+  if (identity != null) {
+    return strings.cardName(identity);
+  }
+
+  if (!jokerAidsEnabled) {
+    return strings.joker;
+  }
+
+  final represented = card.representedIdentity;
+  if (represented != null) {
+    return strings.jokerAs(represented);
+  }
+
+  return strings.joker;
+}
+
+String? _inspectBody(
+  HareegCard card,
+  TableAids aids, {
+  required AppStrings strings,
+  required bool jokerAidsEnabled,
+}) {
+  if (aids == TableAids.tableMode) {
+    return null;
+  }
+
+  if (card.isJoker && !jokerAidsEnabled) {
+    return null;
+  }
+
+  final identity = card.effectiveIdentity;
+  if (identity == null) {
+    return aids == TableAids.guided
+        ? strings.unassignedJokerGuided
+        : strings.unassignedJoker;
+  }
+
+  final value = identity.rank.value;
+  if (card.isJoker) {
+    return aids == TableAids.guided
+        ? strings.representedJokerGuided(strings.cardName(identity))
+        : '${strings.representedJoker(strings.cardName(identity))} '
+              '${strings.cardValue(value)}';
+  }
+
+  if (aids == TableAids.guided) {
+    return strings.cardValueGuided(value);
+  }
+  return strings.cardValueWithSuit(value, strings.suitWord(identity.suit));
 }

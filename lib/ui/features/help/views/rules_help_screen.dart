@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/brand/app_brand_mark.dart';
+import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/theme/lounge_tokens.dart';
 
 /// Player-facing Classic Hareeg help.
 class RulesHelpScreen extends StatefulWidget {
@@ -21,57 +24,90 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     final sections = [
-      const _HelpSectionData(
-        title: AppStrings.helpSetupTitle,
-        body: AppStrings.helpSetupBody,
+      _HelpSectionData(
+        icon: Icons.groups_outlined,
+        title: strings.helpSetupTitle,
+        body: strings.helpSetupBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpTurnFlowTitle,
-        body: AppStrings.helpTurnFlowBody,
+      _HelpSectionData(
+        icon: Icons.swap_horiz_outlined,
+        title: strings.helpTurnFlowTitle,
+        body: strings.helpTurnFlowBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpOpeningTitle,
-        body: AppStrings.helpOpeningBody,
+      _HelpSectionData(
+        icon: Icons.flag_outlined,
+        title: strings.helpOpeningTitle,
+        body: strings.helpOpeningBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpCoversTitle,
-        body: AppStrings.helpCoversBody,
+      _HelpSectionData(
+        icon: Icons.add_circle_outline,
+        title: strings.helpCoversTitle,
+        body: strings.helpCoversBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpJokersTitle,
-        body: AppStrings.helpJokersBody,
+      _HelpSectionData(
+        icon: Icons.casino_outlined,
+        title: strings.helpJokersTitle,
+        body: strings.helpJokersBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpFiftyTitle,
-        body: AppStrings.helpFiftyBody,
+      _HelpSectionData(
+        icon: Icons.local_fire_department_outlined,
+        title: strings.helpFiftyTitle,
+        body: strings.helpFiftyBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpScoringTitle,
-        body: AppStrings.helpScoringBody,
+      _HelpSectionData(
+        icon: Icons.scoreboard_outlined,
+        title: strings.helpScoringTitle,
+        body: strings.helpScoringBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpMistakePresetsTitle,
-        body: AppStrings.helpMistakePresetsBody,
+      _HelpSectionData(
+        icon: Icons.warning_amber_outlined,
+        title: strings.helpMistakePresetsTitle,
+        body: strings.helpMistakePresetsBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpPauseResumeTitle,
-        body: AppStrings.helpPauseResumeBody,
+      _HelpSectionData(
+        icon: Icons.pause_circle_outline,
+        title: strings.helpPauseResumeTitle,
+        body: strings.helpPauseResumeBody,
       ),
-      const _HelpSectionData(
-        title: AppStrings.helpPlannedModesTitle,
-        body: AppStrings.helpPlannedModesBody,
+      _HelpSectionData(
+        icon: Icons.lock_clock_outlined,
+        title: strings.helpPlannedModesTitle,
+        body: strings.helpPlannedModesBody,
       ),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.helpTitle)),
+      backgroundColor: LoungeTokens.feltGreen,
+      appBar: AppBar(title: Text(strings.helpTitle)),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            for (final section in sections)
-              _HelpSection(title: section.title, body: section.body),
+            const _HelpBackdrop(),
+            ListView(
+              padding: const EdgeInsets.fromLTRB(
+                LoungeTokens.space5,
+                LoungeTokens.space5,
+                LoungeTokens.space5,
+                LoungeTokens.space8,
+              ),
+              children: [
+                const _HelpIntro(),
+                const SizedBox(height: LoungeTokens.space5),
+                for (var i = 0; i < sections.length; i++) ...[
+                  _HelpSection(section: sections[i]),
+                  if (i < sections.length - 1)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: LoungeTokens.space4,
+                      ),
+                      child: _RuleDivider(),
+                    ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -79,33 +115,121 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
   }
 }
 
-class _HelpSectionData {
-  const _HelpSectionData({required this.title, required this.body});
+class _HelpBackdrop extends StatelessWidget {
+  const _HelpBackdrop();
 
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -44,
+          right: -48,
+          child: LoungeMotif(
+            variant: LoungeMotifVariant.medallion,
+            opacity: 0.052,
+            strokeWidth: 1.0,
+            density: 4,
+            size: const Size.square(220),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 18,
+          child: SizedBox(
+            height: 30,
+            child: CustomPaint(
+              painter: const GeometricMotifPainter(
+                variant: LoungeMotifVariant.border,
+                opacity: 0.08,
+                strokeWidth: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HelpIntro extends StatelessWidget {
+  const _HelpIntro();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppBrandMark(semanticLabel: strings.appTitle),
+        const SizedBox(width: LoungeTokens.space4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(strings.helpTitle, style: LoungeTokens.display),
+              const SizedBox(height: LoungeTokens.space2),
+              Text(strings.helpIntro, style: LoungeTokens.bodyMuted),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HelpSectionData {
+  const _HelpSectionData({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
   final String title;
   final String body;
 }
 
 class _HelpSection extends StatelessWidget {
-  const _HelpSection({required this.title, required this.body});
+  const _HelpSection({required this.section});
 
-  final String title;
-  final String body;
+  final _HelpSectionData section;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(section.icon, color: LoungeTokens.goldAccent, size: 20),
+        const SizedBox(width: LoungeTokens.space3),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(section.title, style: LoungeTokens.heading),
+              const SizedBox(height: LoungeTokens.space2),
+              Text(
+                section.body,
+                style: LoungeTokens.body.copyWith(height: 1.45),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(body),
-        ],
-      ),
+class _RuleDivider extends StatelessWidget {
+  const _RuleDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      color: LoungeTokens.sandLine.withValues(alpha: 0.22),
     );
   }
 }

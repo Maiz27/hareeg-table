@@ -38,6 +38,37 @@ void main() {
       ]);
     });
 
+    test('finds both edge identities for a same-suit face-card sequence', () {
+      final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
+      final options = ClassicHareegJokerRules.representationOptionsForMeld(
+        cards: [
+          card(CardRank.jack, CardSuit.hearts),
+          card(CardRank.queen, CardSuit.hearts),
+          joker,
+        ],
+        joker: joker,
+      );
+
+      expect(options, [
+        const CardIdentity(rank: CardRank.ten, suit: CardSuit.hearts),
+        const CardIdentity(rank: CardRank.king, suit: CardSuit.hearts),
+      ]);
+    });
+
+    test('rejects mixed-suit face cards with a joker as a sequence', () {
+      final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
+      final options = ClassicHareegJokerRules.representationOptionsForMeld(
+        cards: [
+          card(CardRank.jack, CardSuit.diamonds),
+          card(CardRank.queen, CardSuit.hearts),
+          joker,
+        ],
+        joker: joker,
+      );
+
+      expect(options, isEmpty);
+    });
+
     test('finds ambiguous represented identity options for set placement', () {
       final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
       final options = ClassicHareegJokerRules.representationOptionsForMeld(

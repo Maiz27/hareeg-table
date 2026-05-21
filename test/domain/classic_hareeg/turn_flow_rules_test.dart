@@ -34,27 +34,29 @@ void main() {
       ]);
     });
 
-    test('pending state does not expose return when stock is empty', () {
+    test('pending state exposes return when stock is empty', () {
       final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
         drawState(stock: const []),
       );
 
-      expect(pending.legalActionIds, ['use-pending-discard']);
+      expect(pending.legalActionIds, [
+        'use-pending-discard',
+        'return-pending-discard',
+      ]);
     });
 
-    test('returning pending discard restores discard and draws stock', () {
+    test('returning pending discard restores draw decision', () {
       final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
         drawState(),
       );
-      final returned = ClassicHareegTurnFlowRules.returnPendingDiscardAndDraw(
-        pending,
-      );
+      final returned = ClassicHareegTurnFlowRules.returnPendingDiscard(pending);
 
       expect(returned.pendingDiscard, isNull);
       expect(returned.discardPile.last.label, '9C');
-      expect(returned.hand.length, pending.hand.length);
-      expect(returned.stock.length, pending.stock.length - 1);
-      expect(returned.phase, ClassicTurnPhase.action);
+      expect(returned.hand.length, pending.hand.length - 1);
+      expect(returned.stock.length, pending.stock.length);
+      expect(returned.phase, ClassicTurnPhase.draw);
+      expect(returned.legalActionIds, contains('take-discard'));
     });
 
     test('returning pending discard removes exactly one matching card', () {
@@ -73,13 +75,11 @@ void main() {
         ),
       );
 
-      final returned = ClassicHareegTurnFlowRules.returnPendingDiscardAndDraw(
-        state,
-      );
+      final returned = ClassicHareegTurnFlowRules.returnPendingDiscard(state);
 
       expect(returned.hand.any((card) => card.id == pendingCard.id), isFalse);
       expect(returned.hand.any((card) => card.id == duplicate.id), isTrue);
-      expect(returned.hand.length, 2);
+      expect(returned.hand.length, 1);
     });
 
     test(
@@ -100,7 +100,7 @@ void main() {
         );
 
         expect(
-          () => ClassicHareegTurnFlowRules.returnPendingDiscardAndDraw(state),
+          () => ClassicHareegTurnFlowRules.returnPendingDiscard(state),
           throwsStateError,
         );
       },

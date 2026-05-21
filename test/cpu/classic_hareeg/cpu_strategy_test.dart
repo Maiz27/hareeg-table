@@ -62,11 +62,11 @@ void main() {
           .chooseMove(
             CpuTurnSnapshot(
               seat: PlayerSeat.east,
-              legalActionIds: ['draw-stock', 'place-cover:0:4'],
+              legalActionIds: ['draw-stock', 'place-cover:south:0:4'],
             ),
           )
           .actionId,
-      'place-cover:0:4',
+      'place-cover:south:0:4',
     );
     expect(
       strategy

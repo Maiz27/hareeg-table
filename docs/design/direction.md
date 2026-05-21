@@ -49,6 +49,10 @@ Current selected concept: dark felt table, fanned ivory cards, warm flame, and a
 - Joker identity should be represented creatively, not just with a plain label overlay.
 - In memory-oriented modes, joker identity may be shown briefly and then return to a mostly joker appearance.
 
-## Current Implementation Status
+## Source Of Truth
 
-The first playable implementation uses the warm lounge palette and a utilitarian table layout: portrait menu/setup/help/settings screens and a landscape table with player seats around the play surface. The shipped card and Fifty visuals are intentionally simple in this slice; richer card art, joker treatment, motion, and high-stakes Fifty effects remain follow-up polish work.
+Product requirements, rule-flow decisions, and acceptance criteria live in the canonical GitHub PRD:
+
+https://github.com/Maiz27/hareeg-table/issues/1
+
+This file records stable visual direction only. Do not use it as a branch tracker or a duplicate PRD.
