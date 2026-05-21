@@ -243,7 +243,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth;
         final tableHeight = constraints.maxHeight;
-        final compact = tableHeight <= 390 || tableWidth <= 700;
+        final compact = tableHeight <= 360 || tableWidth <= 700;
         final tableCardSize = compact ? const Size(40, 56) : const Size(50, 70);
         final meldCardSize = compact ? const Size(32, 44) : const Size(38, 54);
         final sideMeldCardSize = compact
@@ -1084,7 +1084,6 @@ class _SeatMeldLaneState extends State<_SeatMeldLane> {
   }
 
   void _toggleExpanded(int index) {
-    if (widget.owner == PlayerSeat.south) return;
     setState(() {
       _expandedMeldIndex = _expandedMeldIndex == index ? null : index;
     });
@@ -1134,9 +1133,7 @@ class _SeatMeldLaneState extends State<_SeatMeldLane> {
                     onRetract: () => widget.onRetractMeld(widget.owner, index),
                     onCardLongPress: widget.onCardLongPress,
                     expanded: _expandedMeldIndex == index,
-                    onToggleExpanded: widget.owner == PlayerSeat.south
-                        ? null
-                        : () => _toggleExpanded(index),
+                    onToggleExpanded: () => _toggleExpanded(index),
                     vertical: widget.stackVertically,
                     quarterTurns: widget.quarterTurns,
                   ),
@@ -1515,6 +1512,7 @@ class _SuggestionGroup extends StatelessWidget {
                     child: HareegCardView(
                       theme: theme,
                       card: cards[i],
+                      jokerDisplay: JokerDisplay.assisted,
                       size: cardSize,
                       visualState: CardVisualState.coverTarget,
                     ),

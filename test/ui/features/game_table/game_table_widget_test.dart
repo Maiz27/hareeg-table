@@ -42,6 +42,28 @@ void main() {
       expect(find.byType(ScoreOverlay), findsNothing);
     });
 
+    testWidgets('score and pause overlays dismiss from a scrim tap', (
+      tester,
+    ) async {
+      await _openTable(tester);
+
+      await tester.tap(find.byTooltip('Scores'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScoreOverlay), findsOneWidget);
+
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScoreOverlay), findsNothing);
+
+      await tester.tap(find.byTooltip('Pause'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PauseOverlay), findsOneWidget);
+
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      expect(find.byType(PauseOverlay), findsNothing);
+    });
+
     testWidgets('pause button opens the pause overlay with table controls', (
       tester,
     ) async {
@@ -232,6 +254,72 @@ void main() {
       },
     );
 
+    testWidgets('same-rank joker suggestions keep represented identities', (
+      tester,
+    ) async {
+      const joker = HareegCard.joker(deckIndex: 86, jokerIndex: 0);
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          memoryJokerDisplay: true,
+        );
+
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            _card(CardRank.queen, CardSuit.spades, 86),
+            _card(CardRank.queen, CardSuit.clubs, 86),
+            joker,
+            _card(CardRank.four, CardSuit.clubs, 86),
+          ],
+          openingState: _opened(PlayerSeat.south),
+        ),
+        preferencesRepository: preferences,
+      );
+
+      await tester.tap(
+        find.bySemanticsLabel('Queen of Spades').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Queen of Clubs').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(find.bySemanticsLabel('Joker').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel('Joker representing Queen of Hearts'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Joker representing Queen of Diamonds'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Play selected meld'));
+      await tester.pumpAndSettle();
+
+      final dialog = find.byKey(const ValueKey('joker-choice-dialog'));
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.bySemanticsLabel('Joker representing Queen of Hearts'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.bySemanticsLabel(
+            'Joker representing Queen of Diamonds',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('selected mixed-suit face cards with joker are not a meld', (
       tester,
     ) async {
@@ -401,6 +489,21 @@ void main() {
       expect(find.byTooltip('Pause'), findsOneWidget);
     });
 
+    testWidgets('Pixel 8a landscape uses the readable card-size tier', (
+      tester,
+    ) async {
+      await _pumpPlayfield(tester, size: const Size(816, 368));
+
+      final firstCard = _card(CardRank.four, CardSuit.clubs, 98);
+      final cardView = find.descendant(
+        of: find.byKey(ValueKey('south-hand-drag-${firstCard.id}')),
+        matching: find.byType(HareegCardView),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(cardView.first), const Size(48, 68));
+    });
+
     testWidgets('side opponent rails are vertically centered', (tester) async {
       await _pumpPlayfield(tester, size: const Size(900, 500));
 
@@ -548,6 +651,10 @@ void main() {
       expect(find.text('Round score'), findsOneWidget);
       expect(find.textContaining('You finished'), findsOneWidget);
       expect(find.textContaining('cards 0'), findsWidgets);
+
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('round-result-overlay')), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 2500));
       await tester.pumpAndSettle();
@@ -798,6 +905,10 @@ void main() {
       );
       expect(find.text('Queen of Hearts'), findsOneWidget);
       expect(find.textContaining('same-rank sets'), findsOneWidget);
+
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('card-inspect-overlay')), findsNothing);
     });
 
     testWidgets('table mode card inspect stays minimal', (tester) async {
@@ -853,6 +964,33 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('card-inspect-overlay')), findsNothing);
+    });
+
+    testWidgets('south meld tap expands the meld in place', (tester) async {
+      final meld = PlacedMeld.fromCards([
+        _card(CardRank.four, CardSuit.clubs, 97),
+        _card(CardRank.five, CardSuit.clubs, 97),
+        _card(CardRank.six, CardSuit.clubs, 97),
+        _card(CardRank.seven, CardSuit.clubs, 97),
+      ]);
+
+      await _pumpPlayfield(
+        tester,
+        tableMelds: {
+          PlayerSeat.south: [meld],
+        },
+      );
+
+      final normal = find.byKey(const ValueKey('table-meld-south-0-normal'));
+      expect(normal, findsOneWidget);
+
+      await tester.tap(normal);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('table-meld-south-0-expanded')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('FiftyRing is not present when no Fifty window is open', (

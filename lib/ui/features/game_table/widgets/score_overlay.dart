@@ -47,6 +47,7 @@ class ScoreOverlay extends StatelessWidget {
       ..sort((a, b) => a.index.compareTo(b.index));
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onClose,
       child: ColoredBox(
         color: highContrast
@@ -59,6 +60,7 @@ class ScoreOverlay extends StatelessWidget {
                   .clamp(160.0, constraints.maxHeight);
               return Center(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {},
                   child: Padding(
                     padding: const EdgeInsets.symmetric(

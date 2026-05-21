@@ -40,6 +40,7 @@ class GamePreferences {
     required this.memoryJokerDisplay,
     required this.language,
     required this.motionSpeed,
+    required this.fastCpuTurns,
     required this.hapticsEnabled,
     required this.soundEnabled,
     required this.tableAids,
@@ -56,6 +57,7 @@ class GamePreferences {
       memoryJokerDisplay: false,
       language: AppLanguage.english,
       motionSpeed: MotionSpeed.normal,
+      fastCpuTurns: true,
       hapticsEnabled: true,
       soundEnabled: false,
       tableAids: TableAids.guided,
@@ -82,6 +84,7 @@ class GamePreferences {
           _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
       language: AppLanguage.fromName(_asString(json['language'])),
       motionSpeed: motionSpeed,
+      fastCpuTurns: _asBool(json['fastCpuTurns']) ?? defaults.fastCpuTurns,
       hapticsEnabled:
           _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
       soundEnabled: _asBool(json['soundEnabled']) ?? defaults.soundEnabled,
@@ -109,6 +112,9 @@ class GamePreferences {
 
   /// Motion speed choice (normal / fast / reduced).
   final MotionSpeed motionSpeed;
+
+  /// Whether CPU turns use shorter pauses and quicker card flights.
+  final bool fastCpuTurns;
 
   /// Whether table haptics are enabled.
   final bool hapticsEnabled;
@@ -140,6 +146,7 @@ class GamePreferences {
     bool? memoryJokerDisplay,
     AppLanguage? language,
     MotionSpeed? motionSpeed,
+    bool? fastCpuTurns,
     bool? hapticsEnabled,
     bool? soundEnabled,
     TableAids? tableAids,
@@ -153,6 +160,7 @@ class GamePreferences {
       memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
       language: language ?? this.language,
       motionSpeed: motionSpeed ?? this.motionSpeed,
+      fastCpuTurns: fastCpuTurns ?? this.fastCpuTurns,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       tableAids: tableAids ?? this.tableAids,
@@ -170,6 +178,7 @@ class GamePreferences {
       'memoryJokerDisplay': memoryJokerDisplay,
       'language': language.name,
       'motionSpeed': motionSpeed.name,
+      'fastCpuTurns': fastCpuTurns,
       'hapticsEnabled': hapticsEnabled,
       'soundEnabled': soundEnabled,
       'tableAids': tableAids.name,

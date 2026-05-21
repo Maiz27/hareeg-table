@@ -114,6 +114,93 @@ void main() {
       expect(cpuActions.length, lessThanOrEqualTo(largeHand.length + 3));
     });
 
+    test('CPU draw-phase Fifty proof stays bounded for dense hands', () {
+      final now = DateTime.utc(2026, 5, 21, 12);
+      final discarded = _card(CardRank.six, CardSuit.spades, 180);
+      final denseHand = [
+        _card(CardRank.six, CardSuit.clubs, 180),
+        _card(CardRank.six, CardSuit.diamonds, 180),
+        _card(CardRank.five, CardSuit.hearts, 181),
+        _card(CardRank.seven, CardSuit.hearts, 181),
+        _card(CardRank.queen, CardSuit.spades, 181),
+        _card(CardRank.six, CardSuit.hearts, 181),
+        _card(CardRank.eight, CardSuit.clubs, 180),
+        _card(CardRank.six, CardSuit.hearts, 180),
+        _card(CardRank.jack, CardSuit.diamonds, 181),
+        _card(CardRank.six, CardSuit.spades, 181),
+        _card(CardRank.three, CardSuit.clubs, 181),
+        _card(CardRank.four, CardSuit.hearts, 180),
+        _card(CardRank.king, CardSuit.spades, 181),
+        _card(CardRank.two, CardSuit.diamonds, 180),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {...defaults, PlayerSeat.west: denseHand},
+          discardPile: [discarded],
+          stock: [_card(CardRank.king, CardSuit.clubs, 180)],
+          currentSeat: PlayerSeat.west,
+          turnPhase: TurnPhase.draw,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+
+      final watch = Stopwatch()..start();
+      final cpuActions = controller.cpuActionIdsFor(PlayerSeat.west);
+      watch.stop();
+
+      expect(cpuActions, contains(ClassicHareegActionIds.drawStock));
+      expect(cpuActions, contains(ClassicHareegActionIds.takeDiscard));
+      expect(cpuActions, isNot(contains(ClassicHareegActionIds.claimFifty)));
+      expect(watch.elapsedMilliseconds, lessThan(250));
+    });
+
+    test('CPU draw-phase Fifty proof rejects log-style nonfinish quickly', () {
+      final now = DateTime.utc(2026, 5, 21, 12);
+      final discarded = _card(CardRank.king, CardSuit.diamonds, 190);
+      final logStyleHand = [
+        _card(CardRank.four, CardSuit.diamonds, 190),
+        _card(CardRank.four, CardSuit.hearts, 190),
+        _card(CardRank.seven, CardSuit.clubs, 190),
+        _card(CardRank.ten, CardSuit.diamonds, 190),
+        _card(CardRank.ten, CardSuit.clubs, 190),
+        _card(CardRank.seven, CardSuit.hearts, 190),
+        _card(CardRank.four, CardSuit.clubs, 190),
+        _card(CardRank.seven, CardSuit.spades, 190),
+        const HareegCard.joker(deckIndex: 190, jokerIndex: 0),
+        _card(CardRank.two, CardSuit.clubs, 190),
+        _card(CardRank.five, CardSuit.diamonds, 190),
+        _card(CardRank.queen, CardSuit.spades, 190),
+        _card(CardRank.ace, CardSuit.hearts, 190),
+        _card(CardRank.king, CardSuit.spades, 190),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.west: logStyleHand,
+          },
+          discardPile: [discarded],
+          stock: [_card(CardRank.two, CardSuit.spades, 190)],
+          currentSeat: PlayerSeat.west,
+          turnPhase: TurnPhase.draw,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+
+      final watch = Stopwatch()..start();
+      final cpuActions = controller.cpuActionIdsFor(PlayerSeat.west);
+      watch.stop();
+
+      expect(cpuActions, contains(ClassicHareegActionIds.drawStock));
+      expect(cpuActions, contains(ClassicHareegActionIds.takeDiscard));
+      expect(cpuActions, isNot(contains(ClassicHareegActionIds.claimFifty)));
+      expect(watch.elapsedMilliseconds, lessThan(250));
+    });
+
     test('a successful human discard advances the seat and turn phase', () {
       final controller = _freshControllerInActionPhase();
       final hand = controller.handFor(PlayerSeat.south);
@@ -460,6 +547,45 @@ void main() {
             .cards
             .map((card) => card.label),
         ['JH', 'QH', 'J(KH)'],
+      );
+    });
+
+    test('two-joker meld actions apply every represented joker', () {
+      const firstJoker = HareegCard.joker(deckIndex: 150, jokerIndex: 0);
+      const secondJoker = HareegCard.joker(deckIndex: 150, jokerIndex: 1);
+      final twoClubs = _card(CardRank.two, CardSuit.clubs, 150);
+      final threeClubs = _card(CardRank.three, CardSuit.clubs, 150);
+      final finalDiscard = _card(CardRank.king, CardSuit.hearts, 150);
+      final meldCards = [twoClubs, threeClubs, firstJoker, secondJoker];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [...meldCards, finalDiscard],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+      final selectedIds = meldCards.map((card) => card.id).toList();
+
+      final choices = controller.jokerMeldChoicesFor(
+        PlayerSeat.south,
+        selectedIds,
+      );
+      final play = controller.applyAction(choices.first.actionId);
+
+      expect(choices, hasLength(2));
+      expect(play.isSuccess, isTrue);
+      expect(controller.handFor(PlayerSeat.south), [finalDiscard]);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.south)
+            .single
+            .cards
+            .map((card) => card.label),
+        ['J(AC)', '2C', '3C', 'J(4C)'],
       );
     });
 
@@ -1707,6 +1833,61 @@ void main() {
       expect(controller.openingState.hasOpened(PlayerSeat.south), isTrue);
       expect(controller.tableMeldsFor(PlayerSeat.south), hasLength(2));
       expect(controller.openingState.currentRequirement, 57);
+    });
+
+    test('multi-meld opening can place explicit joker in one meld', () {
+      const joker = HareegCard.joker(deckIndex: 191, jokerIndex: 0);
+      final fourSet = [
+        _card(CardRank.four, CardSuit.diamonds, 191),
+        _card(CardRank.four, CardSuit.hearts, 191),
+        _card(CardRank.four, CardSuit.clubs, 191),
+      ];
+      final sevenSet = [
+        _card(CardRank.seven, CardSuit.clubs, 191),
+        _card(CardRank.seven, CardSuit.hearts, 191),
+        _card(CardRank.seven, CardSuit.spades, 191),
+      ];
+      final tenSetWithJoker = [
+        _card(CardRank.ten, CardSuit.diamonds, 191),
+        _card(CardRank.ten, CardSuit.clubs, 191),
+        joker,
+      ];
+      final finalDiscard = _card(CardRank.two, CardSuit.spades, 191);
+      final selectedCards = [...fourSet, ...sevenSet, ...tenSetWithJoker];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [...selectedCards, finalDiscard],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+        ),
+      );
+
+      final result = controller.applyAction(
+        ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
+          cardIds: selectedCards.map((card) => card.id),
+          jokerId: joker.id,
+          identity: const CardIdentity(
+            rank: CardRank.ten,
+            suit: CardSuit.hearts,
+          ),
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.openingState.hasOpened(PlayerSeat.south), isTrue);
+      expect(controller.tableMeldsFor(PlayerSeat.south), hasLength(3));
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.south)
+            .last
+            .cards
+            .map((card) => card.label),
+        ['10D', '10C', 'J(10H)'],
+      );
+      expect(controller.handFor(PlayerSeat.south), [finalDiscard]);
     });
 
     test('restored unlocked benchmark reflects first opener table total', () {

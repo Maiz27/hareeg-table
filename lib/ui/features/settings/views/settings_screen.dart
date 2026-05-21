@@ -256,6 +256,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   description: strings.feelDescription,
                   preview: [
                     _motionLabel(_preferences.motionSpeed, strings),
+                    if (_preferences.fastCpuTurns) strings.fastCpuTurns,
                     strings.hapticsLabel,
                     if (_preferences.soundEnabled) strings.soundLabel,
                   ],
@@ -268,7 +269,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: (value) =>
                             _save(_preferences.copyWith(motionSpeed: value)),
                       ),
-                      const SizedBox(height: LoungeTokens.space4),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.speed_outlined,
+                        title: strings.fastCpuTurns,
+                        subtitle: strings.fastCpuTurnsDescription,
+                        value: _preferences.fastCpuTurns,
+                        onChanged: (value) =>
+                            _save(_preferences.copyWith(fastCpuTurns: value)),
+                      ),
+                      const _ThinDivider(),
                       _SwitchSetting(
                         icon: Icons.vibration_outlined,
                         title: strings.hapticsLabel,

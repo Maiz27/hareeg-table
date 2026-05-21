@@ -147,6 +147,18 @@ abstract final class TableMotion {
   /// CPU move tween duration.
   static const cpuMove = Duration(milliseconds: 120);
 
+  /// CPU card-flight duration in normal turn pacing.
+  static const cpuFlight = Duration(milliseconds: 200);
+
+  /// Fast CPU read-pause before each visible action.
+  static const fastCpuReadPause = Duration(milliseconds: 100);
+
+  /// Fast CPU pause between visible actions.
+  static const fastCpuActionGap = Duration(milliseconds: 140);
+
+  /// Fast CPU card-flight duration.
+  static const fastCpuFlight = Duration(milliseconds: 160);
+
   /// Fifty heat pulse on claim.
   static const fiftyHeatPulse = Duration(milliseconds: 1400);
 

@@ -1,5 +1,6 @@
-import '../../domain/classic_hareeg/models/player_seat.dart';
+import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import '../../domain/classic_hareeg/models/player_seat.dart';
 
 /// Boundary for CPU decision-making.
 ///
@@ -50,13 +51,13 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
   const ClassicHareegCpuStrategy();
 
   static const _priority = [
-    'claim-fifty',
-    'play-meld:',
-    'play-meld-joker:',
-    'replace-joker:',
-    'place-cover:',
-    'draw-stock',
-    'take-discard',
+    ClassicHareegActionKind.claimFifty,
+    ClassicHareegActionKind.playMeld,
+    ClassicHareegActionKind.playMeldWithJoker,
+    ClassicHareegActionKind.replaceJoker,
+    ClassicHareegActionKind.placeCover,
+    ClassicHareegActionKind.drawStock,
+    ClassicHareegActionKind.takeDiscard,
   ];
 
   @override
@@ -65,25 +66,27 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
       throw StateError('CPU needs at least one legal action.');
     }
 
-    for (final actionId in _priority) {
+    for (final actionKind in _priority) {
       for (final legalActionId in snapshot.legalActionIds) {
-        if (legalActionId == actionId || legalActionId.startsWith(actionId)) {
+        if (ClassicHareegActionIds.hasKind(legalActionId, actionKind)) {
           return CpuMoveIntent(actionId: legalActionId);
         }
       }
     }
 
     final safeDiscards = snapshot.legalActionIds.where((actionId) {
-      return actionId.startsWith('discard') &&
-          !actionId.contains('blocked-cover') &&
-          !actionId.contains('joker');
+      return ClassicHareegActionIds.describe(actionId).isSafeDiscard;
     });
     if (safeDiscards.isNotEmpty) {
       return CpuMoveIntent(actionId: safeDiscards.first);
     }
 
-    if (snapshot.legalActionIds.contains('return-pending-discard')) {
-      return const CpuMoveIntent(actionId: 'return-pending-discard');
+    if (snapshot.legalActionIds.contains(
+      ClassicHareegActionIds.returnPendingDiscard,
+    )) {
+      return const CpuMoveIntent(
+        actionId: ClassicHareegActionIds.returnPendingDiscard,
+      );
     }
 
     return CpuMoveIntent(actionId: snapshot.legalActionIds.first);

@@ -12,8 +12,15 @@ import '../rules/match_progression_rules.dart';
 import '../rules/meld_validator.dart';
 import '../rules/mistake_preset_rules.dart';
 import '../rules/opening_rules.dart';
+import 'classic_hareeg_action.dart';
+import 'classic_hareeg_finish_planner.dart';
+import 'classic_hareeg_match_flow.dart';
+import 'classic_hareeg_match_restoration.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_table_play_planner.dart';
+
+export 'classic_hareeg_action.dart';
 
 /// Outcome of applying an action through the controller.
 class ApplyActionResult {
@@ -31,284 +38,6 @@ class ApplyActionResult {
 
   /// Player-facing explanation for blocked or rejected actions.
   final String message;
-}
-
-/// Action ids used by [ClassicHareegGameController].
-///
-/// Discard action ids embed the physical card id after a colon. The prefix
-/// segment carries the CPU-relevant tags `discard-blocked-cover:` or
-/// `discard-joker:` when the discard is only legal under non-assisted presets,
-/// matching the convention consumed by `ClassicHareegCpuStrategy`.
-abstract final class ClassicHareegActionIds {
-  /// Draw one card from stock.
-  static const drawStock = 'draw-stock';
-
-  /// Take the previous player's discard into pending state.
-  static const takeDiscard = 'take-discard';
-
-  /// Commit a pending discard as used (advances to discard phase).
-  static const usePendingDiscard = 'use-pending-discard';
-
-  /// Return a pending discard and draw from stock instead.
-  static const returnPendingDiscard = 'return-pending-discard';
-
-  /// Take back uncommitted opening melds that did not satisfy the benchmark.
-  static const returnOpeningMelds = 'return-opening-melds';
-
-  /// Take back one specific reversible table play from this turn.
-  static const returnTablePlayPrefix = 'return-table-play:';
-
-  /// Claim Fifty / Khamsin from the immediate previous discard.
-  static const claimFifty = 'claim-fifty';
-
-  /// Play selected cards as a meld. Card ids follow the prefix, comma-separated.
-  static const playMeldPrefix = 'play-meld:';
-
-  /// Play selected cards with an explicit represented identity for one joker.
-  static const playMeldWithJokerPrefix = 'play-meld-joker:';
-
-  /// Place selected cover cards on an existing meld.
-  static const placeCoverPrefix = 'place-cover:';
-
-  /// Replace a represented joker on the table with a matching real card.
-  static const replaceJokerPrefix = 'replace-joker:';
-
-  /// Discard action id prefix for plain legal discards.
-  static const discardPrefix = 'discard:';
-
-  /// Discard action id prefix for cards that are covers (only legal as final
-  /// discard, or under presets that allow cover discards with a penalty).
-  static const discardBlockedCoverPrefix = 'discard-blocked-cover:';
-
-  /// Discard action id prefix for jokers (only legal as final discard, or under
-  /// presets that allow joker discards with a penalty).
-  static const discardJokerPrefix = 'discard-joker:';
-
-  /// Returns the card id encoded in a discard action id, if present.
-  static String? discardCardId(String actionId) {
-    for (final prefix in const [
-      discardPrefix,
-      discardBlockedCoverPrefix,
-      discardJokerPrefix,
-    ]) {
-      if (actionId.startsWith(prefix)) {
-        return actionId.substring(prefix.length);
-      }
-    }
-    return null;
-  }
-
-  /// Creates a play-meld action id for selected physical card ids.
-  static String playMeldActionId(Iterable<String> cardIds) {
-    return '$playMeldPrefix${cardIds.join(',')}';
-  }
-
-  /// Returns the card ids encoded in a play-meld action id, if present.
-  static List<String>? meldCardIds(String actionId) {
-    if (!actionId.startsWith(playMeldPrefix)) {
-      return null;
-    }
-    return actionId
-        .substring(playMeldPrefix.length)
-        .split(',')
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-  }
-
-  /// Creates a play-meld action id with an explicit joker representation.
-  static String playMeldWithJokerIdentityActionId({
-    required Iterable<String> cardIds,
-    required String jokerId,
-    required CardIdentity identity,
-  }) {
-    return '$playMeldWithJokerPrefix$jokerId:${identity.key}:${cardIds.join(',')}';
-  }
-
-  /// Parses an explicit joker-representation meld action id.
-  static JokerMeldActionChoice? jokerMeldChoice(String actionId) {
-    if (!actionId.startsWith(playMeldWithJokerPrefix)) {
-      return null;
-    }
-    final payload = actionId.substring(playMeldWithJokerPrefix.length);
-    final parts = payload.split(':');
-    if (parts.length != 3) {
-      return null;
-    }
-    final identity = _identityFromKey(parts[1]);
-    if (identity == null) {
-      return null;
-    }
-    final cardIds = parts[2]
-        .split(',')
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-    return JokerMeldActionChoice(
-      jokerId: parts[0],
-      identity: identity,
-      cardIds: cardIds,
-    );
-  }
-
-  /// Creates a place-cover action id.
-  static String placeCoverActionId({
-    required PlayerSeat targetSeat,
-    required int meldIndex,
-    required Iterable<String> cardIds,
-  }) {
-    return '$placeCoverPrefix${targetSeat.name}:$meldIndex:${cardIds.join(',')}';
-  }
-
-  /// Parses a place-cover action id.
-  static CoverActionTarget? coverActionTarget(String actionId) {
-    if (!actionId.startsWith(placeCoverPrefix)) {
-      return null;
-    }
-    final payload = actionId.substring(placeCoverPrefix.length);
-    final parts = payload.split(':');
-    if (parts.length != 3) {
-      return null;
-    }
-    final seat = PlayerSeat.fromName(parts[0]);
-    final meldIndex = int.tryParse(parts[1]);
-    if (seat == null || meldIndex == null) {
-      return null;
-    }
-    final cardIds = parts[2]
-        .split(',')
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-    return CoverActionTarget(
-      targetSeat: seat,
-      meldIndex: meldIndex,
-      cardIds: cardIds,
-    );
-  }
-
-  /// Creates a specific table-play return action id.
-  static String returnTablePlayActionId({
-    required PlayerSeat owner,
-    required int meldIndex,
-  }) {
-    return '$returnTablePlayPrefix${owner.name}:$meldIndex';
-  }
-
-  /// Parses a specific table-play return action id.
-  static ReturnTablePlayTarget? returnTablePlayTarget(String actionId) {
-    if (!actionId.startsWith(returnTablePlayPrefix)) {
-      return null;
-    }
-    final payload = actionId.substring(returnTablePlayPrefix.length);
-    final parts = payload.split(':');
-    if (parts.length != 2) {
-      return null;
-    }
-    final owner = PlayerSeat.fromName(parts[0]);
-    final meldIndex = int.tryParse(parts[1]);
-    if (owner == null || meldIndex == null) {
-      return null;
-    }
-    return ReturnTablePlayTarget(owner: owner, meldIndex: meldIndex);
-  }
-
-  /// Creates a joker replacement action id.
-  static String replaceJokerActionId({
-    required PlayerSeat targetSeat,
-    required int meldIndex,
-    required String cardId,
-  }) {
-    return '$replaceJokerPrefix${targetSeat.name}:$meldIndex:$cardId';
-  }
-
-  /// Parses a joker replacement action id.
-  static JokerReplacementActionTarget? jokerReplacementTarget(String actionId) {
-    if (!actionId.startsWith(replaceJokerPrefix)) {
-      return null;
-    }
-    final payload = actionId.substring(replaceJokerPrefix.length);
-    final parts = payload.split(':');
-    if (parts.length != 3) {
-      return null;
-    }
-    final seat = PlayerSeat.fromName(parts[0]);
-    final meldIndex = int.tryParse(parts[1]);
-    if (seat == null || meldIndex == null || parts[2].isEmpty) {
-      return null;
-    }
-    return JokerReplacementActionTarget(
-      targetSeat: seat,
-      meldIndex: meldIndex,
-      cardId: parts[2],
-    );
-  }
-}
-
-/// Explicit represented joker choice for a meld action.
-class JokerMeldActionChoice {
-  /// Creates a parsed joker meld choice.
-  const JokerMeldActionChoice({
-    required this.jokerId,
-    required this.identity,
-    required this.cardIds,
-  });
-
-  /// Physical joker id being assigned.
-  final String jokerId;
-
-  /// Represented identity selected for the joker.
-  final CardIdentity identity;
-
-  /// Physical card ids in the selected meld play.
-  final List<String> cardIds;
-}
-
-/// Parsed target for placing covers on an existing meld.
-class CoverActionTarget {
-  /// Creates a parsed cover action target.
-  const CoverActionTarget({
-    required this.targetSeat,
-    required this.meldIndex,
-    required this.cardIds,
-  });
-
-  /// Seat that owns the meld being extended.
-  final PlayerSeat targetSeat;
-
-  /// Index of the meld in the owner's table area.
-  final int meldIndex;
-
-  /// Physical cover card ids to place.
-  final List<String> cardIds;
-}
-
-/// Parsed target for replacing a represented table joker.
-class JokerReplacementActionTarget {
-  /// Creates a parsed joker replacement target.
-  const JokerReplacementActionTarget({
-    required this.targetSeat,
-    required this.meldIndex,
-    required this.cardId,
-  });
-
-  /// Seat that owns the meld containing the represented joker.
-  final PlayerSeat targetSeat;
-
-  /// Index of the meld in the owner's table area.
-  final int meldIndex;
-
-  /// Physical replacement card id from the current player's hand.
-  final String cardId;
-}
-
-/// Parsed target for returning one reversible table play.
-class ReturnTablePlayTarget {
-  /// Creates a parsed table-play return target.
-  const ReturnTablePlayTarget({required this.owner, required this.meldIndex});
-
-  /// Seat that owns the affected meld.
-  final PlayerSeat owner;
-
-  /// Index of the meld in the owner's table area.
-  final int meldIndex;
 }
 
 /// Live Classic Hareeg game state controller.
@@ -360,53 +89,39 @@ class ClassicHareegGameController {
   }
 
   /// Creates a controller restored from a persisted snapshot.
-  ClassicHareegGameController.fromSnapshot(
+  factory ClassicHareegGameController.fromSnapshot(
     ClassicHareegMatchSnapshot snapshot, {
     ClassicHareegRules? rules,
     DateTime Function()? now,
+  }) {
+    return ClassicHareegGameController._fromRestoredMatch(
+      ClassicHareegMatchRestoration.fromSnapshot(snapshot, rules: rules),
+      now: now,
+    );
+  }
+
+  ClassicHareegGameController._fromRestoredMatch(
+    ClassicHareegRestoredMatchState restored, {
+    DateTime Function()? now,
   }) : _now = now ?? DateTime.now,
-       setup = snapshot.setup,
-       rules = rules ?? ClassicHareegRules.defaults(),
-       _hands = {
-         for (final entry in snapshot.hands.entries)
-           entry.key: List<HareegCard>.of(entry.value),
-       },
-       _stock = List<HareegCard>.of(snapshot.stock),
-       _discardPile = List<HareegCard>.of(snapshot.discardPile),
-       _tableMelds = {
-         for (final seat in PlayerSeat.values)
-           seat: List<PlacedMeld>.of(snapshot.tableMelds[seat] ?? const []),
-       },
-       _scores = {
-         for (final seat in PlayerSeat.values) seat: snapshot.scores[seat] ?? 0,
-       },
-       _activeSeats = List<PlayerSeat>.of(snapshot.activeSeats),
-       _openingState =
-           snapshot.openingState ??
-           OpeningState.initial(snapshot.setup.openingRequirement),
-       _roundNumber = snapshot.roundNumber,
-       _removedSeats = snapshot.removedSeats.toSet(),
-       _starter = snapshot.starter,
-       _currentSeat = snapshot.currentSeat,
-       _phase = snapshot.turnPhase,
-       _pendingDiscard = snapshot.pendingDiscard,
-       _previousDiscardSeat = snapshot.discardPile.isEmpty
-           ? null
-           : snapshot.currentSeat.previousAntiClockwise,
-       _fiftyWindow =
-           snapshot.discardPile.isEmpty || snapshot.turnPhase != TurnPhase.draw
-           ? null
-           : ClassicHareegFiftyRules.openWindow(
-               discarder: snapshot.currentSeat.previousAntiClockwise,
-               claimant: snapshot.currentSeat,
-               discardedCard: snapshot.discardPile.last,
-               durationSeconds: snapshot.setup.fiftyTimerSeconds,
-               isFirstDealtRound: snapshot.roundNumber == 1,
-             ),
-       _fiftyWindowOpenedAt =
-           snapshot.discardPile.isEmpty || snapshot.turnPhase != TurnPhase.draw
-           ? null
-           : snapshot.fiftyWindowOpenedAt ?? snapshot.savedAt,
+       setup = restored.setup,
+       rules = restored.rules,
+       _hands = restored.hands,
+       _stock = restored.stock,
+       _discardPile = restored.discardPile,
+       _tableMelds = restored.tableMelds,
+       _scores = restored.scores,
+       _activeSeats = restored.activeSeats,
+       _openingState = restored.openingState,
+       _roundNumber = restored.roundNumber,
+       _removedSeats = restored.removedSeats,
+       _starter = restored.starter,
+       _currentSeat = restored.currentSeat,
+       _phase = restored.turnPhase,
+       _pendingDiscard = restored.pendingDiscard,
+       _previousDiscardSeat = restored.previousDiscardSeat,
+       _fiftyWindow = restored.fiftyWindow,
+       _fiftyWindowOpenedAt = restored.fiftyWindowOpenedAt,
        _roundOutcome = null,
        _roundResult = null,
        _turnFinishPlays = <PlacedMeld>[],
@@ -414,9 +129,7 @@ class ClassicHareegGameController {
        _turnMeldPlays = <_TurnMeldPlay>[],
        _turnCoverPlays = <_TurnCoverPlay>[],
        _turnConsumedPendingDiscard = null,
-       _turnSource = snapshot.pendingDiscard == null
-           ? FinishCardSource.stock
-           : FinishCardSource.previousDiscard {
+       _turnSource = restored.turnSource {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -489,18 +202,27 @@ class ClassicHareegGameController {
   RoundProgressResult? get roundResult => _roundResult;
 
   /// Match progress produced by the completed round, if any.
-  MatchProgressState? get roundProgress {
-    final result = _roundResult;
-    if (result == null) {
-      return null;
-    }
+  MatchProgressState? get roundProgress => _matchFlow.progressFor(_roundResult);
 
-    return ClassicHareegMatchProgressionRules.applyRoundResult(
+  ClassicHareegMatchFlow get _matchFlow {
+    return ClassicHareegMatchFlow(
+      setup: setup,
+      rules: rules,
       scores: _scores,
       activeSeats: _activeSeats,
       currentStarter: _starter,
-      result: result,
-      eliminationScore: rules.eliminationScore,
+      roundNumber: _roundNumber,
+    );
+  }
+
+  ClassicHareegTablePlayPlanner get _tablePlayPlanner {
+    return ClassicHareegTablePlayPlanner(
+      currentSeat: _currentSeat,
+      phase: _phase,
+      pendingDiscard: _pendingDiscard,
+      hands: _hands,
+      tableMelds: _tableMelds,
+      openingState: _openingState,
     );
   }
 
@@ -588,33 +310,9 @@ class ClassicHareegGameController {
 
   /// Deals the next round snapshot after this round has produced progress.
   ClassicHareegMatchSnapshot? nextRoundSnapshot({DateTime? savedAt}) {
-    final progress = roundProgress;
-    if (progress == null || progress.matchWinner != null) {
-      return null;
-    }
-
-    final round = ClassicHareegRound.deal(
-      setup: setup,
-      rules: rules,
-      activeSeats: progress.activeSeats,
-      starterOverride: progress.nextStarter,
-    );
-    return ClassicHareegMatchSnapshot(
-      setup: setup,
-      hands: round.hands,
-      stock: round.stock,
-      discardPile: round.discardPile,
-      tableMelds: {
-        for (final seat in PlayerSeat.values) seat: const <PlacedMeld>[],
-      },
-      starter: round.starter,
-      currentSeat: round.currentSeat,
-      turnPhase: round.turnPhase,
-      openingState: OpeningState.initial(setup.openingRequirement),
-      scores: progress.scores,
-      activeSeats: progress.activeSeats,
-      roundNumber: _roundNumber + 1,
-      savedAt: savedAt ?? DateTime.now().toUtc(),
+    return _matchFlow.nextRoundSnapshotFor(
+      roundResult: _roundResult,
+      savedAt: savedAt,
     );
   }
 
@@ -842,8 +540,10 @@ class ClassicHareegGameController {
     if (jokerChoice != null) {
       return _applyPlayMeld(
         jokerChoice.cardIds,
-        jokerId: jokerChoice.jokerId,
-        jokerIdentity: jokerChoice.identity,
+        jokerIdentities: {
+          for (final assignment in jokerChoice.assignments)
+            assignment.jokerId: assignment.identity,
+        },
       );
     }
 
@@ -912,13 +612,7 @@ class ClassicHareegGameController {
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return const MeldValidationResult.invalid(
-        'Selected cards are not all in hand.',
-      );
-    }
-    return _resolveTablePlay(cards).result;
+    return _tablePlayPlanner.meldValidationFor(seat, cardIds);
   }
 
   /// Validates selected hand cards as one meld, not as a full table-play
@@ -928,73 +622,14 @@ class ClassicHareegGameController {
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return const MeldValidationResult.invalid(
-        'Selected cards are not all in hand.',
-      );
-    }
-    return _resolveMeldCards(cards).result;
+    return _tablePlayPlanner.singleMeldValidationFor(seat, cardIds);
   }
 
   /// Returns the exact action id for selected cards as one meld, including
   /// an explicit represented identity when the selection contains an
   /// otherwise ambiguous joker.
   String? selectedMeldActionIdFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != _currentSeat || _phase != TurnPhase.action) {
-      return null;
-    }
-    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
-      return null;
-    }
-    final pending = _pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return null;
-    }
-
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return null;
-    }
-    if ((_hands[seat]?.length ?? 0) - cards.length == 0) {
-      return null;
-    }
-
-    final direct = _resolveMeldCards(cards);
-    if (direct.result.isValid) {
-      return ClassicHareegActionIds.playMeldActionId(cardIds);
-    }
-
-    final unresolvedJokers = cards
-        .where((card) => card.isJoker && card.representedIdentity == null)
-        .toList(growable: false);
-    if (unresolvedJokers.length != 1) {
-      return null;
-    }
-
-    final joker = unresolvedJokers.single;
-    final options = ClassicHareegJokerRules.representationOptionsForMeld(
-      cards: cards,
-      joker: joker,
-    );
-    if (options.isEmpty) {
-      return null;
-    }
-
-    final chosenIdentity = options.first;
-    final resolved = _resolveMeldCards(
-      cards,
-      jokerId: joker.id,
-      jokerIdentity: chosenIdentity,
-    );
-    if (!resolved.result.isValid) {
-      return null;
-    }
-    return ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
-      cardIds: cardIds,
-      jokerId: joker.id,
-      identity: chosenIdentity,
-    );
+    return _tablePlayPlanner.selectedMeldActionIdFor(seat, cardIds);
   }
 
   /// Returns explicit represented-card choices needed for an ambiguous joker.
@@ -1002,59 +637,20 @@ class ClassicHareegGameController {
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return const [];
-    }
-    final unresolvedJokers = cards
-        .where((card) => card.isJoker && card.representedIdentity == null)
-        .toList(growable: false);
-    if (unresolvedJokers.length != 1) {
-      return const [];
-    }
+    return _tablePlayPlanner.jokerRepresentationOptionsFor(seat, cardIds);
+  }
 
-    final options = ClassicHareegJokerRules.representationOptionsForMeld(
-      cards: cards,
-      joker: unresolvedJokers.single,
-    );
-    return options.length > 1 ? options : const [];
+  /// Returns explicit represented-joker choices for selected meld cards.
+  List<JokerMeldActionChoice> jokerMeldChoicesFor(
+    PlayerSeat seat,
+    List<String> cardIds,
+  ) {
+    return _tablePlayPlanner.jokerMeldChoicesFor(seat, cardIds);
   }
 
   /// Returns a legal cover action id for [cardIds], if they can extend a meld.
   String? coverActionIdFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != _currentSeat ||
-        _phase != TurnPhase.action ||
-        cardIds.isEmpty ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: _openingState.hasOpened(seat),
-        )) {
-      return null;
-    }
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return null;
-    }
-    if ((_hands[seat]?.length ?? 0) - cards.length == 0) {
-      return null;
-    }
-
-    for (final owner in PlayerSeat.values) {
-      final melds = _tableMelds[owner] ?? const <PlacedMeld>[];
-      for (var index = 0; index < melds.length; index += 1) {
-        final ordered = _orderedCoverCards(
-          tableMeld: melds[index].cards,
-          candidates: cards,
-        );
-        if (ordered != null) {
-          return ClassicHareegActionIds.placeCoverActionId(
-            targetSeat: owner,
-            meldIndex: index,
-            cardIds: cardIds,
-          );
-        }
-      }
-    }
-    return null;
+    return _tablePlayPlanner.coverActionIdFor(seat, cardIds);
   }
 
   /// Returns a legal cover action id for a specific table meld target.
@@ -1064,46 +660,17 @@ class ClassicHareegGameController {
     required PlayerSeat targetSeat,
     required int meldIndex,
   }) {
-    if (seat != _currentSeat ||
-        _phase != TurnPhase.action ||
-        cardIds.isEmpty ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: _openingState.hasOpened(seat),
-        )) {
-      return null;
-    }
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return null;
-    }
-    if ((_hands[seat]?.length ?? 0) - cards.length == 0) {
-      return null;
-    }
-
-    final melds = _tableMelds[targetSeat] ?? const <PlacedMeld>[];
-    if (meldIndex < 0 || meldIndex >= melds.length) {
-      return null;
-    }
-    final ordered = _orderedCoverCards(
-      tableMeld: melds[meldIndex].cards,
-      candidates: cards,
-    );
-    if (ordered == null) {
-      return null;
-    }
-    return ClassicHareegActionIds.placeCoverActionId(
+    return _tablePlayPlanner.coverActionIdForMeldTarget(
+      seat: seat,
+      cardIds: cardIds,
       targetSeat: targetSeat,
       meldIndex: meldIndex,
-      cardIds: cardIds,
     );
   }
 
   /// Returns a joker replacement action id for one selected real card.
   String? jokerReplacementActionIdFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != _currentSeat || cardIds.length != 1) {
-      return null;
-    }
-    return _replacementActionIdForCardId(seat, cardIds.single);
+    return _tablePlayPlanner.jokerReplacementActionIdFor(seat, cardIds);
   }
 
   /// Returns a legal joker replacement action id for a specific table meld.
@@ -1113,35 +680,11 @@ class ClassicHareegGameController {
     required PlayerSeat targetSeat,
     required int meldIndex,
   }) {
-    if (seat != _currentSeat ||
-        _phase != TurnPhase.action ||
-        cardIds.length != 1 ||
-        !_openingState.hasOpened(seat)) {
-      return null;
-    }
-    final hand = _hands[seat] ?? const <HareegCard>[];
-    final cardIndex = hand.indexWhere(
-      (candidate) => candidate.id == cardIds.single,
-    );
-    if (cardIndex == -1) {
-      return null;
-    }
-
-    final melds = _tableMelds[targetSeat] ?? const <PlacedMeld>[];
-    if (meldIndex < 0 || meldIndex >= melds.length) {
-      return null;
-    }
-    if (!ClassicHareegJokerRules.canReplaceJoker(
-      playerOpened: true,
-      tableCards: melds[meldIndex].cards,
-      replacementCard: hand[cardIndex],
-    )) {
-      return null;
-    }
-    return ClassicHareegActionIds.replaceJokerActionId(
+    return _tablePlayPlanner.jokerReplacementActionIdForMeldTarget(
+      seat: seat,
+      cardIds: cardIds,
       targetSeat: targetSeat,
       meldIndex: meldIndex,
-      cardId: hand[cardIndex].id,
     );
   }
 
@@ -1222,6 +765,7 @@ class ClassicHareegGameController {
     List<String> cardIds, {
     String? jokerId,
     CardIdentity? jokerIdentity,
+    Map<String, CardIdentity>? jokerIdentities,
   }) {
     if (_phase != TurnPhase.action) {
       return const ApplyActionResult.failure('Draw before playing a meld.');
@@ -1262,6 +806,7 @@ class ClassicHareegGameController {
       selectedCards,
       jokerId: jokerId,
       jokerIdentity: jokerIdentity,
+      jokerIdentities: jokerIdentities,
     );
     if (!resolved.result.isValid) {
       return ApplyActionResult.failure(resolved.result.message);
@@ -2197,7 +1742,8 @@ class ClassicHareegGameController {
     }
 
     final cards = [..._handFor(seat), discarded];
-    if (!_hasValidMeldContaining(cards, discarded.id)) {
+    final planner = ClassicHareegFinishPlanner(cards);
+    if (!planner.hasValidMeldContaining(discarded.id)) {
       _previousDiscardFinishCacheKey = cacheKey;
       _previousDiscardFinishCacheValue = false;
       return false;
@@ -2208,6 +1754,7 @@ class ClassicHareegGameController {
           requiredPlayedCardId: discarded.id,
           source: FinishCardSource.previousDiscard,
           perfectHandAttempt: true,
+          planner: planner,
         ) !=
         null;
     _previousDiscardFinishCacheKey = cacheKey;
@@ -2232,26 +1779,16 @@ class ClassicHareegGameController {
     return '${card.id}:${card.representedIdentity?.key ?? ''}';
   }
 
-  bool _hasValidMeldContaining(List<HareegCard> cards, String cardId) {
-    for (final group in _candidateGroups(cards, minSize: 3, maxSize: 5)) {
-      if (!group.any((card) => card.id == cardId)) {
-        continue;
-      }
-      if (_resolveMeldCards(group).result.isValid) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   _FinishPlan? _finishPlanForCards(
     List<HareegCard> cards, {
     String? requiredPlayedCardId,
     required FinishCardSource source,
     required bool perfectHandAttempt,
+    ClassicHareegFinishPlanner? planner,
   }) {
     final totalWatch = Stopwatch()..start();
     var attempts = 0;
+    final finishPlanner = planner ?? ClassicHareegFinishPlanner(cards);
     _debugRulesLog(
       'finishPlan start cards=${cards.length} required=$requiredPlayedCardId '
       'source=$source perfect=$perfectHandAttempt opened='
@@ -2266,10 +1803,7 @@ class ClassicHareegGameController {
           .where((card) => card.id != finalDiscard.id)
           .toList(growable: false);
       final partitionWatch = Stopwatch()..start();
-      final melds = _partitionIntoMelds(
-        remaining,
-        <String, List<PlacedMeld>?>{},
-      );
+      final melds = finishPlanner.partitionWithout(finalDiscard);
       partitionWatch.stop();
       if (partitionWatch.elapsedMilliseconds >= _debugSlowPartitionMs) {
         _debugRulesLog(
@@ -2279,12 +1813,6 @@ class ClassicHareegGameController {
         );
       }
       if (melds == null) {
-        continue;
-      }
-      if (requiredPlayedCardId != null &&
-          !melds.any(
-            (meld) => meld.cards.any((card) => card.id == requiredPlayedCardId),
-          )) {
         continue;
       }
 
@@ -2920,379 +2448,58 @@ class ClassicHareegGameController {
     PlayerSeat seat, {
     String? mustUseCardId,
   }) {
-    if (_phase != TurnPhase.action ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: _openingState.hasOpened(seat),
-        )) {
-      return const [];
-    }
-
-    final hand = _hands[seat] ?? const <HareegCard>[];
-    for (final card in hand) {
-      if (mustUseCardId != null && card.id != mustUseCardId) {
-        continue;
-      }
-      final actionId = _replacementActionIdForCardId(seat, card.id);
-      if (actionId != null) {
-        return [actionId];
-      }
-    }
-    return const [];
+    return _tablePlayPlanner.replaceJokerActionIds(
+      seat,
+      mustUseCardId: mustUseCardId,
+    );
   }
 
   String? _replacementActionIdForCardId(PlayerSeat seat, String cardId) {
-    if (!_openingState.hasOpened(seat)) {
-      return null;
-    }
-    final hand = _hands[seat] ?? const <HareegCard>[];
-    final cardIndex = hand.indexWhere((candidate) => candidate.id == cardId);
-    if (cardIndex == -1) {
-      return null;
-    }
-    final card = hand[cardIndex];
-
-    for (final owner in PlayerSeat.values) {
-      final melds = _tableMelds[owner] ?? const <PlacedMeld>[];
-      for (var index = 0; index < melds.length; index += 1) {
-        if (ClassicHareegJokerRules.canReplaceJoker(
-          playerOpened: true,
-          tableCards: melds[index].cards,
-          replacementCard: card,
-        )) {
-          return ClassicHareegActionIds.replaceJokerActionId(
-            targetSeat: owner,
-            meldIndex: index,
-            cardId: card.id,
-          );
-        }
-      }
-    }
-    return null;
+    return _tablePlayPlanner.replacementActionIdForCardId(seat, cardId);
   }
 
   List<String> _coverActionIds(PlayerSeat seat, {String? mustUseCardId}) {
-    if (_phase != TurnPhase.action ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: _openingState.hasOpened(seat),
-        )) {
-      return const [];
-    }
-
-    final hand = _hands[seat] ?? const <HareegCard>[];
-    final ids = <String>{};
-    for (final group in _candidateGroups(hand, minSize: 1, maxSize: 3)) {
-      if (hand.length - group.length == 0) {
-        continue;
-      }
-      if (mustUseCardId != null &&
-          !group.any((card) => card.id == mustUseCardId)) {
-        continue;
-      }
-      for (final owner in PlayerSeat.values) {
-        final melds = _tableMelds[owner] ?? const <PlacedMeld>[];
-        for (var index = 0; index < melds.length; index += 1) {
-          final ordered = _orderedCoverCards(
-            tableMeld: melds[index].cards,
-            candidates: group,
-          );
-          if (ordered != null) {
-            ids.add(
-              ClassicHareegActionIds.placeCoverActionId(
-                targetSeat: owner,
-                meldIndex: index,
-                cardIds: group.map((card) => card.id),
-              ),
-            );
-            return List.unmodifiable(ids);
-          }
-        }
-      }
-    }
-    return List.unmodifiable(ids);
+    return _tablePlayPlanner.coverActionIds(seat, mustUseCardId: mustUseCardId);
   }
 
   _ResolvedTablePlay _resolveTablePlay(
     List<HareegCard> cards, {
     String? jokerId,
     CardIdentity? jokerIdentity,
+    Map<String, CardIdentity>? jokerIdentities,
   }) {
-    final single = _resolveMeldCards(
+    final resolved = ClassicHareegTablePlayPlanner.resolveTablePlay(
       cards,
       jokerId: jokerId,
       jokerIdentity: jokerIdentity,
+      jokerIdentities: jokerIdentities,
     );
-    if (single.result.isValid) {
-      return _ResolvedTablePlay(
-        melds: [PlacedMeld.fromCards(single.cards)],
-        result: single.result,
-      );
-    }
-
-    final melds = _partitionIntoMelds(
-      cards,
-      <String, List<PlacedMeld>?>{},
-      jokerId: jokerId,
-      jokerIdentity: jokerIdentity,
-    );
-    if (melds == null) {
-      return _ResolvedTablePlay(melds: const [], result: single.result);
-    }
-
-    final value = melds.fold<int>(
-      0,
-      (total, meld) => total + meld.valueSnapshot,
-    );
-    return _ResolvedTablePlay(
-      melds: melds,
-      result: MeldValidationResult.valid(
-        type: MeldType.set,
-        value: value,
-        message: 'Valid table play.',
-      ),
-    );
-  }
-
-  List<PlacedMeld>? _partitionIntoMelds(
-    List<HareegCard> cards,
-    Map<String, List<PlacedMeld>?> memo, {
-    String? jokerId,
-    CardIdentity? jokerIdentity,
-  }) {
-    if (cards.isEmpty) {
-      return const [];
-    }
-    if (cards.length < 3) {
-      return null;
-    }
-
-    final key = (cards.map((card) => card.id).toList()..sort()).join('|');
-    if (memo.containsKey(key)) {
-      return memo[key];
-    }
-
-    final first = cards.first;
-    for (final group in _candidateGroupsContainingFirst(cards, first)) {
-      final resolved = _resolveMeldCards(
-        group,
-        jokerId: jokerId,
-        jokerIdentity: jokerIdentity,
-      );
-      if (!resolved.result.isValid) {
-        continue;
-      }
-      final groupIds = group.map((card) => card.id).toSet();
-      final remaining = cards
-          .where((card) => !groupIds.contains(card.id))
-          .toList(growable: false);
-      final rest = _partitionIntoMelds(
-        remaining,
-        memo,
-        jokerId: jokerId,
-        jokerIdentity: jokerIdentity,
-      );
-      if (rest != null) {
-        final result = [PlacedMeld.fromCards(resolved.cards), ...rest];
-        memo[key] = result;
-        return result;
-      }
-    }
-    memo[key] = null;
-    return null;
-  }
-
-  Iterable<List<HareegCard>> _candidateGroupsContainingFirst(
-    List<HareegCard> cards,
-    HareegCard first,
-  ) sync* {
-    final rest = cards.where((card) => card.id != first.id).toList();
-    final maxMask = 1 << rest.length;
-    for (var mask = 0; mask < maxMask; mask += 1) {
-      final group = <HareegCard>[first];
-      for (var index = 0; index < rest.length; index += 1) {
-        if ((mask & (1 << index)) != 0) {
-          group.add(rest[index]);
-        }
-      }
-      if (group.length >= 3) {
-        yield group;
-      }
-    }
-  }
-
-  Iterable<List<HareegCard>> _candidateGroups(
-    List<HareegCard> cards, {
-    required int minSize,
-    int? maxSize,
-  }) sync* {
-    final count = cards.length;
-    if (count == 0 || count > 20) {
-      return;
-    }
-    final effectiveMaxSize = maxSize ?? count;
-
-    final maxMask = 1 << count;
-    for (var mask = 1; mask < maxMask; mask += 1) {
-      final group = <HareegCard>[];
-      for (var index = 0; index < count; index += 1) {
-        if ((mask & (1 << index)) != 0) {
-          group.add(cards[index]);
-        }
-      }
-      if (group.length >= minSize && group.length <= effectiveMaxSize) {
-        yield group;
-      }
-    }
+    return _ResolvedTablePlay(melds: resolved.melds, result: resolved.result);
   }
 
   _ResolvedMeldCards _resolveMeldCards(
     List<HareegCard> cards, {
     String? jokerId,
     CardIdentity? jokerIdentity,
+    Map<String, CardIdentity>? jokerIdentities,
   }) {
-    final direct = ClassicHareegMeldValidator.validate(cards);
-    if (direct.isValid) {
-      return _ResolvedMeldCards(cards: cards, result: direct);
-    }
-
-    final unresolvedJokers = cards
-        .where((card) => card.isJoker && card.representedIdentity == null)
-        .toList(growable: false);
-    if (unresolvedJokers.length != 1) {
-      return _ResolvedMeldCards(cards: cards, result: direct);
-    }
-
-    final joker = unresolvedJokers.single;
-    final options = ClassicHareegJokerRules.representationOptionsForMeld(
-      cards: cards,
-      joker: joker,
+    final resolved = ClassicHareegTablePlayPlanner.resolveMeldCards(
+      cards,
+      jokerId: jokerId,
+      jokerIdentity: jokerIdentity,
+      jokerIdentities: jokerIdentities,
     );
-    if (options.isEmpty) {
-      return _ResolvedMeldCards(cards: cards, result: direct);
-    }
-
-    CardIdentity? identity;
-    if (jokerId != null || jokerIdentity != null) {
-      if (jokerId != joker.id || jokerIdentity == null) {
-        return _ResolvedMeldCards(
-          cards: cards,
-          result: const MeldValidationResult.invalid(
-            'Selected joker identity does not match this meld.',
-          ),
-        );
-      }
-      if (!options.contains(jokerIdentity)) {
-        return _ResolvedMeldCards(
-          cards: cards,
-          result: MeldValidationResult.invalid(
-            'Joker cannot represent ${jokerIdentity.label} here.',
-          ),
-        );
-      }
-      identity = jokerIdentity;
-    } else if (options.length == 1) {
-      identity = options.single;
-    } else {
-      return _ResolvedMeldCards(
-        cards: cards,
-        result: const MeldValidationResult.invalid(
-          'Choose what the joker represents.',
-        ),
-      );
-    }
-
-    final CardIdentity chosenIdentity = identity;
-    final resolvedCards = cards
-        .map((card) {
-          if (card.id == joker.id) {
-            return joker.asRepresenting(chosenIdentity);
-          }
-          return card;
-        })
-        .toList(growable: false);
-    final resolved = ClassicHareegMeldValidator.validate(resolvedCards);
-    if (!resolved.isValid) {
-      return _ResolvedMeldCards(cards: cards, result: resolved);
-    }
-
-    return _ResolvedMeldCards(
-      cards: resolvedCards,
-      result: MeldValidationResult.valid(
-        type: resolved.type!,
-        value: resolved.value,
-        message: '${resolved.message} Joker as ${chosenIdentity.label}.',
-      ),
-    );
+    return _ResolvedMeldCards(cards: resolved.cards, result: resolved.result);
   }
 
   List<HareegCard>? _orderedCoverCards({
     required List<HareegCard> tableMeld,
     required List<HareegCard> candidates,
   }) {
-    if (candidates.isEmpty) {
-      return const [];
-    }
-
-    for (var index = 0; index < candidates.length; index += 1) {
-      final candidate = candidates[index];
-      final resolvedCandidate = _resolveCoverCandidate(
-        tableMeld: tableMeld,
-        candidate: candidate,
-      );
-      if (resolvedCandidate == null) {
-        continue;
-      }
-      final remaining = [
-        ...candidates.take(index),
-        ...candidates.skip(index + 1),
-      ];
-      final next = _orderedCoverCards(
-        tableMeld: [...tableMeld, resolvedCandidate],
-        candidates: remaining,
-      );
-      if (next != null) {
-        return [resolvedCandidate, ...next];
-      }
-    }
-    return null;
-  }
-
-  HareegCard? _resolveCoverCandidate({
-    required List<HareegCard> tableMeld,
-    required HareegCard candidate,
-  }) {
-    if (ClassicHareegCoverRules.isCover(
+    return ClassicHareegTablePlayPlanner.orderedCoverCards(
       tableMeld: tableMeld,
-      candidate: candidate,
-    )) {
-      return candidate;
-    }
-    if (!candidate.isJoker || candidate.representedIdentity != null) {
-      return null;
-    }
-
-    final options = <CardIdentity>[];
-    for (final suit in CardSuit.values) {
-      for (final rank in CardRank.values) {
-        final identity = CardIdentity(rank: rank, suit: suit);
-        if (ClassicHareegCoverRules.isCover(
-          tableMeld: tableMeld,
-          candidate: candidate.asRepresenting(identity),
-        )) {
-          options.add(identity);
-        }
-      }
-    }
-    if (options.isEmpty) {
-      return null;
-    }
-    options.sort((left, right) {
-      final suitCompare = left.suit.index.compareTo(right.suit.index);
-      if (suitCompare != 0) {
-        return suitCompare;
-      }
-      return left.rank.order.compareTo(right.rank.order);
-    });
-    return candidate.asRepresenting(options.first);
+      candidates: candidates,
+    );
   }
 
   List<String> _discardActionIds(PlayerSeat seat) {
@@ -3484,32 +2691,6 @@ Iterable<List<T>> _combinations<T>(List<T> items, int size) sync* {
   }
 
   yield* build(0, size);
-}
-
-CardIdentity? _identityFromKey(String key) {
-  final parts = key.split('-');
-  if (parts.length != 2) {
-    return null;
-  }
-  final rank = CardRank.fromName(parts[0]);
-  final suit = CardSuit.fromName(parts[1]);
-  if (rank == null || suit == null) {
-    return null;
-  }
-  return CardIdentity(rank: rank, suit: suit);
-}
-
-/// Inverse of [PlayerSeat.nextAntiClockwise] used when restoring discard state
-/// from a snapshot that doesn't record the discarding seat.
-extension on PlayerSeat {
-  PlayerSeat get previousAntiClockwise {
-    return switch (this) {
-      PlayerSeat.south => PlayerSeat.west,
-      PlayerSeat.east => PlayerSeat.south,
-      PlayerSeat.north => PlayerSeat.east,
-      PlayerSeat.west => PlayerSeat.north,
-    };
-  }
 }
 
 /// Sorts a hand by suit + rank with jokers last via null-identity sort.

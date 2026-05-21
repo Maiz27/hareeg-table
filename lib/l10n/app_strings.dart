@@ -115,6 +115,8 @@ class AppStrings {
   String get aidsLabel => _v('aidsLabel');
   String get aidsHelp => _v('aidsHelp');
   String get motionSpeedLabel => _v('motionSpeedLabel');
+  String get fastCpuTurns => _v('fastCpuTurns');
+  String get fastCpuTurnsDescription => _v('fastCpuTurnsDescription');
   String get hapticsLabel => _v('hapticsLabel');
   String get hapticsHelp => _v('hapticsHelp');
   String get soundLabel => _v('soundLabel');
@@ -675,6 +677,9 @@ const _englishValues = {
   'aidsHelp':
       'Aids only change which hints the app shows. Scoring stays the same.',
   'motionSpeedLabel': 'Motion speed',
+  'fastCpuTurns': 'Fast CPU turns',
+  'fastCpuTurnsDescription':
+      'Shorten CPU pauses and card flights so opponent turns resolve faster.',
   'hapticsLabel': 'Table haptics',
   'hapticsHelp': 'Light vibrations on taps, drops, and Fifty.',
   'soundLabel': 'Table sounds',

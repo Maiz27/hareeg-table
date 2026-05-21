@@ -19,11 +19,13 @@ class PauseOverlay extends StatelessWidget {
     super.key,
     required this.aids,
     required this.motionSpeed,
+    required this.fastCpuTurns,
     required this.hapticsEnabled,
     required this.soundEnabled,
     required this.highContrastCards,
     required this.onAidsChanged,
     required this.onMotionSpeedChanged,
+    required this.onFastCpuTurnsChanged,
     required this.onHapticsChanged,
     required this.onSoundChanged,
     required this.onHighContrastCardsChanged,
@@ -37,6 +39,9 @@ class PauseOverlay extends StatelessWidget {
   /// Current motion speed.
   final MotionSpeed motionSpeed;
 
+  /// Whether CPU turns use shorter pauses.
+  final bool fastCpuTurns;
+
   /// Whether haptics are enabled.
   final bool hapticsEnabled;
 
@@ -49,6 +54,7 @@ class PauseOverlay extends StatelessWidget {
   /// Callbacks.
   final ValueChanged<TableAids> onAidsChanged;
   final ValueChanged<MotionSpeed> onMotionSpeedChanged;
+  final ValueChanged<bool> onFastCpuTurnsChanged;
   final ValueChanged<bool> onHapticsChanged;
   final ValueChanged<bool> onSoundChanged;
   final ValueChanged<bool> onHighContrastCardsChanged;
@@ -60,6 +66,7 @@ class PauseOverlay extends StatelessWidget {
     final strings = context.strings;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onResume,
       child: ColoredBox(
         color: highContrastCards
@@ -72,6 +79,7 @@ class PauseOverlay extends StatelessWidget {
                   .clamp(160.0, constraints.maxHeight);
               return Center(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {},
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -155,6 +163,14 @@ class PauseOverlay extends StatelessWidget {
                                               selection.first,
                                             ),
                                       ),
+                                    ),
+                                    const _PanelDivider(),
+                                    _OverlayToggle(
+                                      icon: Icons.speed_outlined,
+                                      title: strings.fastCpuTurns,
+                                      subtitle: strings.fastCpuTurnsDescription,
+                                      value: fastCpuTurns,
+                                      onChanged: onFastCpuTurnsChanged,
                                     ),
                                     const _PanelDivider(),
                                     _OverlayToggle(

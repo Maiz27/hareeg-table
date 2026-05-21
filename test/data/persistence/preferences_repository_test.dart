@@ -17,6 +17,7 @@ void main() {
       expect(preferences.setup.rulePreset, RulePreset.assisted);
       expect(preferences.autoSort, isTrue);
       expect(preferences.motionSpeed, MotionSpeed.normal);
+      expect(preferences.fastCpuTurns, isTrue);
       expect(preferences.reducedMotion, isFalse);
       expect(preferences.language, AppLanguage.english);
       expect(preferences.highContrastCards, isFalse);
@@ -37,6 +38,7 @@ void main() {
         ),
         autoSort: false,
         motionSpeed: MotionSpeed.reduced,
+        fastCpuTurns: false,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
         highContrastCards: true,
@@ -54,6 +56,7 @@ void main() {
       expect(restored.setup.rulePreset, RulePreset.hardTable17);
       expect(restored.autoSort, isFalse);
       expect(restored.motionSpeed, MotionSpeed.reduced);
+      expect(restored.fastCpuTurns, isFalse);
       expect(restored.reducedMotion, isTrue);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
