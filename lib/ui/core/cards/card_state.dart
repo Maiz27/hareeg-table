@@ -36,8 +36,7 @@ enum CardVisualState {
 /// Painting recipe for a single card state.
 ///
 /// Themes can override colours per-state if their palette needs a different
-/// outline (for example, the High Contrast theme uses pure black/yellow), but
-/// the defaults work for every code-rendered theme.
+/// outline, but the defaults work for every code-rendered theme.
 @immutable
 class CardStateOverlayStyle {
   /// Creates an overlay style.
@@ -111,4 +110,60 @@ abstract final class DefaultCardStateOverlays {
       outlineWidth: 0,
     ),
   };
+}
+
+/// Stronger state overlays used by the high-contrast accessibility setting.
+///
+/// These are intentionally overlay-only: they sit above the selected card
+/// theme so generated and bundled deck art stays unchanged.
+abstract final class HighContrastCardStateOverlays {
+  /// High-contrast overlay map.
+  static const CardStateOverlayMap map = {
+    CardVisualState.normal: CardStateOverlayStyle(
+      outline: Colors.transparent,
+      outlineWidth: 0,
+    ),
+    CardVisualState.selected: CardStateOverlayStyle(
+      outline: Color(0xFFFFD400),
+      outlineWidth: 4,
+      glow: Color(0xCCFFD400),
+    ),
+    CardVisualState.pending: CardStateOverlayStyle(
+      outline: Color(0xFFFF6F00),
+      outlineWidth: 4,
+      glow: Color(0xCCFF6F00),
+      tint: Color(0x33FF6F00),
+    ),
+    CardVisualState.coverTarget: CardStateOverlayStyle(
+      outline: Color(0xFF00D9FF),
+      outlineWidth: 3.5,
+      tint: Color(0x3300D9FF),
+    ),
+    CardVisualState.jokerReplaceTarget: CardStateOverlayStyle(
+      outline: Color(0xFFFFD400),
+      outlineWidth: 3.5,
+      tint: Color(0x44FFD400),
+    ),
+    CardVisualState.invalid: CardStateOverlayStyle(
+      outline: Color(0xFFFF2F2F),
+      outlineWidth: 4,
+      iconColor: Color(0xFFFF2F2F),
+    ),
+    CardVisualState.disabled: CardStateOverlayStyle(
+      outline: Colors.transparent,
+      outlineWidth: 0,
+      tint: Color(0xCC000000),
+    ),
+  };
+
+  /// Resolves a high-contrast overlay while preserving normal unmarked cards.
+  static CardStateOverlayStyle resolve(
+    CardVisualState state,
+    CardStateOverlayStyle fallback,
+  ) {
+    if (state == CardVisualState.normal) {
+      return fallback;
+    }
+    return map[state] ?? fallback;
+  }
 }

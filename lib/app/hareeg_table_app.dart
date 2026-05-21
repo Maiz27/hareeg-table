@@ -99,10 +99,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedTheme = CardThemeRegistry.byId(_values.cardThemeId);
-    final activeTheme = _values.highContrastCards
-        ? CardThemeRegistry.highContrastTheme
-        : selectedTheme;
+    final activeTheme = CardThemeRegistry.byId(_values.cardThemeId);
     final strings = AppStrings.forLanguageCode(_values.language.code);
 
     return MaterialApp(
@@ -127,17 +124,20 @@ class _HareegTableAppState extends State<HareegTableApp> {
         );
         return MotionScope(
           settings: motion,
-          child: CardThemeScope(
-            theme: activeTheme,
+          child: CardContrastScope(
+            highContrast: _values.highContrastCards,
             child: AidsScope(
               aids: _values.tableAids,
-              child: HapticsScope(
-                haptics: _haptics,
-                child: AppStringsScope(
-                  strings: strings,
-                  child: Directionality(
-                    textDirection: strings.textDirection,
-                    child: child ?? const SizedBox.shrink(),
+              child: CardThemeScope(
+                theme: activeTheme,
+                child: HapticsScope(
+                  haptics: _haptics,
+                  child: AppStringsScope(
+                    strings: strings,
+                    child: Directionality(
+                      textDirection: strings.textDirection,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),

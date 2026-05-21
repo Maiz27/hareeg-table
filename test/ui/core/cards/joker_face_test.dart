@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
-import 'package:hareeg_table/ui/core/cards/themes/high_contrast_theme.dart';
 import 'package:hareeg_table/ui/core/cards/themes/minimal_symbols_theme.dart';
 import 'package:hareeg_table/ui/core/cards/themes/wikimedia_pd_theme.dart';
 
@@ -12,7 +11,6 @@ import 'package:hareeg_table/ui/core/cards/themes/wikimedia_pd_theme.dart';
 /// returns a bundled PNG for jokers, so the painter's corner indices do not
 /// apply.
 const _sharedJokerThemes = <(String, HareegCardTheme)>[
-  ('High Contrast', HighContrastCardTheme()),
   ('Minimal Symbols', MinimalSymbolsCardTheme()),
   ('Wikimedia PD', WikimediaPdCardTheme()),
 ];

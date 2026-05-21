@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/match_repository.dart';
-import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/cards/card_theme.dart';
-import '../../../core/cards/card_view.dart';
+import '../../../core/cards/showcase_card_fan.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
-import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Main menu and navigation shell.
@@ -302,7 +299,7 @@ class _HeroSection extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Center(child: _MenuCardFan(width: 232, height: 134)),
+        const Center(child: ShowcaseCardFan(width: 232, height: 134)),
         const SizedBox(height: LoungeTokens.space8),
         FilledButton.icon(
           onPressed: onNewGame,
@@ -431,116 +428,6 @@ class _ContinueButton extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _MenuCardFan extends StatelessWidget {
-  const _MenuCardFan({required this.width, required this.height});
-
-  final double width;
-  final double height;
-
-  /// Showcase hand: one card from each suit plus a joker, used to preview the
-  /// active card theme on the main menu. Order matters — index 2 sits at the
-  /// fan centre and the painter draws sequentially, so the rightmost card
-  /// lands on top of the stack.
-  static final List<HareegCard> _showcase = [
-    HareegCard.standard(
-      rank: CardRank.king,
-      suit: CardSuit.spades,
-      deckIndex: 0,
-    ),
-    HareegCard.standard(
-      rank: CardRank.queen,
-      suit: CardSuit.hearts,
-      deckIndex: 0,
-    ),
-    const HareegCard.joker(deckIndex: 0, jokerIndex: 0),
-    HareegCard.standard(
-      rank: CardRank.jack,
-      suit: CardSuit.diamonds,
-      deckIndex: 0,
-    ),
-    HareegCard.standard(rank: CardRank.ace, suit: CardSuit.clubs, deckIndex: 0),
-  ];
-
-  /// Half-angle of the outermost card from vertical, in radians (~25.8°).
-  static const _maxAngle = 0.45;
-
-  /// Horizontal offset between adjacent card pivots, in logical pixels.
-  /// Each card's bottom is shifted by `step * _stepSpread` so the cards
-  /// fan from distinct anchor points rather than converging to one.
-  static const _stepSpread = 16.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = CardThemeScope.of(context);
-    final strings = context.strings;
-    final cardSize = Size(width * 0.3, height * 0.78);
-    final last = _showcase.length - 1;
-
-    return Semantics(
-      label: strings.cardThemePreview(theme.label),
-      excludeSemantics: true,
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            for (var i = 0; i < _showcase.length; i++)
-              Transform.translate(
-                offset: Offset((i - last / 2) * _stepSpread, 0),
-                child: Transform.rotate(
-                  angle: ((i - last / 2) / (last / 2)) * _maxAngle,
-                  alignment: Alignment.bottomCenter,
-                  child: _FannedCard(
-                    theme: theme,
-                    card: _showcase[i],
-                    size: cardSize,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FannedCard extends StatelessWidget {
-  const _FannedCard({
-    required this.theme,
-    required this.card,
-    required this.size,
-  });
-
-  final HareegCardTheme theme;
-  final HareegCard card;
-  final Size size;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            offset: Offset(0, 2),
-            blurRadius: 3,
-          ),
-        ],
-      ),
-      child: HareegCardView(
-        theme: theme,
-        card: card,
-        variant: CardVariant.picker,
-        size: size,
-        jokerDisplay: JokerDisplay.assisted,
-      ),
     );
   }
 }

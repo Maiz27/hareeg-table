@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_theme.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
@@ -41,13 +42,16 @@ class ScoreOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final highContrast = CardContrastScope.enabledOf(context);
     final seats = scores.keys.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
 
     return GestureDetector(
       onTap: onClose,
       child: ColoredBox(
-        color: LoungeTokens.overlayScrim,
+        color: highContrast
+            ? Colors.black.withValues(alpha: 0.72)
+            : LoungeTokens.overlayScrim,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -67,6 +71,7 @@ class ScoreOverlay extends StatelessWidget {
                         maxHeight: maxHeight,
                       ),
                       child: _LoungePanel(
+                        highContrast: highContrast,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -391,8 +396,9 @@ class _LegendPill extends StatelessWidget {
 }
 
 class _LoungePanel extends StatelessWidget {
-  const _LoungePanel({required this.child});
+  const _LoungePanel({required this.highContrast, required this.child});
 
+  final bool highContrast;
   final Widget child;
 
   @override
@@ -401,10 +407,15 @@ class _LoungePanel extends StatelessWidget {
       type: MaterialType.transparency,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+          color: highContrast
+              ? Colors.black.withValues(alpha: 0.98)
+              : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
           borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
           border: Border.all(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+            color: highContrast
+                ? const Color(0xFFFFD400)
+                : LoungeTokens.sandLine.withValues(alpha: 0.32),
+            width: highContrast ? 2 : 1,
           ),
           boxShadow: const [
             BoxShadow(

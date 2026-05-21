@@ -129,7 +129,10 @@ class _HareegCardViewState extends State<HareegCardView> {
   @override
   Widget build(BuildContext context) {
     final motion = MotionScope.of(context);
-    final overlay = widget.theme.overlayFor(widget.visualState);
+    final baseOverlay = widget.theme.overlayFor(widget.visualState);
+    final overlay = CardContrastScope.enabledOf(context)
+        ? HighContrastCardStateOverlays.resolve(widget.visualState, baseOverlay)
+        : baseOverlay;
     final scopedJokerDisplay =
         widget.jokerDisplay ?? JokerDisplayScope.of(context);
     final effectiveJokerDisplay = _shouldMemoryReveal && _memoryRevealQuieted

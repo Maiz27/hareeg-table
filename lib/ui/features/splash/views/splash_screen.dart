@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/showcase_card_fan.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -214,56 +215,15 @@ class _FannedCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: opacity,
-      child: SizedBox(
-        width: 200,
-        height: 90,
-        child: CustomPaint(painter: _FannedCardsPainter()),
+      child: const ShowcaseCardFan(
+        width: 232,
+        height: 132,
+        maxAngle: 0.54,
+        stepSpread: 24,
+        outerDrop: 12,
       ),
     );
   }
-}
-
-class _FannedCardsPainter extends CustomPainter {
-  static const _cardCount = 5;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cardWidth = size.width * 0.32;
-    final cardHeight = size.height * 0.95;
-    final center = Offset(size.width / 2, size.height);
-    const fanArc = 0.55;
-
-    for (var i = 0; i < _cardCount; i++) {
-      final t = (i - (_cardCount - 1) / 2) / (_cardCount - 1);
-      final angle = t * fanArc;
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(angle);
-      canvas.translate(-cardWidth / 2, -cardHeight);
-
-      final rect = Rect.fromLTWH(0, 0, cardWidth, cardHeight);
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6));
-
-      final shadow = Paint()
-        ..color = const Color(0x66000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-      canvas.drawRRect(rrect.shift(const Offset(0, 1.5)), shadow);
-
-      final fill = Paint()..color = LoungeTokens.cardIvory;
-      canvas.drawRRect(rrect, fill);
-
-      final stroke = Paint()
-        ..color = LoungeTokens.sandLine
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2;
-      canvas.drawRRect(rrect, stroke);
-
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _Wordmark extends StatelessWidget {

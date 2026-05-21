@@ -7,6 +7,7 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 
 import 'support/test_fixtures.dart';
 
@@ -19,6 +20,31 @@ void main() {
     expect(find.text('Continue'), findsOneWidget);
     expect(find.byTooltip('Settings'), findsOneWidget);
     expect(find.byTooltip('Rules / Help'), findsOneWidget);
+  });
+
+  testWidgets('high contrast cues keep the selected card theme', (
+    tester,
+  ) async {
+    final preferences = MemoryPreferencesRepository()
+      ..preferences = GamePreferences.defaults().copyWith(
+        cardThemeId: 'minimal_symbols',
+        highContrastCards: true,
+      );
+
+    await tester.pumpWidget(testApp(preferencesRepository: preferences));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.bySemanticsLabel('Minimal Symbols card theme preview'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('splash uses the themed showcase card fan', (tester) async {
+    await tester.pumpWidget(testApp(initialRoute: AppRoutes.splash));
+    await tester.pump();
+
+    expect(find.byType(ShowcaseCardFan), findsOneWidget);
   });
 
   testWidgets('new game opens the setup form with defaults', (tester) async {

@@ -1,5 +1,4 @@
 import 'card_theme.dart';
-import 'themes/high_contrast_theme.dart';
 import 'themes/kenney_classic_theme.dart';
 import 'themes/minimal_symbols_theme.dart';
 import 'themes/sandline_lounge_theme.dart';
@@ -11,9 +10,6 @@ import 'themes/wikimedia_pd_theme.dart';
 abstract final class CardThemeRegistry {
   /// Default theme id used on first launch.
   static const defaultThemeId = 'sandline_lounge';
-
-  /// Code-rendered accessibility deck used when high-contrast cards are on.
-  static const highContrastTheme = HighContrastCardTheme();
 
   static const _themes = <HareegCardTheme>[
     SandlineLoungeCardTheme(),

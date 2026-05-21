@@ -680,9 +680,9 @@ const _englishValues = {
   'soundHelp': 'Sounds will arrive in a future update.',
   'cardThemeLabel': 'Card theme',
   'cardThemeHelp': 'Themes can only be changed outside an active match.',
-  'highContrastCards': 'High-contrast cards',
+  'highContrastCards': 'High-contrast cues',
   'highContrastCardsDescription':
-      'Use a plain high-contrast card renderer while keeping your selected deck saved.',
+      'Strengthen card highlights and table pop-ups without changing the selected deck art.',
   'aboutLicenses': 'About & Licenses',
   'aboutHeader': 'Hareeg Table',
   'aboutBody':
@@ -870,9 +870,9 @@ const _arabicValues = {
   'soundHelp': 'الأصوات ستصل في تحديث لاحق.',
   'cardThemeLabel': 'سمة الأوراق',
   'cardThemeHelp': 'يمكن تغيير السمات خارج المباراة النشطة فقط.',
-  'highContrastCards': 'أوراق عالية التباين',
+  'highContrastCards': 'إشارات عالية التباين',
   'highContrastCardsDescription':
-      'استخدم رسما بسيطا عالي التباين للأوراق مع حفظ السمة المختارة.',
+      'قوّ إبرازات الأوراق والنوافذ دون تغيير رسومات السمة المختارة.',
   'aboutLicenses': 'حول التطبيق والتراخيص',
   'aboutHeader': 'طاولة حريق',
   'aboutBody':

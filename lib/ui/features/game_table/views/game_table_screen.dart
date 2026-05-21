@@ -1497,12 +1497,13 @@ class _RoundResultOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final highContrast = CardContrastScope.enabledOf(context);
     final seats = PlayerSeat.values.toList();
     final compact = MediaQuery.sizeOf(context).height < 390;
     final winner = presentation.progress.matchWinner;
     return ColoredBox(
       key: const ValueKey('round-result-overlay'),
-      color: Colors.black.withValues(alpha: 0.50),
+      color: Colors.black.withValues(alpha: highContrast ? 0.72 : 0.50),
       child: SafeArea(
         child: Center(
           child: Padding(
@@ -1517,10 +1518,15 @@ class _RoundResultOverlay extends StatelessWidget {
               ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                  color: highContrast
+                      ? Colors.black.withValues(alpha: 0.98)
+                      : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
+                    color: highContrast
+                        ? const Color(0xFFFFD400)
+                        : LoungeTokens.goldAccent.withValues(alpha: 0.34),
+                    width: highContrast ? 2 : 1,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -1928,6 +1934,7 @@ class _CardInspectOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final highContrast = CardContrastScope.enabledOf(context);
     final title = _inspectTitle(
       card,
       strings,
@@ -1945,7 +1952,7 @@ class _CardInspectOverlay extends StatelessWidget {
     return Positioned.fill(
       key: const ValueKey('card-inspect-overlay'),
       child: Material(
-        color: Colors.black.withValues(alpha: 0.48),
+        color: Colors.black.withValues(alpha: highContrast ? 0.68 : 0.48),
         child: SafeArea(
           child: Center(
             child: LayoutBuilder(
@@ -2035,10 +2042,15 @@ class _CardInspectOverlay extends StatelessWidget {
                     compact ? 16 : 18,
                   ),
                   decoration: BoxDecoration(
-                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                    color: highContrast
+                        ? Colors.black.withValues(alpha: 0.98)
+                        : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: LoungeTokens.goldAccent.withValues(alpha: 0.36),
+                      color: highContrast
+                          ? const Color(0xFFFFD400)
+                          : LoungeTokens.goldAccent.withValues(alpha: 0.36),
+                      width: highContrast ? 2 : 1,
                     ),
                     boxShadow: [
                       BoxShadow(

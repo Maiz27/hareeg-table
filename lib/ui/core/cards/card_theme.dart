@@ -64,6 +64,31 @@ class JokerDisplayScope extends InheritedWidget {
   }
 }
 
+/// Inherits whether card/table cues should use high-contrast overlays.
+class CardContrastScope extends InheritedWidget {
+  /// Creates a card-contrast scope.
+  const CardContrastScope({
+    super.key,
+    required this.highContrast,
+    required super.child,
+  });
+
+  /// Whether high-contrast cue overlays are enabled.
+  final bool highContrast;
+
+  /// Reads the nearest card contrast setting.
+  static bool enabledOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<CardContrastScope>();
+    return scope?.highContrast ?? false;
+  }
+
+  @override
+  bool updateShouldNotify(covariant CardContrastScope oldWidget) {
+    return oldWidget.highContrast != highContrast;
+  }
+}
+
 /// Optional badge drawn on top of the card face when the player should know
 /// something extra about it (per-deck-copy distinction, joker memory aid).
 enum CardBadge {

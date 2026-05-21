@@ -8,8 +8,7 @@ void main() {
     expect(CardThemeRegistry.all().first.id, 'sandline_lounge');
   });
 
-  test('High Contrast is exposed as an accessibility renderer', () {
-    expect(CardThemeRegistry.highContrastTheme.id, 'high_contrast');
+  test('High Contrast is not a selectable card theme', () {
     expect(
       CardThemeRegistry.all().map((theme) => theme.id),
       isNot(contains('high_contrast')),
