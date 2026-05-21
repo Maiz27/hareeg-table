@@ -487,8 +487,9 @@ class JokerMeldActionChoice {
   JokerMeldActionChoice({
     required this.jokerId,
     required this.identity,
-    required this.cardIds,
-  }) : assignments = List.unmodifiable([
+    required Iterable<String> cardIds,
+  }) : cardIds = List.unmodifiable(cardIds),
+       assignments = List.unmodifiable([
          JokerMeldAssignment(jokerId: jokerId, identity: identity),
        ]);
 
