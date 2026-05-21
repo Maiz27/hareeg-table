@@ -13,7 +13,6 @@ import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
-import '../../../../domain/classic_hareeg/rules/meld_validator.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
@@ -198,12 +197,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
             _selectedCardIds.toList(),
           )
         : null;
-    final primaryMeldAction = isHumanTurn
-        ? _selectedMeldAction(meldValidation)
-        : null;
+    final primaryMeldAction = isHumanTurn ? _selectedMeldAction() : null;
     final canPlayMeld = primaryMeldAction != null;
     final hasOpened = _controller.openingState.hasOpened(humanSeat);
-    final meldCtaValue = canPlayMeld ? (meldValidation?.value ?? 0) : null;
+    final meldCtaValue = canPlayMeld && meldValidation?.isValid == true
+        ? meldValidation?.value
+        : null;
 
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
@@ -243,8 +242,13 @@ class _GameTableScreenState extends State<GameTableScreen> {
               onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
               onPlayCardOnMeld: (card, owner, meldIndex) =>
                   unawaited(_dropCardToMeld(card, owner, meldIndex)),
-              onRetractMeld: (_, _) => unawaited(
-                _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
+              onRetractMeld: (owner, meldIndex) => unawaited(
+                _runHumanAction(
+                  ClassicHareegActionIds.returnTablePlayActionId(
+                    owner: owner,
+                    meldIndex: meldIndex,
+                  ),
+                ),
               ),
               canDrawStock: controlActions.contains(
                 ClassicHareegActionIds.drawStock,
@@ -376,8 +380,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
       body: Stack(
         children: [
           body,
-          if (_scoreOpen)
-            ScoreOverlay(
+          _AnimatedOverlaySlot(
+            visible: _scoreOpen,
+            overlayKey: 'score-overlay',
+            duration: _scaledDelay(const Duration(milliseconds: 180)),
+            child: ScoreOverlay(
               scores: _controller.scores,
               activeSeats: _controller.activeSeats,
               starter: _controller.starter,
@@ -385,8 +392,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
               roundNumber: _controller.roundNumber,
               onClose: () => setState(() => _scoreOpen = false),
             ),
-          if (_pauseOpen)
-            PauseOverlay(
+          ),
+          _AnimatedOverlaySlot(
+            visible: _pauseOpen,
+            overlayKey: 'pause-overlay',
+            duration: _scaledDelay(const Duration(milliseconds: 180)),
+            child: PauseOverlay(
               aids: widget.preferences.tableAids,
               motionSpeed: widget.preferences.motionSpeed,
               hapticsEnabled: widget.preferences.hapticsEnabled,
@@ -408,6 +419,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
                 Navigator.of(context).pop();
               },
             ),
+          ),
           if (_inspectedCard != null)
             _CardInspectOverlay(
               card: _inspectedCard!,
@@ -416,19 +428,26 @@ class _GameTableScreenState extends State<GameTableScreen> {
               jokerAidsEnabled: jokerAidsEnabled,
               onClose: () => setState(() => _inspectedCard = null),
             ),
-          if (_roundResultPresentation != null)
-            _RoundResultOverlay(
-              presentation: _roundResultPresentation!,
-              onContinueNow: _roundResultPresentation!.nextSnapshot == null
-                  ? null
-                  : () => _advanceToNextRound(
-                      _roundResultPresentation!.nextSnapshot!,
-                    ),
-              onReturnToMenu:
-                  _roundResultPresentation!.progress.matchWinner == null
-                  ? null
-                  : () => Navigator.of(context).pop(),
-            ),
+          _AnimatedOverlaySlot(
+            visible: _roundResultPresentation != null,
+            overlayKey: 'round-result-overlay-slot',
+            duration: _scaledDelay(const Duration(milliseconds: 220)),
+            child: _roundResultPresentation == null
+                ? const SizedBox.shrink()
+                : _RoundResultOverlay(
+                    presentation: _roundResultPresentation!,
+                    onContinueNow:
+                        _roundResultPresentation!.nextSnapshot == null
+                        ? null
+                        : () => _advanceToNextRound(
+                            _roundResultPresentation!.nextSnapshot!,
+                          ),
+                    onReturnToMenu:
+                        _roundResultPresentation!.progress.matchWinner == null
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                  ),
+          ),
         ],
       ),
     );
@@ -513,13 +532,16 @@ class _GameTableScreenState extends State<GameTableScreen> {
     final legal = _controller.controlActionIdsFor(PlayerSeat.south);
     if (_controller.pendingDiscard?.id == card.id &&
         legal.contains(ClassicHareegActionIds.returnPendingDiscard)) {
-      await _runHumanAction(ClassicHareegActionIds.returnPendingDiscard);
+      await _runHumanAction(
+        ClassicHareegActionIds.returnPendingDiscard,
+        playFlight: false,
+      );
       return;
     }
 
     final discardActionId = _findDiscardActionId(legal, card.id);
     if (discardActionId != null) {
-      await _runHumanAction(discardActionId);
+      await _runHumanAction(discardActionId, playFlight: false);
       return;
     }
 
@@ -567,7 +589,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
       _showInvalidFeedback('Drop a valid meld, cover, or joker replacement.');
       return;
     }
-    await _runHumanAction(actionId);
+    await _runHumanAction(actionId, playFlight: false);
   }
 
   Future<void> _dropCardToMeld(
@@ -579,7 +601,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
     for (final cardIds in _dropCardIdCandidatesForMeld(card)) {
       final actionId = _tableActionIdForMeldTarget(cardIds, owner, meldIndex);
       if (actionId != null) {
-        await _runHumanAction(actionId);
+        await _runHumanAction(actionId, playFlight: false);
         return;
       }
     }
@@ -669,43 +691,15 @@ class _GameTableScreenState extends State<GameTableScreen> {
   /// Returns a play action for the exact selected single meld. This bypasses
   /// controller-wide opening-combination enumeration so the picker never pulls
   /// unselected cards from the rest of the hand.
-  String? _selectedMeldAction(MeldValidationResult? validation) {
-    if (_selectedCardIds.length < 3 || validation?.isValid != true) {
+  String? _selectedMeldAction() {
+    if (_selectedCardIds.length < 3) {
       return null;
     }
     return _meldActionForCardIds(_selectedCardIds.toList(growable: false));
   }
 
   String? _meldActionForCardIds(List<String> cardIds) {
-    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
-      return null;
-    }
-    final pending = _controller.pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return null;
-    }
-    final handCount = _controller.handFor(PlayerSeat.south).length;
-    if (handCount - cardIds.length == 0) {
-      return null;
-    }
-
-    final validation = _controller.singleMeldValidationFor(
-      PlayerSeat.south,
-      cardIds,
-    );
-    if (!validation.isValid) {
-      return null;
-    }
-
-    final jokerChoices = _controller.jokerRepresentationOptionsFor(
-      PlayerSeat.south,
-      cardIds,
-    );
-    if (jokerChoices.isNotEmpty) {
-      return null;
-    }
-
-    return ClassicHareegActionIds.playMeldActionId(cardIds);
+    return _controller.selectedMeldActionIdFor(PlayerSeat.south, cardIds);
   }
 
   List<TableMeldSuggestion> _meldSuggestions(List<HareegCard> handCards) {
@@ -1046,14 +1040,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
     });
   }
 
-  Future<void> _runHumanAction(String actionId) async {
+  Future<void> _runHumanAction(
+    String actionId, {
+    bool playFlight = true,
+  }) async {
     if (_isCpuRunning) return;
     final totalWatch = Stopwatch()..start();
     _debugTableLog(
       'human action start action=$actionId current=${_controller.currentSeat.name} '
       'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
     );
-    await _playFlightForAction(actionId);
+    if (playFlight) {
+      await _playFlightForAction(actionId);
+    }
     if (!mounted) return;
     final applyWatch = Stopwatch()..start();
     final result = _controller.applyAction(actionId);
@@ -1112,6 +1111,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
         actionId.startsWith(ClassicHareegActionIds.playMeldWithJokerPrefix) ||
         actionId.startsWith(ClassicHareegActionIds.placeCoverPrefix) ||
         actionId.startsWith(ClassicHareegActionIds.replaceJokerPrefix) ||
+        actionId.startsWith(ClassicHareegActionIds.returnTablePlayPrefix) ||
         actionId == ClassicHareegActionIds.returnOpeningMelds ||
         actionId == ClassicHareegActionIds.returnPendingDiscard;
   }
@@ -1422,6 +1422,49 @@ class _RoundTableButton extends StatelessWidget {
   }
 }
 
+class _AnimatedOverlaySlot extends StatelessWidget {
+  const _AnimatedOverlaySlot({
+    required this.visible,
+    required this.overlayKey,
+    required this.duration,
+    required this.child,
+  });
+
+  final bool visible;
+  final String overlayKey;
+  final Duration duration;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: AnimatedSwitcher(
+        duration: duration,
+        reverseDuration: duration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.985, end: 1).animate(curved),
+              child: child,
+            ),
+          );
+        },
+        child: visible
+            ? KeyedSubtree(key: ValueKey(overlayKey), child: child)
+            : const SizedBox.shrink(key: ValueKey('overlay-empty')),
+      ),
+    );
+  }
+}
+
 class _RoundResultPresentation {
   const _RoundResultPresentation({
     required this.result,
@@ -1453,76 +1496,71 @@ class _RoundResultOverlay extends StatelessWidget {
     final seats = PlayerSeat.values.toList();
     final compact = MediaQuery.sizeOf(context).height < 390;
     final winner = presentation.progress.matchWinner;
-    return Positioned.fill(
+    return ColoredBox(
       key: const ValueKey('round-result-overlay'),
-      child: ColoredBox(
-        color: Colors.black.withValues(alpha: 0.50),
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 14 : 22,
-                vertical: compact ? 10 : 18,
+      color: Colors.black.withValues(alpha: 0.50),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 14 : 22,
+              vertical: compact ? 10 : 18,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: compact ? 620 : 700,
+                maxHeight: MediaQuery.sizeOf(context).height - 24,
               ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: compact ? 620 : 700,
-                  maxHeight: MediaQuery.sizeOf(context).height - 24,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.36),
-                        blurRadius: 28,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
                   ),
-                  child: Padding(
-                    padding: EdgeInsets.all(compact ? 12 : 18),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _RoundResultHeader(
-                          headline: _roundHeadline(
-                            presentation.result,
-                            strings,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.36),
+                      blurRadius: 28,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(compact ? 12 : 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _RoundResultHeader(
+                        headline: _roundHeadline(presentation.result, strings),
+                        detail: _roundDetail(presentation, strings),
+                        compact: compact,
+                      ),
+                      SizedBox(height: compact ? 10 : 14),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: _RoundScoreBreakdown(
+                            seats: seats,
+                            presentation: presentation,
+                            compact: compact,
                           ),
-                          detail: _roundDetail(presentation, strings),
+                        ),
+                      ),
+                      SizedBox(height: compact ? 10 : 14),
+                      if (winner == null)
+                        _RoundAdvanceLine(
+                          nextStarter: presentation.progress.nextStarter,
+                          onContinueNow: onContinueNow,
+                          compact: compact,
+                        )
+                      else
+                        _MatchWinnerLine(
+                          winner: winner,
+                          onReturnToMenu: onReturnToMenu,
                           compact: compact,
                         ),
-                        SizedBox(height: compact ? 10 : 14),
-                        Flexible(
-                          child: SingleChildScrollView(
-                            child: _RoundScoreBreakdown(
-                              seats: seats,
-                              presentation: presentation,
-                              compact: compact,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: compact ? 10 : 14),
-                        if (winner == null)
-                          _RoundAdvanceLine(
-                            nextStarter: presentation.progress.nextStarter,
-                            onContinueNow: onContinueNow,
-                            compact: compact,
-                          )
-                        else
-                          _MatchWinnerLine(
-                            winner: winner,
-                            onReturnToMenu: onReturnToMenu,
-                            compact: compact,
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),

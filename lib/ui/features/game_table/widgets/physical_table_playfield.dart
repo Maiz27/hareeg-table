@@ -1348,23 +1348,37 @@ class _TableMeldStack extends StatelessWidget {
                 ),
                 if (retractable)
                   Positioned(
-                    left: -2,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: LoungeTokens.coffeeCharcoal.withValues(
-                          alpha: 0.88,
+                    left: compact ? -7 : -8,
+                    top: compact ? -7 : -8,
+                    child: Tooltip(
+                      message: strings.takeThisMeldBack,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onRetract,
+                        child: SizedBox.square(
+                          dimension: compact ? 24 : 28,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: LoungeTokens.coffeeCharcoal.withValues(
+                                  alpha: 0.90,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: LoungeTokens.goldAccent.withValues(
+                                    alpha: 0.44,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.undo_rounded,
+                                size: compact ? 11 : 12,
+                                color: LoungeTokens.goldAccent,
+                              ),
+                            ),
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.undo_rounded,
-                        size: 10,
-                        color: LoungeTokens.goldAccent,
                       ),
                     ),
                   ),
@@ -1395,15 +1409,7 @@ class _TableMeldStack extends StatelessWidget {
               )
             : orientedBody;
 
-        if (!retractable) return interactiveBody;
-        return Tooltip(
-          message: strings.takeThisMeldBack,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onRetract,
-            child: interactiveBody,
-          ),
-        );
+        return interactiveBody;
       },
     );
   }

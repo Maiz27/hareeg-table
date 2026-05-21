@@ -126,6 +126,48 @@ void main() {
       );
     });
 
+    testWidgets('selected ambiguous joker set can be played', (tester) async {
+      const joker = HareegCard.joker(deckIndex: 83, jokerIndex: 0);
+      final aceHearts = _card(CardRank.ace, CardSuit.hearts, 83);
+      final aceSpades = _card(CardRank.ace, CardSuit.spades, 83);
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            aceHearts,
+            aceSpades,
+            joker,
+            _card(CardRank.four, CardSuit.clubs, 83),
+          ],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      await tester.tap(
+        find.bySemanticsLabel('Ace of Hearts').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Ace of Spades').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Joker').first,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Play selected meld'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Play selected meld'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel('Joker representing Ace of Clubs'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('hand reorder accepts a drop after the last card', (
       tester,
     ) async {
