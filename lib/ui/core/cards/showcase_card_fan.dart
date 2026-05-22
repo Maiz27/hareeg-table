@@ -124,19 +124,24 @@ class _ShowcaseCardFanState extends State<ShowcaseCardFan>
         ShowcaseCardFan.disableLoopingMotionForTesting) {
       resolved = ShowcaseFanMotion.none;
     }
+    final base = _baseDurationFor(resolved);
     if (resolved == _activeMotion) {
+      // Motion mode unchanged but the ambient [MotionScope] speed may have
+      // shifted (e.g. user toggled Fast / Reduced from Settings). Keep the
+      // existing controller running but refresh its duration so the loop
+      // tracks the new scaled base.
+      if (base != null && _controller != null) {
+        _controller!.duration = motionSettings.scale(base);
+      }
       return;
     }
     _activeMotion = resolved;
     _controller?.stop();
     _controller?.dispose();
     _controller = null;
-    if (resolved == ShowcaseFanMotion.none) {
+    if (base == null) {
       return;
     }
-    final base = resolved == ShowcaseFanMotion.intro
-        ? _introBaseDuration
-        : _idleBaseDuration;
     final controller = AnimationController(
       vsync: this,
       duration: motionSettings.scale(base),
@@ -146,6 +151,17 @@ class _ShowcaseCardFanState extends State<ShowcaseCardFan>
       controller.forward(from: 0);
     } else {
       controller.repeat();
+    }
+  }
+
+  Duration? _baseDurationFor(ShowcaseFanMotion motion) {
+    switch (motion) {
+      case ShowcaseFanMotion.intro:
+        return _introBaseDuration;
+      case ShowcaseFanMotion.idle:
+        return _idleBaseDuration;
+      case ShowcaseFanMotion.none:
+        return null;
     }
   }
 
