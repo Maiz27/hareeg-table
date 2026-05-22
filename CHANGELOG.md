@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.2](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.1...v1.0.0-alpha.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* **release:** repair alpha APK publishing ([3061051](https://github.com/Maiz27/hareeg-table/commit/306105120eb254b2aa6a9f3a96364b5d5f653c84))
+
 ## 1.0.0-alpha.1 (2026-05-21)
 
 
