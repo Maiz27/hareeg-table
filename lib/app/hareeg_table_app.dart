@@ -112,7 +112,12 @@ class _HareegTableAppState extends State<HareegTableApp> {
 
   @override
   void dispose() {
-    unawaited(_audio.dispose());
+    unawaited(
+      _audio.dispose().catchError((Object error, StackTrace stackTrace) {
+        debugPrint('Failed to dispose audio gateway: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }),
+    );
     super.dispose();
   }
 
