@@ -10,7 +10,7 @@ On every push to `main`, the `Release Please` workflow runs.
 If there are releasable Conventional Commits since the last release, Release
 Please opens or updates a release pull request. That PR contains:
 
-- a `pubspec.yaml` version bump
+- a `version.txt` version bump
 - `.release-please-manifest.json` version tracking
 - `CHANGELOG.md` release notes
 
@@ -82,7 +82,8 @@ Release Please will use that version for the next release PR.
 ## APK Artifacts Versus Releases
 
 `Android APK Artifact` still runs on pushes to `main`. It uploads a temporary
-Actions artifact for verification and debugging. Those artifacts expire.
+Actions artifact for verification and debugging. It uses the same Android
+signing secrets as the release workflow. Those artifacts expire.
 
 Permanent user-facing APKs are attached only to GitHub Releases created by the
 `Release Please` workflow.
