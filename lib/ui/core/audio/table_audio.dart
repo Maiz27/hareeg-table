@@ -147,9 +147,15 @@ class TableAudio {
 class AudioCue {
   /// Creates a cue. Pass one asset for a fixed sound or many for rotation.
   ///
-  /// `assets` must be non-empty; the cue registry is the only caller and is
-  /// statically declared, so an empty list would surface immediately.
-  const AudioCue({required this.assets, required this.volume});
+  /// `volume` must be in `[0, 1]`. `assets` must be non-empty; the const-eval
+  /// limit on `List.length` keeps that invariant a doc contract rather than an
+  /// assert, but the registry is statically declared so an empty list would
+  /// surface at first lookup.
+  const AudioCue({required this.assets, required this.volume})
+    : assert(
+        volume >= 0.0 && volume <= 1.0,
+        'AudioCue volume must be in [0, 1]',
+      );
 
   /// Bundled asset paths (relative to the `assets/` folder).
   final List<String> assets;
@@ -323,7 +329,9 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
 
   @override
   Future<void> playAsset(String path, {required double volume}) async {
-    debugPrint('[audio] play start: $path');
+    if (kDebugMode) {
+      debugPrint('[audio] play start: $path');
+    }
     await warmUp();
     // Wait specifically for this asset's source load. audioplayers' Android
     // `WrappedPlayer` only flips `released` to false inside the `source`
@@ -349,7 +357,9 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
       await player.stop();
       await player.setVolume(volume);
       await player.resume();
-      debugPrint('[audio] resume returned: $path');
+      if (kDebugMode) {
+        debugPrint('[audio] resume returned: $path');
+      }
     } catch (error, stackTrace) {
       debugPrint('[audio] play failed for $path: $error');
       debugPrintStack(stackTrace: stackTrace);
