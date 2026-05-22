@@ -113,10 +113,20 @@ class TableAudio {
   }
 
   /// Releases any native player resources.
+  ///
+  /// Catches and logs any failure from the inner player so disposal never
+  /// throws back to callers — the app shell only fires this on shutdown and
+  /// shouldn't have to defend against half-released native resources.
   Future<void> dispose() async {
     final player = _player;
     _player = null;
-    await player?.dispose();
+    if (player == null) return;
+    try {
+      await player.dispose();
+    } catch (error, stackTrace) {
+      debugPrint('TableAudio: dispose failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   TableSoundPlayer _ensurePlayer() {
@@ -368,11 +378,21 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
 
   @override
   Future<void> dispose() async {
-    await Future.wait([
-      for (final player in _players.values) player.dispose(),
-    ]);
-    _players.clear();
-    _sourceLoads.clear();
+    // `eagerError: false` so a failure on one player still lets the rest run
+    // to completion; the try/catch absorbs the aggregated rejection so the
+    // finally always reaches the map clears.
+    try {
+      await Future.wait(
+        [for (final player in _players.values) player.dispose()],
+        eagerError: false,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Audio: one or more players failed to dispose: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      _players.clear();
+      _sourceLoads.clear();
+    }
   }
 }
 
