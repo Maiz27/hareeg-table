@@ -307,10 +307,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
             .toDouble();
         // Discard pile occupies a generous hit rectangle so the player can
         // drop within a wide forgiving zone around the visible pile.
-        final discardHitWidth =
-            tableCardSize.width + (compact ? 34 + 60 : 44 + 90);
-        final discardHitHeight =
-            tableCardSize.height + (compact ? 30 + 50 : 40 + 70);
+        final pileWidth = tableCardSize.width + (compact ? 34 : 44);
+        final pileHeight = tableCardSize.height + (compact ? 30 : 40);
+        final discardHitWidth = pileWidth + (compact ? 60 : 90);
+        final discardHitHeight = pileHeight + (compact ? 50 : 70);
         final discardLeft = (tableWidth - discardHitWidth) * 0.5;
         final discardTop = (tableHeight - discardHitHeight) * 0.5;
         final controlBottom = (tableHeight * 0.035)
@@ -318,6 +318,24 @@ class PhysicalTablePlayfield extends StatelessWidget {
             .toDouble();
         final handRightInset =
             controlWidth + edgeInset + (compact ? 10.0 : 16.0);
+        final handHorizontalInset = math.max(
+          handRightInset,
+          compact ? 70.0 : 96.0,
+        );
+        final meldSuggestionBottom = southMeldBottom + (compact ? 12.0 : 18.0);
+        final fiftyDiameter = compact ? 42.0 : 54.0;
+        final visibleDiscardLeft =
+            discardLeft + (discardHitWidth - pileWidth) / 2;
+        final visibleDiscardTop =
+            discardTop + (discardHitHeight - pileHeight) / 2;
+        final fiftyCueLeft =
+            (visibleDiscardLeft + pileWidth - fiftyDiameter * 0.55)
+                .clamp(0.0, tableWidth - fiftyDiameter)
+                .toDouble();
+        final fiftyCueTop = (visibleDiscardTop - fiftyDiameter * 0.35)
+            .clamp(0.0, tableHeight - fiftyDiameter)
+            .toDouble();
+        final activeFiftySeconds = isHumanTurn ? fiftySecondsRemaining : null;
 
         // Discard drop is handled by [_DiscardPile] itself so a card released
         // ON the pile gets routed (the previous wide field rectangle was
@@ -405,13 +423,6 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onTake: onTakeDiscard,
                 onReturn: onReturnDiscard,
                 onCardLongPress: onCardLongPress,
-                fiftySecondsRemaining: isHumanTurn
-                    ? fiftySecondsRemaining
-                    : null,
-                fiftyTotalSeconds: fiftyTotalSeconds,
-                fiftyPulse: fiftyPulse,
-                canClaimFifty: isHumanTurn && canClaimFifty,
-                onClaimFifty: onClaimFifty,
                 canAcceptDiscard: canDiscardCard,
                 onAcceptDiscard: onDiscardCard,
                 compact: compact,
@@ -511,13 +522,26 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 stackVertically: false,
               ),
             ),
-            // Meld picker rack — centred above the south meld lane, sized
-            // to its content, never spanning the whole table.
+            if (activeFiftySeconds != null)
+              Positioned(
+                left: fiftyCueLeft,
+                top: fiftyCueTop,
+                child: _FiftyCue(
+                  secondsRemaining: activeFiftySeconds,
+                  totalSeconds: fiftyTotalSeconds,
+                  pulse: fiftyPulse,
+                  diameter: fiftyDiameter,
+                  canClaim: canClaimFifty,
+                  onClaim: onClaimFifty,
+                ),
+              ),
+            // Meld picker rack stays close to the south meld lane; it is a
+            // transient popover and can overlap the lane briefly.
             if (showMeldSuggestions && meldSuggestions.isNotEmpty)
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: southMeldBottom + southMeldHeight + (compact ? 4 : 8),
+                bottom: meldSuggestionBottom,
                 child: Center(
                   child: _MeldSuggestionRack(
                     theme: theme,
@@ -544,8 +568,8 @@ class PhysicalTablePlayfield extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: compact ? 70 : 96,
-              right: handRightInset,
+              left: handHorizontalInset,
+              right: handHorizontalInset,
               bottom: compact ? 0 : 2,
               height: bottomHandHeight,
               child: _HumanTurnAura(
@@ -591,29 +615,39 @@ class _OpponentHandRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final height = cardSize.height + (compact ? 16 : 20);
+    final visibleCount = compact ? 9 : 12;
+    final stackSize = _cardBackStackSize(
+      count: count,
+      axis: Axis.horizontal,
+      cardSize: cardSize,
+      visibleCount: visibleCount,
+    );
+    final cueSize = Size(
+      stackSize.width + (compact ? 18 : 24),
+      stackSize.height + (compact ? 14 : 18),
+    );
+    final height = math.max(
+      cardSize.height + (compact ? 16 : 20),
+      cueSize.height,
+    );
     return SizedBox(
       height: height,
       child: Opacity(
         opacity: eliminated ? 0.28 : 1,
-        child: Stack(
+        child: Align(
           alignment: Alignment.topCenter,
-          children: [
-            Positioned(
-              top: compact ? 9 : 12,
-              child: _TurnGlow(active: active, thinking: thinking),
+          child: _TurnCueFrame(
+            active: active,
+            thinking: thinking,
+            size: cueSize,
+            child: _CardBackStack(
+              theme: theme,
+              count: count,
+              axis: Axis.horizontal,
+              cardSize: cardSize,
+              visibleCount: visibleCount,
             ),
-            Positioned(
-              top: compact ? 6 : 8,
-              child: _CardBackStack(
-                theme: theme,
-                count: count,
-                axis: Axis.horizontal,
-                cardSize: cardSize,
-                visibleCount: compact ? 9 : 12,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -643,65 +677,108 @@ class _OpponentSideRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleCount = compact ? 5 : 6;
+    final stackSize = _cardBackStackSize(
+      count: count,
+      axis: Axis.vertical,
+      cardSize: cardSize,
+      visibleCount: visibleCount,
+    );
+    final cueSize = Size(
+      stackSize.width + (compact ? 14 : 18),
+      stackSize.height + (compact ? 18 : 24),
+    );
     return Opacity(
       opacity: eliminated ? 0.28 : 1,
-      child: Stack(
+      child: Align(
         alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
-        children: [
-          Positioned.fill(
-            child: Align(
-              alignment: alignRight
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-              child: _TurnGlow(active: active, thinking: thinking),
-            ),
+        child: _TurnCueFrame(
+          active: active,
+          thinking: thinking,
+          size: cueSize,
+          child: _CardBackStack(
+            theme: theme,
+            count: count,
+            axis: Axis.vertical,
+            cardSize: cardSize,
+            visibleCount: visibleCount,
           ),
-          Align(
-            alignment: alignRight
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: _CardBackStack(
-              theme: theme,
-              count: count,
-              axis: Axis.vertical,
-              cardSize: cardSize,
-              visibleCount: compact ? 5 : 6,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TurnGlow extends StatelessWidget {
-  const _TurnGlow({required this.active, required this.thinking});
+class _TurnCueFrame extends StatelessWidget {
+  const _TurnCueFrame({
+    required this.active,
+    required this.thinking,
+    required this.size,
+    required this.child,
+  });
 
   final bool active;
   final bool thinking;
+  final Size size;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    if (!active) return const SizedBox.shrink();
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
-      width: thinking ? 76 : 64,
-      height: thinking ? 76 : 64,
+      curve: Curves.easeOutCubic,
+      width: size.width,
+      height: size.height,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: LoungeTokens.goldAccent.withValues(
-          alpha: thinking ? 0.20 : 0.12,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: LoungeTokens.goldAccent.withValues(alpha: 0.36),
-            blurRadius: thinking ? 30 : 22,
-            spreadRadius: thinking ? 4 : 2,
-          ),
-        ],
+        color: active
+            ? LoungeTokens.goldAccent.withValues(alpha: thinking ? 0.14 : 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        border: active
+            ? Border.all(
+                color: LoungeTokens.goldAccent.withValues(
+                  alpha: thinking ? 0.70 : 0.52,
+                ),
+                width: thinking ? 1.6 : 1.2,
+              )
+            : null,
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: LoungeTokens.goldAccent.withValues(
+                    alpha: thinking ? 0.26 : 0.18,
+                  ),
+                  blurRadius: thinking ? 20 : 14,
+                  spreadRadius: thinking ? 2 : 0,
+                ),
+              ]
+            : null,
       ),
+      child: child,
     );
   }
+}
+
+Size _cardBackStackSize({
+  required int count,
+  required Axis axis,
+  required Size cardSize,
+  required int visibleCount,
+}) {
+  if (count <= 0) {
+    return Size.zero;
+  }
+  final shown = math.min(count, visibleCount);
+  final gap = axis == Axis.horizontal ? cardSize.width * 0.38 : 16.0;
+  return Size(
+    axis == Axis.horizontal
+        ? cardSize.width + (shown - 1) * gap
+        : cardSize.width,
+    axis == Axis.horizontal
+        ? cardSize.height
+        : cardSize.height + (shown - 1) * gap,
+  );
 }
 
 class _CardBackStack extends StatelessWidget {
@@ -831,11 +908,6 @@ class _DiscardPile extends StatelessWidget {
     required this.canReturn,
     required this.onTake,
     required this.onReturn,
-    required this.fiftySecondsRemaining,
-    required this.fiftyTotalSeconds,
-    required this.fiftyPulse,
-    required this.canClaimFifty,
-    required this.onClaimFifty,
     required this.canAcceptDiscard,
     required this.onAcceptDiscard,
     required this.onCardLongPress,
@@ -851,11 +923,6 @@ class _DiscardPile extends StatelessWidget {
   final bool canReturn;
   final VoidCallback onTake;
   final VoidCallback onReturn;
-  final int? fiftySecondsRemaining;
-  final int fiftyTotalSeconds;
-  final bool fiftyPulse;
-  final bool canClaimFifty;
-  final VoidCallback onClaimFifty;
   final bool Function(HareegCard card) canAcceptDiscard;
   final ValueChanged<HareegCard> onAcceptDiscard;
   final ValueChanged<HareegCard> onCardLongPress;
@@ -983,27 +1050,43 @@ class _DiscardPile extends StatelessWidget {
                   ),
                 ),
               ),
-              // Fifty is core table state in a digital game, not an assisted
-              // hint. Show the human claim window even when Assisted mode
-              // disables the tap because the claim is not valid.
-              if (fiftySecondsRemaining != null)
-                Positioned(
-                  right: 0,
-                  top: compact ? -3 : -6,
-                  child: GestureDetector(
-                    onTap: canClaimFifty ? onClaimFifty : null,
-                    child: FiftyRing(
-                      secondsRemaining: fiftySecondsRemaining,
-                      totalSeconds: fiftyTotalSeconds,
-                      pulse: fiftyPulse,
-                      diameter: compact ? 42 : 54,
-                    ),
-                  ),
-                ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _FiftyCue extends StatelessWidget {
+  const _FiftyCue({
+    required this.secondsRemaining,
+    required this.totalSeconds,
+    required this.pulse,
+    required this.diameter,
+    required this.canClaim,
+    required this.onClaim,
+  });
+
+  final int secondsRemaining;
+  final int totalSeconds;
+  final bool pulse;
+  final double diameter;
+  final bool canClaim;
+  final VoidCallback onClaim;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey('fifty-cue'),
+      behavior: HitTestBehavior.opaque,
+      onTap: canClaim ? onClaim : null,
+      child: FiftyRing(
+        secondsRemaining: secondsRemaining,
+        totalSeconds: totalSeconds,
+        pulse: pulse,
+        diameter: diameter,
+      ),
     );
   }
 }
