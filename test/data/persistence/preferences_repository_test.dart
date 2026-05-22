@@ -19,6 +19,7 @@ void main() {
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.fastCpuTurns, isTrue);
       expect(preferences.reducedMotion, isFalse);
+      expect(preferences.soundEnabled, isTrue);
       expect(preferences.language, AppLanguage.english);
       expect(preferences.highContrastCards, isFalse);
       expect(preferences.tableSurfaceTheme, TableSurfaceTheme.sandline);
@@ -39,6 +40,7 @@ void main() {
         autoSort: false,
         motionSpeed: MotionSpeed.reduced,
         fastCpuTurns: false,
+        soundEnabled: false,
         memoryJokerDisplay: true,
         language: AppLanguage.arabic,
         highContrastCards: true,
@@ -58,11 +60,39 @@ void main() {
       expect(restored.motionSpeed, MotionSpeed.reduced);
       expect(restored.fastCpuTurns, isFalse);
       expect(restored.reducedMotion, isTrue);
+      expect(restored.soundEnabled, isFalse);
       expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
       expect(restored.highContrastCards, isTrue);
       expect(restored.tableSurfaceTheme, TableSurfaceTheme.wood);
     });
+
+    test('legacy saved silent defaults migrate to sound on once', () async {
+      final store = _MemoryStore()
+        ..values['preferences.v1'] =
+            '{"soundEnabled":false,"autoSort":false,"fastCpuTurns":false}';
+      final repository = LocalPreferencesRepository(store: store);
+
+      final restored = await repository.loadPreferences();
+
+      expect(restored.soundEnabled, isTrue);
+      expect(restored.autoSort, isFalse);
+      expect(restored.fastCpuTurns, isFalse);
+    });
+
+    test(
+      'saved sound off is preserved after the audio-default migration',
+      () async {
+        final store = _MemoryStore()
+          ..values['preferences.v1'] =
+              '{"soundEnabled":false,"soundDefaultsVersion":1}';
+        final repository = LocalPreferencesRepository(store: store);
+
+        final restored = await repository.loadPreferences();
+
+        expect(restored.soundEnabled, isFalse);
+      },
+    );
 
     test('invalid saved preferences fall back to defaults', () async {
       final store = _MemoryStore()..values['preferences.v1'] = '{';
