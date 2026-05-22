@@ -179,12 +179,15 @@ double? dealStepProgress({
   required Duration stagger,
 }) {
   final start = _durationTimes(stagger, step.orderIndex);
+  // Handle the zero-duration case first — otherwise the window guard below
+  // (start == end) makes `elapsed >= end` always true and the branch never
+  // runs. Instant flights snap to a normalized 1.0 once the step starts.
+  if (flightDuration == Duration.zero) {
+    return elapsed >= start ? 1 : null;
+  }
   final end = start + flightDuration;
   if (elapsed < start || elapsed >= end) {
     return null;
-  }
-  if (flightDuration == Duration.zero) {
-    return 1;
   }
   return (elapsed - start).inMicroseconds / flightDuration.inMicroseconds;
 }
