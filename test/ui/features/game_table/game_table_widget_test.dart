@@ -15,6 +15,7 @@ import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
+import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/fifty_ring.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/pause_overlay.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
@@ -23,11 +24,44 @@ import 'package:hareeg_table/ui/features/game_table/widgets/score_overlay.dart';
 import '../../../support/test_fixtures.dart';
 
 void main() {
+  // The home screen's `ShowcaseCardFan` runs a looping idle animation; pin it
+  // to the rest pose so `pumpAndSettle` doesn't hang waiting for the loop.
+  ShowcaseCardFan.disableLoopingMotionForTesting = true;
+
   group('Game table widget tests', () {
     testWidgets('table chrome shows score + pause icons', (tester) async {
       await _openTable(tester);
       expect(find.byTooltip('Scores'), findsOneWidget);
       expect(find.byTooltip('Pause'), findsOneWidget);
+    });
+
+    testWidgets('fresh table stages the opening deal before first turn', (
+      tester,
+    ) async {
+      final matches = MemoryMatchRepository();
+      await tester.pumpWidget(
+        HareegTableApp(
+          preferencesRepository: MemoryPreferencesRepository(),
+          matchRepository: matches,
+          initialRouteOverride: AppRoutes.table,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(
+        find.byKey(const ValueKey('opening-deal-overlay')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('opening-deal-flight-0')),
+        findsOneWidget,
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('opening-deal-overlay')), findsNothing);
+      expect(matches.saved, isNotNull);
     });
 
     testWidgets('score button opens the score overlay', (tester) async {
@@ -146,6 +180,43 @@ void main() {
         find.byKey(ValueKey('meld-suggestion-$bundledAction')),
         findsNothing,
       );
+    });
+
+    testWidgets('restored later-round heart run shows a meld suggestion', (
+      tester,
+    ) async {
+      final heartRun = [
+        _card(CardRank.nine, CardSuit.hearts, 87),
+        _card(CardRank.ten, CardSuit.hearts, 87),
+        _card(CardRank.jack, CardSuit.hearts, 87),
+      ];
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [...heartRun, _card(CardRank.four, CardSuit.clubs, 87)],
+          openingState: _opened(PlayerSeat.south),
+          roundNumber: 12,
+        ),
+      );
+
+      await tester.tap(
+        find.bySemanticsLabel('Nine of Hearts').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Ten of Hearts').first,
+        warnIfMissed: false,
+      );
+      await tester.tap(
+        find.bySemanticsLabel('Jack of Hearts').first,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      final actionId = ClassicHareegActionIds.playMeldActionId(
+        heartRun.map((card) => card.id),
+      );
+      expect(find.byKey(ValueKey('meld-suggestion-$actionId')), findsOneWidget);
     });
 
     testWidgets('selected ambiguous joker set asks which identity to use', (
@@ -566,6 +637,29 @@ void main() {
       expect(eastLane.top, lessThan(32));
       expect(westLane.height, greaterThan(440));
       expect(eastLane.height, greaterThan(440));
+    });
+
+    testWidgets('Fifty cue anchors above the discard pool top right', (
+      tester,
+    ) async {
+      final discard = _card(CardRank.nine, CardSuit.clubs, 92);
+      await _pumpPlayfield(
+        tester,
+        discardPile: [discard],
+        topDiscard: discard,
+        fiftySecondsRemaining: 4,
+        isHumanTurn: true,
+        currentSeat: PlayerSeat.south,
+        size: const Size(900, 500),
+      );
+
+      final discardRect = tester.getRect(
+        find.byKey(const ValueKey('discard-pile-drop-target')),
+      );
+      final cueRect = tester.getRect(find.byKey(const ValueKey('fifty-cue')));
+
+      expect(cueRect.center.dx, greaterThan(discardRect.center.dx));
+      expect(cueRect.center.dy, lessThan(discardRect.center.dy));
     });
 
     testWidgets('pending discard can be returned from the discard pile', (
@@ -1037,6 +1131,11 @@ Future<void> _openTable(
 Future<void> _pumpPlayfield(
   WidgetTester tester, {
   Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
+  List<HareegCard> discardPile = const [],
+  HareegCard? topDiscard,
+  int? fiftySecondsRemaining,
+  bool isHumanTurn = false,
+  PlayerSeat currentSeat = PlayerSeat.south,
   Size size = const Size(900, 500),
 }) async {
   await tester.pumpWidget(
@@ -1048,8 +1147,8 @@ Future<void> _pumpPlayfield(
           child: PhysicalTablePlayfield(
             theme: CardThemeRegistry.byId(null),
             stockCount: 30,
-            discardPile: const [],
-            topDiscard: null,
+            discardPile: discardPile,
+            topDiscard: topDiscard,
             pendingDiscard: null,
             cardCounts: const {
               PlayerSeat.south: 4,
@@ -1087,7 +1186,7 @@ Future<void> _pumpPlayfield(
             onReturnDiscard: () {},
             onClaimFifty: () {},
             onReturnOpeningMelds: () {},
-            fiftySecondsRemaining: null,
+            fiftySecondsRemaining: fiftySecondsRemaining,
             fiftyTotalSeconds: 50,
             fiftyPulse: false,
             meldRequirement: 51,
@@ -1098,9 +1197,9 @@ Future<void> _pumpPlayfield(
             meldSuggestions: const [],
             showMeldSuggestions: false,
             onMeldSuggestion: (_) {},
-            isHumanTurn: false,
+            isHumanTurn: isHumanTurn,
             isCpuRunning: false,
-            currentSeat: PlayerSeat.south,
+            currentSeat: currentSeat,
             activeSeats: PlayerSeat.values.toSet(),
           ),
         ),
@@ -1117,6 +1216,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
+  int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
 }) {
@@ -1135,6 +1235,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     turnPhase: turnPhase,
     pendingDiscard: pendingDiscard,
     openingState: openingState,
+    roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
   );
