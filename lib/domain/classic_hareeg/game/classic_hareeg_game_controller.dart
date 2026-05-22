@@ -48,6 +48,8 @@ class ApplyActionResult {
 /// through [legalActionIdsFor] and [applyAction]; this is the single point at
 /// which moves are validated against the rules engine.
 class ClassicHareegGameController {
+  static const _fiftyCueExpiryGraceSeconds = 2;
+
   /// Creates a controller from a dealt round.
   ClassicHareegGameController.fromRound(
     ClassicHareegRound round, {
@@ -268,15 +270,21 @@ class ClassicHareegGameController {
   PlayerSeat? get fiftyClaimant => _fiftyWindow?.claimant;
 
   /// Seconds remaining in the Fifty claim window, or null when no window is
-  /// open. Clamped to zero rather than going negative so the UI can render a
-  /// stable timer ring during the moment of expiry.
+  /// open or the expired cue grace period has elapsed. Clamped to zero rather
+  /// than going negative so the UI can render a stable timer ring during the
+  /// moment of expiry.
   int? get fiftySecondsRemaining {
     final window = _fiftyWindow;
     if (window == null) {
       return null;
     }
-    final remaining = setup.fiftyTimerSeconds - _fiftyElapsedSeconds();
-    return remaining < 0 ? 0 : remaining;
+    final elapsed = _fiftyElapsedSeconds();
+    final remaining = setup.fiftyTimerSeconds - elapsed;
+    if (remaining >= 0) {
+      return remaining;
+    }
+    final graceElapsed = elapsed - setup.fiftyTimerSeconds;
+    return graceElapsed <= _fiftyCueExpiryGraceSeconds ? 0 : null;
   }
 
   /// Snapshots the live game state for persistence.
