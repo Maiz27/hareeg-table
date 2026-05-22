@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
+import '../../../core/audio/table_audio.dart';
 import '../../../core/cards/showcase_card_fan.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
+import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Flutter splash shown on first frame.
@@ -65,6 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _start() {
     final motion = MotionScope.of(context);
+    unawaited(AudioScope.of(context).play(TableSoundEvent.splashIntro));
     if (motion.reduced) {
       _handOff();
       return;
@@ -221,6 +225,7 @@ class _FannedCards extends StatelessWidget {
         maxAngle: 0.54,
         stepSpread: 24,
         outerDrop: 12,
+        motion: ShowcaseFanMotion.intro,
       ),
     );
   }

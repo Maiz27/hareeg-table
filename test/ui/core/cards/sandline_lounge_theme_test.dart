@@ -58,7 +58,7 @@ void main() {
       expect(find.byType(Image), findsNWidgets(3));
       expect(find.bySemanticsLabel('Ace of Spades'), findsOneWidget);
       expect(find.bySemanticsLabel('Face-down card'), findsOneWidget);
-      expect(find.text('KH'), findsOneWidget);
+      expect(find.text('K'), findsOneWidget);
     },
   );
 }

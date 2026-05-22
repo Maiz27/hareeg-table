@@ -19,11 +19,13 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
+import '../../../core/audio/table_audio.dart';
 import '../../../core/aids/table_aids.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../animations/deal_choreography.dart';
 import '../table_interaction_adapter.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
@@ -71,7 +73,8 @@ class GameTableScreen extends StatefulWidget {
   State<GameTableScreen> createState() => _GameTableScreenState();
 }
 
-class _GameTableScreenState extends State<GameTableScreen> {
+class _GameTableScreenState extends State<GameTableScreen>
+    with TickerProviderStateMixin {
   static const _cpuActionLimit = 64;
   static const _successFeedbackDuration = Duration(milliseconds: 1400);
   static const _errorFeedbackDuration = Duration(milliseconds: 2400);
@@ -80,6 +83,10 @@ class _GameTableScreenState extends State<GameTableScreen> {
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
   bool _isCpuRunning = false;
+  // Set while a human action's pre-apply flight/sound is in flight and the
+  // controller hasn't applied the move yet. Used to lock the UI so a second
+  // tap doesn't queue a parallel action against the same controller state.
+  bool _isHumanActionPending = false;
   bool _scoreOpen = false;
   bool _pauseOpen = false;
   bool _fiftyPulse = false;
@@ -89,6 +96,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
   Timer? _feedbackTimer;
   Timer? _roundAdvanceTimer;
   _CardFlight? _cardFlight;
+  DealChoreography? _dealChoreography;
+  bool _pendingDealBuild = false;
   HareegCard? _inspectedCard;
   _RoundResultPresentation? _roundResultPresentation;
   int _flightSerial = 0;
@@ -111,6 +120,9 @@ class _GameTableScreenState extends State<GameTableScreen> {
             ClassicHareegRound.deal(setup: widget.setup),
           );
     _resetDisplayOrder();
+    if (snapshot == null) {
+      _pendingDealBuild = true;
+    }
     _debugTableLog(
       'init snapshot=${snapshot != null} current=${_controller.currentSeat.name} '
       'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
@@ -118,12 +130,19 @@ class _GameTableScreenState extends State<GameTableScreen> {
       'counts=${_debugSeatCounts(_controller)}',
     );
     _ensureFiftyTicker();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final didPersistOrNavigate = await _runCpuTurns();
-      if (!didPersistOrNavigate && mounted) {
-        await _persistAndMaybeFinish();
-      }
-    });
+    _scheduleTurnFlow();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // [DealChoreography] reads [MotionScope] and [AudioScope], which are
+    // inherited widgets — those reads aren't safe in [initState]. Build the
+    // first deal here, the first time dependencies are available.
+    if (_pendingDealBuild && _dealChoreography == null) {
+      _pendingDealBuild = false;
+      _dealChoreography = _buildDealChoreography();
+    }
   }
 
   @override
@@ -134,6 +153,8 @@ class _GameTableScreenState extends State<GameTableScreen> {
     _feedbackTimer = null;
     _roundAdvanceTimer?.cancel();
     _roundAdvanceTimer = null;
+    _dealChoreography?.dispose();
+    _dealChoreography = null;
     AppOrientation.usePortrait();
     super.dispose();
   }
@@ -156,26 +177,157 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 
   void _ensureFiftyTicker() {
-    final fiftyOpen =
-        _controller.fiftySecondsRemaining != null &&
-        _controller.fiftySecondsRemaining! > 0;
-    if (fiftyOpen && _fiftyTicker == null) {
+    final fiftyVisible = _controller.fiftySecondsRemaining != null;
+    if (fiftyVisible && _fiftyTicker == null) {
       _fiftyTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
         if (!mounted) return;
         if (_controller.fiftySecondsRemaining == null) {
           _fiftyTicker?.cancel();
           _fiftyTicker = null;
+          setState(() {});
           return;
         }
         setState(() {});
       });
-    } else if (!fiftyOpen && _fiftyTicker != null) {
+    } else if (!fiftyVisible && _fiftyTicker != null) {
       _fiftyTicker?.cancel();
       _fiftyTicker = null;
     }
   }
 
+  void _scheduleTurnFlow() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _playOpeningDealIfNeeded();
+      if (!mounted) return;
+      final didPersistOrNavigate = await _runCpuTurns();
+      if (!didPersistOrNavigate && mounted) {
+        await _persistAndMaybeFinish();
+      }
+    });
+  }
+
+  DealSequence _buildDealSequence() {
+    final orderedSouth = _orderedSouthHand();
+    final southByIndex = {
+      for (var i = 0; i < orderedSouth.length; i++) i: orderedSouth[i],
+    };
+    final activeSeats = _controller.activeSeats;
+    final dealOrder = _dealOrderForOpening(activeSeats);
+    final finalCounts = {
+      for (final seat in PlayerSeat.values)
+        seat: _controller.cardCountFor(seat),
+    };
+    final dealtBySeat = {for (final seat in PlayerSeat.values) seat: 0};
+    final steps = <DealStep>[];
+    final maxCount = finalCounts.values.fold<int>(
+      0,
+      (max, count) => math.max(max, count),
+    );
+
+    for (var slot = 0; slot < maxCount; slot += 1) {
+      for (final seat in dealOrder) {
+        final targetCount = finalCounts[seat] ?? 0;
+        if (slot >= targetCount) {
+          continue;
+        }
+        final seatIndex = dealtBySeat[seat]!;
+        final card = seat == PlayerSeat.south
+            ? southByIndex[seatIndex] ?? _backSeed(steps.length)
+            : _backSeed(steps.length);
+        steps.add(
+          DealStep(
+            orderIndex: steps.length,
+            seat: seat,
+            card: card,
+            faceDown: seat != PlayerSeat.south,
+            endHandSlot: SeatHandFlightSlot(
+              seat: seat,
+              index: seatIndex,
+              count: seatIndex + 1,
+            ),
+          ),
+        );
+        dealtBySeat[seat] = seatIndex + 1;
+      }
+    }
+
+    return DealSequence(
+      steps: steps,
+      finalStockCount: _controller.stockCount,
+      orderedSouthCards: orderedSouth,
+    );
+  }
+
+  DealChoreography _buildDealChoreography() {
+    return DealChoreography(
+      vsync: this,
+      audio: _audio,
+      motion: MotionScope.of(context),
+      sequence: _buildDealSequence(),
+    );
+  }
+
+  List<PlayerSeat> _dealOrderForOpening(List<PlayerSeat> activeSeats) {
+    if (activeSeats.isEmpty) {
+      return const [];
+    }
+    final order = <PlayerSeat>[];
+    var seat = _controller.starter;
+    do {
+      if (activeSeats.contains(seat)) {
+        order.add(seat);
+      }
+      seat = seat.nextAntiClockwise;
+    } while (seat != _controller.starter);
+    return order;
+  }
+
+  Future<void> _playOpeningDealIfNeeded() async {
+    final choreography = _dealChoreography;
+    if (choreography == null || choreography.sequence.steps.isEmpty || !mounted) {
+      return;
+    }
+    choreography.progress.addListener(_onDealProgress);
+    setState(() {});
+    try {
+      await choreography.play();
+    } finally {
+      choreography.progress.removeListener(_onDealProgress);
+    }
+    if (!mounted || !identical(_dealChoreography, choreography)) {
+      return;
+    }
+    choreography.dispose();
+    setState(() {
+      _dealChoreography = null;
+    });
+  }
+
+  void _onDealProgress() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  DealFrame? _openingDealFrame(List<HareegCard> fallbackSouthCards) {
+    final choreography = _dealChoreography;
+    if (choreography == null) {
+      return null;
+    }
+    return choreography.frameAt(
+      fallbackCounts: {
+        for (final seat in PlayerSeat.values)
+          seat: _controller.cardCountFor(seat),
+      },
+      fallbackSouthCards: fallbackSouthCards,
+    );
+  }
+
   TableHaptics get _haptics => HapticsScope.of(context);
+
+  TableAudio get _audio => AudioScope.of(context);
+
+  bool get _isOpeningDealRunning => _dealChoreography != null;
 
   Duration _scaledDelay(Duration base) => MotionScope.of(context).scale(base);
 
@@ -195,7 +347,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
   Widget build(BuildContext context) {
     final strings = context.strings;
     final humanSeat = PlayerSeat.south;
-    final isHumanTurn = _controller.currentSeat == humanSeat && !_isCpuRunning;
+    final isHumanTurn =
+        _controller.currentSeat == humanSeat &&
+        !_isCpuRunning &&
+        !_isOpeningDealRunning &&
+        !_isHumanActionPending;
     final controlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
@@ -209,6 +365,16 @@ class _GameTableScreenState extends State<GameTableScreen> {
         ? JokerDisplay.memoryReveal
         : JokerDisplay.assisted;
     final southCards = _orderedSouthHand();
+    final openingDealFrame = _openingDealFrame(southCards);
+    final visibleSouthCards = openingDealFrame?.southCards ?? southCards;
+    final visibleCardCounts =
+        openingDealFrame?.cardCounts ??
+        {
+          for (final seat in PlayerSeat.values)
+            seat: _controller.cardCountFor(seat),
+        };
+    final visibleStockCount =
+        openingDealFrame?.stockCount ?? _controller.stockCount;
     final tableInteraction = _tableInteraction(southCards);
     final meldSuggestions = aids.showsMeldPicker
         ? _meldSuggestions(tableInteraction)
@@ -236,19 +402,16 @@ class _GameTableScreenState extends State<GameTableScreen> {
           children: [
             PhysicalTablePlayfield(
               theme: theme,
-              stockCount: _controller.stockCount,
+              stockCount: visibleStockCount,
               discardPile: _controller.discardPile,
               topDiscard: _controller.topDiscard,
               pendingDiscard: pending,
-              cardCounts: {
-                for (final seat in PlayerSeat.values)
-                  seat: _controller.cardCountFor(seat),
-              },
+              cardCounts: visibleCardCounts,
               tableMelds: {
                 for (final seat in PlayerSeat.values)
                   seat: _controller.tableMeldsFor(seat),
               },
-              southCards: southCards,
+              southCards: visibleSouthCards,
               selectedIds: _selectedCardIds,
               onCardTap: _toggleSelectedCard,
               onCardLongPress: _showCardInspect,
@@ -321,6 +484,22 @@ class _GameTableScreenState extends State<GameTableScreen> {
               currentSeat: _controller.currentSeat,
               activeSeats: _controller.activeSeats.toSet(),
             ),
+            if (_dealChoreography != null)
+              Positioned.fill(
+                // Isolate the deal overlay's per-frame repaints (57 flight
+                // cards rebuilding on every controller tick) from the rest
+                // of the table so unrelated widgets don't end up in the
+                // overlay's dirty rect.
+                child: RepaintBoundary(
+                  child: _OpeningDealOverlay(
+                    sequence: _dealChoreography!.sequence,
+                    progress: _dealChoreography!.progress.value,
+                    theme: theme,
+                    flightDuration: _dealChoreography!.flightDuration,
+                    stagger: _dealChoreography!.stagger,
+                  ),
+                ),
+              ),
             LayoutBuilder(
               builder: (context, viewport) {
                 // Score / pause sit just inside the safe-area corners with a
@@ -560,17 +739,18 @@ class _GameTableScreenState extends State<GameTableScreen> {
       seat: PlayerSeat.south,
       selectedCardIds: _selectedCardIds,
       handCards: southCards ?? _orderedSouthHand(),
-      inputLocked: _isCpuRunning,
+      inputLocked:
+          _isCpuRunning || _isOpeningDealRunning || _isHumanActionPending,
     );
   }
 
   Future<void> _dropCardToDiscard(HareegCard card) async {
-    if (_isCpuRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(_tableInteraction().resolveDiscard(card));
   }
 
   Future<void> _dropCardToTable(HareegCard card) async {
-    if (_isCpuRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(_tableInteraction().resolveTableDrop(card));
   }
 
@@ -579,7 +759,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
     PlayerSeat owner,
     int meldIndex,
   ) async {
-    if (_isCpuRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(
       _tableInteraction().resolveMeldDrop(card, owner, meldIndex),
     );
@@ -683,6 +863,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
   }
 
   void _toggleSelectedCard(HareegCard card) {
+    if (_isOpeningDealRunning) return;
     unawaited(_haptics.fire(TableHapticEvent.cardTap));
     setState(() {
       if (_selectedCardIds.contains(card.id)) {
@@ -723,6 +904,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
 
   void _showInvalidFeedback(String message) {
     unawaited(_haptics.fire(TableHapticEvent.illegalAction));
+    unawaited(_audio.play(TableSoundEvent.invalidAction));
     setState(() {
       _replaceHumanFeedback(message, isError: true);
     });
@@ -732,7 +914,11 @@ class _GameTableScreenState extends State<GameTableScreen> {
   /// action so the human can see which seat acted and where the card went.
   Future<void> _playFlightForCpuAction(PlayerSeat seat, String actionId) async {
     final flight = _flightForCpuAction(seat, actionId);
-    if (flight == null) return;
+    if (flight == null) {
+      unawaited(_playSoundForAction(actionId));
+      return;
+    }
+    unawaited(_playSoundForAction(actionId));
     setState(() => _cardFlight = flight);
     await Future<void>.delayed(_cpuFlightDuration);
     if (mounted && identical(_cardFlight, flight)) {
@@ -792,14 +978,16 @@ class _GameTableScreenState extends State<GameTableScreen> {
     return null;
   }
 
-  Future<void> _playFlightForAction(String actionId) async {
+  Future<bool> _playFlightForAction(String actionId) async {
     final flight = _flightForAction(actionId);
-    if (flight == null) return;
+    if (flight == null) return false;
+    unawaited(_playSoundForAction(actionId));
     setState(() => _cardFlight = flight);
     await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 230)));
     if (mounted && identical(_cardFlight, flight)) {
       setState(() => _cardFlight = null);
     }
+    return true;
   }
 
   _CardFlight? _flightForAction(String actionId) {
@@ -905,41 +1093,41 @@ class _GameTableScreenState extends State<GameTableScreen> {
     return null;
   }
 
-  _SeatHandFlightSlot _southHandAppendSlot() {
+  SeatHandFlightSlot _southHandAppendSlot() {
     final count = _controller.handFor(PlayerSeat.south).length + 1;
-    return _SeatHandFlightSlot(
+    return SeatHandFlightSlot(
       seat: PlayerSeat.south,
       index: count - 1,
       count: count,
     );
   }
 
-  _SeatHandFlightSlot? _southHandCardSlot(String cardId) {
+  SeatHandFlightSlot? _southHandCardSlot(String cardId) {
     final cards = _orderedSouthHand();
     final index = cards.indexWhere((card) => card.id == cardId);
     if (index == -1) {
       return null;
     }
-    return _SeatHandFlightSlot(
+    return SeatHandFlightSlot(
       seat: PlayerSeat.south,
       index: index,
       count: cards.length,
     );
   }
 
-  _SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
+  SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
     if (seat == PlayerSeat.south) {
       return _southHandAppendSlot();
     }
     final count = _controller.cardCountFor(seat) + 1;
-    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
   }
 
-  _SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
+  SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
     if (seat == PlayerSeat.south) {
       final cards = _orderedSouthHand();
       if (cards.isEmpty) return null;
-      return _SeatHandFlightSlot(
+      return SeatHandFlightSlot(
         seat: PlayerSeat.south,
         index: cards.length - 1,
         count: cards.length,
@@ -947,7 +1135,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
     }
     final count = _controller.cardCountFor(seat);
     if (count <= 0) return null;
-    return _SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
   }
 
   HareegCard? _cardInSouthHand(String id) {
@@ -975,16 +1163,42 @@ class _GameTableScreenState extends State<GameTableScreen> {
     String actionId, {
     bool playFlight = true,
   }) async {
-    if (_isCpuRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
+    _isHumanActionPending = true;
+    // Rebuild so south controls/playfield pick up the pending-lock immediately.
+    setState(() {});
     final totalWatch = Stopwatch()..start();
     _debugTableLog(
       'human action start action=$actionId current=${_controller.currentSeat.name} '
       'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
     );
-    if (playFlight) {
-      await _playFlightForAction(actionId);
+    try {
+      var soundPlayedWithFlight = false;
+      if (playFlight) {
+        soundPlayedWithFlight = await _playFlightForAction(actionId);
+      }
+      if (!mounted) return;
+      await _completeHumanAction(
+        actionId,
+        soundPlayedWithFlight: soundPlayedWithFlight,
+        totalWatch: totalWatch,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isHumanActionPending = false;
+        });
+      } else {
+        _isHumanActionPending = false;
+      }
     }
-    if (!mounted) return;
+  }
+
+  Future<void> _completeHumanAction(
+    String actionId, {
+    required bool soundPlayedWithFlight,
+    required Stopwatch totalWatch,
+  }) async {
     final applyWatch = Stopwatch()..start();
     final result = _controller.applyAction(actionId);
     applyWatch.stop();
@@ -996,12 +1210,16 @@ class _GameTableScreenState extends State<GameTableScreen> {
     );
     if (!result.isSuccess) {
       unawaited(_haptics.fire(TableHapticEvent.illegalAction));
+      unawaited(_audio.play(TableSoundEvent.invalidAction));
       setState(() {
         _replaceHumanFeedback(result.message, isError: true);
       });
       return;
     }
     unawaited(_haptics.fire(_hapticForAction(actionId)));
+    if (!soundPlayedWithFlight) {
+      unawaited(_playSoundForAction(actionId));
+    }
     setState(() {
       _replaceHumanFeedback(result.message, isError: false);
       if (_clearsSelection(actionId)) {
@@ -1030,12 +1248,35 @@ class _GameTableScreenState extends State<GameTableScreen> {
     };
   }
 
+  Future<void> _playSoundForAction(String actionId) async {
+    final event = switch (ClassicHareegActionIds.describe(actionId).kind) {
+      ClassicHareegActionKind.drawStock => TableSoundEvent.drawStock,
+      ClassicHareegActionKind.takeDiscard => TableSoundEvent.takeDiscard,
+      ClassicHareegActionKind.returnPendingDiscard ||
+      ClassicHareegActionKind.returnOpeningMelds ||
+      ClassicHareegActionKind.returnTablePlay => TableSoundEvent.cardReturn,
+      ClassicHareegActionKind.claimFifty => TableSoundEvent.fiftyClaim,
+      ClassicHareegActionKind.playMeld ||
+      ClassicHareegActionKind.playMeldWithJoker ||
+      ClassicHareegActionKind.placeCover ||
+      ClassicHareegActionKind.replaceJoker => TableSoundEvent.meldPlace,
+      ClassicHareegActionKind.discard ||
+      ClassicHareegActionKind.discardBlockedCover ||
+      ClassicHareegActionKind.discardJoker => TableSoundEvent.discardCard,
+      ClassicHareegActionKind.usePendingDiscard ||
+      ClassicHareegActionKind.unknown => null,
+    };
+    if (event == null) return;
+    await _audio.play(event);
+  }
+
   bool _clearsSelection(String actionId) {
     return ClassicHareegActionIds.describe(actionId).clearsSelection;
   }
 
   Future<bool> _runCpuTurns() async {
     if (_isCpuRunning ||
+        _isOpeningDealRunning ||
         _controller.isRoundOver ||
         _controller.currentSeat == PlayerSeat.south) {
       _debugTableLog(
@@ -1264,6 +1505,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
       return;
     }
     unawaited(_haptics.fire(TableHapticEvent.roundEnd));
+    unawaited(_audio.play(TableSoundEvent.roundEnd));
     setState(() {
       _scoreOpen = false;
       _pauseOpen = false;
@@ -1292,9 +1534,12 @@ class _GameTableScreenState extends State<GameTableScreen> {
     _fiftyTicker = null;
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    _dealChoreography?.dispose();
+    _dealChoreography = null;
     setState(() {
       _controller = ClassicHareegGameController.fromSnapshot(snapshot);
       _resetDisplayOrder();
+      _dealChoreography = _buildDealChoreography();
       _selectedCardIds.clear();
       _isCpuRunning = false;
       _scoreOpen = false;
@@ -1307,12 +1552,7 @@ class _GameTableScreenState extends State<GameTableScreen> {
       _roundResultPresentation = null;
     });
     _ensureFiftyTicker();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final didPersistOrNavigate = await _runCpuTurns();
-      if (!didPersistOrNavigate && mounted) {
-        await _persistAndMaybeFinish();
-      }
-    });
+    _scheduleTurnFlow();
   }
 }
 
@@ -2102,21 +2342,9 @@ class _CardFlight {
   final Alignment begin;
   final Alignment end;
   final bool faceDown;
-  final _SeatHandFlightSlot? beginHandSlot;
-  final _SeatHandFlightSlot? endHandSlot;
+  final SeatHandFlightSlot? beginHandSlot;
+  final SeatHandFlightSlot? endHandSlot;
   final _TableMeldFlightSlot? endMeldSlot;
-}
-
-class _SeatHandFlightSlot {
-  const _SeatHandFlightSlot({
-    required this.seat,
-    required this.index,
-    required this.count,
-  });
-
-  final PlayerSeat seat;
-  final int index;
-  final int count;
 }
 
 class _TableMeldFlightSlot {
@@ -2124,6 +2352,122 @@ class _TableMeldFlightSlot {
 
   final PlayerSeat seat;
   final int index;
+}
+
+/// Shared seat-hand geometry used by both [_CardFlightOverlay] and
+/// [_OpeningDealFlightCard]. Both surfaces target the exact same hand strip
+/// layout, so resolving the slot position lives in one place. The geometry
+/// has no widget-state dependency — it's pure math on the inputs.
+Offset _resolveSeatHandSlot(
+  SeatHandFlightSlot slot,
+  Size size,
+  Size flightCardSize,
+) {
+  return switch (slot.seat) {
+    PlayerSeat.south => _resolveSouthHandSlot(slot, size, flightCardSize),
+    PlayerSeat.north => _resolveNorthHandSlot(slot, size, flightCardSize),
+    PlayerSeat.west ||
+    PlayerSeat.east => _resolveSideHandSlot(slot, size, flightCardSize),
+  };
+}
+
+Offset _resolveSouthHandSlot(
+  SeatHandFlightSlot slot,
+  Size size,
+  Size flightCardSize,
+) {
+  final compact = size.height <= 390 || size.width <= 700;
+  final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
+  final controlWidth = compact ? 60.0 : 72.0;
+  final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
+  final edgeInset = (size.width * 0.026)
+      .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+      .toDouble();
+  final handRightInset = controlWidth + edgeInset + (compact ? 10.0 : 16.0);
+  final handHorizontalInset = math.max(handRightInset, compact ? 70.0 : 96.0);
+  final handBottom = compact ? 0.0 : 2.0;
+  final handWidth = math.max(0.0, size.width - handHorizontalInset * 2);
+  final count = math.max(1, slot.count);
+  final index = slot.index.clamp(0, count - 1).toInt();
+  final minGap = handCardSize.width * 0.42;
+  final preferredGap = handCardSize.width * 0.78;
+  final available = math.max(0.0, handWidth - 8);
+  final fittedGap = count <= 1
+      ? 0.0
+      : ((available - handCardSize.width) / (count - 1))
+            .clamp(minGap, preferredGap)
+            .toDouble();
+  final stripWidth = handCardSize.width + math.max(0, count - 1) * fittedGap;
+  final canvasWidth = math.max(stripWidth, available);
+  final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
+  final handTop = size.height - handBottom - bottomHandHeight;
+  final centerX =
+      handHorizontalInset +
+      start +
+      index * fittedGap +
+      handCardSize.width / 2;
+  final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
+  return _centeredFlightOffset(centerX, centerY, flightCardSize);
+}
+
+Offset _resolveNorthHandSlot(
+  SeatHandFlightSlot slot,
+  Size size,
+  Size flightCardSize,
+) {
+  final compact = size.height <= 390 || size.width <= 700;
+  final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+  final topInset = (size.height * 0.032)
+      .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+      .toDouble();
+  final visibleCount = compact ? 9 : 12;
+  final shown = math.min(math.max(1, slot.count), visibleCount);
+  final index = slot.index.clamp(0, shown - 1).toInt();
+  final gap = cardSize.width * 0.38;
+  final stackWidth = cardSize.width + (shown - 1) * gap;
+  final left = (size.width - stackWidth) / 2;
+  final top = topInset + (compact ? 6.0 : 8.0);
+  final centerX = left + index * gap + cardSize.width / 2;
+  final centerY = top + cardSize.height / 2;
+  return _centeredFlightOffset(centerX, centerY, flightCardSize);
+}
+
+Offset _resolveSideHandSlot(
+  SeatHandFlightSlot slot,
+  Size size,
+  Size flightCardSize,
+) {
+  final compact = size.height <= 390 || size.width <= 700;
+  final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
+  final sideRailWidth = compact ? 46.0 : 56.0;
+  final edgeInset = (size.width * 0.026)
+      .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+      .toDouble();
+  final topInset = (size.height * 0.032)
+      .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
+      .toDouble();
+  final sideRailVisibleCount = compact ? 5 : 6;
+  final sideRailHeight = cardSize.height + (sideRailVisibleCount - 1) * 14.0;
+  final sideRailTop = topInset + cardSize.height + 12;
+  final visibleCount = compact ? 8 : 11;
+  final shown = math.min(math.max(1, slot.count), visibleCount);
+  final index = slot.index.clamp(0, shown - 1).toInt();
+  final gap = 16.0;
+  final stackHeight = cardSize.height + (shown - 1) * gap;
+  final top = sideRailTop + (sideRailHeight - stackHeight) / 2;
+  final left = switch (slot.seat) {
+    PlayerSeat.west => edgeInset,
+    PlayerSeat.east =>
+      size.width - edgeInset - sideRailWidth + sideRailWidth - cardSize.width,
+    PlayerSeat.north || PlayerSeat.south => 0.0,
+  };
+  final centerX = left + cardSize.width / 2;
+  final centerY = top + index * gap + cardSize.height / 2;
+  return _centeredFlightOffset(centerX, centerY, flightCardSize);
+}
+
+Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {
+  return Offset(centerX - cardSize.width / 2, centerY - cardSize.height / 2);
 }
 
 class _CardFlightOverlay extends StatelessWidget {
@@ -2208,7 +2552,7 @@ class _CardFlightOverlay extends StatelessWidget {
     Alignment alignment,
     Size size,
     Size cardSize,
-    _SeatHandFlightSlot? handSlot,
+    SeatHandFlightSlot? handSlot,
     _TableMeldFlightSlot? meldSlot,
   ) {
     if (handSlot != null) {
@@ -2221,111 +2565,6 @@ class _CardFlightOverlay extends StatelessWidget {
       ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
       ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
     );
-  }
-
-  Offset _resolveSeatHandSlot(
-    _SeatHandFlightSlot slot,
-    Size size,
-    Size flightCardSize,
-  ) {
-    return switch (slot.seat) {
-      PlayerSeat.south => _resolveSouthHandSlot(slot, size, flightCardSize),
-      PlayerSeat.north => _resolveNorthHandSlot(slot, size, flightCardSize),
-      PlayerSeat.west ||
-      PlayerSeat.east => _resolveSideHandSlot(slot, size, flightCardSize),
-    };
-  }
-
-  Offset _resolveSouthHandSlot(
-    _SeatHandFlightSlot slot,
-    Size size,
-    Size flightCardSize,
-  ) {
-    final compact = size.height <= 390 || size.width <= 700;
-    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
-    final controlWidth = compact ? 60.0 : 72.0;
-    final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
-    final edgeInset = (size.width * 0.026)
-        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
-        .toDouble();
-    final handRightInset = controlWidth + edgeInset + (compact ? 10.0 : 16.0);
-    final handLeft = compact ? 70.0 : 96.0;
-    final handBottom = compact ? 0.0 : 2.0;
-    final handWidth = math.max(0.0, size.width - handLeft - handRightInset);
-    final count = math.max(1, slot.count);
-    final index = slot.index.clamp(0, count - 1).toInt();
-    final minGap = handCardSize.width * 0.42;
-    final preferredGap = handCardSize.width * 0.78;
-    final available = math.max(0.0, handWidth - 8);
-    final fittedGap = count <= 1
-        ? 0.0
-        : ((available - handCardSize.width) / (count - 1))
-              .clamp(minGap, preferredGap)
-              .toDouble();
-    final stripWidth = handCardSize.width + math.max(0, count - 1) * fittedGap;
-    final canvasWidth = math.max(stripWidth, available);
-    final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
-    final handTop = size.height - handBottom - bottomHandHeight;
-    final centerX =
-        handLeft + start + index * fittedGap + handCardSize.width / 2;
-    final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
-    return _centeredFlightOffset(centerX, centerY, flightCardSize);
-  }
-
-  Offset _resolveNorthHandSlot(
-    _SeatHandFlightSlot slot,
-    Size size,
-    Size flightCardSize,
-  ) {
-    final compact = size.height <= 390 || size.width <= 700;
-    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
-    final topInset = (size.height * 0.032)
-        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
-        .toDouble();
-    final visibleCount = compact ? 9 : 12;
-    final shown = math.min(math.max(1, slot.count), visibleCount);
-    final index = slot.index.clamp(0, shown - 1).toInt();
-    final gap = cardSize.width * 0.38;
-    final stackWidth = cardSize.width + (shown - 1) * gap;
-    final left = (size.width - stackWidth) / 2;
-    final top = topInset + (compact ? 6.0 : 8.0);
-    final centerX = left + index * gap + cardSize.width / 2;
-    final centerY = top + cardSize.height / 2;
-    return _centeredFlightOffset(centerX, centerY, flightCardSize);
-  }
-
-  Offset _resolveSideHandSlot(
-    _SeatHandFlightSlot slot,
-    Size size,
-    Size flightCardSize,
-  ) {
-    final compact = size.height <= 390 || size.width <= 700;
-    final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
-    final sideRailWidth = compact ? 46.0 : 56.0;
-    final edgeInset = (size.width * 0.026)
-        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
-        .toDouble();
-    final topInset = (size.height * 0.032)
-        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
-        .toDouble();
-    final sideRailVisibleCount = compact ? 5 : 6;
-    final sideRailHeight = cardSize.height + (sideRailVisibleCount - 1) * 14.0;
-    final sideRailTop = topInset + cardSize.height + 12;
-    final visibleCount = compact ? 8 : 11;
-    final shown = math.min(math.max(1, slot.count), visibleCount);
-    final index = slot.index.clamp(0, shown - 1).toInt();
-    final gap = 16.0;
-    final stackHeight = cardSize.height + (shown - 1) * gap;
-    final top = sideRailTop + (sideRailHeight - stackHeight) / 2;
-    final left = switch (slot.seat) {
-      PlayerSeat.west => edgeInset,
-      PlayerSeat.east =>
-        size.width - edgeInset - sideRailWidth + sideRailWidth - cardSize.width,
-      PlayerSeat.north || PlayerSeat.south => 0.0,
-    };
-    final centerX = left + cardSize.width / 2;
-    final centerY = top + index * gap + cardSize.height / 2;
-    return _centeredFlightOffset(centerX, centerY, flightCardSize);
   }
 
   Offset _resolveTableMeldSlot(
@@ -2395,10 +2634,171 @@ class _CardFlightOverlay extends StatelessWidget {
       flightCardSize,
     );
   }
+}
 
-  Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {
-    return Offset(centerX - cardSize.width / 2, centerY - cardSize.height / 2);
+class _OpeningDealOverlay extends StatelessWidget {
+  const _OpeningDealOverlay({
+    required this.sequence,
+    required this.progress,
+    required this.theme,
+    required this.flightDuration,
+    required this.stagger,
+  });
+
+  final DealSequence sequence;
+  final double progress;
+  final HareegCardTheme theme;
+  final Duration flightDuration;
+  final Duration stagger;
+
+  @override
+  Widget build(BuildContext context) {
+    final curve = MotionScope.of(context).curve(Curves.easeOutCubic);
+    final elapsed = sequence.elapsedAt(
+      progress: progress,
+      flightDuration: flightDuration,
+      stagger: stagger,
+    );
+    return IgnorePointer(
+      key: const ValueKey('opening-deal-overlay'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          final cardSize = constraints.maxHeight <= 390
+              ? const Size(44, 62)
+              : const Size(58, 82);
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final step in sequence.steps)
+                if (dealStepProgress(
+                      elapsed: elapsed,
+                      step: step,
+                      flightDuration: flightDuration,
+                      stagger: stagger,
+                    )
+                    case final localProgress?)
+                  _OpeningDealFlightCard(
+                    key: ValueKey('opening-deal-flight-${step.orderIndex}'),
+                    step: step,
+                    progress: curve.transform(localProgress),
+                    theme: theme,
+                    viewportSize: size,
+                    cardSize: cardSize,
+                  ),
+            ],
+          );
+        },
+      ),
+    );
   }
+}
+
+class _OpeningDealFlightCard extends StatelessWidget {
+  const _OpeningDealFlightCard({
+    super.key,
+    required this.step,
+    required this.progress,
+    required this.theme,
+    required this.viewportSize,
+    required this.cardSize,
+  });
+
+  final DealStep step;
+  final double progress;
+  final HareegCardTheme theme;
+  final Size viewportSize;
+  final Size cardSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final begin = _resolveFlightPoint(
+      _FlightAnchor.stock.alignment,
+      viewportSize,
+      cardSize,
+      null,
+    );
+    final end = _resolveFlightPoint(
+      _alignmentForSeat(step.seat),
+      viewportSize,
+      cardSize,
+      step.endHandSlot,
+    );
+    final value = progress.clamp(0.0, 1.0).toDouble();
+    final dx = end.dx - begin.dx;
+    final dy = end.dy - begin.dy;
+    final distance = math.sqrt(dx * dx + dy * dy);
+    // Throw height tracks distance so cross-table deals look airborne and
+    // self-deals only get a small hop. Clamped so very long flights stay
+    // grounded enough to read.
+    final arcHeight = (distance * 0.16).clamp(28.0, 84.0).toDouble();
+    final lifted = math.sin(value * math.pi) * arcHeight;
+    final offset = Offset.lerp(begin, end, value)!;
+    // Landing settle: a tiny scale punch in the last sliver of flight so
+    // cards feel like they actually meet the felt.
+    final double landingScale;
+    if (value < 0.86) {
+      landingScale = 1.0;
+    } else if (value < 0.93) {
+      landingScale = 1.0 + (value - 0.86) / 0.07 * 0.045;
+    } else {
+      landingScale = 1.045 - (value - 0.93) / 0.07 * 0.045;
+    }
+    // Shadow tapers as the card settles, so it collapses onto the table at
+    // touchdown. Drawn as a [BoxShadow] rather than `Material(elevation: ...)`
+    // — Material's per-frame elevation recompute multiplied across ~57
+    // simultaneous flight cards was a measurable hit on lower-end devices.
+    final shadowBlur = 10 + (1 - value) * 8;
+    final shadowOffset = Offset(0, 4 + (1 - value) * 4);
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy - lifted,
+      child: Transform.rotate(
+        angle: (1 - value) * -0.10,
+        child: Transform.scale(
+          scale: landingScale,
+          child: Opacity(
+            opacity: (1 - (value * 0.18)).clamp(0.0, 1.0).toDouble(),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0x66000000),
+                    blurRadius: shadowBlur,
+                    offset: shadowOffset,
+                  ),
+                ],
+              ),
+              child: HareegCardView(
+                theme: theme,
+                card: step.card,
+                size: cardSize,
+                faceDown: step.faceDown,
+                visualState: CardVisualState.selected,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Offset _resolveFlightPoint(
+    Alignment alignment,
+    Size size,
+    Size cardSize,
+    SeatHandFlightSlot? handSlot,
+  ) {
+    if (handSlot != null) {
+      return _resolveSeatHandSlot(handSlot, size, cardSize);
+    }
+    return Offset(
+      ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
+      ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
+    );
+  }
+
 }
 
 class _FeedbackChip extends StatelessWidget {

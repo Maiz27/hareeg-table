@@ -8,6 +8,7 @@ import '../motion/motion_speed.dart';
 import 'card_painting.dart';
 import 'card_state.dart';
 import 'card_theme.dart';
+import 'suit_glyphs.dart';
 
 /// Renders a single Hareeg card using the active [CardTheme].
 ///
@@ -246,6 +247,11 @@ class _RepresentedJokerBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelSize = (size.shortestSide * 0.22).clamp(8.0, 14.0);
+    final glyphSize = (size.shortestSide * 0.18).clamp(7.0, 12.0);
+    final suitColor = switch (identity.suit) {
+      CardSuit.hearts || CardSuit.diamonds => const Color(0xFFB84234),
+      CardSuit.spades || CardSuit.clubs => const Color(0xFFF8F1E4),
+    };
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
@@ -258,19 +264,60 @@ class _RepresentedJokerBadge extends StatelessWidget {
           color: const Color(0xE61F1A14),
           borderRadius: BorderRadius.circular(size.shortestSide * 0.12),
         ),
-        child: Text(
-          identity.label,
-          maxLines: 1,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFFF8F1E4),
-            fontSize: labelSize,
-            height: 1,
-            fontWeight: FontWeight.w800,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                identity.rank.label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: const Color(0xFFF8F1E4),
+                  fontSize: labelSize,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(width: size.shortestSide * 0.035),
+              CustomPaint(
+                size: Size.square(glyphSize),
+                painter: _InlineSuitGlyphPainter(
+                  suit: identity.suit,
+                  color: suitColor,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _InlineSuitGlyphPainter extends CustomPainter {
+  const _InlineSuitGlyphPainter({required this.suit, required this.color});
+
+  final CardSuit suit;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width, size.height);
+    canvas.drawPath(
+      SuitGlyphs.pathFor(suit),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _InlineSuitGlyphPainter oldDelegate) {
+    return oldDelegate.suit != suit || oldDelegate.color != color;
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
+import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 
 import '../support/test_fixtures.dart';
 
@@ -14,6 +15,10 @@ import '../support/test_fixtures.dart';
 /// [ClassicHareegGameController]. Focuses on the happy-path turn loop —
 /// detailed legality is covered by the rules engine tests.
 void main() {
+  // The home screen's `ShowcaseCardFan` runs a looping idle animation; pin it
+  // to the rest pose so `pumpAndSettle` doesn't hang waiting for the loop.
+  ShowcaseCardFan.disableLoopingMotionForTesting = true;
+
   testWidgets('classic round flows from setup through CPU turns into a draw',
       (tester) async {
     final preferences = MemoryPreferencesRepository();

@@ -50,6 +50,8 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 const _SectionBreak(),
                 _LicenseSection(themes: widget.themes),
                 const _SectionBreak(),
+                const _SoundLicenseSection(),
+                const _SectionBreak(),
                 Text(strings.licensesFooter, style: LoungeTokens.bodyMuted),
               ],
             ),
@@ -213,6 +215,66 @@ class _ThemeLicenseRow extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SoundLicenseSection extends StatelessWidget {
+  const _SoundLicenseSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.graphic_eq, color: LoungeTokens.goldAccent),
+            const SizedBox(width: LoungeTokens.space2),
+            Expanded(
+              child: Text(
+                strings.licensesSoundsHeader,
+                style: LoungeTokens.heading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.volume_up_outlined,
+              size: 20,
+              color: LoungeTokens.goldAccent,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    strings.kenneyCasinoAudio,
+                    style: LoungeTokens.titleSmall,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    strings.kenneyCasinoAudioAttribution,
+                    style: LoungeTokens.bodyMuted,
+                  ),
+                  const SizedBox(height: LoungeTokens.space2),
+                  Text(
+                    strings.kenneyCasinoAudioUrl,
+                    style: LoungeTokens.bodyMuted,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -299,8 +299,20 @@ class _HeroSection extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Center(child: ShowcaseCardFan(width: 232, height: 134)),
-        const SizedBox(height: LoungeTokens.space8),
+        // Idle loop keeps the home fan subtly alive while the user is on
+        // the menu. Tests opt out by flipping
+        // `ShowcaseCardFan.disableLoopingMotionForTesting` so their
+        // `pumpAndSettle` calls don't hang on the infinite controller.
+        const Center(
+          child: ShowcaseCardFan(
+            width: 232,
+            height: 134,
+            motion: ShowcaseFanMotion.idle,
+          ),
+        ),
+        // Extra breathing room between the fan and the action stack so the
+        // cards don't visually crowd the New Game button.
+        const SizedBox(height: LoungeTokens.space8 + LoungeTokens.space5),
         FilledButton.icon(
           onPressed: onNewGame,
           icon: const Icon(Icons.table_bar_outlined),

@@ -9,6 +9,8 @@ import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
 
+const _soundDefaultsVersion = 1;
+
 /// Player-facing language option.
 enum AppLanguage {
   /// English launch language.
@@ -59,7 +61,7 @@ class GamePreferences {
       motionSpeed: MotionSpeed.normal,
       fastCpuTurns: true,
       hapticsEnabled: true,
-      soundEnabled: false,
+      soundEnabled: true,
       tableAids: TableAids.guided,
       cardThemeId: CardThemeRegistry.defaultThemeId,
       highContrastCards: false,
@@ -75,6 +77,10 @@ class GamePreferences {
     final motionSpeed = json.containsKey('motionSpeed')
         ? MotionSpeed.fromName(_asString(json['motionSpeed']))
         : (legacyReducedMotion ? MotionSpeed.reduced : MotionSpeed.normal);
+    final savedSoundDefaultsVersion = _asInt(json['soundDefaultsVersion']);
+    final soundEnabled = savedSoundDefaultsVersion == _soundDefaultsVersion
+        ? _asBool(json['soundEnabled']) ?? defaults.soundEnabled
+        : defaults.soundEnabled;
     return GamePreferences(
       setup: setupJson != null
           ? ClassicHareegSetup.fromJson(setupJson)
@@ -87,7 +93,7 @@ class GamePreferences {
       fastCpuTurns: _asBool(json['fastCpuTurns']) ?? defaults.fastCpuTurns,
       hapticsEnabled:
           _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
-      soundEnabled: _asBool(json['soundEnabled']) ?? defaults.soundEnabled,
+      soundEnabled: soundEnabled,
       tableAids: TableAids.fromName(_asString(json['tableAids'])),
       cardThemeId: _asString(json['cardThemeId']) ?? defaults.cardThemeId,
       highContrastCards:
@@ -119,8 +125,7 @@ class GamePreferences {
   /// Whether table haptics are enabled.
   final bool hapticsEnabled;
 
-  /// Whether table sounds are enabled. The audio engine ships as a stub in
-  /// this release; the toggle persists for the planned audio follow-up.
+  /// Whether table sounds are enabled.
   final bool soundEnabled;
 
   /// Player-facing aid level.
@@ -181,6 +186,7 @@ class GamePreferences {
       'fastCpuTurns': fastCpuTurns,
       'hapticsEnabled': hapticsEnabled,
       'soundEnabled': soundEnabled,
+      'soundDefaultsVersion': _soundDefaultsVersion,
       'tableAids': tableAids.name,
       'cardThemeId': cardThemeId,
       'highContrastCards': highContrastCards,
@@ -347,6 +353,10 @@ Map<String, Object?>? _asMap(Object? value) {
 
 bool? _asBool(Object? value) {
   return value is bool ? value : null;
+}
+
+int? _asInt(Object? value) {
+  return value is int ? value : null;
 }
 
 String? _asString(Object? value) {

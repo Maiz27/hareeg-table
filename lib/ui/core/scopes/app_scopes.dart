@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../aids/table_aids.dart';
+import '../audio/table_audio.dart';
 import '../cards/card_theme.dart';
 import '../cards/card_theme_registry.dart';
 import '../haptics/table_haptics.dart';
@@ -15,8 +16,7 @@ class CardThemeScope extends InheritedWidget {
 
   /// Reads the nearest theme; falls back to the default if not wrapped.
   static HareegCardTheme of(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<CardThemeScope>();
+    final scope = context.dependOnInheritedWidgetOfExactType<CardThemeScope>();
     return scope?.theme ?? CardThemeRegistry.byId(null);
   }
 
@@ -50,11 +50,7 @@ class AidsScope extends InheritedWidget {
 /// Provides a singleton [TableHaptics] gateway to descendants.
 class HapticsScope extends InheritedWidget {
   /// Creates a haptics scope.
-  const HapticsScope({
-    super.key,
-    required this.haptics,
-    required super.child,
-  });
+  const HapticsScope({super.key, required this.haptics, required super.child});
 
   /// Shared haptics gateway.
   final TableHaptics haptics;
@@ -69,5 +65,25 @@ class HapticsScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant HapticsScope oldWidget) {
     return oldWidget.haptics != haptics;
+  }
+}
+
+/// Provides a singleton [TableAudio] gateway to descendants.
+class AudioScope extends InheritedWidget {
+  /// Creates an audio scope.
+  const AudioScope({super.key, required this.audio, required super.child});
+
+  /// Shared audio gateway.
+  final TableAudio audio;
+
+  /// Reads the nearest audio gateway; falls back to a muted no-op gateway.
+  static TableAudio of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AudioScope>();
+    return scope?.audio ?? TableAudio.noop();
+  }
+
+  @override
+  bool updateShouldNotify(covariant AudioScope oldWidget) {
+    return oldWidget.audio != audio;
   }
 }

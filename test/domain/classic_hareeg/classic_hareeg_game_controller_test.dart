@@ -1620,8 +1620,12 @@ void main() {
       now = now.add(const Duration(seconds: 4));
       final legal = controller.legalActionIdsFor(PlayerSeat.east);
 
+      expect(controller.fiftySecondsRemaining, 0);
       expect(legal, isNot(contains(ClassicHareegActionIds.claimFifty)));
       expect(legal, contains(ClassicHareegActionIds.takeDiscard));
+
+      now = now.add(const Duration(seconds: 3));
+      expect(controller.fiftySecondsRemaining, isNull);
     });
 
     test('restored expired Fifty window stays expired', () {
@@ -1650,6 +1654,51 @@ void main() {
 
       expect(legal, isNot(contains(ClassicHareegActionIds.claimFifty)));
       expect(legal, contains(ClassicHareegActionIds.takeDiscard));
+    });
+
+    test('Fifty finish progress is carried into the next round snapshot', () {
+      final now = DateTime.utc(2026, 5, 19, 12);
+      final discarded = _card(CardRank.nine, CardSuit.clubs, 132);
+      final eastFinishCards = [
+        _card(CardRank.seven, CardSuit.clubs, 132),
+        _card(CardRank.eight, CardSuit.clubs, 132),
+        _card(CardRank.two, CardSuit.hearts, 132),
+      ];
+      final southCards = [
+        for (var i = 0; i < 11; i += 1)
+          _card(
+            CardRank.values[i % CardRank.values.length],
+            CardSuit.spades,
+            300 + i,
+          ),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: southCards,
+            PlayerSeat.east: eastFinishCards,
+          },
+          discardPile: [discarded],
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          roundNumber: 2,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+
+      final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+      final progress = controller.roundProgress;
+      final next = controller.nextRoundSnapshot(savedAt: now);
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
+      expect(progress?.scores[PlayerSeat.east], -3);
+      expect(progress?.scores[PlayerSeat.south], 14);
+      expect(next?.scores[PlayerSeat.east], -3);
+      expect(next?.scores[PlayerSeat.south], 14);
     });
 
     test('hard table mistakes add +17 and remove the player from round', () {
@@ -2369,6 +2418,7 @@ ClassicHareegMatchSnapshot _snapshot({
   ClassicHareegSetup? setup,
   List<HareegCard>? discardPile,
   List<HareegCard>? stock,
+  int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
 }) {
@@ -2399,6 +2449,7 @@ ClassicHareegMatchSnapshot _snapshot({
           PlayerSeat.north,
           PlayerSeat.west,
         ],
+    roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 19),
   );

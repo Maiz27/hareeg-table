@@ -7,12 +7,18 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/ui/core/scopes/app_scopes.dart';
 import 'package:hareeg_table/ui/core/brand/app_brand_mark.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
+import 'package:hareeg_table/ui/features/home/views/home_screen.dart';
 
 import 'support/test_fixtures.dart';
 
 void main() {
+  // The home screen's `ShowcaseCardFan` runs a looping idle animation; pin it
+  // to the rest pose so `pumpAndSettle` doesn't hang waiting for the loop.
+  ShowcaseCardFan.disableLoopingMotionForTesting = true;
+
   testWidgets('main menu shows primary navigation entries', (tester) async {
     await tester.pumpWidget(testApp());
     await tester.pumpAndSettle();
@@ -46,6 +52,14 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ShowcaseCardFan), findsOneWidget);
+  });
+
+  testWidgets('table sounds default to enabled', (tester) async {
+    await tester.pumpWidget(testApp());
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(HomeScreen));
+    expect(AudioScope.of(context).enabled, isTrue);
   });
 
   testWidgets('new game opens the setup form with defaults', (tester) async {
