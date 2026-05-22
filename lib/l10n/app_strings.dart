@@ -129,6 +129,10 @@ class AppStrings {
   String get aboutHeader => _v('aboutHeader');
   String get aboutBody => _v('aboutBody');
   String get licensesThemesHeader => _v('licensesThemesHeader');
+  String get licensesSoundsHeader => _v('licensesSoundsHeader');
+  String get kenneyCasinoAudio => _v('kenneyCasinoAudio');
+  String get kenneyCasinoAudioAttribution => _v('kenneyCasinoAudioAttribution');
+  String get kenneyCasinoAudioUrl => _v('kenneyCasinoAudioUrl');
   String get licensesFooter => _v('licensesFooter');
   String get aidGuidedDescription => _v('aidGuidedDescription');
   String get aidStandardDescription => _v('aidStandardDescription');
@@ -683,7 +687,7 @@ const _englishValues = {
   'hapticsLabel': 'Table haptics',
   'hapticsHelp': 'Light vibrations on taps, drops, and Fifty.',
   'soundLabel': 'Table sounds',
-  'soundHelp': 'Sounds will arrive in a future update.',
+  'soundHelp': 'Play card movement and table feedback sounds.',
   'cardThemeLabel': 'Card theme',
   'cardThemeHelp': 'Themes can only be changed outside an active match.',
   'highContrastCards': 'High-contrast cues',
@@ -694,6 +698,11 @@ const _englishValues = {
   'aboutBody':
       'Open-source Sudanese Hareeg, offline-first, ad-free. Source on GitHub.',
   'licensesThemesHeader': 'Card themes',
+  'licensesSoundsHeader': 'Sound effects',
+  'kenneyCasinoAudio': 'Kenney Casino Audio',
+  'kenneyCasinoAudioAttribution':
+      'Kenney.nl Casino Audio, Creative Commons CC0 1.0 Universal.',
+  'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
   'aidGuidedDescription':
@@ -874,7 +883,7 @@ const _arabicValues = {
   'hapticsLabel': 'اهتزازات الطاولة',
   'hapticsHelp': 'اهتزازات خفيفة عند الضغط، الإفلات، والخمسين.',
   'soundLabel': 'أصوات الطاولة',
-  'soundHelp': 'الأصوات ستصل في تحديث لاحق.',
+  'soundHelp': 'شغّل أصوات حركة الأوراق وتنبيهات الطاولة.',
   'cardThemeLabel': 'سمة الأوراق',
   'cardThemeHelp': 'يمكن تغيير السمات خارج المباراة النشطة فقط.',
   'highContrastCards': 'إشارات عالية التباين',
@@ -885,6 +894,11 @@ const _arabicValues = {
   'aboutBody':
       'حريق سوداني مفتوح المصدر، يعمل دون اتصال، وبدون إعلانات. المصدر على GitHub.',
   'licensesThemesHeader': 'سمات الأوراق',
+  'licensesSoundsHeader': 'المؤثرات الصوتية',
+  'kenneyCasinoAudio': 'Kenney Casino Audio',
+  'kenneyCasinoAudioAttribution':
+      'Kenney.nl Casino Audio، ترخيص Creative Commons CC0 1.0 Universal.',
+  'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'الأصول المضمنة تحتفظ بتراخيص CC0 / الملكية العامة الأصلية.',
   'aidGuidedDescription':
