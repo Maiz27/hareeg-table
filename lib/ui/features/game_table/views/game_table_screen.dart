@@ -83,6 +83,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   late ClassicHareegGameController _controller;
   final _selectedCardIds = <String>{};
   bool _isCpuRunning = false;
+  // Set while a human action's pre-apply flight/sound is in flight and the
+  // controller hasn't applied the move yet. Used to lock the UI so a second
+  // tap doesn't queue a parallel action against the same controller state.
+  bool _isHumanActionPending = false;
   bool _scoreOpen = false;
   bool _pauseOpen = false;
   bool _fiftyPulse = false;
@@ -346,7 +350,8 @@ class _GameTableScreenState extends State<GameTableScreen>
     final isHumanTurn =
         _controller.currentSeat == humanSeat &&
         !_isCpuRunning &&
-        !_isOpeningDealRunning;
+        !_isOpeningDealRunning &&
+        !_isHumanActionPending;
     final controlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
@@ -734,17 +739,18 @@ class _GameTableScreenState extends State<GameTableScreen>
       seat: PlayerSeat.south,
       selectedCardIds: _selectedCardIds,
       handCards: southCards ?? _orderedSouthHand(),
-      inputLocked: _isCpuRunning || _isOpeningDealRunning,
+      inputLocked:
+          _isCpuRunning || _isOpeningDealRunning || _isHumanActionPending,
     );
   }
 
   Future<void> _dropCardToDiscard(HareegCard card) async {
-    if (_isCpuRunning || _isOpeningDealRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(_tableInteraction().resolveDiscard(card));
   }
 
   Future<void> _dropCardToTable(HareegCard card) async {
-    if (_isCpuRunning || _isOpeningDealRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(_tableInteraction().resolveTableDrop(card));
   }
 
@@ -753,7 +759,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     PlayerSeat owner,
     int meldIndex,
   ) async {
-    if (_isCpuRunning || _isOpeningDealRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
     await _runTableInteraction(
       _tableInteraction().resolveMeldDrop(card, owner, meldIndex),
     );
@@ -1157,17 +1163,42 @@ class _GameTableScreenState extends State<GameTableScreen>
     String actionId, {
     bool playFlight = true,
   }) async {
-    if (_isCpuRunning || _isOpeningDealRunning) return;
+    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
+    _isHumanActionPending = true;
+    // Rebuild so south controls/playfield pick up the pending-lock immediately.
+    setState(() {});
     final totalWatch = Stopwatch()..start();
     _debugTableLog(
       'human action start action=$actionId current=${_controller.currentSeat.name} '
       'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
     );
-    var soundPlayedWithFlight = false;
-    if (playFlight) {
-      soundPlayedWithFlight = await _playFlightForAction(actionId);
+    try {
+      var soundPlayedWithFlight = false;
+      if (playFlight) {
+        soundPlayedWithFlight = await _playFlightForAction(actionId);
+      }
+      if (!mounted) return;
+      await _completeHumanAction(
+        actionId,
+        soundPlayedWithFlight: soundPlayedWithFlight,
+        totalWatch: totalWatch,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isHumanActionPending = false;
+        });
+      } else {
+        _isHumanActionPending = false;
+      }
     }
-    if (!mounted) return;
+  }
+
+  Future<void> _completeHumanAction(
+    String actionId, {
+    required bool soundPlayedWithFlight,
+    required Stopwatch totalWatch,
+  }) async {
     final applyWatch = Stopwatch()..start();
     final result = _controller.applyAction(actionId);
     applyWatch.stop();
