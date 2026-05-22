@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -7,6 +9,7 @@ import '../data/persistence/preferences_repository.dart';
 import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../l10n/app_strings.dart';
 import '../ui/core/aids/table_aids.dart';
+import '../ui/core/audio/table_audio.dart';
 import '../ui/core/cards/card_theme.dart';
 import '../ui/core/cards/card_theme_registry.dart';
 import '../ui/core/haptics/table_haptics.dart';
@@ -27,9 +30,9 @@ import 'app_routes.dart';
 /// Root Flutter application for Hareeg Table.
 ///
 /// Owns the app-wide preference subscription so [MotionScope], [AidsScope],
-/// [CardThemeScope], and [HapticsScope] always reflect saved settings. The
-/// scopes wrap the [Navigator] so every route picks up the live values
-/// without re-loading preferences itself.
+/// [CardThemeScope], [HapticsScope], and [AudioScope] always reflect saved
+/// settings. The scopes wrap the [Navigator] so every route picks up the live
+/// values without re-loading preferences itself.
 class HareegTableApp extends StatefulWidget {
   /// Creates the Hareeg Table app shell.
   const HareegTableApp({
@@ -57,6 +60,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
   late final PreferencesRepository _preferences;
   late final MatchRepository _matches;
   late final TableHaptics _haptics;
+  late final TableAudio _audio;
   GamePreferences _values = GamePreferences.defaults();
 
   @override
@@ -65,6 +69,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
     _preferences = widget.preferencesRepository ?? AppRepositories.preferences;
     _matches = widget.matchRepository ?? AppRepositories.matches;
     _haptics = TableHaptics(enabled: _values.hapticsEnabled);
+    _audio = TableAudio(enabled: _values.soundEnabled);
     _loadPreferences();
   }
 
@@ -77,7 +82,11 @@ class _HareegTableAppState extends State<HareegTableApp> {
       setState(() {
         _values = values;
         _haptics.enabled = values.hapticsEnabled;
+        _audio.enabled = values.soundEnabled;
       });
+      if (values.soundEnabled) {
+        unawaited(_audio.warmUp());
+      }
     } catch (error, stackTrace) {
       debugPrint('Failed to load preferences in app shell: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -88,13 +97,23 @@ class _HareegTableAppState extends State<HareegTableApp> {
     setState(() {
       _values = next;
       _haptics.enabled = next.hapticsEnabled;
+      _audio.enabled = next.soundEnabled;
     });
+    if (next.soundEnabled) {
+      unawaited(_audio.warmUp());
+    }
     try {
       await _preferences.savePreferences(next);
     } catch (error, stackTrace) {
       debugPrint('Failed to save preferences: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_audio.dispose());
+    super.dispose();
   }
 
   @override
@@ -132,11 +151,14 @@ class _HareegTableAppState extends State<HareegTableApp> {
                 theme: activeTheme,
                 child: HapticsScope(
                   haptics: _haptics,
-                  child: AppStringsScope(
-                    strings: strings,
-                    child: Directionality(
-                      textDirection: strings.textDirection,
-                      child: child ?? const SizedBox.shrink(),
+                  child: AudioScope(
+                    audio: _audio,
+                    child: AppStringsScope(
+                      strings: strings,
+                      child: Directionality(
+                        textDirection: strings.textDirection,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),
