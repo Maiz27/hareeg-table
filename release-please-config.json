@@ -3,7 +3,7 @@
   "bootstrap-sha": "a95423c3454ea8413f0cfa0e016d60e0460181d6",
   "packages": {
     ".": {
-      "release-type": "dart",
+      "release-type": "simple",
       "package-name": "hareeg-table",
       "versioning": "prerelease",
       "prerelease-type": "alpha",
