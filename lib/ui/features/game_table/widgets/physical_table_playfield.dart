@@ -6,13 +6,13 @@ import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
-import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import 'opponent_seat_rails.dart';
 import 'seat_meld_lane.dart';
+import 'south_meld_controls.dart';
 import 'table_center_area.dart';
 
 export 'seat_meld_lane.dart'
@@ -540,7 +540,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 right: 0,
                 bottom: meldSuggestionBottom,
                 child: Center(
-                  child: _MeldSuggestionRack(
+                  child: MeldSuggestionRack(
                     theme: theme,
                     suggestions: meldSuggestions,
                     cardSize: compact ? const Size(26, 36) : const Size(30, 42),
@@ -553,7 +553,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               right: edgeInset,
               bottom: controlBottom,
               width: controlWidth,
-              child: _SideControls(
+              child: SouthSideControls(
                 meldRequirement: meldRequirement,
                 meldSelectionValue: meldSelectionValue,
                 meldSelectionValid: meldSelectionValid,
@@ -592,334 +592,6 @@ class PhysicalTablePlayfield extends StatelessWidget {
 }
 
 
-class _MeldSuggestionRack extends StatelessWidget {
-  const _MeldSuggestionRack({
-    required this.theme,
-    required this.suggestions,
-    required this.cardSize,
-    required this.onTapSuggestion,
-    required this.onCardLongPress,
-  });
-
-  final HareegCardTheme theme;
-  final List<TableMeldSuggestion> suggestions;
-  final Size cardSize;
-  final ValueChanged<String> onTapSuggestion;
-  final ValueChanged<HareegCard> onCardLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 140),
-      child: Container(
-        key: ValueKey(suggestions.map((s) => s.actionId).join('|')),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        decoration: BoxDecoration(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.90),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final suggestion in suggestions.take(3)) ...[
-                _SuggestionGroup(
-                  theme: theme,
-                  suggestion: suggestion,
-                  cardSize: cardSize,
-                  onTap: () => onTapSuggestion(suggestion.actionId),
-                  onCardLongPress: onCardLongPress,
-                ),
-                const SizedBox(width: 10),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SuggestionGroup extends StatelessWidget {
-  const _SuggestionGroup({
-    required this.theme,
-    required this.suggestion,
-    required this.cardSize,
-    required this.onTap,
-    required this.onCardLongPress,
-  });
-
-  final HareegCardTheme theme;
-  final TableMeldSuggestion suggestion;
-  final Size cardSize;
-  final VoidCallback onTap;
-  final ValueChanged<HareegCard> onCardLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final cards = suggestion.cards;
-    final gap = cardSize.width * 0.50;
-    final width = cardSize.width + math.max(0, cards.length - 1) * gap;
-    return Tooltip(
-      message: context.strings.playMeld,
-      child: GestureDetector(
-        key: ValueKey('meld-suggestion-${suggestion.actionId}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          width: width,
-          height: cardSize.height,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (var i = 0; i < cards.length; i++)
-                Positioned(
-                  left: i * gap,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onLongPress: () => onCardLongPress(cards[i]),
-                    child: HareegCardView(
-                      theme: theme,
-                      card: cards[i],
-                      jokerDisplay: JokerDisplay.assisted,
-                      size: cardSize,
-                      visualState: CardVisualState.coverTarget,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SideControls extends StatelessWidget {
-  const _SideControls({
-    required this.meldRequirement,
-    required this.meldSelectionValue,
-    required this.meldSelectionValid,
-    required this.meldSelectionHasOpened,
-    required this.onPlaySelectedMeld,
-    required this.compact,
-    required this.canReturnOpeningMelds,
-    required this.onReturnOpeningMelds,
-  });
-
-  final int meldRequirement;
-  final int? meldSelectionValue;
-  final bool meldSelectionValid;
-  final bool meldSelectionHasOpened;
-  final VoidCallback? onPlaySelectedMeld;
-  final bool compact;
-  final bool canReturnOpeningMelds;
-  final VoidCallback onReturnOpeningMelds;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _MeldCtaButton(
-          requirement: meldRequirement,
-          selectionValue: meldSelectionValue,
-          selectionValid: meldSelectionValid,
-          hasOpened: meldSelectionHasOpened,
-          onTap: onPlaySelectedMeld,
-          compact: compact,
-        ),
-        if (canReturnOpeningMelds) ...[
-          SizedBox(height: compact ? 4 : 6),
-          Tooltip(
-            message: context.strings.takeBackMelds,
-            child: _IconTablePill(
-              icon: Icons.undo_rounded,
-              compact: compact,
-              onTap: onReturnOpeningMelds,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _TablePill extends StatelessWidget {
-  const _TablePill({required this.compact, required this.child});
-
-  final bool compact;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: compact ? 30 : 34,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: IconTheme(
-        data: const IconThemeData(color: LoungeTokens.coffeeCharcoal),
-        child: DefaultTextStyle(
-          style: const TextStyle(color: LoungeTokens.coffeeCharcoal),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _IconTablePill extends StatelessWidget {
-  const _IconTablePill({
-    required this.icon,
-    required this.compact,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool compact;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: _TablePill(
-          compact: compact,
-          child: Icon(icon, size: compact ? 16 : 18),
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom-right Meld chip. When the human seat has selected a complete legal
-/// meld, becomes a tappable confirmation CTA showing the played value;
-/// otherwise renders the current opening requirement as a static reference.
-class _MeldCtaButton extends StatelessWidget {
-  const _MeldCtaButton({
-    required this.requirement,
-    required this.selectionValue,
-    required this.selectionValid,
-    required this.hasOpened,
-    required this.onTap,
-    required this.compact,
-  });
-
-  final int requirement;
-  final int? selectionValue;
-  final bool selectionValid;
-  final bool hasOpened;
-  final VoidCallback? onTap;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = context.strings;
-    final isCta = selectionValid && onTap != null;
-    final displayValue = selectionValue ?? requirement;
-    final caption = isCta
-        ? (hasOpened ? strings.playMeld : strings.openMeld)
-        : (hasOpened ? strings.meld : strings.openNeed);
-    final background = isCta
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92);
-    final foreground = isCta
-        ? LoungeTokens.coffeeCharcoal
-        : LoungeTokens.offWhiteText;
-
-    final body = AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOutCubic,
-      height: compact ? 40 : 48,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isCta
-              ? Colors.white.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.08),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isCta
-                ? LoungeTokens.goldAccent.withValues(alpha: 0.22)
-                : Colors.black.withValues(alpha: 0.16),
-            blurRadius: isCta ? 12 : 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              caption,
-              style: TextStyle(
-                color: foreground,
-                fontSize: compact ? 8.5 : 10,
-                fontWeight: FontWeight.w800,
-                height: 1,
-                letterSpacing: 0.3,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$displayValue',
-              style: TextStyle(
-                color: foreground,
-                fontSize: compact ? 14 : 17,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (!isCta) return body;
-
-    return Tooltip(
-      message: strings.playSelectedMeld,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: body,
-        ),
-      ),
-    );
-  }
-}
 
 class _HumanHandFan extends StatelessWidget {
   const _HumanHandFan({
