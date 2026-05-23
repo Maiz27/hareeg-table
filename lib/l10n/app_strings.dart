@@ -153,6 +153,8 @@ class AppStrings {
   String get tableRulesDescription => _v('tableRulesDescription');
   String get deckCount => _v('deckCount');
   String get fiftyTimer => _v('fiftyTimer');
+  String get handSort => _v('handSort');
+  String get handSortDescription => _v('handSortDescription');
   String get assistance => _v('assistance');
   String get assistanceDescription => _v('assistanceDescription');
   String get memoryJokerDisplay => _v('memoryJokerDisplay');
@@ -726,8 +728,10 @@ const _englishValues = {
   'tableRulesDescription': 'Deck count and fifty-claim window.',
   'deckCount': 'Deck count',
   'fiftyTimer': 'Fifty timer',
+  'handSort': 'Card sorting',
+  'handSortDescription': 'Initial sort applied to your hand each round.',
   'assistance': 'Assistance',
-  'assistanceDescription': 'Hints, hand sorting, joker memory.',
+  'assistanceDescription': 'Hints and joker memory display.',
   'memoryJokerDisplay': 'Memory joker display',
   'memoryJokerDisplayDescription': 'Briefly show represented joker identities.',
   'look': 'Look',
@@ -922,8 +926,10 @@ const _arabicValues = {
   'tableRulesDescription': 'عدد الرزم ونافذة إعلان الخمسين.',
   'deckCount': 'عدد الرزم',
   'fiftyTimer': 'مؤقت الخمسين',
+  'handSort': 'ترتيب الأوراق',
+  'handSortDescription': 'الترتيب المبدئي ليدك في بداية كل جولة.',
   'assistance': 'المساعدة',
-  'assistanceDescription': 'تلميحات، ترتيب اليد، وذاكرة الجوكر.',
+  'assistanceDescription': 'تلميحات وعرض ذاكرة الجوكر.',
   'memoryJokerDisplay': 'عرض ذاكرة الجوكر',
   'memoryJokerDisplayDescription': 'اعرض هويات الجوكر الممثلة لفترة قصيرة.',
   'look': 'المظهر',

@@ -168,14 +168,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 _AccordionSection(
+                  key: _sectionKeys[SettingsSection.handSort],
+                  icon: Icons.sort_outlined,
+                  title: strings.handSort,
+                  description: strings.handSortDescription,
+                  preview: [_handSortLabel(_preferences.handSortMode, strings)],
+                  expanded: _openSection == SettingsSection.handSort,
+                  onToggle: () => _toggle(SettingsSection.handSort),
+                  child: _HandSortPicker(
+                    value: _preferences.handSortMode,
+                    onChanged: (value) =>
+                        _save(_preferences.copyWith(handSortMode: value)),
+                  ),
+                ),
+                _AccordionSection(
                   key: _sectionKeys[SettingsSection.assistance],
                   icon: Icons.visibility_outlined,
                   title: strings.assistance,
                   description: strings.assistanceDescription,
-                  preview: [
-                    _aidsLabel(_preferences.tableAids, strings),
-                    _handSortLabel(_preferences.handSortMode, strings),
-                  ],
+                  preview: [_aidsLabel(_preferences.tableAids, strings)],
                   expanded: _openSection == SettingsSection.assistance,
                   onToggle: () => _toggle(SettingsSection.assistance),
                   child: Column(
@@ -184,12 +195,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _preferences.tableAids,
                         onChanged: (value) =>
                             _save(_preferences.copyWith(tableAids: value)),
-                      ),
-                      const _ThinDivider(),
-                      _HandSortPicker(
-                        value: _preferences.handSortMode,
-                        onChanged: (value) =>
-                            _save(_preferences.copyWith(handSortMode: value)),
                       ),
                       const _ThinDivider(),
                       _SwitchSetting(

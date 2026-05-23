@@ -6,6 +6,9 @@ enum SettingsSection {
   /// House rules left over from the Start screen (deck count, fifty timer).
   tableRules,
 
+  /// Initial sort mode applied to the human hand at the start of each round.
+  handSort,
+
   /// Player aids and hand assistance toggles.
   assistance,
 
