@@ -589,6 +589,94 @@ void main() {
       );
     });
 
+    test('three-joker meld actions apply every represented joker', () {
+      const firstJoker = HareegCard.joker(deckIndex: 151, jokerIndex: 0);
+      const secondJoker = HareegCard.joker(deckIndex: 151, jokerIndex: 1);
+      const thirdJoker = HareegCard.joker(deckIndex: 151, jokerIndex: 2);
+      final sevenClubs = _card(CardRank.seven, CardSuit.clubs, 151);
+      final finalDiscard = _card(CardRank.king, CardSuit.hearts, 151);
+      final meldCards = [sevenClubs, firstJoker, secondJoker, thirdJoker];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [...meldCards, finalDiscard],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+      final selectedIds = meldCards.map((card) => card.id).toList();
+
+      final choices = controller.jokerMeldChoicesFor(
+        PlayerSeat.south,
+        selectedIds,
+      );
+      final play = controller.applyAction(choices.first.actionId);
+
+      expect(choices, isNotEmpty);
+      expect(choices.first.assignments, hasLength(3));
+      expect(play.isSuccess, isTrue);
+      expect(controller.handFor(PlayerSeat.south), [finalDiscard]);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.south)
+            .single
+            .cards
+            .map((card) => card.label)
+            .toSet(),
+        {'7C', 'J(7D)', 'J(7H)', 'J(7S)'},
+      );
+    });
+
+    test('cpu meld search can choose multiple unresolved jokers', () {
+      const firstJoker = HareegCard.joker(deckIndex: 152, jokerIndex: 0);
+      const secondJoker = HareegCard.joker(deckIndex: 152, jokerIndex: 1);
+      final sevenClubs = _card(CardRank.seven, CardSuit.clubs, 152);
+      final finalDiscard = _card(CardRank.king, CardSuit.hearts, 152);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [
+              sevenClubs,
+              firstJoker,
+              secondJoker,
+              finalDiscard,
+            ],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      final actionId = controller
+          .cpuActionIdsFor(PlayerSeat.south)
+          .firstWhere(
+            (id) =>
+                ClassicHareegActionIds.describe(id).kind ==
+                ClassicHareegActionKind.playMeldWithJoker,
+          );
+      final choice = ClassicHareegActionIds.jokerMeldChoice(actionId)!;
+      final play = controller.applyAction(actionId);
+
+      expect(choice.assignments, hasLength(2));
+      expect(play.isSuccess, isTrue);
+      expect(controller.handFor(PlayerSeat.south), [finalDiscard]);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.south)
+            .single
+            .cards
+            .where((card) => card.isJoker)
+            .map((card) => card.representedIdentity)
+            .whereType<CardIdentity>(),
+        hasLength(2),
+      );
+    });
+
     test('mixed-suit face-card joker sequence has no meld action', () {
       final joker = HareegCard.joker(deckIndex: 131, jokerIndex: 0);
       final meldCards = [
@@ -936,6 +1024,66 @@ void main() {
       );
     });
 
+    test('set covers reject duplicate visual cards from another deck', () {
+      final tableMeld = [
+        _card(CardRank.jack, CardSuit.hearts, 142),
+        _card(CardRank.jack, CardSuit.clubs, 142),
+        _card(CardRank.jack, CardSuit.spades, 142),
+      ];
+      final duplicateHeart = _card(CardRank.jack, CardSuit.hearts, 143);
+      final missingDiamond = _card(CardRank.jack, CardSuit.diamonds, 143);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [
+              duplicateHeart,
+              missingDiamond,
+              ...defaults[PlayerSeat.south]!,
+            ],
+          },
+          tableMelds: {
+            PlayerSeat.east: [PlacedMeld.fromCards(tableMeld)],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      final duplicateAction = controller.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [duplicateHeart.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+      );
+      final forcedDuplicate = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        cardIds: [duplicateHeart.id],
+      );
+      final diamondAction = controller.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [missingDiamond.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+      );
+
+      expect(duplicateAction, isNull);
+      expect(controller.applyAction(forcedDuplicate).isSuccess, isFalse);
+      expect(diamondAction, isNotNull);
+      expect(controller.applyAction(diamondAction!).isSuccess, isTrue);
+      expect(
+        controller
+            .tableMeldsFor(PlayerSeat.east)
+            .single
+            .cards
+            .map((card) => card.effectiveIdentity!.key)
+            .toSet(),
+        {'jack-clubs', 'jack-diamonds', 'jack-hearts', 'jack-spades'},
+      );
+    });
+
     for (final preset in [RulePreset.assisted, RulePreset.tablePenalties]) {
       test('turn cover can be returned in ${preset.name} mode', () {
         final eastMeld = [
@@ -1233,6 +1381,69 @@ void main() {
         expect(result.isSuccess, isTrue);
         expect(controller.scores[PlayerSeat.south], 3);
         expect(controller.topDiscard?.id, cover.id);
+      },
+    );
+
+    test(
+      'cover and joker replacement discard is advertised once and penalized once',
+      () {
+        const represented = CardIdentity(
+          rank: CardRank.eight,
+          suit: CardSuit.clubs,
+        );
+        const tableJoker = HareegCard.joker(
+          deckIndex: 137,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        );
+        final sequenceMeld = [
+          _card(CardRank.five, CardSuit.clubs, 137),
+          _card(CardRank.six, CardSuit.clubs, 137),
+          _card(CardRank.seven, CardSuit.clubs, 137),
+        ];
+        final jokerSet = [
+          tableJoker,
+          _card(CardRank.eight, CardSuit.diamonds, 137),
+          _card(CardRank.eight, CardSuit.spades, 137),
+        ];
+        final blocked = _card(CardRank.eight, CardSuit.clubs, 138);
+        final controller = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.south: [blocked, ...defaults[PlayerSeat.south]!],
+            },
+            tableMelds: {
+              PlayerSeat.east: [
+                PlacedMeld.fromCards(sequenceMeld),
+                PlacedMeld.fromCards(jokerSet),
+              ],
+            },
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.action,
+            openingState: _opened(PlayerSeat.south),
+            setup: ClassicHareegSetup.defaults().copyWith(
+              rulePreset: RulePreset.tablePenalties,
+            ),
+          ),
+        );
+
+        final actionId =
+            '${ClassicHareegActionIds.discardBlockedCoverPrefix}${blocked.id}';
+        final matchingActions = controller
+            .legalActionIdsFor(PlayerSeat.south)
+            .where(
+              (id) => ClassicHareegActionIds.discardCardId(id) == blocked.id,
+            )
+            .toList(growable: false);
+
+        expect(matchingActions, [actionId]);
+
+        final result = controller.applyAction(actionId);
+
+        expect(result.isSuccess, isTrue);
+        expect(controller.scores[PlayerSeat.south], 3);
+        expect(controller.topDiscard?.id, blocked.id);
       },
     );
 
@@ -1590,6 +1801,42 @@ void main() {
       expect(controller.currentSeat, PlayerSeat.east);
     });
 
+    test('hard table wrong Fifty claims add +17 and can end the round', () {
+      final now = DateTime.utc(2026, 5, 19, 12);
+      final discarded = _card(CardRank.nine, CardSuit.clubs, 231);
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        rulePreset: RulePreset.hardTable17,
+      );
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          setup: setup,
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.east: [
+              _card(CardRank.two, CardSuit.hearts, 231),
+              _card(CardRank.four, CardSuit.diamonds, 231),
+              _card(CardRank.king, CardSuit.spades, 231),
+            ],
+          },
+          activeSeats: const [PlayerSeat.south, PlayerSeat.east],
+          discardPile: [discarded],
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+
+      final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.scoreView.previousScores[PlayerSeat.east], 17);
+      expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
+      expect(controller.roundResult?.winner, PlayerSeat.south);
+      expect(controller.legalActionIdsFor(PlayerSeat.east), isEmpty);
+    });
+
     test('expired Fifty hides claim but keeps normal pickup available', () {
       var now = DateTime.utc(2026, 5, 19, 12);
       final discarded = _card(CardRank.nine, CardSuit.clubs, 32);
@@ -1695,6 +1942,8 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
+      expect(controller.scores[PlayerSeat.east], -3);
+      expect(controller.scores[PlayerSeat.south], 14);
       expect(progress?.scores[PlayerSeat.east], -3);
       expect(progress?.scores[PlayerSeat.south], 14);
       expect(next?.scores[PlayerSeat.east], -3);

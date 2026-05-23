@@ -13,6 +13,18 @@ class CoverDiscardResult {
   final String message;
 }
 
+/// One legal cover card plus the meld shape after applying it.
+class CoverExtension {
+  /// Creates a resolved cover extension.
+  const CoverExtension({required this.card, required this.extendedMeld});
+
+  /// Physical cover card, with joker representation assigned when needed.
+  final HareegCard card;
+
+  /// Table meld after [card] has been appended.
+  final List<HareegCard> extendedMeld;
+}
+
 /// Classic Hareeg cover detection and discard restriction rules.
 abstract final class ClassicHareegCoverRules {
   /// Whether a card can legally extend a table meld right now.
@@ -20,21 +32,12 @@ abstract final class ClassicHareegCoverRules {
     required List<HareegCard> tableMeld,
     required HareegCard candidate,
   }) {
-    final candidateIdentity = candidate.effectiveIdentity;
-    if (candidateIdentity == null || tableMeld.length < 3) {
-      return false;
-    }
-
-    final current = ClassicHareegMeldValidator.validate(tableMeld);
-    if (!current.isValid) {
-      return false;
-    }
-
-    return switch (current.type) {
-      MeldType.set => _isSetCover(tableMeld, candidateIdentity),
-      MeldType.sequence => _isSequenceCover(tableMeld, candidateIdentity),
-      null => false,
-    };
+    return resolveCoverExtension(
+          tableMeld: tableMeld,
+          candidate: candidate,
+          resolveJoker: false,
+        ) !=
+        null;
   }
 
   /// Returns whether any table meld can receive this card as a cover.
@@ -68,6 +71,98 @@ abstract final class ClassicHareegCoverRules {
     return List.unmodifiable([...tableMeld, candidate]);
   }
 
+  /// Returns cover cards in legal application order, if possible.
+  static List<HareegCard>? orderedCoverCards({
+    required List<HareegCard> tableMeld,
+    required List<HareegCard> candidates,
+  }) {
+    if (candidates.isEmpty) {
+      return const [];
+    }
+
+    for (var index = 0; index < candidates.length; index += 1) {
+      final candidate = candidates[index];
+      final extension = resolveCoverExtension(
+        tableMeld: tableMeld,
+        candidate: candidate,
+      );
+      if (extension == null) {
+        continue;
+      }
+      final remaining = [
+        ...candidates.take(index),
+        ...candidates.skip(index + 1),
+      ];
+      final next = orderedCoverCards(
+        tableMeld: extension.extendedMeld,
+        candidates: remaining,
+      );
+      if (next != null) {
+        return [extension.card, ...next];
+      }
+    }
+    return null;
+  }
+
+  /// Resolves one cover candidate, including joker cover identity if needed.
+  static HareegCard? resolveCoverCandidate({
+    required List<HareegCard> tableMeld,
+    required HareegCard candidate,
+  }) {
+    return resolveCoverExtension(
+      tableMeld: tableMeld,
+      candidate: candidate,
+    )?.card;
+  }
+
+  /// Resolves the exact cover extension produced by [candidate].
+  static CoverExtension? resolveCoverExtension({
+    required List<HareegCard> tableMeld,
+    required HareegCard candidate,
+    bool resolveJoker = true,
+  }) {
+    final direct = _directCoverExtension(
+      tableMeld: tableMeld,
+      candidate: candidate,
+    );
+    if (direct != null || !resolveJoker) {
+      return direct;
+    }
+    if (!candidate.isJoker || candidate.representedIdentity != null) {
+      return null;
+    }
+
+    final options = <CoverExtension>[];
+    for (final suit in CardSuit.values) {
+      for (final rank in CardRank.values) {
+        final extension = _directCoverExtension(
+          tableMeld: tableMeld,
+          candidate: candidate.asRepresenting(
+            CardIdentity(rank: rank, suit: suit),
+          ),
+        );
+        if (extension != null) {
+          options.add(extension);
+        }
+      }
+    }
+    if (options.isEmpty) {
+      return null;
+    }
+    options.sort((left, right) {
+      final leftIdentity = left.card.effectiveIdentity!;
+      final rightIdentity = right.card.effectiveIdentity!;
+      final suitCompare = leftIdentity.suit.index.compareTo(
+        rightIdentity.suit.index,
+      );
+      if (suitCompare != 0) {
+        return suitCompare;
+      }
+      return leftIdentity.rank.order.compareTo(rightIdentity.rank.order);
+    });
+    return options.first;
+  }
+
   /// Checks normal cover discard restriction.
   static CoverDiscardResult canDiscard({
     required Iterable<List<HareegCard>> tableMelds,
@@ -94,63 +189,28 @@ abstract final class ClassicHareegCoverRules {
     );
   }
 
-  static bool _isSetCover(
-    List<HareegCard> tableMeld,
-    CardIdentity candidateIdentity,
-  ) {
-    final identities = tableMeld
-        .map((card) => card.effectiveIdentity)
-        .whereType<CardIdentity>()
-        .toList();
-    if (identities.any((identity) => identity.rank != candidateIdentity.rank)) {
-      return false;
+  static CoverExtension? _directCoverExtension({
+    required List<HareegCard> tableMeld,
+    required HareegCard candidate,
+  }) {
+    if (candidate.effectiveIdentity == null || tableMeld.length < 3) {
+      return null;
     }
 
-    final suits = identities.map((identity) => identity.suit).toSet();
-    return !suits.contains(candidateIdentity.suit);
-  }
-
-  static bool _isSequenceCover(
-    List<HareegCard> tableMeld,
-    CardIdentity candidateIdentity,
-  ) {
-    final identities = tableMeld
-        .map((card) => card.effectiveIdentity)
-        .whereType<CardIdentity>()
-        .toList();
-    if (identities.any((identity) => identity.suit != candidateIdentity.suit)) {
-      return false;
+    final current = ClassicHareegMeldValidator.validate(tableMeld);
+    if (!current.isValid || current.type == null) {
+      return null;
     }
 
-    final lowOrders = identities.map((identity) => identity.rank.order).toList()
-      ..sort();
-    final highOrders = identities.map((identity) {
-      return identity.rank == CardRank.ace ? 14 : identity.rank.order;
-    }).toList()..sort();
-
-    final candidateLow = candidateIdentity.rank.order;
-    final candidateHigh = candidateIdentity.rank == CardRank.ace
-        ? 14
-        : candidateIdentity.rank.order;
-
-    final extendsLow =
-        _isConsecutive(lowOrders) &&
-        (candidateLow == lowOrders.first - 1 ||
-            candidateLow == lowOrders.last + 1);
-    final extendsHigh =
-        _isConsecutive(highOrders) &&
-        (candidateHigh == highOrders.first - 1 ||
-            candidateHigh == highOrders.last + 1);
-
-    return extendsLow || extendsHigh;
-  }
-
-  static bool _isConsecutive(List<int> orders) {
-    for (var index = 1; index < orders.length; index += 1) {
-      if (orders[index] != orders[index - 1] + 1) {
-        return false;
-      }
+    final extendedMeld = List<HareegCard>.unmodifiable([
+      ...tableMeld,
+      candidate,
+    ]);
+    final extended = ClassicHareegMeldValidator.validate(extendedMeld);
+    if (!extended.isValid || extended.type != current.type) {
+      return null;
     }
-    return true;
+
+    return CoverExtension(card: candidate, extendedMeld: extendedMeld);
   }
 }

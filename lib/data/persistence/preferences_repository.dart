@@ -1,13 +1,16 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../ui/core/aids/table_aids.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
+import '../../ui/features/game_table/table_hand_interaction_state.dart'
+    show HandSortMode;
+import 'key_value_store.dart';
+
+export '../../ui/features/game_table/table_hand_interaction_state.dart'
+    show HandSortMode;
 
 const _soundDefaultsVersion = 1;
 
@@ -38,7 +41,7 @@ class GamePreferences {
   /// Creates app preferences.
   const GamePreferences({
     required this.setup,
-    required this.autoSort,
+    required this.handSortMode,
     required this.memoryJokerDisplay,
     required this.language,
     required this.motionSpeed,
@@ -55,7 +58,7 @@ class GamePreferences {
   factory GamePreferences.defaults() {
     return GamePreferences(
       setup: ClassicHareegSetup.defaults(),
-      autoSort: true,
+      handSortMode: HandSortMode.byRank,
       memoryJokerDisplay: false,
       language: AppLanguage.english,
       motionSpeed: MotionSpeed.normal,
@@ -72,7 +75,7 @@ class GamePreferences {
   /// Restores preferences from persisted JSON-compatible data.
   factory GamePreferences.fromJson(Map<String, Object?> json) {
     final defaults = GamePreferences.defaults();
-    final setupJson = _asMap(json['setup']);
+    final setupJson = jsonMapOrNull(json['setup']);
     final legacyReducedMotion = _asBool(json['reducedMotion']) ?? false;
     final motionSpeed = json.containsKey('motionSpeed')
         ? MotionSpeed.fromName(_asString(json['motionSpeed']))
@@ -85,7 +88,7 @@ class GamePreferences {
       setup: setupJson != null
           ? ClassicHareegSetup.fromJson(setupJson)
           : ClassicHareegSetup.defaults(),
-      autoSort: _asBool(json['autoSort']) ?? defaults.autoSort,
+      handSortMode: _readHandSortMode(json, defaults.handSortMode),
       memoryJokerDisplay:
           _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
       language: AppLanguage.fromName(_asString(json['language'])),
@@ -107,8 +110,13 @@ class GamePreferences {
   /// Setup values used for a new Classic Hareeg table.
   final ClassicHareegSetup setup;
 
-  /// Whether human hands should be auto-sorted.
-  final bool autoSort;
+  /// Initial sort applied to the human hand at the start of each round.
+  ///
+  /// The in-table sort picker overrides this for the current round only;
+  /// the next round resets to this preference. Migrated from the legacy
+  /// `autoSort` bool — true → [HandSortMode.byRank], false →
+  /// [HandSortMode.manual].
+  final HandSortMode handSortMode;
 
   /// Whether represented jokers should use a memory-oriented display.
   final bool memoryJokerDisplay;
@@ -147,7 +155,7 @@ class GamePreferences {
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
-    bool? autoSort,
+    HandSortMode? handSortMode,
     bool? memoryJokerDisplay,
     AppLanguage? language,
     MotionSpeed? motionSpeed,
@@ -161,7 +169,7 @@ class GamePreferences {
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
-      autoSort: autoSort ?? this.autoSort,
+      handSortMode: handSortMode ?? this.handSortMode,
       memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
       language: language ?? this.language,
       motionSpeed: motionSpeed ?? this.motionSpeed,
@@ -179,7 +187,7 @@ class GamePreferences {
   Map<String, Object?> toJson() {
     return {
       'setup': setup.toJson(),
-      'autoSort': autoSort,
+      'handSortMode': handSortMode.name,
       'memoryJokerDisplay': memoryJokerDisplay,
       'language': language.name,
       'motionSpeed': motionSpeed.name,
@@ -195,6 +203,21 @@ class GamePreferences {
   }
 }
 
+/// Reads the saved [HandSortMode], migrating the legacy `autoSort` bool when
+/// no explicit mode is stored. `autoSort: true` → byRank (the previous
+/// auto-sort behaviour), `autoSort: false` → manual.
+HandSortMode _readHandSortMode(Map<String, Object?> json, HandSortMode fallback) {
+  final stored = _enumByName(HandSortMode.values, _asString(json['handSortMode']));
+  if (stored != null) {
+    return stored;
+  }
+  final legacyAutoSort = _asBool(json['autoSort']);
+  if (legacyAutoSort != null) {
+    return legacyAutoSort ? HandSortMode.byRank : HandSortMode.manual;
+  }
+  return fallback;
+}
+
 /// Storage boundary for local user preferences.
 abstract interface class PreferencesRepository {
   /// Loads saved preferences, falling back to defaults if none exist.
@@ -202,105 +225,6 @@ abstract interface class PreferencesRepository {
 
   /// Persists the user's preferences.
   Future<void> savePreferences(GamePreferences preferences);
-}
-
-/// Minimal string key/value store used by persistence repositories.
-abstract interface class KeyValueStore {
-  /// Loads a stored string value.
-  Future<String?> loadString(String key);
-
-  /// Saves a string value.
-  Future<void> saveString(String key, String value);
-
-  /// Removes a stored value.
-  Future<void> remove(String key);
-}
-
-/// Platform-channel key/value storage backed by Android SharedPreferences and
-/// iOS UserDefaults.
-///
-/// Falls back to an in-process map when the platform channel is unavailable
-/// (desktop/web), so the app continues to function in unsupported targets.
-/// The fallback is logged loudly so support gaps are visible in the console
-/// rather than silently swallowing persisted state.
-class MethodChannelKeyValueStore implements KeyValueStore {
-  /// Creates platform-channel storage.
-  MethodChannelKeyValueStore({
-    MethodChannel channel = const MethodChannel('hareeg_table/local_storage'),
-  }) : _channel = channel;
-
-  final MethodChannel _channel;
-  final Map<String, String> _fallbackMemory = {};
-  bool _loggedFallback = false;
-
-  bool get _canUseInMemoryFallback {
-    if (kIsWeb) {
-      return true;
-    }
-
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android || TargetPlatform.iOS => false,
-      TargetPlatform.linux ||
-      TargetPlatform.macOS ||
-      TargetPlatform.windows ||
-      TargetPlatform.fuchsia => true,
-    };
-  }
-
-  void _warnAboutFallback() {
-    if (_loggedFallback) {
-      return;
-    }
-    _loggedFallback = true;
-    debugPrint(
-      '[hareeg_table] Platform channel "hareeg_table/local_storage" is not '
-      'available on this platform. Falling back to in-memory storage; saved '
-      'preferences and matches will not survive app restart. '
-      'Android and iOS register this channel at startup.',
-    );
-  }
-
-  @override
-  Future<String?> loadString(String key) async {
-    try {
-      return await _channel.invokeMethod<String>('getString', {'key': key});
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      return _fallbackMemory[key];
-    }
-  }
-
-  @override
-  Future<void> remove(String key) async {
-    try {
-      await _channel.invokeMethod<void>('remove', {'key': key});
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      _fallbackMemory.remove(key);
-    }
-  }
-
-  @override
-  Future<void> saveString(String key, String value) async {
-    try {
-      await _channel.invokeMethod<void>('setString', {
-        'key': key,
-        'value': value,
-      });
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      _fallbackMemory[key] = value;
-    }
-  }
 }
 
 /// JSON-backed preferences repository.
@@ -322,7 +246,7 @@ class LocalPreferencesRepository implements PreferencesRepository {
 
     try {
       final decoded = jsonDecode(raw);
-      final json = _asMap(decoded);
+      final json = jsonMapOrNull(decoded);
       if (json != null) {
         return GamePreferences.fromJson(json);
       }
@@ -338,17 +262,6 @@ class LocalPreferencesRepository implements PreferencesRepository {
   Future<void> savePreferences(GamePreferences preferences) {
     return _store.saveString(_key, jsonEncode(preferences.toJson()));
   }
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
 }
 
 bool? _asBool(Object? value) {

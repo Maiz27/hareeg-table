@@ -26,11 +26,17 @@ import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
+import '../table_action_presentation_planner.dart';
+import '../table_card_flight_planner.dart';
+import '../table_hand_interaction_state.dart';
+import '../table_human_action_flow_planner.dart';
+import '../table_human_action_start_planner.dart';
 import '../table_interaction_adapter.dart';
+import '../table_persistence_planner.dart';
+import '../table_turn_flow_planner.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
-import '../widgets/south_seat.dart';
 import '../widgets/table_background.dart';
 
 /// Live Classic Hareeg table.
@@ -81,7 +87,7 @@ class _GameTableScreenState extends State<GameTableScreen>
   static const _roundResultDisplayDuration = Duration(milliseconds: 2400);
 
   late ClassicHareegGameController _controller;
-  final _selectedCardIds = <String>{};
+  final _handInteraction = ClassicHareegHandInteractionState();
   bool _isCpuRunning = false;
   // Set while a human action's pre-apply flight/sound is in flight and the
   // controller hasn't applied the move yet. Used to lock the UI so a second
@@ -99,15 +105,8 @@ class _GameTableScreenState extends State<GameTableScreen>
   DealChoreography? _dealChoreography;
   bool _pendingDealBuild = false;
   HareegCard? _inspectedCard;
-  _RoundResultPresentation? _roundResultPresentation;
+  ClassicHareegRoundResultPresentation? _roundResultPresentation;
   int _flightSerial = 0;
-
-  /// Stable display order for the south hand, indexed by card id. The engine
-  /// hand list reorders freely as cards leave/enter; the player's visual
-  /// order persists so freshly-drawn cards always land at the right end
-  /// (regardless of the Settings `autoSort` preset, which only sorts on
-  /// initial deal).
-  late List<String> _displayOrder;
 
   @override
   void initState() {
@@ -119,7 +118,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
-    _resetDisplayOrder();
+    _resetHandInteraction();
     if (snapshot == null) {
       _pendingDealBuild = true;
     }
@@ -165,15 +164,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
   }
 
-  void _resetDisplayOrder() {
+  void _resetHandInteraction() {
     final initialHand = _controller.handFor(PlayerSeat.south);
-    final initialSort = widget.preferences.autoSort
-        ? HandSortMode.byRank
-        : HandSortMode.manual;
-    _displayOrder = HandSorting.sort(
-      initialHand,
-      initialSort,
-    ).map((card) => card.id).toList();
+    _handInteraction.resetFromHand(initialHand, widget.preferences.handSortMode);
   }
 
   void _ensureFiftyTicker() {
@@ -197,13 +190,52 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _scheduleTurnFlow() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _playOpeningDealIfNeeded();
-      if (!mounted) return;
-      final didPersistOrNavigate = await _runCpuTurns();
-      if (!didPersistOrNavigate && mounted) {
+      final afterFramePlan = ClassicHareegTableTurnFlowPlanner.afterFrame(
+        isMounted: mounted,
+        hasOpeningDealToPlay: _hasOpeningDealToPlay,
+        isCpuRunning: _isCpuRunning,
+        isOpeningDealRunning: _isOpeningDealRunning,
+        isRoundOver: _controller.isRoundOver,
+        isHumanTurn: _controller.currentSeat == PlayerSeat.south,
+      );
+      if (afterFramePlan.action ==
+          ClassicHareegTableTurnFlowAction.playOpeningDeal) {
+        await _playOpeningDealIfNeeded();
+      } else if (afterFramePlan.shouldStop) {
+        return;
+      }
+
+      final afterOpeningDealPlan =
+          ClassicHareegTableTurnFlowPlanner.afterOpeningDeal(
+            isMounted: mounted,
+            isCpuRunning: _isCpuRunning,
+            isOpeningDealRunning: _isOpeningDealRunning,
+            isRoundOver: _controller.isRoundOver,
+            isHumanTurn: _controller.currentSeat == PlayerSeat.south,
+          );
+      if (afterOpeningDealPlan.action ==
+          ClassicHareegTableTurnFlowAction.runCpuTurns) {
+        final didPersistOrNavigate = await _runCpuTurns();
+        final afterCpuPlan = ClassicHareegTableTurnFlowPlanner.afterCpuTurns(
+          isMounted: mounted,
+          didCpuPersistOrNavigate: didPersistOrNavigate,
+        );
+        if (afterCpuPlan.action ==
+            ClassicHareegTableTurnFlowAction.persistTable) {
+          await _persistAndMaybeFinish();
+        }
+        return;
+      }
+      if (afterOpeningDealPlan.action ==
+          ClassicHareegTableTurnFlowAction.persistTable) {
         await _persistAndMaybeFinish();
       }
     });
+  }
+
+  bool get _hasOpeningDealToPlay {
+    final choreography = _dealChoreography;
+    return choreography != null && choreography.sequence.steps.isNotEmpty;
   }
 
   DealSequence _buildDealSequence() {
@@ -284,7 +316,9 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   Future<void> _playOpeningDealIfNeeded() async {
     final choreography = _dealChoreography;
-    if (choreography == null || choreography.sequence.steps.isEmpty || !mounted) {
+    if (choreography == null ||
+        choreography.sequence.steps.isEmpty ||
+        !mounted) {
       return;
     }
     choreography.progress.addListener(_onDealProgress);
@@ -364,7 +398,8 @@ class _GameTableScreenState extends State<GameTableScreen>
         : widget.preferences.memoryJokerDisplay
         ? JokerDisplay.memoryReveal
         : JokerDisplay.assisted;
-    final southCards = _orderedSouthHand();
+    final southHand = _southHandInteraction();
+    final southCards = southHand.orderedCards;
     final openingDealFrame = _openingDealFrame(southCards);
     final visibleSouthCards = openingDealFrame?.southCards ?? southCards;
     final visibleCardCounts =
@@ -375,14 +410,14 @@ class _GameTableScreenState extends State<GameTableScreen>
         };
     final visibleStockCount =
         openingDealFrame?.stockCount ?? _controller.stockCount;
-    final tableInteraction = _tableInteraction(southCards);
+    final tableInteraction = _tableInteraction(southHand);
     final meldSuggestions = aids.showsMeldPicker
         ? _meldSuggestions(tableInteraction)
         : const <TableMeldSuggestion>[];
-    final meldValidation = isHumanTurn && _selectedCardIds.isNotEmpty
+    final meldValidation = isHumanTurn && southHand.hasSelection
         ? _controller.singleMeldValidationFor(
             humanSeat,
-            _selectedCardIds.toList(),
+            southHand.selectedCardIds,
           )
         : null;
     final primaryMeldAction = isHumanTurn
@@ -412,7 +447,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                   seat: _controller.tableMeldsFor(seat),
               },
               southCards: visibleSouthCards,
-              selectedIds: _selectedCardIds,
+              selectedIds: southHand.selectedIds,
               onCardTap: _toggleSelectedCard,
               onCardLongPress: _showCardInspect,
               onReorderHand: _reorderHand,
@@ -678,67 +713,30 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
   }
 
-  /// Returns the human hand in the player's chosen display order.
-  ///
-  /// Reconciles `_displayOrder` against the controller's hand each build:
-  /// cards no longer in hand drop off, freshly-drawn cards are appended to
-  /// the right end so the player can see their newest card. Players may
-  /// drag-reorder freely after that — sort never reasserts mid-round.
-  List<HareegCard> _orderedSouthHand() {
-    final hand = _controller.handFor(PlayerSeat.south);
-    final byId = {for (final card in hand) card.id: card};
-    final ordered = <HareegCard>[];
-    final seen = <String>{};
-    // Keep existing ordering for cards still in the hand.
-    final keptOrder = <String>[];
-    for (final id in _displayOrder) {
-      if (byId.containsKey(id) && seen.add(id)) {
-        keptOrder.add(id);
-        ordered.add(byId[id]!);
-      }
-    }
-    // Append any new cards (e.g., just drawn) at the right end.
-    for (final card in hand) {
-      if (!seen.contains(card.id)) {
-        keptOrder.add(card.id);
-        ordered.add(card);
-      }
-    }
-    if (!_displayOrderMatches(keptOrder)) {
-      _displayOrder = keptOrder;
-    }
-    return ordered;
+  /// Returns reconciled hand ordering and selected-card state.
+  TableHandInteractionSnapshot _southHandInteraction() {
+    return _handInteraction.reconcile(_controller.handFor(PlayerSeat.south));
   }
 
-  bool _displayOrderMatches(List<String> other) {
-    if (other.length != _displayOrder.length) return false;
-    for (var i = 0; i < other.length; i++) {
-      if (other[i] != _displayOrder[i]) return false;
-    }
-    return true;
+  /// Returns the human hand in the player's chosen display order.
+  List<HareegCard> _orderedSouthHand() {
+    return _southHandInteraction().orderedCards;
   }
 
   void _reorderHand(HareegCard card, int targetIndex) {
-    final src = _displayOrder.indexOf(card.id);
-    if (src < 0 || src == targetIndex) return;
-    setState(() {
-      _displayOrder.removeAt(src);
-      final insertAt = targetIndex > src ? targetIndex - 1 : targetIndex;
-      _displayOrder.insert(
-        insertAt.clamp(0, _displayOrder.length).toInt(),
-        card.id,
-      );
-    });
+    if (!_handInteraction.reorder(card, targetIndex)) return;
+    setState(() {});
   }
 
   ClassicHareegTableInteractionAdapter _tableInteraction([
-    List<HareegCard>? southCards,
+    TableHandInteractionSnapshot? southHand,
   ]) {
+    final hand = southHand ?? _southHandInteraction();
     return ClassicHareegTableInteractionAdapter(
       reader: ClassicHareegControllerTableInteractionReader(_controller),
       seat: PlayerSeat.south,
-      selectedCardIds: _selectedCardIds,
-      handCards: southCards ?? _orderedSouthHand(),
+      selectedCardIds: hand.selectedCardIds,
+      handCards: hand.orderedCards,
       inputLocked:
           _isCpuRunning || _isOpeningDealRunning || _isHumanActionPending,
     );
@@ -779,7 +777,7 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<void> _playSelectedMeld(String fallbackActionId) async {
-    final cardIds = _selectedCardIds.toList(growable: false);
+    final cardIds = _southHandInteraction().selectedCardIds;
     final jokerChoices = _tableInteraction().jokerChoicesForCardIds(cardIds);
     if (jokerChoices.length > 1) {
       final choice = await _showJokerChoiceDialog(jokerChoices);
@@ -866,11 +864,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (_isOpeningDealRunning) return;
     unawaited(_haptics.fire(TableHapticEvent.cardTap));
     setState(() {
-      if (_selectedCardIds.contains(card.id)) {
-        _selectedCardIds.remove(card.id);
-      } else {
-        _selectedCardIds.add(card.id);
-      }
+      _handInteraction.toggleSelection(card);
     });
   }
 
@@ -913,12 +907,16 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
   /// action so the human can see which seat acted and where the card went.
   Future<void> _playFlightForCpuAction(PlayerSeat seat, String actionId) async {
-    final flight = _flightForCpuAction(seat, actionId);
+    final plan = ClassicHareegActionPresentationPlanner.forCpuAction(
+      seat: seat,
+      actionId: actionId,
+    );
+    final flight = _flightForPlan(plan.flight);
     if (flight == null) {
-      unawaited(_playSoundForAction(actionId));
+      unawaited(_playSound(plan.sound));
       return;
     }
-    unawaited(_playSoundForAction(actionId));
+    unawaited(_playSound(plan.sound));
     setState(() => _cardFlight = flight);
     await Future<void>.delayed(_cpuFlightDuration);
     if (mounted && identical(_cardFlight, flight)) {
@@ -926,62 +924,12 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
   }
 
-  _CardFlight? _flightForCpuAction(PlayerSeat seat, String actionId) {
-    final seatAnchor = _alignmentForSeat(seat);
-    final action = ClassicHareegActionIds.describe(actionId);
-    if (action.kind == ClassicHareegActionKind.drawStock) {
-      final handSlot = _appendHandSlotForSeat(seat);
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: _backSeed(_flightSerial),
-        faceDown: true,
-        begin: _FlightAnchor.stock.alignment,
-        end: seatAnchor,
-        endHandSlot: handSlot,
-      );
-    }
-    if (action.kind == ClassicHareegActionKind.takeDiscard) {
-      final card = _controller.topDiscard;
-      if (card == null) return null;
-      final handSlot = _appendHandSlotForSeat(seat);
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.discard.alignment,
-        end: seatAnchor,
-        endHandSlot: handSlot,
-      );
-    }
-    if (action.kind == ClassicHareegActionKind.returnPendingDiscard) {
-      final card = _controller.pendingDiscard;
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: seatAnchor,
-        end: _FlightAnchor.discard.alignment,
-        beginHandSlot: _lastHandSlotForSeat(seat),
-      );
-    }
-    final discardCardId = action.isDiscard ? action.cardId : null;
-    if (discardCardId != null) {
-      final card = _cardInHand(seat, discardCardId);
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card ?? _backSeed(_flightSerial),
-        faceDown: card == null,
-        begin: seatAnchor,
-        end: _FlightAnchor.discard.alignment,
-        beginHandSlot: _lastHandSlotForSeat(seat),
-      );
-    }
-    return null;
-  }
-
-  Future<bool> _playFlightForAction(String actionId) async {
-    final flight = _flightForAction(actionId);
+  Future<bool> _playFlightForHumanAction(
+    TableActionPresentationPlan presentation,
+  ) async {
+    final flight = _flightForPlan(presentation.flight);
     if (flight == null) return false;
-    unawaited(_playSoundForAction(actionId));
+    unawaited(_playSound(presentation.sound));
     setState(() => _cardFlight = flight);
     await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 230)));
     if (mounted && identical(_cardFlight, flight)) {
@@ -990,107 +938,59 @@ class _GameTableScreenState extends State<GameTableScreen>
     return true;
   }
 
-  _CardFlight? _flightForAction(String actionId) {
-    final action = ClassicHareegActionIds.describe(actionId);
-    if (action.kind == ClassicHareegActionKind.drawStock) {
-      final handSlot = _southHandAppendSlot();
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: _backSeed(_flightSerial),
-        faceDown: true,
-        begin: _FlightAnchor.stock.alignment,
-        end: _FlightAnchor.hand.alignment,
-        endHandSlot: handSlot,
-      );
+  _CardFlight? _flightForPlan(TableActionFlightPlan? plan) {
+    final serial = _flightSerial + 1;
+    final realization = TableCardFlightPlanner.realize(
+      presentation: plan,
+      stockBack: _backSeed(serial),
+      topDiscard: _controller.topDiscard,
+      pendingDiscard: _controller.pendingDiscard,
+      handCardFor: _cardInHand,
+      southHandCardSlotFor: _southHandCardSlot,
+      appendHandSlotFor: _appendHandSlotForSeat,
+      lastHandSlotFor: _lastHandSlotForSeat,
+    );
+    final card = realization.card;
+    final presentation = realization.presentation;
+    if (!realization.canRender || card == null || presentation == null) {
+      return null;
     }
+    _flightSerial = serial;
 
-    if (action.kind == ClassicHareegActionKind.takeDiscard) {
-      final card = _controller.topDiscard;
-      if (card == null) return null;
-      final handSlot = _southHandAppendSlot();
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.discard.alignment,
-        end: _FlightAnchor.hand.alignment,
-        endHandSlot: handSlot,
-      );
-    }
+    return _CardFlight(
+      serial: serial,
+      card: card,
+      faceDown: realization.faceDown,
+      begin: _flightBegin(presentation),
+      end: _flightEnd(presentation),
+      beginHandSlot: realization.beginHandSlot,
+      endHandSlot: realization.endHandSlot,
+      endMeldSlot: realization.endMeldSlot,
+    );
+  }
 
-    if (action.kind == ClassicHareegActionKind.returnPendingDiscard) {
-      final card = _controller.pendingDiscard;
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.discard.alignment,
-        beginHandSlot: _southHandCardSlot(card.id),
-      );
-    }
+  Alignment _flightBegin(TableActionFlightPlan plan) {
+    return switch (plan.source) {
+      TableActionFlightSource.stockBack => _FlightAnchor.stock.alignment,
+      TableActionFlightSource.topDiscard => _FlightAnchor.discard.alignment,
+      TableActionFlightSource.pendingDiscard ||
+      TableActionFlightSource.handCard => _handAnchorForSeat(plan.seat),
+    };
+  }
 
-    final discardCardId = action.isDiscard ? action.cardId : null;
-    if (discardCardId != null) {
-      final card = _cardInSouthHand(discardCardId);
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.discard.alignment,
-        beginHandSlot: _southHandCardSlot(card.id),
-      );
-    }
+  Alignment _flightEnd(TableActionFlightPlan plan) {
+    return switch (plan.destination) {
+      TableActionFlightDestination.seatHand => _handAnchorForSeat(plan.seat),
+      TableActionFlightDestination.discardPile =>
+        _FlightAnchor.discard.alignment,
+      TableActionFlightDestination.tableMeld => _handAnchorForSeat(plan.seat),
+    };
+  }
 
-    final cover = action.coverTarget;
-    if (cover != null && cover.cardIds.isNotEmpty) {
-      final card = _cardInSouthHand(cover.cardIds.first);
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.hand.alignment,
-        beginHandSlot: _southHandCardSlot(card.id),
-        endMeldSlot: _TableMeldFlightSlot(
-          seat: cover.targetSeat,
-          index: cover.meldIndex,
-        ),
-      );
-    }
-
-    final replacement = action.jokerReplacementTarget;
-    if (replacement != null) {
-      final card = _cardInSouthHand(replacement.cardId);
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.hand.alignment,
-        beginHandSlot: _southHandCardSlot(card.id),
-        endMeldSlot: _TableMeldFlightSlot(
-          seat: replacement.targetSeat,
-          index: replacement.meldIndex,
-        ),
-      );
-    }
-
-    final meldIds = action.isMeldPlay ? action.cardIds : null;
-    if (meldIds != null && meldIds.isNotEmpty) {
-      final card = _cardInSouthHand(meldIds.first);
-      if (card == null) return null;
-      return _CardFlight(
-        serial: ++_flightSerial,
-        card: card,
-        begin: _FlightAnchor.hand.alignment,
-        end: _FlightAnchor.hand.alignment,
-        beginHandSlot: _southHandCardSlot(card.id),
-        endMeldSlot: const _TableMeldFlightSlot(seat: PlayerSeat.south),
-      );
-    }
-
-    return null;
+  Alignment _handAnchorForSeat(PlayerSeat seat) {
+    return seat == PlayerSeat.south
+        ? _FlightAnchor.hand.alignment
+        : _alignmentForSeat(seat);
   }
 
   SeatHandFlightSlot _southHandAppendSlot() {
@@ -1138,10 +1038,6 @@ class _GameTableScreenState extends State<GameTableScreen>
     return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
   }
 
-  HareegCard? _cardInSouthHand(String id) {
-    return _cardInHand(PlayerSeat.south, id);
-  }
-
   HareegCard? _cardInHand(PlayerSeat seat, String id) {
     for (final card in _controller.handFor(seat)) {
       if (card.id == id) return card;
@@ -1163,8 +1059,15 @@ class _GameTableScreenState extends State<GameTableScreen>
     String actionId, {
     bool playFlight = true,
   }) async {
-    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
-    _isHumanActionPending = true;
+    final startPlan = ClassicHareegHumanActionStartPlanner.start(
+      actionId: actionId,
+      playFlight: playFlight,
+      isCpuRunning: _isCpuRunning,
+      isOpeningDealRunning: _isOpeningDealRunning,
+      isHumanActionPending: _isHumanActionPending,
+    );
+    if (!startPlan.shouldStart) return;
+    _isHumanActionPending = startPlan.shouldLockInput;
     // Rebuild so south controls/playfield pick up the pending-lock immediately.
     setState(() {});
     final totalWatch = Stopwatch()..start();
@@ -1173,14 +1076,20 @@ class _GameTableScreenState extends State<GameTableScreen>
       'phase=${_controller.turnPhase} pending=${_controller.pendingDiscard?.label}',
     );
     try {
-      var soundPlayedWithFlight = false;
-      if (playFlight) {
-        soundPlayedWithFlight = await _playFlightForAction(actionId);
+      var flightPlayed = false;
+      final presentation = startPlan.presentation;
+      if (startPlan.shouldPlayFlight && presentation != null) {
+        flightPlayed = await _playFlightForHumanAction(presentation);
       }
-      if (!mounted) return;
+      final applyGate = ClassicHareegHumanActionStartPlanner.afterPreApply(
+        isMounted: mounted,
+        plannedFlight: startPlan.shouldPlayFlight,
+        flightPlayed: flightPlayed,
+      );
+      if (!applyGate.shouldApply) return;
       await _completeHumanAction(
         actionId,
-        soundPlayedWithFlight: soundPlayedWithFlight,
+        soundPlayedWithFlight: applyGate.soundPlayedWithFlight,
         totalWatch: totalWatch,
       );
     } finally {
@@ -1208,28 +1117,43 @@ class _GameTableScreenState extends State<GameTableScreen>
       'totalElapsed=${totalWatch.elapsedMilliseconds}ms '
       'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
     );
-    if (!result.isSuccess) {
-      unawaited(_haptics.fire(TableHapticEvent.illegalAction));
-      unawaited(_audio.play(TableSoundEvent.invalidAction));
-      setState(() {
-        _replaceHumanFeedback(result.message, isError: true);
-      });
-      return;
+    final flowPlan = ClassicHareegHumanActionFlowPlanner.afterApply(
+      actionId: actionId,
+      isSuccess: result.isSuccess,
+      message: result.message,
+      soundPlayedWithFlight: soundPlayedWithFlight,
+    );
+
+    final haptic = flowPlan.haptic;
+    if (haptic != null) {
+      unawaited(_haptics.fire(haptic));
     }
-    unawaited(_haptics.fire(_hapticForAction(actionId)));
-    if (!soundPlayedWithFlight) {
-      unawaited(_playSoundForAction(actionId));
+    final sound = flowPlan.sound;
+    if (sound != null) {
+      unawaited(_playSound(sound));
     }
     setState(() {
-      _replaceHumanFeedback(result.message, isError: false);
-      if (_clearsSelection(actionId)) {
-        _selectedCardIds.clear();
+      _replaceHumanFeedback(
+        flowPlan.feedbackMessage,
+        isError: flowPlan.feedbackIsError,
+      );
+      if (flowPlan.shouldClearSelection) {
+        _handInteraction.clearSelection();
       }
     });
-    _ensureFiftyTicker();
-    await _persistAndMaybeFinish();
+    if (!flowPlan.didApplyAction) {
+      return;
+    }
+    if (flowPlan.shouldEnsureFiftyTicker) {
+      _ensureFiftyTicker();
+    }
+    if (flowPlan.shouldPersist) {
+      await _persistAndMaybeFinish();
+    }
     if (!mounted) return;
-    await _runCpuTurns();
+    if (flowPlan.shouldRunCpuAfterPersist) {
+      await _runCpuTurns();
+    }
     totalWatch.stop();
     _debugTableLog(
       'human action end action=$actionId '
@@ -1238,40 +1162,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
   }
 
-  TableHapticEvent _hapticForAction(String actionId) {
-    return switch (ClassicHareegActionIds.describe(actionId).kind) {
-      ClassicHareegActionKind.drawStock => TableHapticEvent.drawCard,
-      ClassicHareegActionKind.returnPendingDiscard =>
-        TableHapticEvent.pendingReturn,
-      ClassicHareegActionKind.claimFifty => TableHapticEvent.fiftyClaim,
-      _ => TableHapticEvent.buttonTap,
-    };
-  }
-
-  Future<void> _playSoundForAction(String actionId) async {
-    final event = switch (ClassicHareegActionIds.describe(actionId).kind) {
-      ClassicHareegActionKind.drawStock => TableSoundEvent.drawStock,
-      ClassicHareegActionKind.takeDiscard => TableSoundEvent.takeDiscard,
-      ClassicHareegActionKind.returnPendingDiscard ||
-      ClassicHareegActionKind.returnOpeningMelds ||
-      ClassicHareegActionKind.returnTablePlay => TableSoundEvent.cardReturn,
-      ClassicHareegActionKind.claimFifty => TableSoundEvent.fiftyClaim,
-      ClassicHareegActionKind.playMeld ||
-      ClassicHareegActionKind.playMeldWithJoker ||
-      ClassicHareegActionKind.placeCover ||
-      ClassicHareegActionKind.replaceJoker => TableSoundEvent.meldPlace,
-      ClassicHareegActionKind.discard ||
-      ClassicHareegActionKind.discardBlockedCover ||
-      ClassicHareegActionKind.discardJoker => TableSoundEvent.discardCard,
-      ClassicHareegActionKind.usePendingDiscard ||
-      ClassicHareegActionKind.unknown => null,
-    };
+  Future<void> _playSound(TableSoundEvent? event) async {
     if (event == null) return;
     await _audio.play(event);
-  }
-
-  bool _clearsSelection(String actionId) {
-    return ClassicHareegActionIds.describe(actionId).clearsSelection;
   }
 
   Future<bool> _runCpuTurns() async {
@@ -1437,32 +1330,34 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   Future<bool> _persistAndMaybeFinish() async {
     final totalWatch = Stopwatch()..start();
-    var persistencePath = 'active';
-    final roundResult = _controller.roundResult;
-    final roundProgress = _controller.roundProgress;
-    final previousScores = _controller.scores;
-    final nextSnapshot = _controller.isRoundOver
-        ? _controller.nextRoundSnapshot()
-        : null;
+    final isRoundOver = _controller.isRoundOver;
+    final scoreView = _controller.scoreView;
+    final persistencePlan = ClassicHareegTablePersistencePlanner.plan(
+      isRoundOver: isRoundOver,
+      activeSnapshot: isRoundOver ? null : _controller.toSnapshot(),
+      nextRoundSnapshot: isRoundOver ? _controller.nextRoundSnapshot() : null,
+      roundResult: _controller.roundResult,
+      scoreView: scoreView,
+    );
     _debugTableLog(
-      'persist start roundOver=${_controller.isRoundOver} '
+      'persist start roundOver=$isRoundOver '
       'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
       'stock=${_controller.stockCount} discard=${_controller.discardPile.length} '
       'counts=${_debugSeatCounts(_controller)}',
     );
     var persistenceSucceeded = true;
+    final persistencePath = persistencePlan.logPath;
     try {
-      if (_controller.isRoundOver) {
-        if (nextSnapshot == null) {
-          persistencePath = 'abandon';
+      switch (persistencePlan.action) {
+        case ClassicHareegTablePersistenceAction.saveActiveMatch:
+        case ClassicHareegTablePersistenceAction.saveNextRound:
+          final snapshot = persistencePlan.snapshotToSave;
+          if (snapshot == null) {
+            throw StateError('Persistence plan is missing a snapshot.');
+          }
+          await widget.matchRepository.saveActiveMatch(snapshot);
+        case ClassicHareegTablePersistenceAction.abandonActiveMatch:
           await widget.matchRepository.abandonActiveMatch();
-        } else {
-          persistencePath = 'next-round';
-          await widget.matchRepository.saveActiveMatch(nextSnapshot);
-        }
-      } else {
-        persistencePath = 'active';
-        await widget.matchRepository.saveActiveMatch(_controller.toSnapshot());
       }
     } catch (error, stackTrace) {
       persistenceSucceeded = false;
@@ -1480,27 +1375,17 @@ class _GameTableScreenState extends State<GameTableScreen>
       'elapsed=${totalWatch.elapsedMilliseconds}ms roundOver=${_controller.isRoundOver}',
     );
     if (!mounted) return persistenceSucceeded;
-    if (_controller.isRoundOver &&
-        persistenceSucceeded &&
-        roundResult != null &&
-        roundProgress != null) {
+    final resultPresentation = persistencePlan.roundResultPresentation;
+    if (persistenceSucceeded && resultPresentation != null) {
       _debugTableLog('round result overlay requested');
-      _showRoundResultOverlay(
-        result: roundResult,
-        progress: roundProgress,
-        previousScores: previousScores,
-        nextSnapshot: nextSnapshot,
-      );
+      _showRoundResultOverlay(resultPresentation);
     }
     return persistenceSucceeded;
   }
 
-  void _showRoundResultOverlay({
-    required RoundProgressResult result,
-    required MatchProgressState progress,
-    required Map<PlayerSeat, int> previousScores,
-    required ClassicHareegMatchSnapshot? nextSnapshot,
-  }) {
+  void _showRoundResultOverlay(
+    ClassicHareegRoundResultPresentation presentation,
+  ) {
     if (_roundResultPresentation != null) {
       return;
     }
@@ -1510,13 +1395,9 @@ class _GameTableScreenState extends State<GameTableScreen>
       _scoreOpen = false;
       _pauseOpen = false;
       _inspectedCard = null;
-      _roundResultPresentation = _RoundResultPresentation(
-        result: result,
-        progress: progress,
-        previousScores: previousScores,
-        nextSnapshot: nextSnapshot,
-      );
+      _roundResultPresentation = presentation;
     });
+    final nextSnapshot = presentation.nextSnapshot;
     if (nextSnapshot == null) {
       return;
     }
@@ -1538,9 +1419,8 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography = null;
     setState(() {
       _controller = ClassicHareegGameController.fromSnapshot(snapshot);
-      _resetDisplayOrder();
+      _resetHandInteraction();
       _dealChoreography = _buildDealChoreography();
-      _selectedCardIds.clear();
       _isCpuRunning = false;
       _scoreOpen = false;
       _pauseOpen = false;
@@ -1646,20 +1526,6 @@ class _AnimatedOverlaySlot extends StatelessWidget {
   }
 }
 
-class _RoundResultPresentation {
-  const _RoundResultPresentation({
-    required this.result,
-    required this.progress,
-    required this.previousScores,
-    required this.nextSnapshot,
-  });
-
-  final RoundProgressResult result;
-  final MatchProgressState progress;
-  final Map<PlayerSeat, int> previousScores;
-  final ClassicHareegMatchSnapshot? nextSnapshot;
-}
-
 class _RoundResultOverlay extends StatelessWidget {
   const _RoundResultOverlay({
     required this.presentation,
@@ -1668,7 +1534,7 @@ class _RoundResultOverlay extends StatelessWidget {
     required this.onDismiss,
   });
 
-  final _RoundResultPresentation presentation;
+  final ClassicHareegRoundResultPresentation presentation;
   final VoidCallback? onContinueNow;
   final VoidCallback? onReturnToMenu;
   final VoidCallback onDismiss;
@@ -1843,7 +1709,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
   });
 
   final List<PlayerSeat> seats;
-  final _RoundResultPresentation presentation;
+  final ClassicHareegRoundResultPresentation presentation;
   final bool compact;
 
   @override
@@ -2095,7 +1961,10 @@ String _roundHeadline(RoundProgressResult result, AppStrings strings) {
   };
 }
 
-String _roundDetail(_RoundResultPresentation presentation, AppStrings strings) {
+String _roundDetail(
+  ClassicHareegRoundResultPresentation presentation,
+  AppStrings strings,
+) {
   final result = presentation.result;
   return switch (result.type) {
     RoundOutcomeType.normalFinish => strings.roundResultDetailNormal(),
@@ -2344,14 +2213,7 @@ class _CardFlight {
   final bool faceDown;
   final SeatHandFlightSlot? beginHandSlot;
   final SeatHandFlightSlot? endHandSlot;
-  final _TableMeldFlightSlot? endMeldSlot;
-}
-
-class _TableMeldFlightSlot {
-  const _TableMeldFlightSlot({required this.seat, this.index = 0});
-
-  final PlayerSeat seat;
-  final int index;
+  final TableMeldFlightSlot? endMeldSlot;
 }
 
 /// Shared seat-hand geometry used by both [_CardFlightOverlay] and
@@ -2402,10 +2264,7 @@ Offset _resolveSouthHandSlot(
   final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
   final handTop = size.height - handBottom - bottomHandHeight;
   final centerX =
-      handHorizontalInset +
-      start +
-      index * fittedGap +
-      handCardSize.width / 2;
+      handHorizontalInset + start + index * fittedGap + handCardSize.width / 2;
   final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
   return _centeredFlightOffset(centerX, centerY, flightCardSize);
 }
@@ -2553,7 +2412,7 @@ class _CardFlightOverlay extends StatelessWidget {
     Size size,
     Size cardSize,
     SeatHandFlightSlot? handSlot,
-    _TableMeldFlightSlot? meldSlot,
+    TableMeldFlightSlot? meldSlot,
   ) {
     if (handSlot != null) {
       return _resolveSeatHandSlot(handSlot, size, cardSize);
@@ -2568,7 +2427,7 @@ class _CardFlightOverlay extends StatelessWidget {
   }
 
   Offset _resolveTableMeldSlot(
-    _TableMeldFlightSlot slot,
+    TableMeldFlightSlot slot,
     Size size,
     Size flightCardSize,
   ) {
@@ -2798,7 +2657,6 @@ class _OpeningDealFlightCard extends StatelessWidget {
       ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
     );
   }
-
 }
 
 class _FeedbackChip extends StatelessWidget {

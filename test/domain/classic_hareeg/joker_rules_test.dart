@@ -103,6 +103,34 @@ void main() {
       );
     });
 
+    test('resolves meld variants with more than two unresolved jokers', () {
+      const firstJoker = HareegCard.joker(deckIndex: 2, jokerIndex: 0);
+      const secondJoker = HareegCard.joker(deckIndex: 2, jokerIndex: 1);
+      const thirdJoker = HareegCard.joker(deckIndex: 2, jokerIndex: 2);
+
+      final variants = ClassicHareegJokerRules.resolveMeldVariants([
+        card(CardRank.seven, CardSuit.clubs, deckIndex: 2),
+        firstJoker,
+        secondJoker,
+        thirdJoker,
+      ]);
+      final setVariant = variants.firstWhere((variant) {
+        return variant.cards
+            .map((card) => card.effectiveIdentity!.key)
+            .toSet()
+            .containsAll({
+              'seven-clubs',
+              'seven-diamonds',
+              'seven-hearts',
+              'seven-spades',
+            });
+      });
+
+      expect(variants, isNotEmpty);
+      expect(setVariant.assignments, hasLength(3));
+      expect(setVariant.result.type, MeldType.set);
+    });
+
     test('represented joker validates inside a meld and has visual label', () {
       final representedJoker = HareegCard.joker(
         deckIndex: 0,

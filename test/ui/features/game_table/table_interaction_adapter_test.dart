@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
@@ -237,6 +238,41 @@ void main() {
         'Drop a valid meld, cover, or joker replacement.',
       );
     });
+
+    test('specific meld drops reject duplicate face-card set covers', () {
+      final tableMeld = [
+        _card(CardRank.jack, CardSuit.hearts, 87),
+        _card(CardRank.jack, CardSuit.clubs, 87),
+        _card(CardRank.jack, CardSuit.spades, 87),
+      ];
+      final duplicateHeart = _card(CardRank.jack, CardSuit.hearts, 88);
+      final missingDiamond = _card(CardRank.jack, CardSuit.diamonds, 88);
+      final controller = _controller(
+        southHand: [
+          duplicateHeart,
+          missingDiamond,
+          _card(CardRank.two, CardSuit.clubs, 88),
+        ],
+        tableMelds: {
+          PlayerSeat.east: [PlacedMeld.fromCards(tableMeld)],
+        },
+        openingState: _opened(PlayerSeat.south),
+      );
+      final adapter = _controllerAdapter(controller);
+
+      final blocked = adapter.resolveMeldDrop(
+        duplicateHeart,
+        PlayerSeat.east,
+        0,
+      );
+
+      expect(blocked.isAction, isFalse);
+      expect(blocked.failureMessage, 'That card does not fit this meld.');
+      expect(
+        adapter.canDropCardToMeld(missingDiamond, PlayerSeat.east, 0),
+        isTrue,
+      );
+    });
   });
 }
 
@@ -245,6 +281,7 @@ ClassicHareegGameController _controller({
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
+  Map<PlayerSeat, List<PlacedMeld>>? tableMelds,
 }) {
   return ClassicHareegGameController.fromSnapshot(
     _savedSnapshot(
@@ -252,6 +289,7 @@ ClassicHareegGameController _controller({
       discardPile: discardPile,
       pendingDiscard: pendingDiscard,
       openingState: openingState,
+      tableMelds: tableMelds,
     ),
   );
 }
@@ -273,6 +311,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
+  Map<PlayerSeat, List<PlacedMeld>>? tableMelds,
 }) {
   final setup = ClassicHareegSetup.defaults();
   final round = ClassicHareegRound.deal(setup: setup, seed: 3);
@@ -284,6 +323,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     hands: hands,
     stock: round.stock,
     discardPile: discardPile ?? round.discardPile,
+    tableMelds: tableMelds ?? const {},
     starter: round.starter,
     currentSeat: PlayerSeat.south,
     turnPhase: TurnPhase.action,
@@ -346,6 +386,15 @@ class _FakeTableInteractionActionReader
     PlayerSeat seat,
     List<String> cardIds,
   ) {
+    return const [];
+  }
+
+  @override
+  List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
+    PlayerSeat seat,
+    List<String> selectedCardIds, {
+    int limit = 5,
+  }) {
     return const [];
   }
 

@@ -1,0 +1,457 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../../../../domain/classic_hareeg/models/player_seat.dart';
+import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
+    show PlacedMeld;
+import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_theme.dart';
+import '../../../core/cards/card_view.dart';
+import '../../../core/theme/lounge_tokens.dart';
+
+/// Predicate that decides whether a dragged card may land on a specific table
+/// meld owned by [owner] at [meldIndex].
+typedef TableMeldDropPredicate =
+    bool Function(HareegCard card, PlayerSeat owner, int meldIndex);
+
+/// Handler invoked when a card is successfully dropped onto a table meld.
+typedef TableMeldDropHandler =
+    void Function(HareegCard card, PlayerSeat owner, int meldIndex);
+
+/// Predicate that decides whether a placed meld may be retracted.
+typedef TableMeldRetractPredicate =
+    bool Function(PlayerSeat owner, int meldIndex);
+
+/// Handler invoked when the player retracts a placed meld.
+typedef TableMeldRetractHandler =
+    void Function(PlayerSeat owner, int meldIndex);
+
+/// Lane of placed melds belonging to one seat.
+///
+/// Hosts the only stateful UI in the playfield: each meld lane tracks which
+/// of its placed melds is currently expanded for inspection. The lane itself
+/// is a `DragTarget` for new-meld plays; per-meld drops (covers and joker
+/// replacements) are handled by the inner `_TableMeldStack`.
+class SeatMeldLane extends StatefulWidget {
+  /// Creates a seat meld lane.
+  const SeatMeldLane({
+    super.key,
+    required this.theme,
+    required this.owner,
+    required this.melds,
+    required this.cardSize,
+    required this.compact,
+    required this.canAcceptTable,
+    required this.onAcceptTable,
+    required this.canAcceptMeld,
+    required this.onAcceptMeld,
+    required this.canRetractMeld,
+    required this.onRetractMeld,
+    required this.onCardLongPress,
+    required this.stackVertically,
+    this.quarterTurns = 0,
+  });
+
+  /// Card theme used to render meld cards.
+  final HareegCardTheme theme;
+
+  /// Seat that owns the melds in this lane.
+  final PlayerSeat owner;
+
+  /// Placed melds belonging to [owner], in placement order.
+  final List<PlacedMeld> melds;
+
+  /// Card size used by each meld.
+  final Size cardSize;
+
+  /// Whether the table is rendering in compact mode.
+  final bool compact;
+
+  /// Predicate for whether a dropped card opens a new meld on this lane.
+  final bool Function(HareegCard card) canAcceptTable;
+
+  /// Handler invoked when a card is dropped on the lane to open a new meld.
+  final ValueChanged<HareegCard> onAcceptTable;
+
+  /// Predicate for whether a dropped card may extend a specific meld.
+  final TableMeldDropPredicate canAcceptMeld;
+
+  /// Handler invoked when a card is dropped on a specific meld.
+  final TableMeldDropHandler onAcceptMeld;
+
+  /// Predicate for whether a specific meld may be retracted.
+  final TableMeldRetractPredicate canRetractMeld;
+
+  /// Handler invoked when a meld retraction is requested.
+  final TableMeldRetractHandler onRetractMeld;
+
+  /// Long-press handler for a card in any meld in this lane.
+  final ValueChanged<HareegCard> onCardLongPress;
+
+  /// Whether melds stack vertically (used by side lanes that scroll on Y).
+  final bool stackVertically;
+
+  /// Number of 90° clockwise turns to apply to each meld for side lanes.
+  final int quarterTurns;
+
+  @override
+  State<SeatMeldLane> createState() => _SeatMeldLaneState();
+}
+
+class _SeatMeldLaneState extends State<SeatMeldLane> {
+  int? _expandedMeldIndex;
+
+  @override
+  void didUpdateWidget(covariant SeatMeldLane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.owner != widget.owner) {
+      _expandedMeldIndex = null;
+      return;
+    }
+    final expanded = _expandedMeldIndex;
+    if (expanded != null && expanded >= widget.melds.length) {
+      _expandedMeldIndex = null;
+    }
+  }
+
+  void _toggleExpanded(int index) {
+    setState(() {
+      _expandedMeldIndex = _expandedMeldIndex == index ? null : index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<HareegCard>(
+      onWillAcceptWithDetails: (details) => widget.canAcceptTable(details.data),
+      onAcceptWithDetails: (details) => widget.onAcceptTable(details.data),
+      builder: (context, candidates, rejected) {
+        final hot = candidates.isNotEmpty;
+        final lane = AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.all(widget.compact ? 3 : 5),
+          decoration: BoxDecoration(
+            color: hot
+                ? LoungeTokens.goldAccent.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: hot
+                  ? LoungeTokens.goldAccent.withValues(alpha: 0.46)
+                  : Colors.transparent,
+            ),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final sideFacing = widget.quarterTurns % 2 != 0;
+              final meldWidgets = [
+                for (var index = 0; index < widget.melds.length; index++)
+                  _TableMeldStack(
+                    key: ValueKey(
+                      'table-meld-${widget.owner.name}-$index-'
+                      '${_expandedMeldIndex == index ? 'expanded' : 'normal'}',
+                    ),
+                    theme: widget.theme,
+                    owner: widget.owner,
+                    meldIndex: index,
+                    meld: widget.melds[index],
+                    cardSize: widget.cardSize,
+                    compact: widget.compact,
+                    canAccept: widget.canAcceptMeld,
+                    onAccept: widget.onAcceptMeld,
+                    canRetract: widget.canRetractMeld(widget.owner, index),
+                    onRetract: () => widget.onRetractMeld(widget.owner, index),
+                    onCardLongPress: widget.onCardLongPress,
+                    expanded: _expandedMeldIndex == index,
+                    onToggleExpanded: () => _toggleExpanded(index),
+                    vertical: widget.stackVertically,
+                    quarterTurns: widget.quarterTurns,
+                  ),
+                if (widget.melds.isEmpty &&
+                    widget.owner == PlayerSeat.south &&
+                    hot)
+                  SizedBox(
+                    width: widget.compact ? 70 : 92,
+                    height: widget.compact ? 36 : 46,
+                  ),
+              ];
+              final content = Wrap(
+                alignment: WrapAlignment.center,
+                runAlignment: WrapAlignment.center,
+                spacing: widget.compact ? 7 : 10,
+                runSpacing: widget.compact ? 8 : 12,
+                children: meldWidgets,
+              );
+
+              if (sideFacing) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: meldWidgets,
+                    ),
+                  ),
+                );
+              }
+
+              if (widget.stackVertically) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Align(alignment: Alignment.center, child: content),
+                  ),
+                );
+              }
+
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Align(alignment: Alignment.center, child: content),
+                ),
+              );
+            },
+          ),
+        );
+        return lane;
+      },
+    );
+  }
+}
+
+class _TableMeldStack extends StatelessWidget {
+  const _TableMeldStack({
+    super.key,
+    required this.theme,
+    required this.owner,
+    required this.meldIndex,
+    required this.meld,
+    required this.cardSize,
+    required this.compact,
+    required this.canAccept,
+    required this.onAccept,
+    required this.onCardLongPress,
+    required this.expanded,
+    this.canRetract = false,
+    this.onRetract,
+    this.onToggleExpanded,
+    this.vertical = false,
+    this.quarterTurns = 0,
+  });
+
+  final HareegCardTheme theme;
+  final PlayerSeat owner;
+  final int meldIndex;
+  final PlacedMeld meld;
+  final Size cardSize;
+  final bool compact;
+  final TableMeldDropPredicate canAccept;
+  final TableMeldDropHandler onAccept;
+  final ValueChanged<HareegCard> onCardLongPress;
+  final bool expanded;
+  final bool canRetract;
+  final VoidCallback? onRetract;
+  final VoidCallback? onToggleExpanded;
+
+  /// When true, cards stack downward (used for west/east opponent lanes
+  /// that sit along the side edges of the table).
+  final bool vertical;
+  final int quarterTurns;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final cards = meld.cards;
+    final sideFacing = quarterTurns % 2 != 0;
+    final expandedScale = expanded ? (compact ? 1.16 : 1.26) : 1.0;
+    final effectiveCardSize = Size(
+      cardSize.width * expandedScale,
+      cardSize.height * expandedScale,
+    );
+    final horizontalGap = sideFacing
+        ? effectiveCardSize.width * (expanded ? 0.92 : 0.68)
+        : effectiveCardSize.width * (expanded ? 0.72 : 0.43);
+    final gap = vertical
+        ? effectiveCardSize.height * (expanded ? 0.58 : 0.32)
+        : horizontalGap;
+    final width = vertical
+        ? effectiveCardSize.width
+        : effectiveCardSize.width + math.max(0, cards.length - 1) * gap;
+    final height = vertical
+        ? effectiveCardSize.height + math.max(0, cards.length - 1) * gap
+        : effectiveCardSize.height;
+    final accent = _seatAccent(owner);
+    return DragTarget<HareegCard>(
+      onWillAcceptWithDetails: (details) =>
+          canAccept(details.data, owner, meldIndex),
+      onAcceptWithDetails: (details) =>
+          onAccept(details.data, owner, meldIndex),
+      builder: (context, candidates, rejected) {
+        final hot = candidates.isNotEmpty;
+        final retractable = canRetract && onRetract != null;
+        final bodyWidth = vertical ? width : width + (expanded ? 14 : 10);
+        final bodyHeight = vertical ? height + (expanded ? 14 : 10) : height;
+        final body = AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          scale: hot ? 1.04 : 1,
+          child: SizedBox(
+            width: bodyWidth,
+            height: bodyHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Drop / take-back hint frame. Stays invisible during normal
+                // play so melds float on the felt the way the reference
+                // shows them; only fires up when the player can take the
+                // meld back or has a card dragged over it for a cover.
+                if (hot || retractable)
+                  Positioned.fill(
+                    top: compact ? 6 : 8,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: hot
+                            ? LoungeTokens.goldAccent.withValues(alpha: 0.18)
+                            : LoungeTokens.goldAccent.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: hot
+                              ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
+                              : LoungeTokens.goldAccent.withValues(alpha: 0.4),
+                          width: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                for (var i = 0; i < cards.length; i++)
+                  Positioned(
+                    left: vertical ? 0 : i * gap,
+                    top: vertical ? i * gap : 0,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onLongPress: () => onCardLongPress(cards[i]),
+                      child: HareegCardView(
+                        theme: theme,
+                        card: cards[i],
+                        size: effectiveCardSize,
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${meld.totalValue}',
+                      style: TextStyle(
+                        color: owner == PlayerSeat.south
+                            ? LoungeTokens.coffeeCharcoal
+                            : LoungeTokens.offWhiteText,
+                        fontSize: compact ? 9 : 10,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                if (retractable)
+                  Positioned(
+                    left: compact ? -7 : -8,
+                    top: compact ? -7 : -8,
+                    child: Tooltip(
+                      message: strings.takeThisMeldBack,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onRetract,
+                        child: SizedBox.square(
+                          dimension: compact ? 24 : 28,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: LoungeTokens.coffeeCharcoal.withValues(
+                                  alpha: 0.90,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: LoungeTokens.goldAccent.withValues(
+                                    alpha: 0.44,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.undo_rounded,
+                                size: compact ? 11 : 12,
+                                color: LoungeTokens.goldAccent,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+        final orientedBody = quarterTurns == 0
+            ? body
+            : SizedBox(
+                width: bodyHeight + (compact ? 8 : 10),
+                height: bodyWidth + (compact ? 8 : 10),
+                child: Center(
+                  child: RotatedBox(quarterTurns: quarterTurns, child: body),
+                ),
+              );
+
+        final expandable = onToggleExpanded != null;
+        final interactiveBody = expandable
+            ? Tooltip(
+                message: expanded ? strings.collapseMeld : strings.expandMeld,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onToggleExpanded,
+                  child: orientedBody,
+                ),
+              )
+            : orientedBody;
+
+        return interactiveBody;
+      },
+    );
+  }
+}
+
+Color _seatAccent(PlayerSeat seat) {
+  return switch (seat) {
+    PlayerSeat.south => LoungeTokens.goldAccent,
+    PlayerSeat.east => const Color(0xFF2F5F6D),
+    PlayerSeat.north => LoungeTokens.coffeeCharcoal,
+    PlayerSeat.west => LoungeTokens.indigoAccent,
+  };
+}

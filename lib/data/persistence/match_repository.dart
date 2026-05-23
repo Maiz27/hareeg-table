@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import '../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
-import 'preferences_repository.dart';
+import 'key_value_store.dart';
 
 export '../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 
@@ -40,7 +40,7 @@ class LocalMatchRepository implements MatchRepository {
 
     try {
       final decoded = jsonDecode(raw);
-      final json = _asMap(decoded);
+      final json = jsonMapOrNull(decoded);
       if (json != null) {
         return ClassicHareegMatchSnapshot.fromJson(json);
       }
@@ -56,15 +56,4 @@ class LocalMatchRepository implements MatchRepository {
   Future<void> saveActiveMatch(ClassicHareegMatchSnapshot snapshot) {
     return _store.saveString(_key, jsonEncode(snapshot.toJson()));
   }
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
 }

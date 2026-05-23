@@ -6,18 +6,7 @@ import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
-
-/// Sort modes available to the south seat hand.
-enum HandSortMode {
-  /// Player ordering — no auto sort.
-  manual,
-
-  /// Rank-major, then suit.
-  byRank,
-
-  /// Suit-major, then rank.
-  bySuit,
-}
+import '../table_hand_interaction_state.dart';
 
 /// South seat (human) hand strip + sort mode toggle.
 ///
@@ -294,38 +283,5 @@ class _HandCardChip extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// Sort utility used by the orchestrator to render a stable view order
-/// without mutating the controller's internal hand list (which is the source
-/// of truth for action IDs).
-abstract final class HandSorting {
-  /// Returns [cards] sorted according to [mode].
-  static List<HareegCard> sort(List<HareegCard> cards, HandSortMode mode) {
-    final copy = List<HareegCard>.of(cards);
-    switch (mode) {
-      case HandSortMode.manual:
-        return copy;
-      case HandSortMode.byRank:
-        copy.sort((a, b) {
-          final aRank = a.effectiveIdentity?.rank.order ?? 999;
-          final bRank = b.effectiveIdentity?.rank.order ?? 999;
-          if (aRank != bRank) return aRank - bRank;
-          final aSuit = a.effectiveIdentity?.suit.index ?? 999;
-          final bSuit = b.effectiveIdentity?.suit.index ?? 999;
-          return aSuit - bSuit;
-        });
-      case HandSortMode.bySuit:
-        copy.sort((a, b) {
-          final aSuit = a.effectiveIdentity?.suit.index ?? 999;
-          final bSuit = b.effectiveIdentity?.suit.index ?? 999;
-          if (aSuit != bSuit) return aSuit - bSuit;
-          final aRank = a.effectiveIdentity?.rank.order ?? 999;
-          final bRank = b.effectiveIdentity?.rank.order ?? 999;
-          return aRank - bRank;
-        });
-    }
-    return copy;
   }
 }
