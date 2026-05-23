@@ -3,6 +3,7 @@ import '../models/playing_card.dart';
 import '../rules/fifty_rules.dart';
 import '../rules/finish_rules.dart';
 import '../rules/match_progression_rules.dart';
+import '../rules/turn_flow_rules.dart' show isPickupSeatEligible;
 import 'classic_hareeg_round.dart';
 
 /// Planned state change after a successful discard.
@@ -86,11 +87,10 @@ abstract final class ClassicHareegTurnExitPlanner {
 
   /// Whether the current draw-phase player may take the top discard.
   ///
-  /// Authoritative version that walks past removed seats. The narrower check
-  /// inside `ClassicTurnFlowState` (`turn_flow_rules.dart`) does not know about
-  /// removed seats and is therefore correct only when no one has been removed
-  /// mid-round — callers exposed to elimination should consult this planner
-  /// before reaching the rules-layer apply path.
+  /// Both this planner and the rules-layer `ClassicTurnFlowState` agree on
+  /// pickup eligibility because both consult [isPickupSeatEligible]. The
+  /// rules-layer guard now respects removed seats too, so a mid-round
+  /// elimination cannot leave the two checks disagreeing.
   static bool canTakePreviousDiscard({
     required PlayerSeat currentSeat,
     required TurnPhase phase,
@@ -99,16 +99,14 @@ abstract final class ClassicHareegTurnExitPlanner {
     required Iterable<PlayerSeat> activeSeats,
     required Set<PlayerSeat> removedSeats,
   }) {
-    final previousSeat = previousDiscardSeat;
     return phase == TurnPhase.draw &&
-        previousSeat != null &&
         discardPileIsNotEmpty &&
-        nextActiveSeat(
-              seat: previousSeat,
-              activeSeats: activeSeats,
-              removedSeats: removedSeats,
-            ) ==
-            currentSeat;
+        isPickupSeatEligible(
+          currentSeat: currentSeat,
+          previousDiscardSeat: previousDiscardSeat,
+          activeSeats: activeSeats,
+          removedSeats: removedSeats,
+        );
   }
 
   /// Builds the persisted round result.

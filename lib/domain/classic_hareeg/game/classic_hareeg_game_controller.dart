@@ -1347,6 +1347,8 @@ class ClassicHareegGameController {
       pendingDiscard: pending == null
           ? null
           : PendingDiscard(card: pending, fromSeat: previousDiscardSeat!),
+      activeSeats: List.unmodifiable(_activeSeats),
+      removedSeats: Set.unmodifiable(_removedSeats),
     );
   }
 

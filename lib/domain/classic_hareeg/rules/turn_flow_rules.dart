@@ -34,6 +34,8 @@ class ClassicTurnFlowState {
     required this.discardPile,
     this.previousDiscardSeat,
     this.pendingDiscard,
+    this.activeSeats = PlayerSeat.values,
+    this.removedSeats = const {},
   });
 
   /// Active seat.
@@ -57,6 +59,13 @@ class ClassicTurnFlowState {
   /// Pending discard that must be used or returned.
   final PendingDiscard? pendingDiscard;
 
+  /// Seats still active in the round (defaults to all four).
+  final Iterable<PlayerSeat> activeSeats;
+
+  /// Seats removed mid-round by hard-table mistakes. Walked past when
+  /// resolving anti-clockwise pickup eligibility.
+  final Set<PlayerSeat> removedSeats;
+
   /// Legal action ids for the current draw/take state.
   List<String> get legalActionIds {
     if (pendingDiscard != null) {
@@ -77,12 +86,49 @@ class ClassicTurnFlowState {
   }
 
   bool get _canTakePreviousDiscard {
-    final previousSeat = previousDiscardSeat;
     return phase == ClassicTurnPhase.draw &&
-        previousSeat != null &&
         discardPile.isNotEmpty &&
-        previousSeat.nextAntiClockwise == currentSeat;
+        isPickupSeatEligible(
+          currentSeat: currentSeat,
+          previousDiscardSeat: previousDiscardSeat,
+          activeSeats: activeSeats,
+          removedSeats: removedSeats,
+        );
   }
+}
+
+/// Returns whether anti-clockwise seat order (walking past [removedSeats])
+/// makes [currentSeat] the immediate next eligible pickup target after
+/// [previousDiscardSeat].
+///
+/// Single source of truth shared by [ClassicTurnFlowState] and the controller-
+/// side turn exit planner. Phase- and pile-emptiness-agnostic; callers pre-
+/// gate on those before consulting this primitive.
+bool isPickupSeatEligible({
+  required PlayerSeat currentSeat,
+  required PlayerSeat? previousDiscardSeat,
+  required Iterable<PlayerSeat> activeSeats,
+  required Set<PlayerSeat> removedSeats,
+}) {
+  final previousSeat = previousDiscardSeat;
+  if (previousSeat == null) {
+    return false;
+  }
+  final remaining = <PlayerSeat>{
+    for (final seat in activeSeats)
+      if (!removedSeats.contains(seat)) seat,
+  };
+  if (remaining.isEmpty) {
+    return false;
+  }
+  var next = previousSeat.nextAntiClockwise;
+  while (next != previousSeat) {
+    if (remaining.contains(next)) {
+      return next == currentSeat;
+    }
+    next = next.nextAntiClockwise;
+  }
+  return false;
 }
 
 /// Classic Hareeg draw, previous discard pickup, and pending discard rules.
@@ -105,6 +151,8 @@ abstract final class ClassicHareegTurnFlowRules {
       stock: List.unmodifiable(stock),
       discardPile: state.discardPile,
       previousDiscardSeat: state.previousDiscardSeat,
+      activeSeats: state.activeSeats,
+      removedSeats: state.removedSeats,
     );
   }
 
@@ -127,6 +175,8 @@ abstract final class ClassicHareegTurnFlowRules {
         card: discard,
         fromSeat: state.previousDiscardSeat!,
       ),
+      activeSeats: state.activeSeats,
+      removedSeats: state.removedSeats,
     );
   }
 
@@ -151,6 +201,8 @@ abstract final class ClassicHareegTurnFlowRules {
       stock: state.stock,
       discardPile: List.unmodifiable([...state.discardPile, pending.card]),
       previousDiscardSeat: pending.fromSeat,
+      activeSeats: state.activeSeats,
+      removedSeats: state.removedSeats,
     );
   }
 
@@ -167,6 +219,8 @@ abstract final class ClassicHareegTurnFlowRules {
       stock: state.stock,
       discardPile: state.discardPile,
       previousDiscardSeat: state.previousDiscardSeat,
+      activeSeats: state.activeSeats,
+      removedSeats: state.removedSeats,
     );
   }
 
