@@ -30,7 +30,16 @@ abstract final class ClassicHareegMeldCandidateSearch {
 
     final jokers = _orderedJokers(unresolvedJokers, preferredCardId);
 
+    // addGroup applies the global cap: once `groups.length` reaches
+    // `maxPhysicalVariants` it silently no-ops. The outer loops below also
+    // break on the same condition so we don't waste work enumerating layouts
+    // we'd never emit. The per-layout cap inside `_addMeldGroupVariants` is
+    // still useful as a guard against pathological duplicate-key blowups,
+    // but the cap a caller passes is now what bounds the returned list size.
     void addGroup(List<HareegCard> cards) {
+      if (groups.length >= maxPhysicalVariants) {
+        return;
+      }
       if (cards.length < 3) {
         return;
       }
@@ -45,6 +54,7 @@ abstract final class ClassicHareegMeldCandidateSearch {
     }
 
     for (final rank in CardRank.values) {
+      if (groups.length >= maxPhysicalVariants) break;
       _addSetCandidateGroups(
         addGroup: addGroup,
         cardsByIdentity: cardsByIdentity,
@@ -56,6 +66,7 @@ abstract final class ClassicHareegMeldCandidateSearch {
     }
 
     for (final suit in CardSuit.values) {
+      if (groups.length >= maxPhysicalVariants) break;
       _addSequenceCandidateGroups(
         addGroup: addGroup,
         cardsByIdentity: cardsByIdentity,
@@ -65,6 +76,7 @@ abstract final class ClassicHareegMeldCandidateSearch {
         preferredCardId: preferredCardId,
         maxPhysicalVariants: maxPhysicalVariants,
       );
+      if (groups.length >= maxPhysicalVariants) break;
       _addHighAceSequenceCandidateGroups(
         addGroup: addGroup,
         cardsByIdentity: cardsByIdentity,

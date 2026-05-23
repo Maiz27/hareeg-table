@@ -169,6 +169,15 @@ class ClassicHareegTablePlayPlanner {
 
     for (final group in _meldCandidateSubsets(selectedCards)) {
       final groupIds = [for (final card in group) card.id];
+      // selectedMeldActionIdFor gates every subset on seat/phase, pending-
+      // discard inclusion, hand-must-leave-final-discard, and meld validity.
+      // It returns the direct play id when the cards resolve without joker
+      // help, otherwise the first joker variant id (or null when illegal).
+      // Both branches below need the same gate, so check it once up front.
+      final actionId = selectedMeldActionIdFor(seat, groupIds);
+      if (actionId == null) {
+        continue;
+      }
       final jokerChoices = _jokerMeldChoicesForCards(
         cards: group,
         cardIds: groupIds,
@@ -189,10 +198,6 @@ class ClassicHareegTablePlayPlanner {
         continue;
       }
 
-      final actionId = selectedMeldActionIdFor(seat, groupIds);
-      if (actionId == null) {
-        continue;
-      }
       final key = (List<String>.of(groupIds)..sort()).join('|');
       if (!seen.add(key)) continue;
       suggestions.add(

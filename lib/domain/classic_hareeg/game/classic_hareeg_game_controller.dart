@@ -2190,7 +2190,11 @@ class ClassicHareegGameController {
   }
 }
 
-const _maxPhysicalMeldVariants = 8;
+// Global cap on physical meld candidate groups returned from the search.
+// Was 8 when the search applied this as a per-branch limit; raised once the
+// search switched to a single global cap so sets, sequences, and high-ace
+// sequences still each get room to emit their layouts on rich hands.
+const _maxPhysicalMeldVariants = 64;
 const _maxCpuOpeningMeldOptions = 24;
 const _maxCpuOpeningCombinationMelds = 3;
 const _debugSlowRuleSearchMs = 120;

@@ -11,10 +11,11 @@ import 'table_sound_event.dart';
 class AudioCue {
   /// Creates a cue. Pass one asset for a fixed sound or many for rotation.
   ///
-  /// `volume` must be in `[0, 1]`. `assets` must be non-empty; the const-eval
-  /// limit on `List.length` keeps that invariant a doc contract rather than
-  /// an assert, but the registry is statically declared so an empty list
-  /// would surface at first lookup.
+  /// `volume` must be in `[0, 1]`. `assets` must be non-empty; Dart's const-
+  /// eval rules do not allow `List.isNotEmpty` / `List.length` inside a const
+  /// constructor's assert, so the invariant stays a documented contract. The
+  /// registry is statically declared so an empty list would surface at first
+  /// lookup via [AudioAssetRotation.pickAsset].
   const AudioCue({required this.assets, required this.volume})
     : assert(
         volume >= 0.0 && volume <= 1.0,

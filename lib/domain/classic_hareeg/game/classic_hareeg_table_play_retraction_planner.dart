@@ -115,7 +115,12 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     final hasTurnMelds = meldPlays.isNotEmpty;
     final hasTurnCovers = coverPlays.isNotEmpty;
 
-    if (!hasOpeningMelds && (hasTurnMelds || hasTurnCovers)) {
+    // Hard table mode blocks retraction of regular meld/cover plays
+    // regardless of whether staged opening melds happen to coexist. The
+    // per-target paths (evaluateTarget) already fire the block unconditionally
+    // for those play types; keep bulk evaluation consistent so a mixed state
+    // can never bypass the block.
+    if (hasTurnMelds || hasTurnCovers) {
       final hardBlock = _hardTableBlock(preset: preset, target: null);
       if (hardBlock != null) {
         return hardBlock;

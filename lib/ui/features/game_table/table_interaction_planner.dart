@@ -34,7 +34,7 @@ abstract interface class TableInteractionActionReader {
   List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
     PlayerSeat seat,
     List<String> selectedCardIds, {
-    int limit,
+    int limit = 5,
   });
 
   /// First legal cover action for [cardIds], if any.
