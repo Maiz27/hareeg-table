@@ -100,6 +100,42 @@ void main() {
       );
     });
 
+    test('rejects duplicate visual cards when covering a three-card set', () {
+      final meld = [
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.clubs),
+        card(CardRank.jack, CardSuit.spades),
+      ];
+      final duplicateHeart = card(CardRank.jack, CardSuit.hearts, deckIndex: 1);
+      final missingDiamond = card(
+        CardRank.jack,
+        CardSuit.diamonds,
+        deckIndex: 1,
+      );
+
+      expect(
+        ClassicHareegCoverRules.isCover(
+          tableMeld: meld,
+          candidate: duplicateHeart,
+        ),
+        isFalse,
+      );
+      expect(
+        ClassicHareegCoverRules.resolveCoverExtension(
+          tableMeld: meld,
+          candidate: duplicateHeart,
+        ),
+        isNull,
+      );
+      expect(
+        ClassicHareegCoverRules.resolveCoverExtension(
+          tableMeld: meld,
+          candidate: missingDiamond,
+        )?.extendedMeld.map((card) => card.label),
+        ['JH', 'JC', 'JS', 'JD'],
+      );
+    });
+
     test('represented jokers do not make duplicate set suits covers', () {
       const represented = CardIdentity(
         rank: CardRank.jack,
@@ -128,6 +164,26 @@ void main() {
           candidate: card(CardRank.jack, CardSuit.hearts, deckIndex: 1),
         ),
         isFalse,
+      );
+    });
+
+    test('unrepresented joker cover resolves to the missing set suit only', () {
+      const joker = HareegCard.joker(deckIndex: 2, jokerIndex: 0);
+      final meld = [
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.clubs),
+        card(CardRank.jack, CardSuit.spades),
+      ];
+
+      final ordered = ClassicHareegCoverRules.orderedCoverCards(
+        tableMeld: meld,
+        candidates: [joker],
+      );
+
+      expect(ordered, hasLength(1));
+      expect(
+        ordered!.single.representedIdentity,
+        const CardIdentity(rank: CardRank.jack, suit: CardSuit.diamonds),
       );
     });
 
