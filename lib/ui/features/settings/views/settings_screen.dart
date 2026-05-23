@@ -174,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   description: strings.assistanceDescription,
                   preview: [
                     _aidsLabel(_preferences.tableAids, strings),
-                    if (_preferences.autoSort) strings.autoSort,
+                    _handSortLabel(_preferences.handSortMode, strings),
                   ],
                   expanded: _openSection == SettingsSection.assistance,
                   onToggle: () => _toggle(SettingsSection.assistance),
@@ -186,13 +186,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _save(_preferences.copyWith(tableAids: value)),
                       ),
                       const _ThinDivider(),
-                      _SwitchSetting(
-                        icon: Icons.sort_outlined,
-                        title: strings.autoSortHand,
-                        subtitle: strings.autoSortHandDescription,
-                        value: _preferences.autoSort,
+                      _HandSortPicker(
+                        value: _preferences.handSortMode,
                         onChanged: (value) =>
-                            _save(_preferences.copyWith(autoSort: value)),
+                            _save(_preferences.copyWith(handSortMode: value)),
                       ),
                       const _ThinDivider(),
                       _SwitchSetting(
@@ -360,6 +357,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       TableSurfaceTheme.wood => strings.lightWood,
       TableSurfaceTheme.sapphire => strings.midnightSapphire,
       TableSurfaceTheme.clay => strings.crimsonClay,
+    };
+  }
+
+  static String _handSortLabel(HandSortMode mode, AppStrings strings) {
+    return switch (mode) {
+      HandSortMode.manual => strings.sortManual,
+      HandSortMode.byRank => strings.sortByRank,
+      HandSortMode.bySuit => strings.sortBySuit,
     };
   }
 }
@@ -719,6 +724,46 @@ class _AidsPicker extends StatelessWidget {
       TableAids.guided => strings.aidGuidedDescription,
       TableAids.standard => strings.aidStandardDescription,
       TableAids.tableMode => strings.aidTableModeDescription,
+    };
+  }
+}
+
+class _HandSortPicker extends StatelessWidget {
+  const _HandSortPicker({required this.value, required this.onChanged});
+
+  final HandSortMode value;
+  final ValueChanged<HandSortMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Column(
+      children: [
+        for (final mode in HandSortMode.values) ...[
+          _RadioRow<HandSortMode>(
+            value: mode,
+            groupValue: value,
+            icon: switch (mode) {
+              HandSortMode.manual => Icons.drag_indicator,
+              HandSortMode.byRank => Icons.sort_outlined,
+              HandSortMode.bySuit => Icons.style_outlined,
+            },
+            title: _SettingsScreenState._handSortLabel(mode, strings),
+            subtitle: _description(mode, strings),
+            onChanged: onChanged,
+          ),
+          if (mode != HandSortMode.values.last) const _ThinDivider(),
+        ],
+      ],
+    );
+  }
+
+  static String _description(HandSortMode mode, AppStrings strings) {
+    return switch (mode) {
+      HandSortMode.manual => strings.sortManualDescription,
+      HandSortMode.byRank => strings.sortByRankDescription,
+      HandSortMode.bySuit => strings.sortBySuitDescription,
     };
   }
 }

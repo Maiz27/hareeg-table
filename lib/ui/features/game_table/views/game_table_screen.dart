@@ -166,10 +166,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _resetHandInteraction() {
     final initialHand = _controller.handFor(PlayerSeat.south);
-    final initialSort = widget.preferences.autoSort
-        ? HandSortMode.byRank
-        : HandSortMode.manual;
-    _handInteraction.resetFromHand(initialHand, initialSort);
+    _handInteraction.resetFromHand(initialHand, widget.preferences.handSortMode);
   }
 
   void _ensureFiftyTicker() {

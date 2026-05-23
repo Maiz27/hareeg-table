@@ -5,7 +5,12 @@ import '../../ui/core/aids/table_aids.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
+import '../../ui/features/game_table/table_hand_interaction_state.dart'
+    show HandSortMode;
 import 'key_value_store.dart';
+
+export '../../ui/features/game_table/table_hand_interaction_state.dart'
+    show HandSortMode;
 
 const _soundDefaultsVersion = 1;
 
@@ -36,7 +41,7 @@ class GamePreferences {
   /// Creates app preferences.
   const GamePreferences({
     required this.setup,
-    required this.autoSort,
+    required this.handSortMode,
     required this.memoryJokerDisplay,
     required this.language,
     required this.motionSpeed,
@@ -53,7 +58,7 @@ class GamePreferences {
   factory GamePreferences.defaults() {
     return GamePreferences(
       setup: ClassicHareegSetup.defaults(),
-      autoSort: true,
+      handSortMode: HandSortMode.byRank,
       memoryJokerDisplay: false,
       language: AppLanguage.english,
       motionSpeed: MotionSpeed.normal,
@@ -83,7 +88,7 @@ class GamePreferences {
       setup: setupJson != null
           ? ClassicHareegSetup.fromJson(setupJson)
           : ClassicHareegSetup.defaults(),
-      autoSort: _asBool(json['autoSort']) ?? defaults.autoSort,
+      handSortMode: _readHandSortMode(json, defaults.handSortMode),
       memoryJokerDisplay:
           _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
       language: AppLanguage.fromName(_asString(json['language'])),
@@ -105,8 +110,13 @@ class GamePreferences {
   /// Setup values used for a new Classic Hareeg table.
   final ClassicHareegSetup setup;
 
-  /// Whether human hands should be auto-sorted.
-  final bool autoSort;
+  /// Initial sort applied to the human hand at the start of each round.
+  ///
+  /// The in-table sort picker overrides this for the current round only;
+  /// the next round resets to this preference. Migrated from the legacy
+  /// `autoSort` bool — true → [HandSortMode.byRank], false →
+  /// [HandSortMode.manual].
+  final HandSortMode handSortMode;
 
   /// Whether represented jokers should use a memory-oriented display.
   final bool memoryJokerDisplay;
@@ -145,7 +155,7 @@ class GamePreferences {
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
-    bool? autoSort,
+    HandSortMode? handSortMode,
     bool? memoryJokerDisplay,
     AppLanguage? language,
     MotionSpeed? motionSpeed,
@@ -159,7 +169,7 @@ class GamePreferences {
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
-      autoSort: autoSort ?? this.autoSort,
+      handSortMode: handSortMode ?? this.handSortMode,
       memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
       language: language ?? this.language,
       motionSpeed: motionSpeed ?? this.motionSpeed,
@@ -177,7 +187,7 @@ class GamePreferences {
   Map<String, Object?> toJson() {
     return {
       'setup': setup.toJson(),
-      'autoSort': autoSort,
+      'handSortMode': handSortMode.name,
       'memoryJokerDisplay': memoryJokerDisplay,
       'language': language.name,
       'motionSpeed': motionSpeed.name,
@@ -191,6 +201,21 @@ class GamePreferences {
       'tableSurfaceTheme': tableSurfaceTheme.name,
     };
   }
+}
+
+/// Reads the saved [HandSortMode], migrating the legacy `autoSort` bool when
+/// no explicit mode is stored. `autoSort: true` → byRank (the previous
+/// auto-sort behaviour), `autoSort: false` → manual.
+HandSortMode _readHandSortMode(Map<String, Object?> json, HandSortMode fallback) {
+  final stored = _enumByName(HandSortMode.values, _asString(json['handSortMode']));
+  if (stored != null) {
+    return stored;
+  }
+  final legacyAutoSort = _asBool(json['autoSort']);
+  if (legacyAutoSort != null) {
+    return legacyAutoSort ? HandSortMode.byRank : HandSortMode.manual;
+  }
+  return fallback;
 }
 
 /// Storage boundary for local user preferences.

@@ -16,7 +16,7 @@ void main() {
 
       expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
       expect(preferences.setup.rulePreset, RulePreset.assisted);
-      expect(preferences.autoSort, isTrue);
+      expect(preferences.handSortMode, HandSortMode.byRank);
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.fastCpuTurns, isTrue);
       expect(preferences.reducedMotion, isFalse);
@@ -38,7 +38,7 @@ void main() {
           fiftyTimerSeconds: 6,
           rulePreset: RulePreset.hardTable17,
         ),
-        autoSort: false,
+        handSortMode: HandSortMode.bySuit,
         motionSpeed: MotionSpeed.reduced,
         fastCpuTurns: false,
         soundEnabled: false,
@@ -57,7 +57,7 @@ void main() {
       expect(restored.setup.jokerCount, 4);
       expect(restored.setup.fiftyTimerSeconds, 6);
       expect(restored.setup.rulePreset, RulePreset.hardTable17);
-      expect(restored.autoSort, isFalse);
+      expect(restored.handSortMode, HandSortMode.bySuit);
       expect(restored.motionSpeed, MotionSpeed.reduced);
       expect(restored.fastCpuTurns, isFalse);
       expect(restored.reducedMotion, isTrue);
@@ -77,8 +77,29 @@ void main() {
       final restored = await repository.loadPreferences();
 
       expect(restored.soundEnabled, isTrue);
-      expect(restored.autoSort, isFalse);
+      expect(restored.handSortMode, HandSortMode.manual);
       expect(restored.fastCpuTurns, isFalse);
+    });
+
+    test('legacy autoSort=true migrates to byRank', () async {
+      final store = _MemoryStore()
+        ..values['preferences.v1'] = '{"autoSort":true}';
+      final repository = LocalPreferencesRepository(store: store);
+
+      final restored = await repository.loadPreferences();
+
+      expect(restored.handSortMode, HandSortMode.byRank);
+    });
+
+    test('saved handSortMode overrides legacy autoSort', () async {
+      final store = _MemoryStore()
+        ..values['preferences.v1'] =
+            '{"autoSort":true,"handSortMode":"bySuit"}';
+      final repository = LocalPreferencesRepository(store: store);
+
+      final restored = await repository.loadPreferences();
+
+      expect(restored.handSortMode, HandSortMode.bySuit);
     });
 
     test(

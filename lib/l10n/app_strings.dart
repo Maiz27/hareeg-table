@@ -76,7 +76,6 @@ class AppStrings {
   String get returnDiscard => _v('returnDiscard');
   String get takeBackMelds => _v('takeBackMelds');
   String get pendingDiscard => _v('pendingDiscard');
-  String get autoSort => _v('autoSort');
   String get settingsTitle => _v('settingsTitle');
   String get helpTitle => _v('helpTitle');
   String get helpIntro => _v('helpIntro');
@@ -147,14 +146,15 @@ class AppStrings {
   String get sortByRank => _v('sortByRank');
   String get sortBySuit => _v('sortBySuit');
   String get sortManual => _v('sortManual');
+  String get sortByRankDescription => _v('sortByRankDescription');
+  String get sortBySuitDescription => _v('sortBySuitDescription');
+  String get sortManualDescription => _v('sortManualDescription');
   String get tableRules => _v('tableRules');
   String get tableRulesDescription => _v('tableRulesDescription');
   String get deckCount => _v('deckCount');
   String get fiftyTimer => _v('fiftyTimer');
   String get assistance => _v('assistance');
   String get assistanceDescription => _v('assistanceDescription');
-  String get autoSortHand => _v('autoSortHand');
-  String get autoSortHandDescription => _v('autoSortHandDescription');
   String get memoryJokerDisplay => _v('memoryJokerDisplay');
   String get memoryJokerDisplayDescription =>
       _v('memoryJokerDisplayDescription');
@@ -630,7 +630,6 @@ const _englishValues = {
   'returnDiscard': 'Return + Draw',
   'takeBackMelds': 'Take Back Melds',
   'pendingDiscard': 'Pending discard',
-  'autoSort': 'Auto-sort',
   'settingsTitle': 'Settings',
   'helpTitle': 'Classic Hareeg rules',
   'helpIntro':
@@ -720,14 +719,15 @@ const _englishValues = {
   'sortByRank': 'Rank',
   'sortBySuit': 'Suit',
   'sortManual': 'Manual',
+  'sortByRankDescription': 'Rank-major, then suit.',
+  'sortBySuitDescription': 'Suit-major, then rank.',
+  'sortManualDescription': 'Drag to reorder cards yourself.',
   'tableRules': 'Table rules',
   'tableRulesDescription': 'Deck count and fifty-claim window.',
   'deckCount': 'Deck count',
   'fiftyTimer': 'Fifty timer',
   'assistance': 'Assistance',
   'assistanceDescription': 'Hints, hand sorting, joker memory.',
-  'autoSortHand': 'Auto-sort hand',
-  'autoSortHandDescription': 'Keep cards grouped during play.',
   'memoryJokerDisplay': 'Memory joker display',
   'memoryJokerDisplayDescription': 'Briefly show represented joker identities.',
   'look': 'Look',
@@ -830,7 +830,6 @@ const _arabicValues = {
   'returnDiscard': 'أرجع + اسحب',
   'takeBackMelds': 'استرجع المجموعات',
   'pendingDiscard': 'رمية معلقة',
-  'autoSort': 'ترتيب تلقائي',
   'settingsTitle': 'الإعدادات',
   'helpTitle': 'قواعد حريق الكلاسيكي',
   'helpIntro':
@@ -916,14 +915,15 @@ const _arabicValues = {
   'sortByRank': 'الرتبة',
   'sortBySuit': 'النوع',
   'sortManual': 'يدوي',
+  'sortByRankDescription': 'حسب الرتبة ثم النوع.',
+  'sortBySuitDescription': 'حسب النوع ثم الرتبة.',
+  'sortManualDescription': 'اسحب لإعادة ترتيب الأوراق بنفسك.',
   'tableRules': 'قواعد الطاولة',
   'tableRulesDescription': 'عدد الرزم ونافذة إعلان الخمسين.',
   'deckCount': 'عدد الرزم',
   'fiftyTimer': 'مؤقت الخمسين',
   'assistance': 'المساعدة',
   'assistanceDescription': 'تلميحات، ترتيب اليد، وذاكرة الجوكر.',
-  'autoSortHand': 'ترتيب اليد تلقائيا',
-  'autoSortHandDescription': 'حافظ على تجميع الأوراق أثناء اللعب.',
   'memoryJokerDisplay': 'عرض ذاكرة الجوكر',
   'memoryJokerDisplayDescription': 'اعرض هويات الجوكر الممثلة لفترة قصيرة.',
   'look': 'المظهر',
