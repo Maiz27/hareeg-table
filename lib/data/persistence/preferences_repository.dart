@@ -1,13 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../ui/core/aids/table_aids.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
+import 'key_value_store.dart';
 
 const _soundDefaultsVersion = 1;
 
@@ -72,7 +70,7 @@ class GamePreferences {
   /// Restores preferences from persisted JSON-compatible data.
   factory GamePreferences.fromJson(Map<String, Object?> json) {
     final defaults = GamePreferences.defaults();
-    final setupJson = _asMap(json['setup']);
+    final setupJson = jsonMapOrNull(json['setup']);
     final legacyReducedMotion = _asBool(json['reducedMotion']) ?? false;
     final motionSpeed = json.containsKey('motionSpeed')
         ? MotionSpeed.fromName(_asString(json['motionSpeed']))
@@ -204,105 +202,6 @@ abstract interface class PreferencesRepository {
   Future<void> savePreferences(GamePreferences preferences);
 }
 
-/// Minimal string key/value store used by persistence repositories.
-abstract interface class KeyValueStore {
-  /// Loads a stored string value.
-  Future<String?> loadString(String key);
-
-  /// Saves a string value.
-  Future<void> saveString(String key, String value);
-
-  /// Removes a stored value.
-  Future<void> remove(String key);
-}
-
-/// Platform-channel key/value storage backed by Android SharedPreferences and
-/// iOS UserDefaults.
-///
-/// Falls back to an in-process map when the platform channel is unavailable
-/// (desktop/web), so the app continues to function in unsupported targets.
-/// The fallback is logged loudly so support gaps are visible in the console
-/// rather than silently swallowing persisted state.
-class MethodChannelKeyValueStore implements KeyValueStore {
-  /// Creates platform-channel storage.
-  MethodChannelKeyValueStore({
-    MethodChannel channel = const MethodChannel('hareeg_table/local_storage'),
-  }) : _channel = channel;
-
-  final MethodChannel _channel;
-  final Map<String, String> _fallbackMemory = {};
-  bool _loggedFallback = false;
-
-  bool get _canUseInMemoryFallback {
-    if (kIsWeb) {
-      return true;
-    }
-
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android || TargetPlatform.iOS => false,
-      TargetPlatform.linux ||
-      TargetPlatform.macOS ||
-      TargetPlatform.windows ||
-      TargetPlatform.fuchsia => true,
-    };
-  }
-
-  void _warnAboutFallback() {
-    if (_loggedFallback) {
-      return;
-    }
-    _loggedFallback = true;
-    debugPrint(
-      '[hareeg_table] Platform channel "hareeg_table/local_storage" is not '
-      'available on this platform. Falling back to in-memory storage; saved '
-      'preferences and matches will not survive app restart. '
-      'Android and iOS register this channel at startup.',
-    );
-  }
-
-  @override
-  Future<String?> loadString(String key) async {
-    try {
-      return await _channel.invokeMethod<String>('getString', {'key': key});
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      return _fallbackMemory[key];
-    }
-  }
-
-  @override
-  Future<void> remove(String key) async {
-    try {
-      await _channel.invokeMethod<void>('remove', {'key': key});
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      _fallbackMemory.remove(key);
-    }
-  }
-
-  @override
-  Future<void> saveString(String key, String value) async {
-    try {
-      await _channel.invokeMethod<void>('setString', {
-        'key': key,
-        'value': value,
-      });
-    } on MissingPluginException {
-      if (!_canUseInMemoryFallback) {
-        rethrow;
-      }
-      _warnAboutFallback();
-      _fallbackMemory[key] = value;
-    }
-  }
-}
-
 /// JSON-backed preferences repository.
 class LocalPreferencesRepository implements PreferencesRepository {
   /// Creates a repository from a key/value store.
@@ -322,7 +221,7 @@ class LocalPreferencesRepository implements PreferencesRepository {
 
     try {
       final decoded = jsonDecode(raw);
-      final json = _asMap(decoded);
+      final json = jsonMapOrNull(decoded);
       if (json != null) {
         return GamePreferences.fromJson(json);
       }
@@ -338,17 +237,6 @@ class LocalPreferencesRepository implements PreferencesRepository {
   Future<void> savePreferences(GamePreferences preferences) {
     return _store.saveString(_key, jsonEncode(preferences.toJson()));
   }
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
 }
 
 bool? _asBool(Object? value) {

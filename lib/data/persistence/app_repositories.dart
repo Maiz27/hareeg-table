@@ -1,3 +1,4 @@
+import 'key_value_store.dart';
 import 'match_repository.dart';
 import 'preferences_repository.dart';
 
