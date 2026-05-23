@@ -41,6 +41,21 @@ class ClassicHareegResolvedTablePlay {
   final MeldValidationResult result;
 }
 
+/// One playable meld suggestion produced from a hand selection.
+class ClassicHareegMeldSuggestion {
+  /// Creates a meld suggestion.
+  const ClassicHareegMeldSuggestion({
+    required this.actionId,
+    required this.cards,
+  });
+
+  /// Action id that will play this meld through the rules engine.
+  final String actionId;
+
+  /// Cards as they should be displayed in the suggestion picker.
+  final List<HareegCard> cards;
+}
+
 /// Plans legal Classic Hareeg table plays from immutable turn context.
 class ClassicHareegTablePlayPlanner {
   /// Creates a planner for the current table-play context.
@@ -127,6 +142,116 @@ class ClassicHareegTablePlayPlanner {
 
     final choices = _jokerMeldChoicesForCards(cards: cards, cardIds: cardIds);
     return choices.isEmpty ? null : choices.first.actionId;
+  }
+
+  /// Returns playable single-meld suggestions for a hand selection.
+  ///
+  /// Enumerates subsets of [selectedCardIds] (largest first), keeps up to
+  /// [limit] legal melds, expands ambiguous-joker subsets into one suggestion
+  /// per represented identity, and dedupes by action id. UI pickers consume
+  /// the returned list directly so combinatorial enumeration stays inside the
+  /// rules engine ([ADR 0001](../../../docs/adr/0001-rules-engine-boundary.md)).
+  List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
+    PlayerSeat seat,
+    List<String> selectedCardIds, {
+    int limit = 5,
+  }) {
+    if (limit <= 0 || selectedCardIds.length < 3) {
+      return const [];
+    }
+    final selectedCards = _cardsFromHand(seat, selectedCardIds);
+    if (selectedCards == null) {
+      return const [];
+    }
+
+    final suggestions = <ClassicHareegMeldSuggestion>[];
+    final seen = <String>{};
+
+    for (final group in _meldCandidateSubsets(selectedCards)) {
+      final groupIds = [for (final card in group) card.id];
+      final jokerChoices = _jokerMeldChoicesForCards(
+        cards: group,
+        cardIds: groupIds,
+      );
+      if (jokerChoices.isNotEmpty) {
+        for (final choice in jokerChoices) {
+          if (!seen.add(choice.actionId)) continue;
+          suggestions.add(
+            ClassicHareegMeldSuggestion(
+              actionId: choice.actionId,
+              cards: _displayCardsForChoice(group, choice.assignments),
+            ),
+          );
+          if (suggestions.length >= limit) {
+            return suggestions;
+          }
+        }
+        continue;
+      }
+
+      final actionId = selectedMeldActionIdFor(seat, groupIds);
+      if (actionId == null) {
+        continue;
+      }
+      final key = (List<String>.of(groupIds)..sort()).join('|');
+      if (!seen.add(key)) continue;
+      suggestions.add(
+        ClassicHareegMeldSuggestion(actionId: actionId, cards: group),
+      );
+      if (suggestions.length >= limit) {
+        return suggestions;
+      }
+    }
+    return suggestions;
+  }
+
+  Iterable<List<HareegCard>> _meldCandidateSubsets(
+    List<HareegCard> selectedCards,
+  ) sync* {
+    if (selectedCards.length < 3) return;
+    if (selectedCards.length > 10) {
+      yield selectedCards;
+      return;
+    }
+    for (var size = selectedCards.length; size >= 3; size -= 1) {
+      yield* _subsetsOf(selectedCards, size);
+    }
+  }
+
+  Iterable<List<HareegCard>> _subsetsOf(
+    List<HareegCard> cards,
+    int size,
+  ) sync* {
+    if (size == 0) {
+      yield const <HareegCard>[];
+      return;
+    }
+    if (cards.length < size) return;
+    for (var index = 0; index <= cards.length - size; index += 1) {
+      final head = cards[index];
+      final remaining = cards.sublist(index + 1);
+      for (final tail in _subsetsOf(remaining, size - 1)) {
+        yield [head, ...tail];
+      }
+    }
+  }
+
+  List<HareegCard> _displayCardsForChoice(
+    List<HareegCard> cards,
+    List<JokerMeldAssignment> assignments,
+  ) {
+    if (assignments.isEmpty) return cards;
+    final assignmentByJokerId = {
+      for (final assignment in assignments) assignment.jokerId: assignment,
+    };
+    final resolved = [
+      for (final card in cards)
+        if (assignmentByJokerId.containsKey(card.id) && card.isJoker)
+          card.asRepresenting(assignmentByJokerId[card.id]!.identity)
+        else
+          card,
+    ];
+    return PlacedMeld.fromCards(resolved).cards;
   }
 
   /// Returns explicit represented-joker choices for selected meld cards.
@@ -529,125 +654,71 @@ class ClassicHareegTablePlayPlanner {
     List<HareegCard> cards, {
     int limit = 5,
   }) {
-    if (limit <= 0) {
-      return const [];
-    }
-
-    final direct = ClassicHareegMeldValidator.validate(cards);
-    if (direct.isValid) {
-      return [ClassicHareegResolvedMeldCards(cards: cards, result: direct)];
-    }
-
-    final unresolvedJokers = cards
-        .where((card) => card.isJoker && card.representedIdentity == null)
-        .toList(growable: false);
-    if (unresolvedJokers.isEmpty || unresolvedJokers.length > 2) {
-      return const [];
-    }
-
-    final usedIdentityKeys = <String>{};
-    for (final card in cards) {
-      final identity = card.effectiveIdentity;
-      if (identity != null) {
-        usedIdentityKeys.add(identity.key);
-      }
-    }
-
-    final variants = <ClassicHareegResolvedMeldCards>[];
-    final seenVisualMelds = <String>{};
-    void search({
-      required int jokerIndex,
-      required Set<String> usedKeys,
-      required List<JokerMeldAssignment> assignments,
-    }) {
-      if (variants.length >= limit) {
-        return;
-      }
-      if (jokerIndex == unresolvedJokers.length) {
-        final resolved = _resolveMeldCardsWithAssignments(cards, assignments);
-        if (!resolved.result.isValid) {
-          return;
-        }
-        final visualKey = resolved.cards
-            .map((card) => card.effectiveIdentity!.key)
-            .join('|');
-        if (seenVisualMelds.add(visualKey)) {
-          variants.add(resolved);
-        }
-        return;
-      }
-
-      final joker = unresolvedJokers[jokerIndex];
-      for (final identity in _allStandardIdentities()) {
-        if (usedKeys.contains(identity.key)) {
-          continue;
-        }
-        search(
-          jokerIndex: jokerIndex + 1,
-          usedKeys: {...usedKeys, identity.key},
-          assignments: [
-            ...assignments,
-            JokerMeldAssignment(jokerId: joker.id, identity: identity),
-          ],
-        );
-        if (variants.length >= limit) {
-          return;
-        }
-      }
-    }
-
-    search(
-      jokerIndex: 0,
-      usedKeys: usedIdentityKeys,
-      assignments: const <JokerMeldAssignment>[],
+    final variants = ClassicHareegJokerRules.resolveMeldVariants(
+      cards,
+      limit: limit,
     );
-    return List.unmodifiable(variants);
+    return List.unmodifiable(variants.map(_fromJokerResolution));
   }
 
   static ClassicHareegResolvedMeldCards _resolveMeldCardsWithAssignments(
     List<HareegCard> cards,
     List<JokerMeldAssignment> assignments,
   ) {
-    final assignmentByJokerId = {
-      for (final assignment in assignments) assignment.jokerId: assignment,
-    };
-    if (assignmentByJokerId.length != assignments.length) {
+    final assignmentByJokerId = <String, CardIdentity>{};
+    for (final assignment in assignments) {
+      if (assignmentByJokerId.containsKey(assignment.jokerId)) {
+        return ClassicHareegResolvedMeldCards(
+          cards: cards,
+          result: const MeldValidationResult.invalid(
+            'A joker can only have one represented identity.',
+          ),
+        );
+      }
+      assignmentByJokerId[assignment.jokerId] = assignment.identity;
+    }
+
+    final variants = ClassicHareegJokerRules.resolveMeldVariants(
+      cards,
+      jokerIdentities: assignmentByJokerId,
+      limit: 1,
+    );
+    if (variants.isEmpty) {
       return ClassicHareegResolvedMeldCards(
         cards: cards,
         result: const MeldValidationResult.invalid(
-          'A joker can only have one represented identity.',
+          'Selected joker identity does not match this meld.',
         ),
       );
     }
+    return _fromJokerResolution(variants.single);
+  }
 
-    final resolvedCards = cards
-        .map((card) {
-          final assignment = assignmentByJokerId[card.id];
-          if (assignment != null) {
-            if (!card.isJoker || card.representedIdentity != null) {
-              return card;
-            }
-            return card.asRepresenting(assignment.identity);
-          }
-          return card;
-        })
-        .toList(growable: false);
-    final resolved = ClassicHareegMeldValidator.validate(resolvedCards);
-    if (!resolved.isValid) {
+  static ClassicHareegResolvedMeldCards _fromJokerResolution(
+    JokerMeldResolution resolution,
+  ) {
+    final assignments = [
+      for (final entry in resolution.assignments.entries)
+        JokerMeldAssignment(jokerId: entry.key, identity: entry.value),
+    ];
+    if (!resolution.result.isValid) {
       return ClassicHareegResolvedMeldCards(
-        cards: cards,
-        result: resolved,
+        cards: resolution.cards,
+        result: resolution.result,
         jokerAssignments: List.unmodifiable(assignments),
       );
     }
 
-    final orderedCards = PlacedMeld.fromCards(resolvedCards).cards;
+    final orderedCards = PlacedMeld.fromCards(resolution.cards).cards;
     return ClassicHareegResolvedMeldCards(
       cards: orderedCards,
       result: MeldValidationResult.valid(
-        type: resolved.type!,
-        value: resolved.value,
-        message: '${resolved.message} ${_jokerAssignmentMessage(assignments)}.',
+        type: resolution.result.type!,
+        value: resolution.result.value,
+        message: assignments.isEmpty
+            ? resolution.result.message
+            : '${resolution.result.message} '
+                  '${_jokerAssignmentMessage(assignments)}.',
       ),
       jokerAssignments: List.unmodifiable(assignments),
     );
@@ -730,32 +801,10 @@ class ClassicHareegTablePlayPlanner {
     required List<HareegCard> tableMeld,
     required List<HareegCard> candidates,
   }) {
-    if (candidates.isEmpty) {
-      return const [];
-    }
-
-    for (var index = 0; index < candidates.length; index += 1) {
-      final candidate = candidates[index];
-      final resolvedCandidate = resolveCoverCandidate(
-        tableMeld: tableMeld,
-        candidate: candidate,
-      );
-      if (resolvedCandidate == null) {
-        continue;
-      }
-      final remaining = [
-        ...candidates.take(index),
-        ...candidates.skip(index + 1),
-      ];
-      final next = orderedCoverCards(
-        tableMeld: [...tableMeld, resolvedCandidate],
-        candidates: remaining,
-      );
-      if (next != null) {
-        return [resolvedCandidate, ...next];
-      }
-    }
-    return null;
+    return ClassicHareegCoverRules.orderedCoverCards(
+      tableMeld: tableMeld,
+      candidates: candidates,
+    );
   }
 
   /// Resolves one cover candidate, including joker cover identity if needed.
@@ -763,47 +812,10 @@ class ClassicHareegTablePlayPlanner {
     required List<HareegCard> tableMeld,
     required HareegCard candidate,
   }) {
-    if (ClassicHareegCoverRules.isCover(
+    return ClassicHareegCoverRules.resolveCoverCandidate(
       tableMeld: tableMeld,
       candidate: candidate,
-    )) {
-      return candidate;
-    }
-    if (!candidate.isJoker || candidate.representedIdentity != null) {
-      return null;
-    }
-
-    final options = <CardIdentity>[];
-    for (final suit in CardSuit.values) {
-      for (final rank in CardRank.values) {
-        final identity = CardIdentity(rank: rank, suit: suit);
-        if (ClassicHareegCoverRules.isCover(
-          tableMeld: tableMeld,
-          candidate: candidate.asRepresenting(identity),
-        )) {
-          options.add(identity);
-        }
-      }
-    }
-    if (options.isEmpty) {
-      return null;
-    }
-    options.sort((left, right) {
-      final suitCompare = left.suit.index.compareTo(right.suit.index);
-      if (suitCompare != 0) {
-        return suitCompare;
-      }
-      return left.rank.order.compareTo(right.rank.order);
-    });
-    return candidate.asRepresenting(options.first);
-  }
-
-  static Iterable<CardIdentity> _allStandardIdentities() sync* {
-    for (final suit in CardSuit.values) {
-      for (final rank in CardRank.values) {
-        yield CardIdentity(rank: rank, suit: suit);
-      }
-    }
+    );
   }
 
   static String _jokerAssignmentMessage(List<JokerMeldAssignment> assignments) {
