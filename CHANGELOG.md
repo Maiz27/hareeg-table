@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0-alpha.4](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-05-23)
+
+
+### Features
+
+* **settings:** replace auto-sort toggle with hand-sort-mode picker ([8ee12ff](https://github.com/Maiz27/hareeg-table/commit/8ee12ff149fbafeef53fd538b19e84802d9dcb5a))
+
+
+### Bug Fixes
+
+* **rules:** address review nits across meld search, retraction, and audio ([1c02d8c](https://github.com/Maiz27/hareeg-table/commit/1c02d8cb95aa7615be5f0fb03aea2aac54b490b2))
+* **settings:** move card sorting into its own accordion section ([d17be23](https://github.com/Maiz27/hareeg-table/commit/d17be237f2a814967c8246beac8c3f507c39b7f1))
+
 ## [1.0.0-alpha.3](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.2...v1.0.0-alpha.3) (2026-05-22)
 
 
