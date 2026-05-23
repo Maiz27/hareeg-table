@@ -1,6 +1,6 @@
-import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../domain/classic_hareeg/models/player_seat.dart';
+import 'cpu_move_planner.dart';
 
 /// Boundary for CPU decision-making.
 ///
@@ -50,46 +50,14 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
   /// Creates a CPU strategy.
   const ClassicHareegCpuStrategy();
 
-  static const _priority = [
-    ClassicHareegActionKind.claimFifty,
-    ClassicHareegActionKind.playMeld,
-    ClassicHareegActionKind.playMeldWithJoker,
-    ClassicHareegActionKind.replaceJoker,
-    ClassicHareegActionKind.placeCover,
-    ClassicHareegActionKind.drawStock,
-    ClassicHareegActionKind.takeDiscard,
-  ];
-
   @override
   CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
-    if (snapshot.legalActionIds.isEmpty) {
+    final plan = ClassicHareegCpuMovePlanner.evaluate(snapshot.legalActionIds);
+    final actionId = plan.actionId;
+    if (actionId == null) {
       throw StateError('CPU needs at least one legal action.');
     }
-
-    for (final actionKind in _priority) {
-      for (final legalActionId in snapshot.legalActionIds) {
-        if (ClassicHareegActionIds.hasKind(legalActionId, actionKind)) {
-          return CpuMoveIntent(actionId: legalActionId);
-        }
-      }
-    }
-
-    final safeDiscards = snapshot.legalActionIds.where((actionId) {
-      return ClassicHareegActionIds.describe(actionId).isSafeDiscard;
-    });
-    if (safeDiscards.isNotEmpty) {
-      return CpuMoveIntent(actionId: safeDiscards.first);
-    }
-
-    if (snapshot.legalActionIds.contains(
-      ClassicHareegActionIds.returnPendingDiscard,
-    )) {
-      return const CpuMoveIntent(
-        actionId: ClassicHareegActionIds.returnPendingDiscard,
-      );
-    }
-
-    return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
+    return CpuMoveIntent(actionId: actionId);
   }
 }
 

@@ -2,6 +2,7 @@ import '../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/player_seat.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
+import 'classic_hareeg_cpu_turn_loop_planner.dart';
 import 'cpu_strategy.dart';
 
 /// Why a CPU turn run stopped.
@@ -178,36 +179,42 @@ class ClassicHareegCpuTurnRunner {
 
   /// Runs CPU turns until control leaves CPU flow.
   Future<ClassicHareegCpuTurnRunResult> run() async {
-    if (controller.isRoundOver) {
-      return _result(ClassicHareegCpuTurnStopReason.roundOver);
-    }
-    if (controller.currentSeat == humanSeat) {
-      return _result(ClassicHareegCpuTurnStopReason.humanTurn);
-    }
-
     final appliedDecisions = <ClassicHareegCpuTurnDecision>[];
     var appliedActionCount = 0;
 
-    while (!controller.isRoundOver &&
-        controller.currentSeat != humanSeat &&
-        appliedActionCount < actionLimit) {
+    while (true) {
+      final turnStop = _stopResultFor(
+        _turnGate(appliedActionCount),
+        appliedActionCount,
+        appliedDecisions,
+      );
+      if (turnStop != null) {
+        return turnStop;
+      }
+
       final step = _step(appliedActionCount + 1);
-      if (!await _callStepHook(hooks.beforeDecision, step)) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.hookStopped,
-          appliedActionCount,
-          appliedDecisions,
-        );
+      final beforeDecisionStop = _stopResultFor(
+        ClassicHareegCpuTurnLoopPlanner.hookGate(
+          shouldContinue: await _callStepHook(hooks.beforeDecision, step),
+        ),
+        appliedActionCount,
+        appliedDecisions,
+      );
+      if (beforeDecisionStop != null) {
+        return beforeDecisionStop;
       }
 
       final legalActionIds = controller.cpuActionIdsFor(step.seat);
       hooks.onLegalActions?.call(step, legalActionIds);
-      if (legalActionIds.isEmpty) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.noLegalActions,
-          appliedActionCount,
-          appliedDecisions,
-        );
+      final legalActionStop = _stopResultFor(
+        ClassicHareegCpuTurnLoopPlanner.legalActionGate(
+          hasLegalActions: legalActionIds.isNotEmpty,
+        ),
+        appliedActionCount,
+        appliedDecisions,
+      );
+      if (legalActionStop != null) {
+        return legalActionStop;
       }
 
       final intent = strategy.chooseMove(
@@ -224,12 +231,15 @@ class ClassicHareegCpuTurnRunner {
       );
       hooks.onActionChosen?.call(decision);
 
-      if (!await _callDecisionHook(hooks.beforeApply, decision)) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.hookStopped,
-          appliedActionCount,
-          appliedDecisions,
-        );
+      final beforeApplyStop = _stopResultFor(
+        ClassicHareegCpuTurnLoopPlanner.hookGate(
+          shouldContinue: await _callDecisionHook(hooks.beforeApply, decision),
+        ),
+        appliedActionCount,
+        appliedDecisions,
+      );
+      if (beforeApplyStop != null) {
+        return beforeApplyStop;
       }
 
       final applyResult = controller.applyAction(intent.actionId);
@@ -243,71 +253,89 @@ class ClassicHareegCpuTurnRunner {
       appliedActionCount += 1;
       appliedDecisions.add(decision);
 
-      final shouldContinue = await _callAfterApplyHook(
-        hooks.afterApply,
-        decision,
-        applyResult,
-      );
-      if (!shouldContinue) {
-        return _result(
-          controller.isRoundOver
-              ? ClassicHareegCpuTurnStopReason.roundOver
-              : ClassicHareegCpuTurnStopReason.hookStopped,
-          appliedActionCount,
-          appliedDecisions,
-        );
-      }
-
-      if (controller.isRoundOver) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.roundOver,
-          appliedActionCount,
-          appliedDecisions,
-        );
-      }
-      if (controller.currentSeat == humanSeat) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.humanTurn,
-          appliedActionCount,
-          appliedDecisions,
-        );
-      }
-      if (appliedActionCount >= actionLimit) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.safetyLimit,
-          appliedActionCount,
-          appliedDecisions,
-        );
-      }
-
-      if (!await _callDecisionHook(hooks.beforeNextAction, decision)) {
-        return _result(
-          ClassicHareegCpuTurnStopReason.hookStopped,
-          appliedActionCount,
-          appliedDecisions,
-        );
-      }
-    }
-
-    if (controller.isRoundOver) {
-      return _result(
-        ClassicHareegCpuTurnStopReason.roundOver,
+      final afterApplyStop = _stopResultFor(
+        ClassicHareegCpuTurnLoopPlanner.afterApplyHookGate(
+          shouldContinue: await _callAfterApplyHook(
+            hooks.afterApply,
+            decision,
+            applyResult,
+          ),
+          isRoundOver: controller.isRoundOver,
+        ),
         appliedActionCount,
         appliedDecisions,
       );
-    }
-    if (controller.currentSeat == humanSeat) {
-      return _result(
-        ClassicHareegCpuTurnStopReason.humanTurn,
+      if (afterApplyStop != null) {
+        return afterApplyStop;
+      }
+
+      final postApplyStop = _stopResultFor(
+        _turnGate(appliedActionCount),
         appliedActionCount,
         appliedDecisions,
       );
+      if (postApplyStop != null) {
+        return postApplyStop;
+      }
+
+      final beforeNextActionStop = _stopResultFor(
+        ClassicHareegCpuTurnLoopPlanner.hookGate(
+          shouldContinue: await _callDecisionHook(
+            hooks.beforeNextAction,
+            decision,
+          ),
+        ),
+        appliedActionCount,
+        appliedDecisions,
+      );
+      if (beforeNextActionStop != null) {
+        return beforeNextActionStop;
+      }
+    }
+  }
+
+  ClassicHareegCpuTurnLoopPlan _turnGate(int appliedActionCount) {
+    return ClassicHareegCpuTurnLoopPlanner.turnGate(
+      isRoundOver: controller.isRoundOver,
+      isHumanTurn: controller.currentSeat == humanSeat,
+      appliedActionCount: appliedActionCount,
+      actionLimit: actionLimit,
+    );
+  }
+
+  ClassicHareegCpuTurnRunResult? _stopResultFor(
+    ClassicHareegCpuTurnLoopPlan plan, [
+    int appliedActionCount = 0,
+    Iterable<ClassicHareegCpuTurnDecision> appliedDecisions = const [],
+  ]) {
+    if (plan.canContinue) {
+      return null;
     }
     return _result(
-      ClassicHareegCpuTurnStopReason.safetyLimit,
+      _stopReasonFor(plan.scenario),
       appliedActionCount,
       appliedDecisions,
     );
+  }
+
+  ClassicHareegCpuTurnStopReason _stopReasonFor(
+    ClassicHareegCpuTurnLoopScenario scenario,
+  ) {
+    return switch (scenario) {
+      ClassicHareegCpuTurnLoopScenario.humanTurn =>
+        ClassicHareegCpuTurnStopReason.humanTurn,
+      ClassicHareegCpuTurnLoopScenario.roundOver =>
+        ClassicHareegCpuTurnStopReason.roundOver,
+      ClassicHareegCpuTurnLoopScenario.noLegalActions =>
+        ClassicHareegCpuTurnStopReason.noLegalActions,
+      ClassicHareegCpuTurnLoopScenario.hookStopped =>
+        ClassicHareegCpuTurnStopReason.hookStopped,
+      ClassicHareegCpuTurnLoopScenario.safetyLimit =>
+        ClassicHareegCpuTurnStopReason.safetyLimit,
+      ClassicHareegCpuTurnLoopScenario.continueTurn => throw ArgumentError(
+        'Continue plans do not have a stop reason.',
+      ),
+    };
   }
 
   ClassicHareegCpuTurnStep _step(int index) {
