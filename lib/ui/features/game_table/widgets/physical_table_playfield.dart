@@ -12,6 +12,7 @@ import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import 'fifty_ring.dart';
+import 'opponent_seat_rails.dart';
 
 typedef TableMeldDropPredicate =
     bool Function(HareegCard card, PlayerSeat owner, int meldIndex);
@@ -349,7 +350,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               top: topInset,
               left: 0,
               right: 0,
-              child: _OpponentHandRail(
+              child: OpponentHandRail(
                 theme: theme,
                 count: cardCounts[PlayerSeat.north] ?? 0,
                 cardSize: opponentCardSize,
@@ -366,7 +367,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideRailHeight,
               child: SizedBox.expand(
                 key: const ValueKey('west-opponent-rail'),
-                child: _OpponentSideRail(
+                child: OpponentSideRail(
                   theme: theme,
                   count: cardCounts[PlayerSeat.west] ?? 0,
                   cardSize: opponentCardSize,
@@ -385,7 +386,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideRailHeight,
               child: SizedBox.expand(
                 key: const ValueKey('east-opponent-rail'),
-                child: _OpponentSideRail(
+                child: OpponentSideRail(
                   theme: theme,
                   count: cardCounts[PlayerSeat.east] ?? 0,
                   cardSize: opponentCardSize,
@@ -590,243 +591,6 @@ class PhysicalTablePlayfield extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _OpponentHandRail extends StatelessWidget {
-  const _OpponentHandRail({
-    required this.theme,
-    required this.count,
-    required this.cardSize,
-    required this.active,
-    required this.thinking,
-    required this.eliminated,
-    required this.compact,
-  });
-
-  final HareegCardTheme theme;
-  final int count;
-  final Size cardSize;
-  final bool active;
-  final bool thinking;
-  final bool eliminated;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleCount = compact ? 9 : 12;
-    final stackSize = _cardBackStackSize(
-      count: count,
-      axis: Axis.horizontal,
-      cardSize: cardSize,
-      visibleCount: visibleCount,
-    );
-    final cueSize = Size(
-      stackSize.width + (compact ? 18 : 24),
-      stackSize.height + (compact ? 14 : 18),
-    );
-    final height = math.max(
-      cardSize.height + (compact ? 16 : 20),
-      cueSize.height,
-    );
-    return SizedBox(
-      height: height,
-      child: Opacity(
-        opacity: eliminated ? 0.28 : 1,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: _TurnCueFrame(
-            active: active,
-            thinking: thinking,
-            size: cueSize,
-            child: _CardBackStack(
-              theme: theme,
-              count: count,
-              axis: Axis.horizontal,
-              cardSize: cardSize,
-              visibleCount: visibleCount,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OpponentSideRail extends StatelessWidget {
-  const _OpponentSideRail({
-    required this.theme,
-    required this.count,
-    required this.cardSize,
-    required this.active,
-    required this.thinking,
-    required this.eliminated,
-    required this.alignRight,
-    required this.compact,
-  });
-
-  final HareegCardTheme theme;
-  final int count;
-  final Size cardSize;
-  final bool active;
-  final bool thinking;
-  final bool eliminated;
-  final bool alignRight;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleCount = compact ? 5 : 6;
-    final stackSize = _cardBackStackSize(
-      count: count,
-      axis: Axis.vertical,
-      cardSize: cardSize,
-      visibleCount: visibleCount,
-    );
-    final cueSize = Size(
-      stackSize.width + (compact ? 14 : 18),
-      stackSize.height + (compact ? 18 : 24),
-    );
-    return Opacity(
-      opacity: eliminated ? 0.28 : 1,
-      child: Align(
-        alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
-        child: _TurnCueFrame(
-          active: active,
-          thinking: thinking,
-          size: cueSize,
-          child: _CardBackStack(
-            theme: theme,
-            count: count,
-            axis: Axis.vertical,
-            cardSize: cardSize,
-            visibleCount: visibleCount,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TurnCueFrame extends StatelessWidget {
-  const _TurnCueFrame({
-    required this.active,
-    required this.thinking,
-    required this.size,
-    required this.child,
-  });
-
-  final bool active;
-  final bool thinking;
-  final Size size;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      width: size.width,
-      height: size.height,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: active
-            ? LoungeTokens.goldAccent.withValues(alpha: thinking ? 0.14 : 0.08)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        border: active
-            ? Border.all(
-                color: LoungeTokens.goldAccent.withValues(
-                  alpha: thinking ? 0.70 : 0.52,
-                ),
-                width: thinking ? 1.6 : 1.2,
-              )
-            : null,
-        boxShadow: active
-            ? [
-                BoxShadow(
-                  color: LoungeTokens.goldAccent.withValues(
-                    alpha: thinking ? 0.26 : 0.18,
-                  ),
-                  blurRadius: thinking ? 20 : 14,
-                  spreadRadius: thinking ? 2 : 0,
-                ),
-              ]
-            : null,
-      ),
-      child: child,
-    );
-  }
-}
-
-Size _cardBackStackSize({
-  required int count,
-  required Axis axis,
-  required Size cardSize,
-  required int visibleCount,
-}) {
-  if (count <= 0) {
-    return Size.zero;
-  }
-  final shown = math.min(count, visibleCount);
-  final gap = axis == Axis.horizontal ? cardSize.width * 0.38 : 16.0;
-  return Size(
-    axis == Axis.horizontal
-        ? cardSize.width + (shown - 1) * gap
-        : cardSize.width,
-    axis == Axis.horizontal
-        ? cardSize.height
-        : cardSize.height + (shown - 1) * gap,
-  );
-}
-
-class _CardBackStack extends StatelessWidget {
-  const _CardBackStack({
-    required this.theme,
-    required this.count,
-    required this.axis,
-    required this.cardSize,
-    required this.visibleCount,
-  });
-
-  final HareegCardTheme theme;
-  final int count;
-  final Axis axis;
-  final Size cardSize;
-  final int visibleCount;
-
-  @override
-  Widget build(BuildContext context) {
-    if (count <= 0) return const SizedBox.shrink();
-    final shown = math.min(count, visibleCount);
-    final gap = axis == Axis.horizontal ? cardSize.width * 0.38 : 16.0;
-    final width = axis == Axis.horizontal
-        ? cardSize.width + (shown - 1) * gap
-        : cardSize.width;
-    final height = axis == Axis.horizontal
-        ? cardSize.height
-        : cardSize.height + (shown - 1) * gap;
-
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (var i = 0; i < shown; i++)
-            Positioned(
-              left: axis == Axis.horizontal ? i * gap : 0,
-              top: axis == Axis.vertical ? i * gap : 0,
-              child: HareegCardView(
-                theme: theme,
-                card: _backSeed(i),
-                faceDown: true,
-                size: cardSize,
-              ),
-            ),
-        ],
-      ),
     );
   }
 }
