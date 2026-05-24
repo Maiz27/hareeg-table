@@ -115,7 +115,7 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('Table rules'), findsOneWidget);
-    expect(find.text('Assistance'), findsOneWidget);
+    expect(find.text('Table strictness'), findsOneWidget);
     expect(find.text('Look'), findsOneWidget);
     expect(find.text('Feel'), findsOneWidget);
   });

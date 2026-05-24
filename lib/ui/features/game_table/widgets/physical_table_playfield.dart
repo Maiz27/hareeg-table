@@ -84,6 +84,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
     required this.isCpuRunning,
     required this.currentSeat,
     required this.activeSeats,
+    this.southFlashCardId,
   });
 
   /// Active card theme.
@@ -232,6 +233,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// Seats still active in the match.
   final Set<PlayerSeat> activeSeats;
 
+  /// Card id in the south hand that should briefly render as invalid — a
+  /// visual cue tied to the Strict +3 mistake toast.
+  final String? southFlashCardId;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -267,7 +272,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // (rail + meld lane).
         final stockBottom = compact ? 6.0 : 10.0;
         final stockReservedHeight = tableCardSize.height + (compact ? 32 : 42);
-        final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
+        final southMeldBottom = handCardSize.height + (compact ? 10.0 : 18.0);
         final southMeldHeight = compact ? 50.0 : 60.0;
         // Side rail (opponent hand) shrinks to a compact deck-stack hint —
         // 5 backs in compact, 6 in regular — and is centered on the table's
@@ -572,6 +577,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 cards: southCards,
                 selectedIds: selectedIds,
                 pendingId: pendingDiscard?.id,
+                flashCardId: southFlashCardId,
                 cardSize: handCardSize,
                 draggable: true,
                 onTap: onCardTap,

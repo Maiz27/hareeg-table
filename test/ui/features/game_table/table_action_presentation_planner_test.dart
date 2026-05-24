@@ -132,6 +132,33 @@ void main() {
       expect(plan.flight, isNull);
     });
 
+    test('cpu cover flies hand card to the target meld with face-down fallback', () {
+      const firstCardId = 'deck-3-seven-hearts';
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.south,
+        meldIndex: 2,
+        cardIds: [firstCardId],
+      );
+
+      final plan = ClassicHareegActionPresentationPlanner.forCpuAction(
+        seat: PlayerSeat.west,
+        actionId: coverAction,
+      );
+
+      expect(plan.sound, TableSoundEvent.meldPlace);
+      expect(plan.haptic, isNull);
+      expect(plan.flight?.seat, PlayerSeat.west);
+      expect(plan.flight?.source, TableActionFlightSource.handCard);
+      expect(
+        plan.flight?.destination,
+        TableActionFlightDestination.tableMeld,
+      );
+      expect(plan.flight?.cardId, firstCardId);
+      expect(plan.flight?.targetSeat, PlayerSeat.south);
+      expect(plan.flight?.targetMeldIndex, 2);
+      expect(plan.flight?.allowFaceDownFallback, isTrue);
+    });
+
     test('non-visual control actions keep only their matching cues', () {
       final returnTablePlay = ClassicHareegActionIds.returnTablePlayActionId(
         owner: PlayerSeat.south,

@@ -8,7 +8,6 @@ import '../data/persistence/match_repository.dart';
 import '../data/persistence/preferences_repository.dart';
 import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../l10n/app_strings.dart';
-import '../ui/core/aids/table_aids.dart';
 import '../ui/core/audio/table_audio.dart';
 import '../ui/core/cards/card_theme.dart';
 import '../ui/core/cards/card_theme_registry.dart';
@@ -20,7 +19,7 @@ import '../ui/features/game_setup/views/new_game_setup_screen.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
-import '../ui/features/round_summary/views/round_summary_screen.dart';
+import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
 import '../ui/features/settings/views/settings_screen.dart';
@@ -29,10 +28,10 @@ import 'app_routes.dart';
 
 /// Root Flutter application for Hareeg Table.
 ///
-/// Owns the app-wide preference subscription so [MotionScope], [AidsScope],
-/// [CardThemeScope], [HapticsScope], and [AudioScope] always reflect saved
-/// settings. The scopes wrap the [Navigator] so every route picks up the live
-/// values without re-loading preferences itself.
+/// Owns the app-wide preference subscription so [MotionScope],
+/// [StrictnessScope], [CardThemeScope], [HapticsScope], and [AudioScope]
+/// always reflect saved settings. The scopes wrap the [Navigator] so every
+/// route picks up the live values without re-loading preferences itself.
 class HareegTableApp extends StatefulWidget {
   /// Creates the Hareeg Table app shell.
   const HareegTableApp({
@@ -150,8 +149,8 @@ class _HareegTableAppState extends State<HareegTableApp> {
           settings: motion,
           child: CardContrastScope(
             highContrast: _values.highContrastCards,
-            child: AidsScope(
-              aids: _values.tableAids,
+            child: StrictnessScope(
+              strictness: _values.setup.tableStrictness,
               child: CardThemeScope(
                 theme: activeTheme,
                 child: HapticsScope(
@@ -222,26 +221,13 @@ class _HareegTableAppState extends State<HareegTableApp> {
           );
         }
 
-        if (settings.name == AppRoutes.roundSummary) {
+        if (settings.name == AppRoutes.matchOver) {
           final args = settings.arguments;
-          if (args is! RoundSummaryArguments) {
+          if (args is! MatchOverArguments) {
             return null;
           }
           return MaterialPageRoute<void>(
-            builder: (context) => RoundSummaryScreen(
-              result: args.result,
-              progress: args.progress,
-              previousScores: args.previousScores,
-              onContinue: args.nextSnapshot == null
-                  ? null
-                  : () => Navigator.of(context).pushReplacementNamed(
-                      AppRoutes.table,
-                      arguments: args.nextSnapshot,
-                    ),
-              onReturnToMenu: () => Navigator.of(
-                context,
-              ).popUntil(ModalRoute.withName(AppRoutes.home)),
-            ),
+            builder: (context) => MatchOverScreen(arguments: args),
             settings: settings,
           );
         }
@@ -256,5 +242,6 @@ class _HareegTableAppState extends State<HareegTableApp> {
 HareegCardTheme activeCardTheme(BuildContext context) =>
     CardThemeScope.of(context);
 
-/// Reads the active [TableAids] from the nearest [AidsScope].
-TableAids activeAids(BuildContext context) => AidsScope.of(context);
+/// Reads the active [TableStrictness] from the nearest [StrictnessScope].
+TableStrictness activeStrictness(BuildContext context) =>
+    StrictnessScope.of(context);

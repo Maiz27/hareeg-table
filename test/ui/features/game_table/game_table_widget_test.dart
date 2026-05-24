@@ -10,7 +10,6 @@ import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.d
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
-import 'package:hareeg_table/ui/core/aids/table_aids.dart';
 import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
@@ -20,6 +19,7 @@ import 'package:hareeg_table/ui/features/game_table/widgets/fifty_ring.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/pause_overlay.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/score_overlay.dart';
+import 'package:hareeg_table/ui/features/match_over/views/match_over_screen.dart';
 
 import '../../../support/test_fixtures.dart';
 
@@ -105,7 +105,9 @@ void main() {
       await tester.tap(find.byTooltip('Pause'));
       await tester.pumpAndSettle();
       expect(find.byType(PauseOverlay), findsOneWidget);
-      expect(find.text('Table aids'), findsOneWidget);
+      // Strictness is locked at match start, so it does not appear in the
+      // pause overlay. Only ergonomic toggles do.
+      expect(find.text('Table aids'), findsNothing);
       expect(find.text('Motion speed'), findsOneWidget);
       expect(find.text('Table haptics'), findsOneWidget);
 
@@ -330,9 +332,7 @@ void main() {
     ) async {
       const joker = HareegCard.joker(deckIndex: 86, jokerIndex: 0);
       final preferences = MemoryPreferencesRepository()
-        ..preferences = GamePreferences.defaults().copyWith(
-          memoryJokerDisplay: true,
-        );
+        ..preferences = GamePreferences.defaults().copyWith();
 
       await _openTable(
         tester,
@@ -757,11 +757,72 @@ void main() {
       expect(find.byTooltip('Scores'), findsOneWidget);
     });
 
+    testWidgets('match result dwells then navigates to MatchOverScreen', (
+      tester,
+    ) async {
+      final meldCards = [
+        _card(CardRank.seven, CardSuit.clubs, 101),
+        _card(CardRank.eight, CardSuit.clubs, 101),
+        _card(CardRank.nine, CardSuit.clubs, 101),
+      ];
+      final finalDiscard = _card(CardRank.two, CardSuit.spades, 101);
+
+      final repository = await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [...meldCards, finalDiscard],
+          openingState: _opened(PlayerSeat.south),
+          roundNumber: 6,
+          scores: const {
+            PlayerSeat.south: 0,
+            PlayerSeat.east: 30,
+            PlayerSeat.north: 30,
+            PlayerSeat.west: 30,
+          },
+        ),
+      );
+
+      for (final label in [
+        'Seven of Clubs',
+        'Eight of Clubs',
+        'Nine of Clubs',
+      ]) {
+        await tester.tap(
+          find.bySemanticsLabel(label).first,
+          warnIfMissed: false,
+        );
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Play meld'));
+      await tester.pumpAndSettle();
+
+      final discard = find.bySemanticsLabel('Two of Spades').first;
+      final dropTarget = find.byKey(const ValueKey('discard-pile-drop-target'));
+      await tester.dragFrom(
+        tester.getCenter(discard),
+        tester.getCenter(dropTarget) - tester.getCenter(discard),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('round-result-overlay')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MatchOverScreen), findsOneWidget);
+      expect(find.text('You win the match'), findsOneWidget);
+      expect(find.text('6 rounds played'), findsOneWidget);
+      expect(repository.saved, isNull);
+    });
+
     testWidgets('FiftyRing is present during a claimable Fifty window', (
       tester,
     ) async {
       final setup = ClassicHareegSetup.defaults().copyWith(
-        rulePreset: RulePreset.tablePenalties,
+        tableStrictness: TableStrictness.strict,
         fiftyTimerSeconds: 50,
       );
       await _openTable(
@@ -816,166 +877,279 @@ void main() {
       },
     );
 
-    testWidgets('memory joker preference flows into table card rendering', (
-      tester,
-    ) async {
-      const represented = CardIdentity(
-        rank: CardRank.queen,
-        suit: CardSuit.hearts,
-      );
-      const joker = HareegCard.joker(
-        deckIndex: 93,
-        jokerIndex: 0,
-        representedIdentity: represented,
-      );
-      final preferences = MemoryPreferencesRepository()
-        ..preferences = GamePreferences.defaults().copyWith(
-          memoryJokerDisplay: true,
+    testWidgets(
+      'coaching/standard tiers render joker with persistent assisted identity',
+      (tester) async {
+        const represented = CardIdentity(
+          rank: CardRank.queen,
+          suit: CardSuit.hearts,
+        );
+        const joker = HareegCard.joker(
+          deckIndex: 93,
+          jokerIndex: 0,
+          representedIdentity: represented,
         );
 
-      await _openTable(
-        tester,
-        southHand: [
-          joker,
-          _card(CardRank.three, CardSuit.spades, 93),
-          _card(CardRank.four, CardSuit.spades, 93),
-        ],
-        preferencesRepository: preferences,
-      );
+        await _openTable(
+          tester,
+          southHand: [
+            joker,
+            _card(CardRank.three, CardSuit.spades, 93),
+            _card(CardRank.four, CardSuit.spades, 93),
+          ],
+        );
 
-      expect(
-        find.byKey(
+        expect(
+          find.byKey(
+            ValueKey(
+              '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+              '${CardVisualState.normal}-${JokerDisplay.assisted}',
+            ),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'strict tier long-press hides represented identity during the cue',
+      (tester) async {
+        const represented = CardIdentity(
+          rank: CardRank.queen,
+          suit: CardSuit.hearts,
+        );
+        const joker = HareegCard.joker(
+          deckIndex: 94,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        );
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.strict,
+        );
+
+        final repository = MemoryMatchRepository(
+          saved: _savedSnapshot(
+            setup: setup,
+            southHand: [
+              joker,
+              _card(CardRank.three, CardSuit.spades, 94),
+              _card(CardRank.four, CardSuit.spades, 94),
+            ],
+          ),
+        );
+        await tester.pumpWidget(
+          HareegTableApp(
+            preferencesRepository: MemoryPreferencesRepository(),
+            matchRepository: repository,
+            initialRouteOverride: AppRoutes.home,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Continue'));
+        await tester.tap(find.text('Continue'));
+        // Avoid pumpAndSettle so the joker cue stays mid-animation.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        final memoryReveal = find.byKey(
           ValueKey(
             '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
             '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
           ),
-        ),
-        findsOneWidget,
-      );
-    });
+        );
+        expect(memoryReveal, findsOneWidget);
 
-    testWidgets('memory joker reveal quiets after the reveal window', (
-      tester,
-    ) async {
-      const represented = CardIdentity(
-        rank: CardRank.queen,
-        suit: CardSuit.hearts,
-      );
-      const joker = HareegCard.joker(
-        deckIndex: 94,
-        jokerIndex: 0,
-        representedIdentity: represented,
-      );
-      final preferences = MemoryPreferencesRepository()
-        ..preferences = GamePreferences.defaults().copyWith(
-          memoryJokerDisplay: true,
+        await tester.longPressAt(tester.getCenter(memoryReveal));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final overlay = find.byKey(const ValueKey('card-inspect-overlay'));
+        expect(overlay, findsOneWidget);
+        // Strict/Table never reveals the represented identity on long-press —
+        // not during the cue, not after. The inspect title is plain "Joker"
+        // and the inspect body is suppressed entirely.
+        expect(
+          find.descendant(of: overlay, matching: find.text('Joker')),
+          findsWidgets,
+        );
+        expect(find.textContaining('Queen'), findsNothing);
+        expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'strict/table tiers quiet jokers to plain after the placement cue',
+      (tester) async {
+        const represented = CardIdentity(
+          rank: CardRank.queen,
+          suit: CardSuit.hearts,
+        );
+        const joker = HareegCard.joker(
+          deckIndex: 95,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        );
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.table,
         );
 
-      await _openTable(
-        tester,
-        southHand: [
-          joker,
-          _card(CardRank.three, CardSuit.spades, 94),
-          _card(CardRank.four, CardSuit.spades, 94),
-        ],
-        preferencesRepository: preferences,
-      );
-
-      expect(
-        find.byKey(
-          ValueKey(
-            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
-            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            setup: setup,
+            southHand: [
+              joker,
+              _card(CardRank.three, CardSuit.spades, 95),
+              _card(CardRank.four, CardSuit.spades, 95),
+            ],
           ),
-        ),
-        findsOneWidget,
-      );
+        );
 
-      await tester.pump(const Duration(milliseconds: 1700));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(
+        // _openTable runs pumpAndSettle, which lets the 3.6s placement-cue
+        // animation finish. The joker reverts to plain (unassigned) once the
+        // fade-out completes.
+        final quietedJoker = find.byKey(
           ValueKey(
             '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
             '${CardVisualState.normal}-${JokerDisplay.unassigned}',
           ),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          ValueKey(
-            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
-            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
-          ),
-        ),
-        findsNothing,
-      );
-    });
+        );
+        expect(quietedJoker, findsOneWidget);
 
-    testWidgets('hard table mode suppresses represented joker aids', (
-      tester,
-    ) async {
-      const represented = CardIdentity(
-        rank: CardRank.queen,
-        suit: CardSuit.hearts,
-      );
-      const joker = HareegCard.joker(
-        deckIndex: 95,
-        jokerIndex: 0,
-        representedIdentity: represented,
-      );
-      final setup = ClassicHareegSetup.defaults().copyWith(
-        rulePreset: RulePreset.hardTable17,
-      );
-      final preferences = MemoryPreferencesRepository()
-        ..preferences = GamePreferences.defaults().copyWith(
-          memoryJokerDisplay: true,
+        await tester.longPressAt(tester.getCenter(quietedJoker));
+        await tester.pumpAndSettle();
+
+        final overlay = find.byKey(const ValueKey('card-inspect-overlay'));
+        expect(overlay, findsOneWidget);
+        // Long-press in Strict/Table shows "Joker" only — no represented
+        // identity and no inspect body. The player must remember the
+        // declared identity from the placement cue.
+        expect(
+          find.descendant(of: overlay, matching: find.text('Joker')),
+          findsWidgets,
+        );
+        expect(find.textContaining('Queen'), findsNothing);
+        expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'joker placement raises a feedback chip naming the declared identity',
+      (tester) async {
+        const joker = HareegCard.joker(deckIndex: 87, jokerIndex: 0);
+        final jackHearts = _card(CardRank.jack, CardSuit.hearts, 87);
+        final queenHearts = _card(CardRank.queen, CardSuit.hearts, 87);
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            southHand: [
+              jackHearts,
+              queenHearts,
+              joker,
+              _card(CardRank.four, CardSuit.clubs, 87),
+            ],
+            openingState: _opened(PlayerSeat.south),
+          ),
         );
 
-      await _openTable(
-        tester,
-        savedSnapshot: _savedSnapshot(
-          setup: setup,
-          southHand: [
-            joker,
-            _card(CardRank.three, CardSuit.spades, 95),
-            _card(CardRank.four, CardSuit.spades, 95),
-          ],
-        ),
-        preferencesRepository: preferences,
-      );
+        await tester.tap(
+          find.bySemanticsLabel('Jack of Hearts').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Queen of Hearts').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Joker').first,
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
 
-      final hardJoker = find.byKey(
-        ValueKey(
+        await tester.tap(find.byTooltip('Play selected meld'));
+        await tester.pumpAndSettle();
+
+        // Joker choice dialog is open; pick King of Hearts so the joker is
+        // unambiguously declared as that identity.
+        await tester.tap(find.text('Joker as King of Hearts'));
+        // Don't pumpAndSettle — that would advance past the 3s feedback chip
+        // window and the 3.6s memoryReveal cue. Pump enough to clear the
+        // staggered meld flight (cards x stagger + flight duration ≈ 440ms)
+        // and then catch the chip during its lifetime.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 700));
+
+        expect(find.text('You declared joker as King of Hearts.'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'joker placement cue holds memoryReveal for 3s then reverts to plain',
+      (tester) async {
+        const represented = CardIdentity(
+          rank: CardRank.queen,
+          suit: CardSuit.hearts,
+        );
+        const joker = HareegCard.joker(
+          deckIndex: 95,
+          jokerIndex: 0,
+          representedIdentity: represented,
+        );
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.strict,
+        );
+
+        final repository = MemoryMatchRepository(
+          saved: _savedSnapshot(
+            setup: setup,
+            southHand: [
+              joker,
+              _card(CardRank.three, CardSuit.spades, 95),
+              _card(CardRank.four, CardSuit.spades, 95),
+            ],
+          ),
+        );
+        await tester.pumpWidget(
+          HareegTableApp(
+            preferencesRepository: MemoryPreferencesRepository(),
+            matchRepository: repository,
+            initialRouteOverride: AppRoutes.home,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Continue'));
+        await tester.tap(find.text('Continue'));
+        // After tapping Continue, only pump frames that drive the table mount.
+        // Avoid pumpAndSettle so the joker cue is captured mid-animation.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+
+        final memoryReveal = ValueKey(
+          '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
+          '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
+        );
+        final unassigned = ValueKey(
           '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
           '${CardVisualState.normal}-${JokerDisplay.unassigned}',
-        ),
-      );
-      expect(hardJoker, findsOneWidget);
-      expect(
-        find.byKey(
-          ValueKey(
-            '${CardThemeRegistry.defaultThemeId}-${joker.id}-'
-            '${CardVisualState.normal}-${JokerDisplay.memoryReveal}',
-          ),
-        ),
-        findsNothing,
-      );
+        );
 
-      await tester.longPressAt(tester.getCenter(hardJoker));
-      await tester.pumpAndSettle();
+        // During the 200ms fade-in + 3s hold the joker keeps the
+        // memoryReveal key.
+        expect(find.byKey(memoryReveal), findsOneWidget);
 
-      final overlay = find.byKey(const ValueKey('card-inspect-overlay'));
-      expect(overlay, findsOneWidget);
-      expect(
-        find.descendant(of: overlay, matching: find.text('Joker')),
-        findsWidgets,
-      );
-      expect(find.textContaining('Queen'), findsNothing);
-      expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
-    });
+        // Halfway through the hold the badge is still in memoryReveal mode.
+        await tester.pump(const Duration(milliseconds: 1500));
+        expect(find.byKey(memoryReveal), findsOneWidget);
+
+        // After the full cue (200ms fade-in + 3s hold + 400ms fade-out) the
+        // badge has quieted to plain joker. Drain remaining frames so the
+        // post-cue setState rebuild applies.
+        await tester.pump(const Duration(milliseconds: 2200));
+        await tester.pumpAndSettle();
+        expect(find.byKey(memoryReveal), findsNothing);
+        expect(find.byKey(unassigned), findsOneWidget);
+      },
+    );
 
     testWidgets('long press opens guided card inspect with explanation', (
       tester,
@@ -1005,19 +1179,25 @@ void main() {
       expect(find.byKey(const ValueKey('card-inspect-overlay')), findsNothing);
     });
 
-    testWidgets('table mode card inspect stays minimal', (tester) async {
-      final preferences = MemoryPreferencesRepository()
-        ..preferences = GamePreferences.defaults().copyWith(
-          tableAids: TableAids.tableMode,
-        );
+    testWidgets('table tier card inspect still shows value for real cards', (
+      tester,
+    ) async {
+      // Under the strictness redesign all tiers surface card value in the
+      // inspect overlay — the prior "Table mode hides body" behavior is
+      // gone. Only joker identity is hidden in Strict/Table.
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        tableStrictness: TableStrictness.table,
+      );
       await _openTable(
         tester,
-        southHand: [
-          _card(CardRank.queen, CardSuit.hearts, 96),
-          _card(CardRank.three, CardSuit.spades, 96),
-          _card(CardRank.four, CardSuit.spades, 96),
-        ],
-        preferencesRepository: preferences,
+        savedSnapshot: _savedSnapshot(
+          setup: setup,
+          southHand: [
+            _card(CardRank.queen, CardSuit.hearts, 96),
+            _card(CardRank.three, CardSuit.spades, 96),
+            _card(CardRank.four, CardSuit.spades, 96),
+          ],
+        ),
       );
 
       final target = find.bySemanticsLabel('Queen of Hearts').first;
@@ -1029,7 +1209,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Queen of Hearts'), findsOneWidget);
-      expect(find.byKey(const ValueKey('card-inspect-body')), findsNothing);
+      expect(find.byKey(const ValueKey('card-inspect-body')), findsOneWidget);
     });
 
     testWidgets('opponent meld tap expands the meld in place', (tester) async {
@@ -1096,7 +1276,7 @@ void main() {
   });
 }
 
-Future<void> _openTable(
+Future<MemoryMatchRepository> _openTable(
   WidgetTester tester, {
   List<HareegCard>? southHand,
   ClassicHareegMatchSnapshot? savedSnapshot,
@@ -1126,6 +1306,7 @@ Future<void> _openTable(
     ).label,
     'AS',
   );
+  return repository;
 }
 
 Future<void> _pumpPlayfield(
@@ -1216,6 +1397,8 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
+  Map<PlayerSeat, int> scores = const {},
+  List<PlayerSeat>? activeSeats,
   int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
@@ -1235,6 +1418,15 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     turnPhase: turnPhase,
     pendingDiscard: pendingDiscard,
     openingState: openingState,
+    scores: scores,
+    activeSeats:
+        activeSeats ??
+        const [
+          PlayerSeat.south,
+          PlayerSeat.east,
+          PlayerSeat.north,
+          PlayerSeat.west,
+        ],
     roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),

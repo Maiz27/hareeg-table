@@ -25,6 +25,7 @@ class SouthHandFan extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onReorder,
+    this.flashCardId,
   });
 
   /// Card theme used to render hand cards.
@@ -55,6 +56,10 @@ class SouthHandFan extends StatelessWidget {
   /// the displayed hand order. The orchestrator updates its display order
   /// accordingly; the engine's hand list is unchanged.
   final void Function(HareegCard card, int targetIndex) onReorder;
+
+  /// Card id to flash as invalid — used to highlight a card that just got
+  /// the Strict-tier +3 reject. Cleared on a timer by the orchestrator.
+  final String? flashCardId;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +113,7 @@ class SouthHandFan extends StatelessWidget {
                           card: cards[i],
                           selected: selectedIds.contains(cards[i].id),
                           pending: pendingId == cards[i].id,
+                          flashInvalid: flashCardId == cards[i].id,
                           insertGapBefore: candidates.isNotEmpty,
                           size: cardSize,
                           draggable: draggable,
@@ -153,6 +159,7 @@ class _DraggableHandCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.insertGapBefore = false,
+    this.flashInvalid = false,
   });
 
   final HareegCardTheme theme;
@@ -169,9 +176,15 @@ class _DraggableHandCard extends StatelessWidget {
   /// will land.
   final bool insertGapBefore;
 
+  /// True while this card should render with the invalid-state overlay as a
+  /// transient "this discard was rejected" cue (Strict +3 mistake).
+  final bool flashInvalid;
+
   @override
   Widget build(BuildContext context) {
-    final state = pending
+    final state = flashInvalid
+        ? CardVisualState.invalid
+        : pending
         ? CardVisualState.pending
         : selected
         ? CardVisualState.selected

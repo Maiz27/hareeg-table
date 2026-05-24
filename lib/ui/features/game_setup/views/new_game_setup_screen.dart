@@ -5,7 +5,6 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/aids/table_aids.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../settings/models/settings_section.dart';
@@ -102,27 +101,20 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                       _update(_setup.copyWith(starterMode: value)),
                 ),
                 const SizedBox(height: LoungeTokens.space5),
-                _StartChoice<RulePreset>(
+                _StartChoice<TableStrictness>(
                   icon: Icons.gavel_outlined,
-                  title: strings.rulePreset,
+                  title: strings.tableStrictnessTitle,
                   segments: [
-                    ButtonSegment(
-                      value: RulePreset.assisted,
-                      label: Text(strings.assisted),
-                    ),
-                    ButtonSegment(
-                      value: RulePreset.tablePenalties,
-                      label: Text(strings.penalties),
-                    ),
-                    ButtonSegment(
-                      value: RulePreset.hardTable17,
-                      label: Text(strings.hard17),
-                    ),
+                    for (final tier in TableStrictness.values)
+                      ButtonSegment(
+                        value: tier,
+                        label: Text(strings.tableStrictnessLabel(tier)),
+                      ),
                   ],
-                  value: _setup.rulePreset,
+                  value: _setup.tableStrictness,
                   onChanged: (value) =>
-                      _update(_setup.copyWith(rulePreset: value)),
-                  note: _rulePresetDescription(_setup.rulePreset, strings),
+                      _update(_setup.copyWith(tableStrictness: value)),
+                  note: strings.tableStrictnessDescription(_setup.tableStrictness),
                 ),
                 const SizedBox(height: LoungeTokens.space5),
                 _StartChoice<int>(
@@ -155,7 +147,6 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                 _HouseRulesFooter(
                   deckCount: _setup.deckCount,
                   fiftyTimerSeconds: _setup.fiftyTimerSeconds,
-                  aidsLabel: _aidsLabel(_preferences.tableAids, strings),
                   onEdit: () => Navigator.of(context).pushNamed(
                     AppRoutes.settings,
                     arguments: const SettingsRouteArguments(
@@ -205,24 +196,6 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
     });
   }
 
-  static String _aidsLabel(TableAids aid, AppStrings strings) {
-    return switch (aid) {
-      TableAids.guided => strings.guided,
-      TableAids.standard => strings.standard,
-      TableAids.tableMode => strings.tableMode,
-    };
-  }
-
-  static String _rulePresetDescription(RulePreset preset, AppStrings strings) {
-    if (!strings.isRtl) {
-      return preset.description;
-    }
-    return switch (preset) {
-      RulePreset.assisted => 'يمنع الحركات غير القانونية أثناء التعلم.',
-      RulePreset.tablePenalties => 'يسمح بأخطاء محددة مع +3.',
-      RulePreset.hardTable17 => 'يسمح بأخطاء محددة مع +17.',
-    };
-  }
 }
 
 class _SetupBackdrop extends StatelessWidget {
@@ -358,13 +331,11 @@ class _HouseRulesFooter extends StatelessWidget {
   const _HouseRulesFooter({
     required this.deckCount,
     required this.fiftyTimerSeconds,
-    required this.aidsLabel,
     required this.onEdit,
   });
 
   final int deckCount;
   final int fiftyTimerSeconds;
-  final String aidsLabel;
   final VoidCallback onEdit;
 
   @override
@@ -399,7 +370,6 @@ class _HouseRulesFooter extends StatelessWidget {
                     strings.houseRulesSummary(
                       deckCount: deckCount,
                       fiftyTimerSeconds: fiftyTimerSeconds,
-                      aidsLabel: aidsLabel,
                     ),
                     style: LoungeTokens.bodyMuted,
                   ),

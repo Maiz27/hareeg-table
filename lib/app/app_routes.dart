@@ -12,8 +12,8 @@ abstract final class AppRoutes {
   /// Live Classic Hareeg table.
   static const table = '/table';
 
-  /// End-of-round summary shown after the live table reports a round outcome.
-  static const roundSummary = '/round-summary';
+  /// Final match summary shown after the live table reports a match winner.
+  static const matchOver = '/match-over';
 
   /// Local settings surface.
   static const settings = '/settings';

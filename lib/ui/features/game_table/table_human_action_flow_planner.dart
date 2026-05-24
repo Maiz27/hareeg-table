@@ -54,6 +54,7 @@ abstract final class ClassicHareegHumanActionFlowPlanner {
     required bool isSuccess,
     required String? message,
     required bool soundPlayedWithFlight,
+    bool wasReverted = false,
   }) {
     if (!isSuccess) {
       return ClassicHareegHumanActionFlowPlan(
@@ -65,6 +66,24 @@ abstract final class ClassicHareegHumanActionFlowPlanner {
         shouldClearSelection: false,
         shouldEnsureFiftyTicker: false,
         shouldPersist: false,
+        shouldRunCpuAfterPersist: false,
+      );
+    }
+
+    if (wasReverted) {
+      // Strict tier: penalty was applied to the score but the discard didn't
+      // happen. The turn is still the human's — surface the "+3" toast as an
+      // error chip, fire the illegal-action haptic, and don't advance the
+      // game state. Persistence still runs so the score update is durable.
+      return const ClassicHareegHumanActionFlowPlan(
+        didApplyAction: false,
+        feedbackMessage: null,
+        feedbackIsError: false,
+        haptic: TableHapticEvent.illegalAction,
+        sound: TableSoundEvent.invalidAction,
+        shouldClearSelection: true,
+        shouldEnsureFiftyTicker: false,
+        shouldPersist: true,
         shouldRunCpuAfterPersist: false,
       );
     }

@@ -142,22 +142,51 @@ abstract final class TableMotion {
   static const pendingReturn = Duration(milliseconds: 180);
 
   /// CPU read-pause before any action becomes visible.
-  static const cpuReadPause = Duration(milliseconds: 320);
+  static const cpuReadPause = Duration(milliseconds: 360);
 
   /// CPU move tween duration.
-  static const cpuMove = Duration(milliseconds: 120);
+  static const cpuMove = Duration(milliseconds: 140);
 
   /// CPU card-flight duration in normal turn pacing.
-  static const cpuFlight = Duration(milliseconds: 200);
+  static const cpuFlight = Duration(milliseconds: 220);
 
-  /// Fast CPU read-pause before each visible action.
-  static const fastCpuReadPause = Duration(milliseconds: 100);
+  /// Fast CPU read-pause before each visible action. Kept tight so quiet
+  /// draw/discard turns feel snappy; meaningful actions get their own dwell
+  /// via [cpuPostMeldDwell].
+  static const fastCpuReadPause = Duration(milliseconds: 220);
 
   /// Fast CPU pause between visible actions.
-  static const fastCpuActionGap = Duration(milliseconds: 140);
+  static const fastCpuActionGap = Duration(milliseconds: 160);
 
   /// Fast CPU card-flight duration.
-  static const fastCpuFlight = Duration(milliseconds: 160);
+  static const fastCpuFlight = Duration(milliseconds: 190);
+
+  /// Extra dwell after a CPU meld or cover so the player can absorb the new
+  /// table-side cards (and any joker-declaration cue) before the next action.
+  /// The meld flight itself supplies the visual beat; this dwell only covers
+  /// the chip-reading window once the cards have landed.
+  static const cpuPostMeldDwell = Duration(milliseconds: 520);
+
+  /// Fast-mode dwell after a CPU meld or cover.
+  static const fastCpuPostMeldDwell = Duration(milliseconds: 380);
+
+  /// Full duration of the multi-card "set leaving the hand for the table"
+  /// flight (the fan of cards travelling from a seat's hand to its meld
+  /// lane). Long enough to read each card in the fan, short enough not to
+  /// drag the turn pacing.
+  static const meldFlightNormal = Duration(milliseconds: 450);
+
+  /// Fast-mode duration for the multi-card meld flight.
+  static const meldFlightFast = Duration(milliseconds: 280);
+
+  /// Gap between successive set-flights when a single play-meld action
+  /// produces more than one meld (e.g. an opening that drops two sets at
+  /// once). Gives the eye a beat to land on the previous set before the
+  /// next leaves the hand.
+  static const meldInterSetDelayNormal = Duration(milliseconds: 440);
+
+  /// Fast-mode inter-set delay.
+  static const meldInterSetDelayFast = Duration(milliseconds: 280);
 
   /// Fifty heat pulse on claim.
   static const fiftyHeatPulse = Duration(milliseconds: 1400);
