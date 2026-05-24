@@ -15,8 +15,9 @@ enum TableStrictness {
   /// detail. Persistent joker identity badge.
   coaching('Coaching', 'Blocks illegal moves and surfaces full hints.'),
 
-  /// Blocks illegal moves; no proactive hints, no meld picker. Persistent
-  /// joker identity badge.
+  /// Blocks illegal moves; no proactive hints. Meld confirm rack is
+  /// available (it is a reactive confirm/disambiguate surface, not a
+  /// proactive hint). Persistent joker identity badge.
   standard('Standard', 'Blocks illegal moves, no proactive hints.'),
 
   /// Allows selected mistakes with a +3 score penalty; no hints, no meld
