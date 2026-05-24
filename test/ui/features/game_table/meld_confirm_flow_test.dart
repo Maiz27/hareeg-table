@@ -48,15 +48,12 @@ void main() {
 
         await tester.tap(
           find.bySemanticsLabel('Eight of Diamonds').first,
-          warnIfMissed: false,
         );
         await tester.tap(
           find.bySemanticsLabel('Nine of Diamonds').first,
-          warnIfMissed: false,
         );
         await tester.tap(
           find.bySemanticsLabel('Ten of Diamonds').first,
-          warnIfMissed: false,
         );
         await tester.pumpAndSettle();
 
