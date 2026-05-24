@@ -1275,6 +1275,57 @@ void main() {
     });
 
     testWidgets(
+      'fast-forward chrome button appears when south is removed on Table tier',
+      (tester) async {
+        // Table tier + south already kicked from this round → spectator skip
+        // is the whole point of the fast-forward button, so it must surface.
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.table,
+        );
+        final snapshot = _savedSnapshot(
+          setup: setup,
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          activeSeats: const [
+            PlayerSeat.south,
+            PlayerSeat.east,
+            PlayerSeat.north,
+            PlayerSeat.west,
+          ],
+          removedSeats: const [PlayerSeat.south],
+        );
+        await _openTable(tester, savedSnapshot: snapshot);
+        // The CPU loop is already cycling; pump a few frames so the chrome
+        // settles without waiting for the entire round to play out.
+        await tester.pump(const Duration(milliseconds: 16));
+
+        expect(find.byTooltip('Skip to next round'), findsOneWidget);
+
+        // Run the rest of the round (the CPU loop or the fast-forward will
+        // both finish it eventually) so the test exits cleanly without
+        // pending timers / animations stuck in flight.
+        await tester.tap(find.byTooltip('Skip to next round'));
+        await tester.pumpAndSettle(const Duration(seconds: 5));
+
+        // After the rip the controller is past the round boundary — either
+        // a new round was dealt or the match-over screen was pushed.
+        // Either way the in-round fast-forward button is gone.
+        expect(find.byTooltip('Skip to next round'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'fast-forward chrome button is hidden when strictness is not Table',
+      (tester) async {
+        // Coaching tier never removes the player from a round, so the
+        // spectator-skip button has no reason to appear there.
+        await _openTable(tester);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byTooltip('Skip to next round'), findsNothing);
+      },
+    );
+
+    testWidgets(
       'match short-circuits to MatchOver when south is score-eliminated',
       (tester) async {
         // South sits one shy of elimination. CPU east finishes the round with
@@ -1443,6 +1494,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   OpeningState? openingState,
   Map<PlayerSeat, int> scores = const {},
   List<PlayerSeat>? activeSeats,
+  List<PlayerSeat> removedSeats = const [],
   int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
@@ -1473,6 +1525,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
           PlayerSeat.north,
           PlayerSeat.west,
         ],
+    removedSeats: removedSeats,
     roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
