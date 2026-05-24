@@ -12,7 +12,7 @@ void main() {
       'assisted preset blocks mistakes without score or removal changes',
       () {
         final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
-          preset: RulePreset.assisted,
+          strictness: TableStrictness.coaching,
           mistake: MistakeType.wrongJokerReplacement,
           seat: PlayerSeat.south,
           scores: const {PlayerSeat.south: 4},
@@ -36,7 +36,7 @@ void main() {
 
     test('table penalties apply score only and keep turn state alive', () {
       final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         mistake: MistakeType.wrongFiftyClaim,
         seat: PlayerSeat.east,
         scores: const {PlayerSeat.east: 6},
@@ -65,7 +65,7 @@ void main() {
       'hard table removal applies score and advances to next active seat',
       () {
         final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
-          preset: RulePreset.hardTable17,
+          strictness: TableStrictness.table,
           mistake: MistakeType.illegalCoverDiscard,
           seat: PlayerSeat.south,
           scores: const {PlayerSeat.south: 2},
@@ -99,7 +99,7 @@ void main() {
 
     test('hard table removal returns round result when one seat remains', () {
       final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         mistake: MistakeType.wrongFiftyClaim,
         seat: PlayerSeat.north,
         scores: const {PlayerSeat.north: 0, PlayerSeat.south: 0},

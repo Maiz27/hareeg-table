@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
-import '../../ui/core/aids/table_aids.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
@@ -42,13 +41,11 @@ class GamePreferences {
   const GamePreferences({
     required this.setup,
     required this.handSortMode,
-    required this.memoryJokerDisplay,
     required this.language,
     required this.motionSpeed,
     required this.fastCpuTurns,
     required this.hapticsEnabled,
     required this.soundEnabled,
-    required this.tableAids,
     required this.cardThemeId,
     required this.highContrastCards,
     required this.tableSurfaceTheme,
@@ -59,13 +56,11 @@ class GamePreferences {
     return GamePreferences(
       setup: ClassicHareegSetup.defaults(),
       handSortMode: HandSortMode.byRank,
-      memoryJokerDisplay: false,
       language: AppLanguage.english,
       motionSpeed: MotionSpeed.normal,
       fastCpuTurns: true,
       hapticsEnabled: true,
       soundEnabled: true,
-      tableAids: TableAids.guided,
       cardThemeId: CardThemeRegistry.defaultThemeId,
       highContrastCards: false,
       tableSurfaceTheme: TableSurfaceTheme.sandline,
@@ -73,6 +68,11 @@ class GamePreferences {
   }
 
   /// Restores preferences from persisted JSON-compatible data.
+  ///
+  /// Handles the legacy schema (`rulePreset` + `tableAids` + `memoryJokerDisplay`)
+  /// by migrating to [TableStrictness]. The migration runs before
+  /// [ClassicHareegSetup.fromJson] sees the setup map, so the model factory
+  /// never needs to know about the old shape.
   factory GamePreferences.fromJson(Map<String, Object?> json) {
     final defaults = GamePreferences.defaults();
     final setupJson = jsonMapOrNull(json['setup']);
@@ -84,20 +84,20 @@ class GamePreferences {
     final soundEnabled = savedSoundDefaultsVersion == _soundDefaultsVersion
         ? _asBool(json['soundEnabled']) ?? defaults.soundEnabled
         : defaults.soundEnabled;
+    final setup = _restoreSetup(
+      setupJson: setupJson,
+      legacyTableAids: _asString(json['tableAids']),
+      legacyMemoryJokerDisplay: _asBool(json['memoryJokerDisplay']),
+    );
     return GamePreferences(
-      setup: setupJson != null
-          ? ClassicHareegSetup.fromJson(setupJson)
-          : ClassicHareegSetup.defaults(),
+      setup: setup,
       handSortMode: _readHandSortMode(json, defaults.handSortMode),
-      memoryJokerDisplay:
-          _asBool(json['memoryJokerDisplay']) ?? defaults.memoryJokerDisplay,
       language: AppLanguage.fromName(_asString(json['language'])),
       motionSpeed: motionSpeed,
       fastCpuTurns: _asBool(json['fastCpuTurns']) ?? defaults.fastCpuTurns,
       hapticsEnabled:
           _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
       soundEnabled: soundEnabled,
-      tableAids: TableAids.fromName(_asString(json['tableAids'])),
       cardThemeId: _asString(json['cardThemeId']) ?? defaults.cardThemeId,
       highContrastCards:
           _asBool(json['highContrastCards']) ?? defaults.highContrastCards,
@@ -118,9 +118,6 @@ class GamePreferences {
   /// [HandSortMode.manual].
   final HandSortMode handSortMode;
 
-  /// Whether represented jokers should use a memory-oriented display.
-  final bool memoryJokerDisplay;
-
   /// Language setting.
   final AppLanguage language;
 
@@ -135,9 +132,6 @@ class GamePreferences {
 
   /// Whether table sounds are enabled.
   final bool soundEnabled;
-
-  /// Player-facing aid level.
-  final TableAids tableAids;
 
   /// Selected card theme id (see [CardThemeRegistry]).
   final String cardThemeId;
@@ -156,13 +150,11 @@ class GamePreferences {
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
     HandSortMode? handSortMode,
-    bool? memoryJokerDisplay,
     AppLanguage? language,
     MotionSpeed? motionSpeed,
     bool? fastCpuTurns,
     bool? hapticsEnabled,
     bool? soundEnabled,
-    TableAids? tableAids,
     String? cardThemeId,
     bool? highContrastCards,
     TableSurfaceTheme? tableSurfaceTheme,
@@ -170,13 +162,11 @@ class GamePreferences {
     return GamePreferences(
       setup: setup ?? this.setup,
       handSortMode: handSortMode ?? this.handSortMode,
-      memoryJokerDisplay: memoryJokerDisplay ?? this.memoryJokerDisplay,
       language: language ?? this.language,
       motionSpeed: motionSpeed ?? this.motionSpeed,
       fastCpuTurns: fastCpuTurns ?? this.fastCpuTurns,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       soundEnabled: soundEnabled ?? this.soundEnabled,
-      tableAids: tableAids ?? this.tableAids,
       cardThemeId: cardThemeId ?? this.cardThemeId,
       highContrastCards: highContrastCards ?? this.highContrastCards,
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
@@ -188,18 +178,84 @@ class GamePreferences {
     return {
       'setup': setup.toJson(),
       'handSortMode': handSortMode.name,
-      'memoryJokerDisplay': memoryJokerDisplay,
       'language': language.name,
       'motionSpeed': motionSpeed.name,
       'fastCpuTurns': fastCpuTurns,
       'hapticsEnabled': hapticsEnabled,
       'soundEnabled': soundEnabled,
       'soundDefaultsVersion': _soundDefaultsVersion,
-      'tableAids': tableAids.name,
       'cardThemeId': cardThemeId,
       'highContrastCards': highContrastCards,
       'tableSurfaceTheme': tableSurfaceTheme.name,
     };
+  }
+}
+
+/// Migrates legacy `(rulePreset, tableAids, memoryJokerDisplay)` to
+/// [TableStrictness] before [ClassicHareegSetup.fromJson] sees the setup map.
+///
+/// Rules (from `docs/design/table-strictness.md §5` plus the ratified
+/// `memoryJokerDisplay` special case):
+///
+/// - `tableStrictness` already present in setup → use it directly (v2 schema).
+/// - `rulePreset=tablePenalties` (any aids) → strict.
+/// - `rulePreset=hardTable17` (any aids) → table.
+/// - `rulePreset=assisted` + `memoryJokerDisplay=true` → strict (preserves
+///   the memory mechanic the user explicitly opted into).
+/// - `rulePreset=assisted` + `tableAids=guided` → coaching.
+/// - `rulePreset=assisted` + `tableAids=standard` → standard.
+/// - `rulePreset=assisted` + `tableAids=tableMode` → standard (normalize the
+///   incoherent assisted+tableMode combo).
+/// - Anything else / unknown → defaults to coaching.
+ClassicHareegSetup _restoreSetup({
+  required Map<String, Object?>? setupJson,
+  required String? legacyTableAids,
+  required bool? legacyMemoryJokerDisplay,
+}) {
+  if (setupJson == null) {
+    return ClassicHareegSetup.defaults();
+  }
+  if (setupJson.containsKey('tableStrictness')) {
+    return ClassicHareegSetup.fromJson(setupJson);
+  }
+
+  final legacyRulePreset = _asString(setupJson['rulePreset']);
+  final migrated = _migrateStrictness(
+    rulePreset: legacyRulePreset,
+    tableAids: legacyTableAids,
+    memoryJokerDisplay: legacyMemoryJokerDisplay,
+  );
+  final upgraded = <String, Object?>{
+    ...setupJson,
+    'tableStrictness': migrated.name,
+  }..remove('rulePreset');
+  return ClassicHareegSetup.fromJson(upgraded);
+}
+
+TableStrictness _migrateStrictness({
+  required String? rulePreset,
+  required String? tableAids,
+  required bool? memoryJokerDisplay,
+}) {
+  switch (rulePreset) {
+    case 'tablePenalties':
+      return TableStrictness.strict;
+    case 'hardTable17':
+      return TableStrictness.table;
+    case 'assisted':
+      if (memoryJokerDisplay ?? false) {
+        return TableStrictness.strict;
+      }
+      switch (tableAids) {
+        case 'guided':
+          return TableStrictness.coaching;
+        case 'standard':
+        case 'tableMode':
+          return TableStrictness.standard;
+      }
+      return TableStrictness.coaching;
+    default:
+      return TableStrictness.coaching;
   }
 }
 

@@ -11,7 +11,7 @@ void main() {
       final discard = card(CardRank.nine, CardSuit.hearts);
 
       final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         tableMelds: const [],
         card: discard,
         isFinalDiscard: false,
@@ -31,9 +31,9 @@ void main() {
     test('normal joker discards stay hard-blocked and hidden', () {
       const joker = HareegCard.joker(deckIndex: 10, jokerIndex: 0);
 
-      for (final preset in RulePreset.values) {
+      for (final preset in TableStrictness.values) {
         final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-          preset: preset,
+          strictness: preset,
           tableMelds: const [],
           card: joker,
           isFinalDiscard: false,
@@ -55,7 +55,7 @@ void main() {
       final cover = card(CardRank.eight, CardSuit.clubs, 2);
 
       final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         tableMelds: [
           [
             card(CardRank.five, CardSuit.clubs, 2),
@@ -82,7 +82,7 @@ void main() {
       final replacement = card(CardRank.queen, CardSuit.diamonds, 3);
 
       final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         tableMelds: const [],
         card: replacement,
         isFinalDiscard: false,
@@ -108,7 +108,7 @@ void main() {
         final blocked = card(CardRank.eight, CardSuit.clubs, 4);
 
         final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-          preset: RulePreset.hardTable17,
+          strictness: TableStrictness.table,
           tableMelds: [
             [
               card(CardRank.five, CardSuit.clubs, 4),
@@ -140,7 +140,7 @@ void main() {
         const joker = HareegCard.joker(deckIndex: 5, jokerIndex: 0);
 
         final coverResult = ClassicHareegDiscardEligibilityPlanner.evaluate(
-          preset: RulePreset.assisted,
+          strictness: TableStrictness.coaching,
           tableMelds: [
             [
               card(CardRank.five, CardSuit.clubs, 5),
@@ -153,7 +153,7 @@ void main() {
           blocksJokerReplacement: true,
         );
         final jokerResult = ClassicHareegDiscardEligibilityPlanner.evaluate(
-          preset: RulePreset.assisted,
+          strictness: TableStrictness.coaching,
           tableMelds: const [],
           card: joker,
           isFinalDiscard: true,

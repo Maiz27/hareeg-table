@@ -279,21 +279,58 @@ void main() {
       expect(controller.stockCount, stockBeforeTake);
       expect(controller.cardCountFor(PlayerSeat.east), eastHandBeforeTake);
       expect(controller.turnPhase, TurnPhase.draw);
+      // After returning a pending discard, the seat must draw from stock —
+      // re-taking the same top card would let the CPU loop forever between
+      // take-discard and return-pending-discard. The guard re-arms as soon
+      // as someone discards a new card on top of the pile.
+      final postReturnControls =
+          controller.controlActionIdsFor(PlayerSeat.east);
+      expect(postReturnControls, contains(ClassicHareegActionIds.drawStock));
       expect(
-        controller.controlActionIdsFor(PlayerSeat.east),
-        containsAll([
-          ClassicHareegActionIds.drawStock,
-          ClassicHareegActionIds.takeDiscard,
-        ]),
+        postReturnControls,
+        isNot(contains(ClassicHareegActionIds.takeDiscard)),
       );
 
       final takeAgain = controller.applyAction(
         ClassicHareegActionIds.takeDiscard,
       );
 
-      expect(takeAgain.isSuccess, isTrue);
-      expect(controller.pendingDiscard?.id, discarded.id);
+      expect(takeAgain.isSuccess, isFalse);
     });
+
+    test(
+      're-take guard clears once a fresh discard lands on top of the pile',
+      () {
+        final controller = _freshControllerInActionPhase();
+        final south = controller.handFor(PlayerSeat.south);
+        final discarded = south.firstWhere((c) => !c.isJoker);
+        controller.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}${discarded.id}',
+        );
+        controller.applyAction(ClassicHareegActionIds.takeDiscard);
+        controller.applyAction(ClassicHareegActionIds.returnPendingDiscard);
+        // East just returned the card → still can't re-take.
+        expect(
+          controller.controlActionIdsFor(PlayerSeat.east),
+          isNot(contains(ClassicHareegActionIds.takeDiscard)),
+        );
+
+        // East draws stock and discards a different card; the discard pile
+        // now has a new top. The guard should rearm — north (the next seat)
+        // can take the top because they didn't return it.
+        controller.applyAction(ClassicHareegActionIds.drawStock);
+        final eastHand = controller.handFor(PlayerSeat.east);
+        final eastDiscardCard =
+            eastHand.firstWhere((c) => !c.isJoker && c.id != discarded.id);
+        controller.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}${eastDiscardCard.id}',
+        );
+        expect(
+          controller.controlActionIdsFor(PlayerSeat.north),
+          contains(ClassicHareegActionIds.takeDiscard),
+        );
+      },
+    );
 
     test('playing a valid meld removes cards and keeps the turn active', () {
       final meldCards = [
@@ -1084,8 +1121,11 @@ void main() {
       );
     });
 
-    for (final preset in [RulePreset.assisted, RulePreset.tablePenalties]) {
-      test('turn cover can be returned in ${preset.name} mode', () {
+    for (final strictness in [
+      TableStrictness.coaching,
+      TableStrictness.strict,
+    ]) {
+      test('turn cover can be returned in ${strictness.name} mode', () {
         final eastMeld = [
           _card(CardRank.three, CardSuit.clubs, 132),
           _card(CardRank.four, CardSuit.clubs, 132),
@@ -1094,7 +1134,7 @@ void main() {
         final cover = _card(CardRank.six, CardSuit.clubs, 132);
         final controller = ClassicHareegGameController.fromSnapshot(
           _snapshot(
-            setup: ClassicHareegSetup.defaults().copyWith(rulePreset: preset),
+            setup: ClassicHareegSetup.defaults().copyWith(tableStrictness: strictness),
             handsBuilder: (defaults) => {
               ...defaults,
               PlayerSeat.south: [cover, ...defaults[PlayerSeat.south]!],
@@ -1239,7 +1279,7 @@ void main() {
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
           setup: ClassicHareegSetup.defaults().copyWith(
-            rulePreset: RulePreset.hardTable17,
+            tableStrictness: TableStrictness.table,
           ),
           handsBuilder: (defaults) => {
             ...defaults,
@@ -1357,7 +1397,7 @@ void main() {
             turnPhase: TurnPhase.action,
             openingState: _opened(PlayerSeat.south),
             setup: ClassicHareegSetup.defaults().copyWith(
-              rulePreset: RulePreset.tablePenalties,
+              tableStrictness: TableStrictness.strict,
             ),
           ),
         );
@@ -1374,13 +1414,24 @@ void main() {
             '${ClassicHareegActionIds.discardBlockedCoverPrefix}${cover.id}',
           ),
         );
+        final southCardCountBefore = controller.cardCountFor(PlayerSeat.south);
+        final topDiscardBefore = controller.topDiscard?.id;
+        final currentSeatBefore = controller.currentSeat;
         final result = controller.applyAction(
           '${ClassicHareegActionIds.discardBlockedCoverPrefix}${cover.id}',
         );
 
+        // Strict revert: penalty applied to the score, action undone — the
+        // cover card stays in the seat's hand, the discard pile top is
+        // unchanged, and the turn is still south's so they can pick a legal
+        // discard. The UI uses revertedCardId to flash the wrong card.
         expect(result.isSuccess, isTrue);
+        expect(result.wasReverted, isTrue);
+        expect(result.revertedCardId, cover.id);
         expect(controller.scores[PlayerSeat.south], 3);
-        expect(controller.topDiscard?.id, cover.id);
+        expect(controller.topDiscard?.id, topDiscardBefore);
+        expect(controller.cardCountFor(PlayerSeat.south), southCardCountBefore);
+        expect(controller.currentSeat, currentSeatBefore);
       },
     );
 
@@ -1423,7 +1474,7 @@ void main() {
             turnPhase: TurnPhase.action,
             openingState: _opened(PlayerSeat.south),
             setup: ClassicHareegSetup.defaults().copyWith(
-              rulePreset: RulePreset.tablePenalties,
+              tableStrictness: TableStrictness.strict,
             ),
           ),
         );
@@ -1439,11 +1490,18 @@ void main() {
 
         expect(matchingActions, [actionId]);
 
+        final southCountBefore = controller.cardCountFor(PlayerSeat.south);
+        final topBefore = controller.topDiscard?.id;
         final result = controller.applyAction(actionId);
 
+        // Strict revert: penalty hit the score, the action did not happen.
+        // Hand size, top discard, and the current seat are all unchanged.
         expect(result.isSuccess, isTrue);
+        expect(result.wasReverted, isTrue);
+        expect(result.revertedCardId, blocked.id);
         expect(controller.scores[PlayerSeat.south], 3);
-        expect(controller.topDiscard?.id, blocked.id);
+        expect(controller.topDiscard?.id, topBefore);
+        expect(controller.cardCountFor(PlayerSeat.south), southCountBefore);
       },
     );
 
@@ -1766,7 +1824,7 @@ void main() {
       final now = DateTime.utc(2026, 5, 19, 12);
       final discarded = _card(CardRank.nine, CardSuit.clubs, 31);
       final setup = ClassicHareegSetup.defaults().copyWith(
-        rulePreset: RulePreset.tablePenalties,
+        tableStrictness: TableStrictness.strict,
       );
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
@@ -1805,7 +1863,7 @@ void main() {
       final now = DateTime.utc(2026, 5, 19, 12);
       final discarded = _card(CardRank.nine, CardSuit.clubs, 231);
       final setup = ClassicHareegSetup.defaults().copyWith(
-        rulePreset: RulePreset.hardTable17,
+        tableStrictness: TableStrictness.table,
       );
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
@@ -1958,7 +2016,7 @@ void main() {
       ];
       final cover = _card(CardRank.eight, CardSuit.clubs, 33);
       final setup = ClassicHareegSetup.defaults().copyWith(
-        rulePreset: RulePreset.hardTable17,
+        tableStrictness: TableStrictness.table,
       );
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(

@@ -1,3 +1,7 @@
+import 'table_strictness.dart';
+
+export 'table_strictness.dart';
+
 /// CPU skill profile selected before a Classic Hareeg game starts.
 enum CpuDifficulty {
   /// Relaxed play with forgiving CPU choices.
@@ -42,31 +46,6 @@ enum StarterMode {
   }
 }
 
-/// Mistake-handling preset for Classic Hareeg.
-enum RulePreset {
-  /// Default assisted table that blocks illegal moves.
-  assisted('Assisted', 'Blocks illegal moves while learning.'),
-
-  /// Allows selected table mistakes with a smaller score penalty.
-  tablePenalties('Table penalties', 'Allows selected mistakes with +3.'),
-
-  /// Harder table preset with harsh round-out mistakes.
-  hardTable17('Hard table 17', 'Allows selected mistakes with +17.');
-
-  const RulePreset(this.label, this.description);
-
-  /// Player-facing label.
-  final String label;
-
-  /// Short setup description.
-  final String description;
-
-  /// Parses a saved enum name, falling back to the default preset.
-  static RulePreset fromName(String? name) {
-    return _enumByName(RulePreset.values, name) ?? RulePreset.assisted;
-  }
-}
-
 /// Local setup values used to start a Classic Hareeg table.
 class ClassicHareegSetup {
   /// Creates setup values for a Classic Hareeg table.
@@ -77,10 +56,15 @@ class ClassicHareegSetup {
     required this.deckCount,
     required this.jokerCount,
     required this.fiftyTimerSeconds,
-    required this.rulePreset,
+    required this.tableStrictness,
   });
 
   /// Default first-run setup values.
+  ///
+  /// `tableStrictness` defaults to [TableStrictness.coaching] — the loudest
+  /// tier, best fit for first-run players who need both rule blocking and
+  /// hint surfaces. Existing assisted+guided users land here through the
+  /// persistence migration in `preferences_repository.dart`.
   factory ClassicHareegSetup.defaults() {
     return const ClassicHareegSetup(
       cpuDifficulty: CpuDifficulty.casual,
@@ -89,11 +73,15 @@ class ClassicHareegSetup {
       deckCount: 2,
       jokerCount: 2,
       fiftyTimerSeconds: 4,
-      rulePreset: RulePreset.assisted,
+      tableStrictness: TableStrictness.coaching,
     );
   }
 
   /// Restores setup values from persisted JSON-compatible data.
+  ///
+  /// Reads the v2 schema (`tableStrictness` key). Legacy migration from the
+  /// old `rulePreset` × `tableAids` × `memoryJokerDisplay` shape lives in
+  /// `GamePreferences.fromJson` and runs before this factory.
   factory ClassicHareegSetup.fromJson(Map<String, Object?> json) {
     final defaults = ClassicHareegSetup.defaults();
     return ClassicHareegSetup(
@@ -112,7 +100,9 @@ class ClassicHareegSetup {
         json['fiftyTimerSeconds'],
         defaults.fiftyTimerSeconds,
       ),
-      rulePreset: RulePreset.fromName(_asString(json['rulePreset'])),
+      tableStrictness: TableStrictness.fromName(
+        _asString(json['tableStrictness']),
+      ),
     );
   }
 
@@ -134,8 +124,9 @@ class ClassicHareegSetup {
   /// Fifty claim timer in seconds.
   final int fiftyTimerSeconds;
 
-  /// Rule preset controlling mistake handling.
-  final RulePreset rulePreset;
+  /// Strictness tier controlling mistake handling, hint surfaces, and joker
+  /// identity persistence. See [TableStrictness].
+  final TableStrictness tableStrictness;
 
   /// Creates a modified setup while preserving unspecified values.
   ClassicHareegSetup copyWith({
@@ -145,7 +136,7 @@ class ClassicHareegSetup {
     int? deckCount,
     int? jokerCount,
     int? fiftyTimerSeconds,
-    RulePreset? rulePreset,
+    TableStrictness? tableStrictness,
   }) {
     return ClassicHareegSetup(
       cpuDifficulty: cpuDifficulty ?? this.cpuDifficulty,
@@ -154,7 +145,7 @@ class ClassicHareegSetup {
       deckCount: deckCount ?? this.deckCount,
       jokerCount: jokerCount ?? this.jokerCount,
       fiftyTimerSeconds: fiftyTimerSeconds ?? this.fiftyTimerSeconds,
-      rulePreset: rulePreset ?? this.rulePreset,
+      tableStrictness: tableStrictness ?? this.tableStrictness,
     );
   }
 
@@ -167,7 +158,7 @@ class ClassicHareegSetup {
       'deckCount': deckCount,
       'jokerCount': jokerCount,
       'fiftyTimerSeconds': fiftyTimerSeconds,
-      'rulePreset': rulePreset.name,
+      'tableStrictness': tableStrictness.name,
     };
   }
 }

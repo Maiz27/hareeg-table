@@ -1,4 +1,5 @@
-import '../models/classic_hareeg_setup.dart';
+import '../models/table_strictness.dart';
+import 'strictness_rule_profile.dart';
 
 /// Mistake types recognized by Classic Hareeg presets.
 enum MistakeType {
@@ -27,9 +28,14 @@ class MistakeResolution {
     required this.removeFromRound,
     required this.keepExistingMelds,
     required this.message,
+    this.revertsAction = false,
   });
 
   /// Whether the mistaken action is allowed to happen.
+  ///
+  /// When false the engine blocks the action outright (coaching / standard).
+  /// When true the engine surfaces the action as legal so it can be picked,
+  /// then applies the penalty defined here.
   final bool isAllowed;
 
   /// Score penalty to apply immediately.
@@ -43,13 +49,20 @@ class MistakeResolution {
 
   /// Player-facing explanation.
   final String message;
+
+  /// Strict-tier behavior: the penalty applies but the action itself is
+  /// undone. The offending card stays in the seat's hand and the turn does
+  /// not advance — the human is being coached with a real-money sting but
+  /// still has to make a legal move. False for Table tier (the bad card
+  /// lands on the discard pile and the offender is removed).
+  final bool revertsAction;
 }
 
-/// Rule preset behavior for mistake handling.
+/// Mistake-handling behavior derived from [TableStrictness].
 abstract final class ClassicHareegMistakePresetRules {
-  /// Resolves a mistake under a preset.
+  /// Resolves a mistake under a strictness tier.
   static MistakeResolution resolve({
-    required RulePreset preset,
+    required TableStrictness strictness,
     required MistakeType mistake,
   }) {
     if (mistake == MistakeType.normalJokerDiscard) {
@@ -62,22 +75,24 @@ abstract final class ClassicHareegMistakePresetRules {
       );
     }
 
-    return switch (preset) {
-      RulePreset.assisted => const MistakeResolution(
-        isAllowed: false,
-        penaltyPoints: 0,
-        removeFromRound: false,
-        keepExistingMelds: true,
-        message: 'Assisted mode blocks this illegal action.',
-      ),
-      RulePreset.tablePenalties => const MistakeResolution(
+    return switch (strictness) {
+      TableStrictness.coaching || TableStrictness.standard =>
+        const MistakeResolution(
+          isAllowed: false,
+          penaltyPoints: 0,
+          removeFromRound: false,
+          keepExistingMelds: true,
+          message: 'This illegal action is blocked at this strictness.',
+        ),
+      TableStrictness.strict => const MistakeResolution(
         isAllowed: true,
         penaltyPoints: 3,
         removeFromRound: false,
         keepExistingMelds: true,
+        revertsAction: true,
         message: 'Table penalty: +3.',
       ),
-      RulePreset.hardTable17 => const MistakeResolution(
+      TableStrictness.table => const MistakeResolution(
         isAllowed: true,
         penaltyPoints: 17,
         removeFromRound: true,
@@ -87,18 +102,11 @@ abstract final class ClassicHareegMistakePresetRules {
     };
   }
 
-  /// Whether CPU mistakes may be generated under this preset/difficulty.
-  static bool cpuMistakesAllowed({
-    required RulePreset preset,
-    required CpuDifficulty difficulty,
-  }) {
-    if (preset == RulePreset.assisted) {
-      return false;
-    }
-
-    return switch (difficulty) {
-      CpuDifficulty.beginner || CpuDifficulty.casual => true,
-      CpuDifficulty.skilled || CpuDifficulty.expert => false,
-    };
+  /// Whether CPU mistakes may be generated under this strictness.
+  ///
+  /// CPU difficulty no longer gates mistake permission; mistakes are a rules
+  /// concern (governed by [TableStrictness]) rather than a tier concern.
+  static bool cpuMistakesAllowed(TableStrictness strictness) {
+    return strictness.cpuMistakesAllowed;
   }
 }

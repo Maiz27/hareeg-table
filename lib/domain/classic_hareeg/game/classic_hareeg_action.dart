@@ -1,5 +1,8 @@
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../rules/joker_meld_assignment.dart';
+
+export '../rules/joker_meld_assignment.dart' show JokerMeldAssignment;
 
 /// Stable categories for Classic Hareeg action ids.
 enum ClassicHareegActionKind {
@@ -105,6 +108,18 @@ class ClassicHareegActionDescriptor {
     return switch (kind) {
       ClassicHareegActionKind.playMeld ||
       ClassicHareegActionKind.playMeldWithJoker => true,
+      _ => false,
+    };
+  }
+
+  /// Whether the action can introduce a newly declared joker on the table.
+  /// Used by UI flows that diff the table state before/after applyAction —
+  /// draw/discard/take-discard never produce a new joker placement.
+  bool get canPlaceJoker {
+    return switch (kind) {
+      ClassicHareegActionKind.playMeld ||
+      ClassicHareegActionKind.playMeldWithJoker ||
+      ClassicHareegActionKind.placeCover => true,
       _ => false,
     };
   }
@@ -521,18 +536,6 @@ class JokerMeldActionChoice {
       assignments: assignments,
     );
   }
-}
-
-/// Explicit represented identity for one physical joker.
-class JokerMeldAssignment {
-  /// Creates a joker assignment.
-  const JokerMeldAssignment({required this.jokerId, required this.identity});
-
-  /// Physical joker id being assigned.
-  final String jokerId;
-
-  /// Represented identity selected for the joker.
-  final CardIdentity identity;
 }
 
 /// Parsed target for placing covers on an existing meld.

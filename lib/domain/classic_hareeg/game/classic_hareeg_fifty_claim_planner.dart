@@ -1,10 +1,11 @@
-import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../models/table_strictness.dart';
 import '../rules/fifty_rules.dart';
 import '../rules/finish_rules.dart';
 import '../rules/mistake_preset_rules.dart';
 import '../rules/opening_rules.dart';
+import '../rules/strictness_rule_profile.dart';
 import 'classic_hareeg_finish_planner.dart';
 import 'classic_hareeg_round.dart';
 
@@ -105,7 +106,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
   /// Evaluates a Fifty claim for [claimant].
   static ClassicHareegFiftyClaimPlan evaluate({
     required ClassicHareegFiftyClaimPurpose purpose,
-    required RulePreset preset,
+    required TableStrictness strictness,
     required FiftyClaimWindow? window,
     required PlayerSeat claimant,
     required TurnPhase phase,
@@ -160,7 +161,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
 
     final needsFinishProof =
         purpose == ClassicHareegFiftyClaimPurpose.apply ||
-        preset == RulePreset.assisted;
+        strictness.fiftyClaimNeedsFinishProofForAdvertise;
     if (!needsFinishProof) {
       return const ClassicHareegFiftyClaimPlan(
         scenario: ClassicHareegFiftyClaimScenario.claimWindowOpen,
@@ -172,7 +173,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
 
     final finishPlan = finishPlanResolver();
     if (finishPlan == null) {
-      return _wrongClaimPlan(preset: preset);
+      return _wrongClaimPlan(strictness: strictness);
     }
 
     final claim = ClassicHareegFiftyRules.validateClaim(
@@ -183,7 +184,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       finalDiscard: finishPlan.finalDiscard,
     );
     if (!claim.isValid) {
-      return _wrongClaimPlan(preset: preset, message: claim.message);
+      return _wrongClaimPlan(strictness: strictness, message: claim.message);
     }
 
     return ClassicHareegFiftyClaimPlan(
@@ -236,11 +237,11 @@ abstract final class ClassicHareegFiftyClaimPlanner {
   }
 
   static ClassicHareegFiftyClaimPlan _wrongClaimPlan({
-    required RulePreset preset,
+    required TableStrictness strictness,
     String message = 'That discard does not complete a valid Fifty.',
   }) {
     final resolution = ClassicHareegMistakePresetRules.resolve(
-      preset: preset,
+      strictness: strictness,
       mistake: MistakeType.wrongFiftyClaim,
     );
     if (!resolution.isAllowed) {

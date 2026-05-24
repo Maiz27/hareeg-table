@@ -460,7 +460,12 @@ class ClassicHareegTablePlayPlanner {
     );
   }
 
-  /// Returns the first joker replacement action id matching [cardId].
+  /// Returns the first joker replacement action id matching [cardId]. Only
+  /// surfaces an action when the seat has opened — replacing a joker is a
+  /// play action that requires an open. Use [cardBlockedByTableJoker] for
+  /// the discard-eligibility check, which must apply regardless of opening
+  /// (the rule "you can't discard a card that could replace a joker on the
+  /// table" doesn't relax pre-opening).
   String? replacementActionIdForCardId(PlayerSeat seat, String cardId) {
     if (!openingState.hasOpened(seat)) {
       return null;
@@ -489,6 +494,28 @@ class ClassicHareegTablePlayPlanner {
       }
     }
     return null;
+  }
+
+  /// True when [card]'s identity matches a represented joker sitting on any
+  /// table meld. Used by discard eligibility to block "throw a card that
+  /// could replace a joker" attempts even before the seat has opened (the
+  /// rule applies to the card, not to the seat's open state). The actual
+  /// replace-joker *action* still requires the seat to have opened.
+  bool cardBlockedByTableJoker(HareegCard card) {
+    final identity = card.identity;
+    if (identity == null) return false;
+    for (final owner in PlayerSeat.values) {
+      final melds = tableMelds[owner] ?? const <PlacedMeld>[];
+      for (final meld in melds) {
+        for (final tableCard in meld.cards) {
+          if (tableCard.isJoker &&
+              tableCard.representedIdentity == identity) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /// Returns legal cover action ids from [seat]'s hand.

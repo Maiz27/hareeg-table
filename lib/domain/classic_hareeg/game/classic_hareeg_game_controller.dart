@@ -17,6 +17,7 @@ import '../rules/turn_flow_rules.dart';
 import 'classic_hareeg_action.dart';
 import 'classic_hareeg_action_surface_planner.dart';
 import 'classic_hareeg_discard_eligibility.dart';
+import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_draw_decision_planner.dart';
 import 'classic_hareeg_fifty_claim_planner.dart';
 import 'classic_hareeg_finish_planner.dart';
@@ -47,19 +48,49 @@ const _blockedFiftyClaimPlan = ClassicHareegFiftyClaimPlan(
 /// Outcome of applying an action through the controller.
 class ApplyActionResult {
   /// Creates an apply-action result.
-  const ApplyActionResult({required this.isSuccess, required this.message});
+  const ApplyActionResult({
+    required this.isSuccess,
+    required this.message,
+    this.wasReverted = false,
+    this.revertedCardId,
+  });
 
   /// Successful result.
-  const ApplyActionResult.success([this.message = '']) : isSuccess = true;
+  const ApplyActionResult.success([this.message = ''])
+    : isSuccess = true,
+      wasReverted = false,
+      revertedCardId = null;
+
+  /// Strict-tier penalty result: the score was charged (and `message` carries
+  /// the "+N" toast) but the action itself did not happen — the offending
+  /// card is still in the seat's hand and the turn has not advanced. The UI
+  /// uses [revertedCardId] to flash the wrong card.
+  const ApplyActionResult.reverted({
+    required this.message,
+    required String this.revertedCardId,
+  }) : isSuccess = true,
+       wasReverted = true;
 
   /// Failed result with a player-facing explanation.
-  const ApplyActionResult.failure(this.message) : isSuccess = false;
+  const ApplyActionResult.failure(this.message)
+    : isSuccess = false,
+      wasReverted = false,
+      revertedCardId = null;
 
   /// Whether the action was accepted and applied.
   final bool isSuccess;
 
   /// Player-facing explanation for blocked or rejected actions.
   final String message;
+
+  /// True when the action was rejected after a penalty was applied (Strict
+  /// tier mistakes). [isSuccess] is still true because side effects (the
+  /// score change + toast) did happen.
+  final bool wasReverted;
+
+  /// Card id the seat tried to play when [wasReverted] is true. Lets the UI
+  /// flash the card that should not have been discarded.
+  final String? revertedCardId;
 }
 
 /// Live Classic Hareeg game state controller.
@@ -93,6 +124,7 @@ class ClassicHareegGameController {
        _openingState = OpeningState.initial(round.setup.openingRequirement),
        _roundNumber = 1,
        _removedSeats = <PlayerSeat>{},
+       _seatEliminatedRound = <PlayerSeat, int>{},
        _starter = round.starter,
        _currentSeat = round.currentSeat,
        _phase = round.turnPhase,
@@ -102,6 +134,7 @@ class ClassicHareegGameController {
        _fiftyWindowOpenedAt = null,
        _roundOutcome = null,
        _roundResult = null,
+       _discardHistory = DiscardHistory(),
        _turnLedger = ClassicHareegTurnLedger() {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
@@ -134,6 +167,7 @@ class ClassicHareegGameController {
        _openingState = restored.openingState,
        _roundNumber = restored.roundNumber,
        _removedSeats = restored.removedSeats,
+       _seatEliminatedRound = <PlayerSeat, int>{},
        _starter = restored.starter,
        _currentSeat = restored.currentSeat,
        _phase = restored.turnPhase,
@@ -143,6 +177,7 @@ class ClassicHareegGameController {
        _fiftyWindowOpenedAt = restored.fiftyWindowOpenedAt,
        _roundOutcome = null,
        _roundResult = null,
+       _discardHistory = DiscardHistory(),
        _turnLedger = ClassicHareegTurnLedger(source: restored.turnSource) {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
@@ -164,15 +199,23 @@ class ClassicHareegGameController {
   OpeningState _openingState;
   final int _roundNumber;
   final Set<PlayerSeat> _removedSeats;
+  final Map<PlayerSeat, int> _seatEliminatedRound;
   final PlayerSeat _starter;
   PlayerSeat _currentSeat;
   TurnPhase _phase;
   HareegCard? _pendingDiscard;
   PlayerSeat? _previousDiscardSeat;
+  // Tracks the (seat, cardId) of the most recent return-pending-discard. A
+  // seat that just returned a card may not take it again on their next draw
+  // — the rules engine would otherwise advertise take-discard for the same
+  // card immediately, and a CPU planner would re-take it forever until the
+  // safety cap fires. Cleared whenever the top of the discard pile changes.
+  ({PlayerSeat seat, String cardId})? _lastReturnedPendingDiscard;
   FiftyClaimWindow? _fiftyWindow;
   DateTime? _fiftyWindowOpenedAt;
   RoundOutcomeType? _roundOutcome;
   RoundProgressResult? _roundResult;
+  final DiscardHistory _discardHistory;
   final ClassicHareegTurnLedger _turnLedger;
   late final ClassicHareegActionSurfaceFacts _actionSurfaceFacts =
       _LiveActionSurfaceFacts(this);
@@ -212,11 +255,27 @@ class ClassicHareegGameController {
   /// Seats still active in the match.
   List<PlayerSeat> get activeSeats => List.unmodifiable(_activeSeats);
 
+  /// Seats removed from the current round (e.g. via Table tier penalty).
+  /// They remain match-active but are out for this round.
+  Set<PlayerSeat> get removedSeats => Set.unmodifiable(_removedSeats);
+
+  /// Seats still playing this round (match-active minus round-removed).
+  List<PlayerSeat> get roundActiveSeats => _roundActiveSeats;
+
   /// Opening benchmark state for the active round.
   OpeningState get openingState => _openingState;
 
+  /// Read-only per-round discard memory for CPU strategy.
+  DiscardHistoryView get discardHistory => _discardHistory;
+
   /// One-based dealt round number.
   int get roundNumber => _roundNumber;
+
+  /// Round number in which seats were eliminated during this controller's
+  /// lifetime.
+  Map<PlayerSeat, int> get seatEliminatedRound {
+    return Map<PlayerSeat, int>.unmodifiable(_seatEliminatedRound);
+  }
 
   /// Full round result once the round has ended.
   RoundProgressResult? get roundResult => _roundResult;
@@ -674,7 +733,11 @@ class ClassicHareegGameController {
     final next = ClassicHareegTurnFlowRules.takePreviousDiscard(
       _turnFlowState(),
     );
+    final takenCard = next.pendingDiscard?.card;
     _applyTurnFlowState(next);
+    if (takenCard != null) {
+      _discardHistory.recordPickup(_currentSeat, takenCard);
+    }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
     _turnLedger.resetForNewTurn(source: FinishCardSource.previousDiscard);
@@ -688,6 +751,8 @@ class ClassicHareegGameController {
   }
 
   ApplyActionResult _applyReturnPendingDiscard() {
+    final pending = _pendingDiscard;
+    final returningSeat = _currentSeat;
     try {
       final next = ClassicHareegTurnFlowRules.returnPendingDiscard(
         _turnFlowState(),
@@ -695,6 +760,15 @@ class ClassicHareegGameController {
       _applyTurnFlowState(next);
     } on StateError catch (error) {
       return ApplyActionResult.failure(error.message);
+    }
+    if (pending != null) {
+      _discardHistory.retract(
+        seat: returningSeat,
+        card: pending,
+        kind: DiscardEventKind.pickup,
+      );
+      _lastReturnedPendingDiscard =
+          (seat: returningSeat, cardId: pending.id);
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
@@ -831,7 +905,7 @@ class ClassicHareegGameController {
       seat: seat,
       currentSeat: _currentSeat,
       phase: _phase,
-      preset: setup.rulePreset,
+      strictness: setup.tableStrictness,
       openingState: _openingState,
       ledger: _turnLedger,
     );
@@ -844,7 +918,7 @@ class ClassicHareegGameController {
       seat: _currentSeat,
       currentSeat: _currentSeat,
       phase: _phase,
-      preset: setup.rulePreset,
+      strictness: setup.tableStrictness,
       openingState: _openingState,
       ledger: _turnLedger,
       tableMelds: _tableMelds,
@@ -1279,10 +1353,32 @@ class ClassicHareegGameController {
       return ApplyActionResult.failure(eligibility.message);
     }
     final mistake = eligibility.mistakeResolution;
+    var successMessage = '';
     if (mistake != null && mistake.isAllowed) {
+      // Capture the penalty message so the feedback chip surfaces "+3 / +17"
+      // when the cover discard goes through as a strict / table mistake.
+      successMessage = mistake.message;
+      final discardingSeat = _currentSeat;
       final removal = _applyMistake(_mistakeConsequencePlan(mistake));
       if (removal != null) {
+        // Table tier removed the player. The card still has to land on the
+        // discard pile — the seat is out but the card has left their hand.
+        hand.removeAt(index);
+        _discardPile.add(card);
+        _discardHistory.recordDiscard(discardingSeat, card);
+        _previousDiscardSeat = discardingSeat;
+        _lastReturnedPendingDiscard = null;
         return removal;
+      }
+      if (mistake.revertsAction) {
+        // Strict tier: penalty applied to the score (via _applyMistake) but
+        // the card stays in hand and the turn does NOT advance. The UI
+        // shows the "+3" toast and flashes the offending card so the human
+        // can pick a legal discard instead.
+        return ApplyActionResult.reverted(
+          message: successMessage,
+          revertedCardId: card.id,
+        );
       }
     }
 
@@ -1301,9 +1397,13 @@ class ClassicHareegGameController {
 
     hand.removeAt(index);
     _discardPile.add(card);
+    _discardHistory.recordDiscard(_currentSeat, card);
     _previousDiscardSeat = _currentSeat;
     _pendingDiscard = null;
     _turnConsumedPendingDiscard = null;
+    // A new card now sits on top of the discard pile, so the previous
+    // return-pending-discard memory no longer matters.
+    _lastReturnedPendingDiscard = null;
     final exit = ClassicHareegTurnExitPlanner.afterDiscard(
       discarder: _currentSeat,
       discardedCard: card,
@@ -1325,7 +1425,7 @@ class ClassicHareegGameController {
       _turnLedger.resetForNewTurn();
       _evaluateRoundEnd();
     }
-    return const ApplyActionResult.success();
+    return ApplyActionResult.success(successMessage);
   }
 
   List<HareegCard> _handFor(PlayerSeat seat) {
@@ -1452,7 +1552,7 @@ class ClassicHareegGameController {
   }
 
   bool get _canTakePreviousDiscard {
-    return ClassicHareegTurnExitPlanner.canTakePreviousDiscard(
+    final base = ClassicHareegTurnExitPlanner.canTakePreviousDiscard(
       currentSeat: _currentSeat,
       phase: _phase,
       previousDiscardSeat: _previousDiscardSeat,
@@ -1460,6 +1560,15 @@ class ClassicHareegGameController {
       activeSeats: _activeSeats,
       removedSeats: _removedSeats,
     );
+    if (!base) return false;
+    final lastReturned = _lastReturnedPendingDiscard;
+    if (lastReturned != null &&
+        lastReturned.seat == _currentSeat &&
+        _discardPile.isNotEmpty &&
+        _discardPile.last.id == lastReturned.cardId) {
+      return false;
+    }
+    return true;
   }
 
   List<PlayerSeat> get _roundActiveSeats {
@@ -1480,7 +1589,7 @@ class ClassicHareegGameController {
     MistakeType mistake,
   ) {
     return ClassicHareegMistakeConsequencePlanner.evaluate(
-      preset: setup.rulePreset,
+      strictness: setup.tableStrictness,
       mistake: mistake,
       seat: _currentSeat,
       scores: _scores,
@@ -1522,6 +1631,7 @@ class ClassicHareegGameController {
     if (pending != null && plan.shouldMovePendingDiscardToDiscardPile) {
       _handFor(removedSeat).removeWhere((card) => card.id == pending.id);
       _discardPile.add(pending);
+      _lastReturnedPendingDiscard = null;
     }
     _pendingDiscard = null;
     if (plan.shouldClearFiftyWindow) {
@@ -1560,6 +1670,16 @@ class ClassicHareegGameController {
   void _completeRound(RoundProgressResult result) {
     _roundOutcome = result.type;
     _roundResult = result;
+    final progress = _matchFlow.progressFor(result);
+    if (progress == null) {
+      return;
+    }
+    for (final seat in _activeSeats) {
+      if (progress.activeSeats.contains(seat) || seat == progress.matchWinner) {
+        continue;
+      }
+      _seatEliminatedRound.putIfAbsent(seat, () => _roundNumber);
+    }
   }
 
   void _finishRound({
@@ -1622,6 +1742,7 @@ class ClassicHareegGameController {
     _hands[_currentSeat] = const <HareegCard>[];
     _discardPile.add(finishPlan.finalDiscard);
     _pendingDiscard = null;
+    _lastReturnedPendingDiscard = null;
     _finishRound(
       type: RoundOutcomeType.fiftyFinish,
       winner: _currentSeat,
@@ -1641,7 +1762,7 @@ class ClassicHareegGameController {
   }) {
     return ClassicHareegFiftyClaimPlanner.evaluate(
       purpose: purpose,
-      preset: setup.rulePreset,
+      strictness: setup.tableStrictness,
       window: _fiftyWindow,
       claimant: seat,
       phase: _phase,
@@ -2101,23 +2222,23 @@ class ClassicHareegGameController {
     );
   }
 
-  String? _replacementActionIdForCardId(PlayerSeat seat, String cardId) {
-    return _tablePlayPlanner.replacementActionIdForCardId(seat, cardId);
-  }
-
   ClassicHareegDiscardEligibility _discardEligibilityFor({
     required PlayerSeat seat,
     required HareegCard card,
     required bool isFinalDiscard,
   }) {
     return ClassicHareegDiscardEligibilityPlanner.evaluate(
-      preset: setup.rulePreset,
+      strictness: setup.tableStrictness,
       tableMelds: _tableMeldCardLists,
       card: card,
       isFinalDiscard: isFinalDiscard,
+      // Use the card-level predicate so the block applies even before the
+      // seat has opened. _replacementActionIdForCardId only surfaces when
+      // the seat can actually perform the replace action (post-open) and
+      // would let a pre-opening seat silently throw a card that should be
+      // forced into a joker swap.
       blocksJokerReplacement:
-          !isFinalDiscard &&
-          _replacementActionIdForCardId(seat, card.id) != null,
+          !isFinalDiscard && _tablePlayPlanner.cardBlockedByTableJoker(card),
     );
   }
 

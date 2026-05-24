@@ -1,5 +1,5 @@
-import '../models/classic_hareeg_setup.dart';
 import '../models/playing_card.dart';
+import '../models/table_strictness.dart';
 import '../rules/cover_rules.dart';
 import '../rules/joker_rules.dart';
 import '../rules/mistake_preset_rules.dart';
@@ -79,7 +79,7 @@ class ClassicHareegDiscardEligibility {
 abstract final class ClassicHareegDiscardEligibilityPlanner {
   /// Resolves discard eligibility for [card].
   static ClassicHareegDiscardEligibility evaluate({
-    required RulePreset preset,
+    required TableStrictness strictness,
     required Iterable<List<HareegCard>> tableMelds,
     required HareegCard card,
     required bool isFinalDiscard,
@@ -99,7 +99,7 @@ abstract final class ClassicHareegDiscardEligibilityPlanner {
 
     if (!ClassicHareegJokerRules.canDiscard(card, isFinalDiscard: false)) {
       final resolution = ClassicHareegMistakePresetRules.resolve(
-        preset: preset,
+        strictness: strictness,
         mistake: MistakeType.normalJokerDiscard,
       );
       return ClassicHareegDiscardEligibility(
@@ -123,7 +123,7 @@ abstract final class ClassicHareegDiscardEligibilityPlanner {
     final isCover = !coverResult.canDiscard;
     if (isCover || blocksJokerReplacement) {
       final resolution = ClassicHareegMistakePresetRules.resolve(
-        preset: preset,
+        strictness: strictness,
         mistake: MistakeType.illegalCoverDiscard,
       );
       final scenario = switch ((isCover, blocksJokerReplacement)) {
