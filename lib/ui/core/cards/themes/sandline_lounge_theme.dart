@@ -67,6 +67,14 @@ class SandlineLoungeCardTheme extends HareegCardTheme {
       return null;
     }
 
+    // The bundled jack_diamonds.webp asset was a duplicate of jack_hearts —
+    // its image shows a heart corner pip while the game labels it J♦. Until
+    // a corrected piece of court art ships, fall back to the code-rendered
+    // painter for J♦ so the painted rank+pip match the card's identity.
+    if (identity.rank == CardRank.jack && identity.suit == CardSuit.diamonds) {
+      return null;
+    }
+
     return '$_assetRoot/${_rankSlug(identity.rank)}_${identity.suit.name}.webp';
   }
 
