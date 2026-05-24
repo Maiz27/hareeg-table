@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.0-alpha.6](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-05-24)
+
+
+### Features
+
+* **match:** short-circuit to MatchOver when human is eliminated by score ([8a35f92](https://github.com/Maiz27/hareeg-table/commit/8a35f927202d5983a8dd1614710594fa9e1ad72d))
+* **ui:** spectator shortcuts — match short-circuit + Table fast-forward ([7043319](https://github.com/Maiz27/hareeg-table/commit/704331988d19ed438ff706bff8bc527724a5aac5))
+* **ui:** table-tier fast-forward button when human is out of the round ([edbd091](https://github.com/Maiz27/hareeg-table/commit/edbd09195d1ad03e9df9192d79c8ece4e8bb29b0))
+
+
+### Bug Fixes
+
+* **cards:** bypass miswired jack_diamonds asset in Sandline Lounge ([5161033](https://github.com/Maiz27/hareeg-table/commit/5161033e15dc554257f4bfcc8acb1e21a0a52ec9))
+* **cards:** drop mislabelled jack_diamonds art and add face-asset consistency test ([a33ddfb](https://github.com/Maiz27/hareeg-table/commit/a33ddfb57418cf9fdbbe33f09e758cd376831666))
+* **rules:** block CPU mistake-class actions when cpuMistakesAllowed is false ([8b9d284](https://github.com/Maiz27/hareeg-table/commit/8b9d2843c28d774a377c73f23cf5074035641d4b))
+* **rules:** refuse CPU mistakes when cpuMistakesAllowed is false ([76c5c19](https://github.com/Maiz27/hareeg-table/commit/76c5c19dbaddde19c8663ffccdfd0c5c5c8381e1))
+* **ui:** drop dead _isJokerCueActive reference after [#41](https://github.com/Maiz27/hareeg-table/issues/41) + [#47](https://github.com/Maiz27/hareeg-table/issues/47) merge ([27a896b](https://github.com/Maiz27/hareeg-table/commit/27a896bb36a148f262eb72031ddfcb7874fad87a))
+* **ui:** drop dead _isJokerCueActive reference in _fastForwardRound ([5c286ca](https://github.com/Maiz27/hareeg-table/commit/5c286cae361e41f35d6170c9edd4c2c76ce4d584))
+* **ui:** keep expanded meld stack fully visible past the hand boundary ([a28c470](https://github.com/Maiz27/hareeg-table/commit/a28c470b171da40884967c3e5e4f15d0f6e25b68))
+* **ui:** keep expanded meld stack visible past the south hand boundary ([a8e33fc](https://github.com/Maiz27/hareeg-table/commit/a8e33fc370bb8afa698f094ae5c93cbd1da717cc))
+* **ui:** make meld confirm rack tier-independent ([458f983](https://github.com/Maiz27/hareeg-table/commit/458f9834105c5458d066957f612d5fd2dc3ebb4c))
+* **ui:** make meld confirm rack tier-independent ([b05f69e](https://github.com/Maiz27/hareeg-table/commit/b05f69eff59d492d019790e1092702d5c6a03977))
+* **ui:** restore meld confirm surface for valid selections ([a17c7fe](https://github.com/Maiz27/hareeg-table/commit/a17c7fe5e7c202955cea79c9a7c51aa0b2a2b934))
+
 ## [1.0.0-alpha.5](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-05-24)
 
 
