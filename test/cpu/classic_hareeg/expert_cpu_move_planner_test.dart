@@ -389,13 +389,18 @@ final class _FakeCpuObservation implements CpuObservation {
     this.ownScore = 0,
     Map<PlayerSeat, int> opponentScores = const {},
     Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
+    // Default is unused today (no test site passes it), but the field is
+    // wired through so future test cases can probe difficulty-sensitive
+    // branches without rebuilding the fake from scratch.
+    // ignore: unused_element_parameter
+    this.difficulty = CpuDifficulty.expert,
   }) : legalActionIds = List.unmodifiable(legalActionIds),
        _finishingPartition = finishingPartition,
        _opponentScores = Map.unmodifiable(opponentScores),
        _tableMelds = Map.unmodifiable(tableMelds);
 
   @override
-  CpuDifficulty get difficulty => CpuDifficulty.expert;
+  final CpuDifficulty difficulty;
 
   @override
   final List<String> legalActionIds;

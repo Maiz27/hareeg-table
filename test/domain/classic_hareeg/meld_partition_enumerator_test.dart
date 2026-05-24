@@ -147,19 +147,37 @@ void main() {
       );
     });
 
-    test('safetyCap stops lazy enumeration', () {
+    test('safetyCap stops lazy enumeration by traversal node count', () {
       final hand = [
         for (final rank in CardRank.values) card(rank, CardSuit.clubs),
         const HareegCard.joker(deckIndex: 9, jokerIndex: 0),
         const HareegCard.joker(deckIndex: 9, jokerIndex: 1),
       ];
 
-      final partitions = MeldPartitionEnumerator.partitionsOf(
+      // Baseline run with a generous cap captures the full enumeration.
+      final full = MeldPartitionEnumerator.partitionsOf(
+        hand,
+        safetyCap: 4096,
+      ).toList();
+      expect(full, isNotEmpty);
+
+      // A tight cap caps the search regardless of whether partitions are
+      // emitted — the count is on traversal nodes, not emissions, so a
+      // filter-heavy search can't blow past the cap by silently rejecting
+      // partitions.
+      final capped = MeldPartitionEnumerator.partitionsOf(
+        hand,
+        safetyCap: 8,
+      ).toList();
+      expect(capped.length, lessThan(full.length));
+
+      // A safetyCap of 1 stops before any node can finish — no partitions
+      // are emitted because the first traversal step trips the guard.
+      final zero = MeldPartitionEnumerator.partitionsOf(
         hand,
         safetyCap: 1,
       ).toList();
-
-      expect(partitions, hasLength(1));
+      expect(zero, isEmpty);
     });
 
     test('enumeration is deterministic', () {

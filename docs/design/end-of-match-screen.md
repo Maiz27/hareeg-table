@@ -25,7 +25,7 @@ Net: replace 369 LOC of dead code + dead route plumbing with ~250 LOC of one-pur
 
 Portrait, single scrollable column, centered medallion motif behind content. Landscape table-screen transitions to this on `Navigator.pushReplacement`, which lets the portrait lock take effect (see §4).
 
-```
+```text
 +----------------------------------------------------+
 |                                                    |
 |        [ medallion motif, sandLine, opacity .06 ]  |   <- _BackdropMotif (scaled 320dp)
@@ -91,7 +91,7 @@ Haptic: one `TableHapticEvent.matchEnd` heavy-impact on first frame, only if win
 
 ## 4. Navigation flow
 
-```
+```text
 [live table, landscape]
    |
    | round ends, _persistAndMaybeFinish runs

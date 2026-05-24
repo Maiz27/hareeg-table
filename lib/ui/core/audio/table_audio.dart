@@ -217,6 +217,13 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
         try {
           await _configureBasic(localPlayer);
           await _loadSourceSafely(localPlayer, localPath);
+        } catch (error, stackTrace) {
+          // A failure here (typically from _configureBasic, since
+          // _loadSourceSafely already catches its own errors) must not
+          // break the chain — any later entry would otherwise wait
+          // forever on its source-load future and playAsset would hang.
+          debugPrint('Audio: warmup step for $localPath failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
         } finally {
           if (!completers[localPath]!.isCompleted) {
             completers[localPath]!.complete();

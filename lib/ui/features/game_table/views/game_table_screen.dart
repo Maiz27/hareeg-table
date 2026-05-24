@@ -962,26 +962,23 @@ class _GameTableScreenState extends State<GameTableScreen>
     setState(() => _inspectedCard = card);
   }
 
-  /// Surfaces the Strict-tier +3 toast and pulses the offending card so the
-  /// human can see which discard was rejected. Caller already wrapped this
-  /// in a `setState`.
-  void _emitMistakeRevertFeedback({
-    required String message,
-    String? revertedCardId,
-  }) {
-    _replaceHumanFeedback(message, isError: true);
+  /// Pulses the offending card during a Strict-tier +3 reject. The "+N"
+  /// toast itself is driven by the flow planner and `_replaceHumanFeedback`;
+  /// this only manages the brief invalid-state flash on the south hand.
+  /// Caller already wrapped this in a `setState`.
+  void _scheduleRevertFlash(String? revertedCardId) {
     _revertFlashTimer?.cancel();
+    _revertFlashTimer = null;
     _revertFlashCardId = revertedCardId;
-    if (revertedCardId != null) {
-      _revertFlashTimer = Timer(_scaledDelay(_revertFlashDuration), () {
-        if (!mounted) return;
-        setState(() {
-          if (_revertFlashCardId == revertedCardId) {
-            _revertFlashCardId = null;
-          }
-        });
+    if (revertedCardId == null) return;
+    _revertFlashTimer = Timer(_scaledDelay(_revertFlashDuration), () {
+      if (!mounted) return;
+      setState(() {
+        if (_revertFlashCardId == revertedCardId) {
+          _revertFlashCardId = null;
+        }
       });
-    }
+    });
   }
 
   void _replaceHumanFeedback(String? message, {required bool isError}) {
@@ -1090,10 +1087,16 @@ class _GameTableScreenState extends State<GameTableScreen>
         ? strings.youDeclaredJoker(identity)
         : strings.jokerDeclaredBySeat(seat, identity);
     unawaited(_audio.play(TableSoundEvent.jokerDeclared));
-    _feedbackTimer?.cancel();
-    _feedbackTimer = null;
-    _humanFeedback = message;
-    _humanFeedbackIsError = false;
+    // All cue state mutations go through setState so queued cues (popped
+    // from the timer callback below) actually trigger a repaint — the
+    // first cue arrives inside its caller's setState but subsequent cues
+    // would otherwise mutate state silently.
+    setState(() {
+      _feedbackTimer?.cancel();
+      _feedbackTimer = null;
+      _humanFeedback = message;
+      _humanFeedbackIsError = false;
+    });
     final duration = _scaledDelay(_activeJokerChipDuration);
     _feedbackTimer = Timer(duration, () {
       if (!mounted) {
@@ -1410,23 +1413,16 @@ class _GameTableScreenState extends State<GameTableScreen>
       unawaited(_playSound(sound));
     }
     setState(() {
+      _replaceHumanFeedback(
+        flowPlan.feedbackMessage,
+        isError: flowPlan.feedbackIsError,
+      );
       if (result.wasReverted) {
-        // Strict +3: surface the penalty toast and flash the offending card
-        // so the human sees which discard was rejected. Don't use the
-        // generic feedback line — the reverted card id needs to flow into
-        // the south-hand visual cue.
-        _emitMistakeRevertFeedback(
-          message: result.message,
-          revertedCardId: result.revertedCardId,
-        );
-      } else {
-        _replaceHumanFeedback(
-          flowPlan.feedbackMessage,
-          isError: flowPlan.feedbackIsError,
-        );
-      }
-      // Multi-joker melds report only the leftmost declaration.
-      if (result.isSuccess && !result.wasReverted) {
+        // Strict +3: planner surfaced the "+N" chip above; flash the
+        // offending card so the human sees which discard was rejected.
+        _scheduleRevertFlash(result.revertedCardId);
+      } else if (result.isSuccess) {
+        // Multi-joker melds report only the leftmost declaration.
         _emitFeedbackForFirstNewJoker(needsSetState: false);
       }
       // Controller now owns the real melds; drop UI-only ghosts published
@@ -1760,7 +1756,10 @@ class _GameTableScreenState extends State<GameTableScreen>
         progress: presentation.progress,
         previousScores: presentation.previousScores,
         roundsPlayed: _controller.roundNumber,
-        setup: widget.setup,
+        // Use the controller's current setup, not the (potentially stale)
+        // widget.setup — settings may have been retuned mid-match via the
+        // pause overlay, and rematch should mirror what just played.
+        setup: _controller.setup,
         eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
           _matchEliminatedRoundBySeat,
         ),
@@ -1776,6 +1775,8 @@ class _GameTableScreenState extends State<GameTableScreen>
     _fiftyTicker = null;
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    _revertFlashTimer?.cancel();
+    _revertFlashTimer = null;
     _dealChoreography?.dispose();
     _dealChoreography = null;
     setState(() {
@@ -1788,6 +1789,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _fiftyPulse = false;
       _humanFeedback = null;
       _humanFeedbackIsError = false;
+      _revertFlashCardId = null;
       _activeFlights.clear();
       _meldFlight.clear();
       _inspectedCard = null;

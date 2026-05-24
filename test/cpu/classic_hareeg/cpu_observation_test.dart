@@ -304,11 +304,18 @@ class _FakeCpuObservation implements CpuObservation {
   PlayerSeat get currentSeat => seat;
 
   @override
-  List<PlayerSeat> get opponents => const [
-    PlayerSeat.west,
-    PlayerSeat.south,
-    PlayerSeat.east,
-  ];
+  List<PlayerSeat> get opponents {
+    // Compute opponents relative to `seat` so the list never includes the
+    // observer itself. Anti-clockwise order matches the real
+    // CpuObservation: nextAntiClockwise, then the next two seats.
+    var next = seat.nextAntiClockwise;
+    final result = <PlayerSeat>[];
+    while (next != seat) {
+      result.add(next);
+      next = next.nextAntiClockwise;
+    }
+    return List.unmodifiable(result);
+  }
 
   @override
   PlayerSeat? get fiftyClaimant => null;

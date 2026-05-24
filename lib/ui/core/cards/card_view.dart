@@ -100,8 +100,10 @@ class _HareegCardViewState extends State<HareegCardView>
         oldWidget.card.representedIdentity != widget.card.representedIdentity;
     final displayChanged = oldWidget.jokerDisplay != widget.jokerDisplay;
     if (cardChanged || displayChanged) {
+      // Re-resolve from scope when the override is removed; falling back
+      // to the cached value would keep the prior override pinned forever.
       _lastResolvedJokerDisplay =
-          widget.jokerDisplay ?? _lastResolvedJokerDisplay;
+          widget.jokerDisplay ?? JokerDisplayScope.of(context);
       _memoryRevealQuieted = false;
       _syncCue();
     }

@@ -7,7 +7,11 @@ class CpuDifficultyProfile {
     required this.difficulty,
     required this.fiftyReactionMillis,
     required this.fiftyMissChance,
-  });
+  }) : assert(fiftyReactionMillis >= 0, 'fiftyReactionMillis must be >= 0'),
+       assert(
+         fiftyMissChance >= 0 && fiftyMissChance <= 1,
+         'fiftyMissChance must be in [0, 1]',
+       );
 
   /// Difficulty represented by this profile.
   final CpuDifficulty difficulty;

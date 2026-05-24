@@ -72,13 +72,13 @@ abstract final class ClassicHareegHumanActionFlowPlanner {
 
     if (wasReverted) {
       // Strict tier: penalty was applied to the score but the discard didn't
-      // happen. The turn is still the human's — surface the "+3" toast as an
+      // happen. The turn is still the human's — surface the "+N" toast as an
       // error chip, fire the illegal-action haptic, and don't advance the
       // game state. Persistence still runs so the score update is durable.
-      return const ClassicHareegHumanActionFlowPlan(
+      return ClassicHareegHumanActionFlowPlan(
         didApplyAction: false,
-        feedbackMessage: null,
-        feedbackIsError: false,
+        feedbackMessage: message,
+        feedbackIsError: true,
         haptic: TableHapticEvent.illegalAction,
         sound: TableSoundEvent.invalidAction,
         shouldClearSelection: true,

@@ -174,10 +174,16 @@ Offset resolveTableMeldSlot(
     PlayerSeat.south || PlayerSeat.north => horizontalMeldInset,
     PlayerSeat.east || PlayerSeat.west => 0.0,
   };
-  final clampedCenterX = centerX.clamp(
-    laneInset + flightCardSize.width * 0.5,
-    size.width - laneInset - flightCardSize.width * 0.5,
-  );
+  // Normalise the clamp range — when the viewport is narrower than the
+  // configured insets plus a card width (tiny test viewports, foldable
+  // splits), `minX` can exceed `maxX` and `clamp` throws. Falling back
+  // to the viewport centre keeps the flight visible without asserting.
+  var minX = laneInset + flightCardSize.width * 0.5;
+  var maxX = size.width - laneInset - flightCardSize.width * 0.5;
+  if (minX > maxX) {
+    minX = maxX = size.width * 0.5;
+  }
+  final clampedCenterX = centerX.clamp(minX, maxX);
   return centeredFlightOffset(
     clampedCenterX.toDouble(),
     centerY,

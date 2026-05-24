@@ -95,7 +95,7 @@ Mitigations:
 
 High-level algorithm: backtracking over the hand, anchored on the lowest-indexed unused card (the trick already used in `_partitionIntoMelds` and `_candidateGroupsContainingFirst` inside `classic_hareeg_table_play_planner.dart`).
 
-```
+```text
 fn enumerate(remainingHand, accumulatedMelds, accumulatedAssignments):
   if remainingHand.isEmpty OR accumulatedMelds.length >= maxMelds:
     if accumulatedMelds.length >= minMelds AND satisfiesFilters():

@@ -120,7 +120,11 @@ final class _PartitionSearch {
   final Map<String, List<List<HareegCard>>> _candidateGroupsCache = {};
   final Map<String, List<_ResolvedPartitionMeld>> _resolvedMeldCache = {};
   final Set<String> _seen = <String>{};
-  int _emitted = 0;
+  // Tracks every recursion node so [safetyCap] stops pathological searches
+  // that emit few (or zero) partitions but still walk a huge tree — e.g.
+  // narrow `mustUseCardId` / `minTotalValue` filters that reject most
+  // branches still benefit from the cap.
+  int _traversed = 0;
 
   Iterable<MeldPartition> run() sync* {
     yield* _search(
@@ -139,7 +143,8 @@ final class _PartitionSearch {
     required List<HareegCard> cardsUsed,
     required List<JokerMeldAssignment> jokerAssignments,
   }) sync* {
-    if (_emitted >= safetyCap) {
+    _traversed += 1;
+    if (_traversed >= safetyCap) {
       return;
     }
 
@@ -151,9 +156,8 @@ final class _PartitionSearch {
         jokerAssignments: jokerAssignments,
       );
       if (_passesFilters(partition) && _seen.add(_partitionKey(partition))) {
-        _emitted += 1;
         yield partition;
-        if (_emitted >= safetyCap) {
+        if (_traversed >= safetyCap) {
           return;
         }
       }
@@ -165,7 +169,7 @@ final class _PartitionSearch {
 
     final anchor = available.first;
     for (final group in _candidateGroupsContainingAnchor(available, anchor)) {
-      if (_emitted >= safetyCap) {
+      if (_traversed >= safetyCap) {
         return;
       }
       final groupIds = group.map((card) => card.id).toSet();
@@ -175,7 +179,7 @@ final class _PartitionSearch {
       ];
 
       for (final resolved in _resolvedMelds(group)) {
-        if (_emitted >= safetyCap) {
+        if (_traversed >= safetyCap) {
           return;
         }
         yield* _search(

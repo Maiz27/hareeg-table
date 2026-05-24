@@ -1631,6 +1631,11 @@ class ClassicHareegGameController {
     if (pending != null && plan.shouldMovePendingDiscardToDiscardPile) {
       _handFor(removedSeat).removeWhere((card) => card.id == pending.id);
       _discardPile.add(pending);
+      // Treat the forced return as a discard by the removed seat so the
+      // CPU threat model (DiscardHistory) and any takeDiscard predicates
+      // gated on _previousDiscardSeat see a consistent attribution.
+      _previousDiscardSeat = removedSeat;
+      _discardHistory.recordDiscard(removedSeat, pending);
       _lastReturnedPendingDiscard = null;
     }
     _pendingDiscard = null;
