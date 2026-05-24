@@ -106,8 +106,8 @@ class ClassicHareegScenario {
     final snapshot = ClassicHareegMatchSnapshot(
       setup: effectiveSetup,
       hands: mergedHands,
-      stock: stock ?? base.stock,
-      discardPile: discardPile ?? base.discardPile,
+      stock: List<HareegCard>.of(stock ?? base.stock),
+      discardPile: List<HareegCard>.of(discardPile ?? base.discardPile),
       tableMelds: tableMelds ?? const {},
       starter: base.starter,
       currentSeat: currentSeat ?? base.starter,
@@ -181,46 +181,56 @@ class SeatScope {
   /// Legal action ids advertised for this seat right now.
   List<String> get legalActionIds => _controller.legalActionIdsFor(seat);
 
+  /// Routes every seat-scoped action through a seat-matches-current guard so
+  /// a mis-typed scope (`s.south.discard(...)` when it is actually north's
+  /// turn) surfaces as a loud `StateError` instead of silently mutating the
+  /// wrong seat or producing a misleading scenario narrative.
+  ApplyActionResult _applyForSeat(String actionId) {
+    if (_controller.currentSeat != seat) {
+      throw StateError(
+        'SeatScope mismatch: tried to act as $seat while current seat is '
+        '${_controller.currentSeat} (action: $actionId)',
+      );
+    }
+    return _controller.applyAction(actionId);
+  }
+
   /// Draws one card from stock.
   ApplyActionResult drawStock() {
-    return _controller.applyAction(ClassicHareegActionIds.drawStock);
+    return _applyForSeat(ClassicHareegActionIds.drawStock);
   }
 
   /// Takes the top discard into pending state.
   ApplyActionResult takeDiscard() {
-    return _controller.applyAction(ClassicHareegActionIds.takeDiscard);
+    return _applyForSeat(ClassicHareegActionIds.takeDiscard);
   }
 
   /// Returns a pending discard back to the discard pile (and draws from stock
   /// instead).
   ApplyActionResult returnPendingDiscard() {
-    return _controller.applyAction(
-      ClassicHareegActionIds.returnPendingDiscard,
-    );
+    return _applyForSeat(ClassicHareegActionIds.returnPendingDiscard);
   }
 
   /// Takes back all uncommitted opening melds.
   ApplyActionResult returnOpeningMelds() {
-    return _controller.applyAction(
-      ClassicHareegActionIds.returnOpeningMelds,
-    );
+    return _applyForSeat(ClassicHareegActionIds.returnOpeningMelds);
   }
 
   /// Claims Fifty / Khamsin.
   ApplyActionResult claimFifty() {
-    return _controller.applyAction(ClassicHareegActionIds.claimFifty);
+    return _applyForSeat(ClassicHareegActionIds.claimFifty);
   }
 
   /// Plays [cards] from this seat's hand as one meld.
   ApplyActionResult playMeld(Iterable<HareegCard> cards) {
-    return _controller.applyAction(
+    return _applyForSeat(
       ClassicHareegActionIds.playMeldActionId(cards.map((c) => c.id)),
     );
   }
 
   /// Discards a plain legal [card].
   ApplyActionResult discard(HareegCard card) {
-    return _controller.applyAction(
+    return _applyForSeat(
       '${ClassicHareegActionIds.discardPrefix}${card.id}',
     );
   }
@@ -229,7 +239,7 @@ class SeatScope {
   /// Under Strict/Table tiers this goes through as a penalised mistake; under
   /// Coaching/Standard tiers the controller rejects the action.
   ApplyActionResult discardBlockedCover(HareegCard card) {
-    return _controller.applyAction(
+    return _applyForSeat(
       '${ClassicHareegActionIds.discardBlockedCoverPrefix}${card.id}',
     );
   }
