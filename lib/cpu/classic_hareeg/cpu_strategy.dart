@@ -1,6 +1,10 @@
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../domain/classic_hareeg/models/player_seat.dart';
 import 'cpu_move_planner.dart';
+import 'cpu_observation.dart';
+
+export 'cpu_difficulty_profile.dart';
+export 'cpu_observation.dart' show CpuObservation;
 
 /// Boundary for CPU decision-making.
 ///
@@ -8,7 +12,10 @@ import 'cpu_move_planner.dart';
 /// must not mutate game state or bypass rule validation.
 abstract interface class CpuStrategy {
   /// Chooses one legal move intent for the current CPU turn snapshot.
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot);
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  });
 }
 
 /// Minimal state visible to a CPU player when choosing a move.
@@ -51,57 +58,40 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
   const ClassicHareegCpuStrategy();
 
   @override
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
-    final plan = ClassicHareegCpuMovePlanner.evaluate(snapshot.legalActionIds);
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
+    final plan = switch (snapshot.difficulty) {
+      // Route Casual/Beginner through `.plan(observation)` when available so
+      // they inherit the same filters as Skilled/Expert (e.g. don't pick
+      // claim-fifty without a finishing partition). Fall back to the legacy
+      // legal-id-only evaluate when no observation is supplied (tests).
+      CpuDifficulty.beginner || CpuDifficulty.casual =>
+        observation != null
+            ? const PriorityCpuMovePlanner().plan(observation)
+            : PriorityCpuMovePlanner.evaluate(snapshot.legalActionIds),
+      CpuDifficulty.skilled => _skilledPlan(observation),
+      CpuDifficulty.expert => _expertPlan(observation),
+    };
     final actionId = plan.actionId;
     if (actionId == null) {
       throw StateError('CPU needs at least one legal action.');
     }
     return CpuMoveIntent(actionId: actionId);
   }
-}
 
-/// CPU timing and miss-chance profile.
-class CpuDifficultyProfile {
-  /// Creates a CPU difficulty profile.
-  const CpuDifficultyProfile({
-    required this.difficulty,
-    required this.fiftyReactionMillis,
-    required this.fiftyMissChance,
-  });
+  ClassicHareegCpuMovePlan _skilledPlan(CpuObservation? observation) {
+    if (observation == null) {
+      throw StateError('Skilled CPU planning requires a CpuObservation.');
+    }
+    return const SkilledCpuMovePlanner().plan(observation);
+  }
 
-  /// Difficulty represented by this profile.
-  final CpuDifficulty difficulty;
-
-  /// Approximate Fifty reaction delay for later UI timing.
-  final int fiftyReactionMillis;
-
-  /// Chance that a CPU misses a valid Fifty opportunity.
-  final double fiftyMissChance;
-
-  /// Returns the profile for a difficulty.
-  static CpuDifficultyProfile forDifficulty(CpuDifficulty difficulty) {
-    return switch (difficulty) {
-      CpuDifficulty.beginner => const CpuDifficultyProfile(
-        difficulty: CpuDifficulty.beginner,
-        fiftyReactionMillis: 2500,
-        fiftyMissChance: 0.45,
-      ),
-      CpuDifficulty.casual => const CpuDifficultyProfile(
-        difficulty: CpuDifficulty.casual,
-        fiftyReactionMillis: 1800,
-        fiftyMissChance: 0.25,
-      ),
-      CpuDifficulty.skilled => const CpuDifficultyProfile(
-        difficulty: CpuDifficulty.skilled,
-        fiftyReactionMillis: 1100,
-        fiftyMissChance: 0.10,
-      ),
-      CpuDifficulty.expert => const CpuDifficultyProfile(
-        difficulty: CpuDifficulty.expert,
-        fiftyReactionMillis: 650,
-        fiftyMissChance: 0.03,
-      ),
-    };
+  ClassicHareegCpuMovePlan _expertPlan(CpuObservation? observation) {
+    if (observation == null) {
+      throw StateError('Expert CPU planning requires a CpuObservation.');
+    }
+    return const ExpertCpuMovePlanner().plan(observation);
   }
 }

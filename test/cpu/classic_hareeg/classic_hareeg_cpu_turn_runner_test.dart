@@ -59,6 +59,32 @@ void main() {
       expect(controller.turnPhase, TurnPhase.action);
     });
 
+    test('passes a live observation into the CPU strategy', () async {
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        cpuDifficulty: CpuDifficulty.skilled,
+      );
+      final controller = _controllerForCpuDrawTurn(setup: setup);
+      final strategy = _RecordingObservationStrategy();
+
+      final result = await ClassicHareegCpuTurnRunner(
+        controller: controller,
+        strategy: strategy,
+        hooks: ClassicHareegCpuTurnHooks(afterApply: (_, _) async => false),
+      ).run();
+
+      expect(result.appliedActionCount, 1);
+      expect(strategy.seats, [PlayerSeat.east]);
+      expect(strategy.currentSeats, [PlayerSeat.east]);
+      expect(strategy.turnPhases, [TurnPhase.draw]);
+      expect(strategy.difficulties, [CpuDifficulty.skilled]);
+      expect(
+        strategy.legalActionIds.single,
+        contains(ClassicHareegActionIds.drawStock),
+      );
+      expect(strategy.stockCounts, [controller.stockCount + 1]);
+      expect(strategy.discardCounts, [controller.discardPile.length]);
+    });
+
     test(
       'stops at the action safety limit before preparing another action',
       () async {
@@ -156,9 +182,11 @@ void main() {
   });
 }
 
-ClassicHareegGameController _controllerForCpuDrawTurn() {
+ClassicHareegGameController _controllerForCpuDrawTurn({
+  ClassicHareegSetup? setup,
+}) {
   final round = ClassicHareegRound.deal(
-    setup: ClassicHareegSetup.defaults(),
+    setup: setup ?? ClassicHareegSetup.defaults(),
     seed: 5,
   );
   final hands = _mutableHands(round);
@@ -230,7 +258,10 @@ Map<PlayerSeat, List<HareegCard>> _mutableHands(ClassicHareegRound round) {
 
 class _FirstLegalStrategy implements CpuStrategy {
   @override
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
     return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
   }
 }
@@ -241,7 +272,10 @@ class _PreferredActionStrategy implements CpuStrategy {
   final List<String> actionIds;
 
   @override
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
     for (final actionId in actionIds) {
       if (snapshot.legalActionIds.contains(actionId)) {
         return CpuMoveIntent(actionId: actionId);
@@ -253,7 +287,10 @@ class _PreferredActionStrategy implements CpuStrategy {
 
 class _DiscardStrategy implements CpuStrategy {
   @override
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
     final discard = snapshot.legalActionIds.firstWhere(
       (actionId) => ClassicHareegActionIds.discardCardId(actionId) != null,
     );
@@ -265,7 +302,39 @@ class _IllegalStrategy implements CpuStrategy {
   const _IllegalStrategy();
 
   @override
-  CpuMoveIntent chooseMove(CpuTurnSnapshot snapshot) {
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
     return const CpuMoveIntent(actionId: 'not-legal');
+  }
+}
+
+class _RecordingObservationStrategy implements CpuStrategy {
+  final seats = <PlayerSeat>[];
+  final currentSeats = <PlayerSeat>[];
+  final turnPhases = <TurnPhase>[];
+  final difficulties = <CpuDifficulty>[];
+  final legalActionIds = <List<String>>[];
+  final stockCounts = <int>[];
+  final discardCounts = <int>[];
+
+  @override
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
+    final observed = observation;
+    if (observed == null) {
+      throw StateError('Expected runner to pass a CPU observation.');
+    }
+    seats.add(observed.seat);
+    currentSeats.add(observed.currentSeat);
+    turnPhases.add(observed.turnPhase);
+    difficulties.add(observed.difficulty);
+    legalActionIds.add(observed.legalActionIds);
+    stockCounts.add(observed.stockCount);
+    discardCounts.add(observed.discardCount);
+    return const CpuMoveIntent(actionId: ClassicHareegActionIds.drawStock);
   }
 }

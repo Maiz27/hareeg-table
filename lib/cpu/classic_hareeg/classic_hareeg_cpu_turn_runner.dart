@@ -3,6 +3,7 @@ import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/player_seat.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import 'classic_hareeg_cpu_turn_loop_planner.dart';
+import 'cpu_observation.dart';
 import 'cpu_strategy.dart';
 
 /// Why a CPU turn run stopped.
@@ -223,6 +224,12 @@ class ClassicHareegCpuTurnRunner {
           legalActionIds: legalActionIds,
           difficulty: controller.setup.cpuDifficulty,
         ),
+        observation: LiveCpuObservation(
+          controller: controller,
+          seat: step.seat,
+          legalActionIds: legalActionIds,
+          difficulty: controller.setup.cpuDifficulty,
+        ),
       );
       final decision = ClassicHareegCpuTurnDecision(
         step: step,
@@ -295,9 +302,14 @@ class ClassicHareegCpuTurnRunner {
   }
 
   ClassicHareegCpuTurnLoopPlan _turnGate(int appliedActionCount) {
+    // A removed human can't act, so don't yield CPU control to them — the
+    // loop would otherwise stop on humanTurn and the UI would deadlock
+    // waiting on a seat that has no legal actions.
+    final humanIsRemoved = controller.removedSeats.contains(humanSeat);
     return ClassicHareegCpuTurnLoopPlanner.turnGate(
       isRoundOver: controller.isRoundOver,
-      isHumanTurn: controller.currentSeat == humanSeat,
+      isHumanTurn:
+          !humanIsRemoved && controller.currentSeat == humanSeat,
       appliedActionCount: appliedActionCount,
       actionLimit: actionLimit,
     );
