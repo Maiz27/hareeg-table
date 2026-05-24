@@ -24,11 +24,26 @@ extension StrictnessUiProfile on TableStrictness {
   /// still get rule validation but no unsolicited help.
   bool get showsProactiveHints => this == TableStrictness.coaching;
 
-  /// Whether the meld picker is available to the player.
+  /// Whether the meld-suggestion chip rack — the live meld-confirm surface
+  /// for the south seat — is shown above the south meld lane.
   ///
-  /// Only [TableStrictness.coaching]. Standard players are expected to
-  /// recognize their own melds.
-  bool get showsMeldPicker => this == TableStrictness.coaching;
+  /// The rack only ever surfaces sub-selections of cards the player has
+  /// already selected (it never volunteers melds the player hasn't touched),
+  /// so it is a confirm/disambiguate affordance rather than a proactive hint.
+  /// We therefore keep it on for the two tiers that block illegal moves —
+  /// [TableStrictness.coaching] and [TableStrictness.standard] — matching the
+  /// pre-strictness behaviour where the legacy `tableAids` levels Guided and
+  /// Standard both kept the picker; only the old `tableMode` hid it.
+  ///
+  /// [TableStrictness.strict] and [TableStrictness.table] hide the rack:
+  /// those tiers trade assistance for an authentic table feel, and the
+  /// bottom-right meld CTA pill is the sole confirm path. Without the rack
+  /// the player commits whatever the CTA resolves to (and eats the +3 / +17
+  /// penalty if they picked wrong).
+  bool get showsMeldPicker => switch (this) {
+    TableStrictness.coaching || TableStrictness.standard => true,
+    TableStrictness.strict || TableStrictness.table => false,
+  };
 
   /// Whether the long-press card inspect overlay surfaces the card's value.
   ///
