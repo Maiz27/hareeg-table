@@ -229,12 +229,30 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
                 );
               }
 
+              // `Clip.none` lets an expanded meld stack overflow vertically
+              // past the lane's height without being cropped by the scroll
+              // viewport — see the regression test in
+              // test/ui/features/game_table/meld_expand_no_crop_test.dart.
+              //
+              // South melds also bottom-anchor so the lane's extra
+              // headroom (allocated for expansion by the playfield) sits
+              // ABOVE the cards, never below them — keeping the resting
+              // cards at their visual home next to the hand fan while
+              // letting the expansion grow up into the empty
+              // table-center band.
+              final isSouthLane = widget.owner == PlayerSeat.south;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
+                clipBehavior: Clip.none,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: Align(alignment: Alignment.center, child: content),
+                  child: Align(
+                    alignment: isSouthLane
+                        ? Alignment.bottomCenter
+                        : Alignment.center,
+                    child: content,
+                  ),
                 ),
               );
             },
