@@ -45,11 +45,17 @@ class JokerDisplayScope extends InheritedWidget {
   const JokerDisplayScope({
     super.key,
     required this.display,
+    this.cueDuration,
     required super.child,
   });
 
   /// Active joker display mode.
   final JokerDisplay display;
+
+  /// How long the represented identity stays visible after placement when
+  /// [display] is [JokerDisplay.memoryReveal]. Null means "persist" — used by
+  /// the coaching/standard tiers where the badge never fades.
+  final Duration? cueDuration;
 
   /// Reads the nearest display mode; falls back to assisted identity display.
   static JokerDisplay of(BuildContext context) {
@@ -58,9 +64,17 @@ class JokerDisplayScope extends InheritedWidget {
     return scope?.display ?? JokerDisplay.assisted;
   }
 
+  /// Reads the nearest cue duration, or null when no scope or no finite cue.
+  static Duration? cueDurationOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<JokerDisplayScope>();
+    return scope?.cueDuration;
+  }
+
   @override
   bool updateShouldNotify(covariant JokerDisplayScope oldWidget) {
-    return oldWidget.display != display;
+    return oldWidget.display != display ||
+        oldWidget.cueDuration != cueDuration;
   }
 }
 
@@ -112,6 +126,7 @@ class CardRenderRequest {
     this.jokerDisplay = JokerDisplay.assisted,
     this.badge = CardBadge.none,
     this.faceDown = false,
+    this.revealOpacity = 1.0,
   });
 
   /// Physical card being drawn (use [HareegCard.effectiveIdentity] for the
@@ -135,6 +150,11 @@ class CardRenderRequest {
 
   /// If true, draw the back regardless of [variant].
   final bool faceDown;
+
+  /// Opacity of the represented-identity badge in `[0, 1]`. Used only when
+  /// [jokerDisplay] is [JokerDisplay.memoryReveal] to animate the placement
+  /// cue (fade in, hold, fade out). Defaults to 1.0 for the static cases.
+  final double revealOpacity;
 }
 
 /// Contract every card theme implements.

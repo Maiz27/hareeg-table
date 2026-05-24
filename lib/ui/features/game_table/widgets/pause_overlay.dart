@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
-import '../../../core/aids/table_aids.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Landscape pause overlay.
 ///
-/// Table-safe controls only (motion speed, aids, card contrast, haptics,
-/// sound, resume, leave). The full settings surface lives in the main-menu
-/// Settings route.
+/// Table-safe ergonomic controls only (motion speed, CPU pace, card contrast,
+/// haptics, sound, resume, leave). Strictness and Opponents are locked at
+/// match start — to change them, leave the table and start a new game.
 /// Visually anchored to the home menu's coffee-charcoal panel + sand-line
 /// border language so pausing reads as the same product, not a stock dialog.
 class PauseOverlay extends StatelessWidget {
   /// Creates the pause overlay.
   const PauseOverlay({
     super.key,
-    required this.aids,
     required this.motionSpeed,
     required this.fastCpuTurns,
     required this.hapticsEnabled,
     required this.soundEnabled,
     required this.highContrastCards,
-    required this.onAidsChanged,
     required this.onMotionSpeedChanged,
     required this.onFastCpuTurnsChanged,
     required this.onHapticsChanged,
@@ -32,9 +29,6 @@ class PauseOverlay extends StatelessWidget {
     required this.onResume,
     required this.onLeave,
   });
-
-  /// Current aid level.
-  final TableAids aids;
 
   /// Current motion speed.
   final MotionSpeed motionSpeed;
@@ -52,7 +46,6 @@ class PauseOverlay extends StatelessWidget {
   final bool highContrastCards;
 
   /// Callbacks.
-  final ValueChanged<TableAids> onAidsChanged;
   final ValueChanged<MotionSpeed> onMotionSpeedChanged;
   final ValueChanged<bool> onFastCpuTurnsChanged;
   final ValueChanged<bool> onHapticsChanged;
@@ -117,27 +110,6 @@ class PauseOverlay extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    _OverlaySection(
-                                      icon: Icons.visibility_outlined,
-                                      title: strings.aidsLabel,
-                                      helper: strings.aidsHelp,
-                                      child: SegmentedButton<TableAids>(
-                                        segments: [
-                                          for (final aid in TableAids.values)
-                                            ButtonSegment(
-                                              value: aid,
-                                              label: Text(
-                                                _aidsLabel(aid, strings),
-                                              ),
-                                            ),
-                                        ],
-                                        selected: {aids},
-                                        showSelectedIcon: false,
-                                        onSelectionChanged: (selection) =>
-                                            onAidsChanged(selection.first),
-                                      ),
-                                    ),
-                                    const _PanelDivider(),
                                     _OverlaySection(
                                       icon: Icons.timer_outlined,
                                       title: strings.motionSpeedLabel,
@@ -230,13 +202,6 @@ class PauseOverlay extends StatelessWidget {
     );
   }
 
-  static String _aidsLabel(TableAids aid, AppStrings strings) {
-    return switch (aid) {
-      TableAids.guided => strings.guided,
-      TableAids.standard => strings.standard,
-      TableAids.tableMode => strings.tableMode,
-    };
-  }
 }
 
 class _LoungePanel extends StatelessWidget {
@@ -373,13 +338,11 @@ class _OverlaySection extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.child,
-    this.helper,
   });
 
   final IconData icon;
   final String title;
   final Widget child;
-  final String? helper;
 
   @override
   Widget build(BuildContext context) {
@@ -395,10 +358,6 @@ class _OverlaySection extends StatelessWidget {
         ),
         const SizedBox(height: LoungeTokens.space3),
         child,
-        if (helper != null) ...[
-          const SizedBox(height: LoungeTokens.space2),
-          Text(helper!, style: LoungeTokens.bodyMuted),
-        ],
       ],
     );
   }

@@ -19,7 +19,7 @@ void main() {
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.advertise,
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         window: window,
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -46,7 +46,7 @@ void main() {
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.advertise,
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -69,7 +69,7 @@ void main() {
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.apply,
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -93,7 +93,7 @@ void main() {
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.apply,
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -116,7 +116,7 @@ void main() {
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.apply,
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -141,7 +141,7 @@ void main() {
 
       final expired = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.apply,
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,
@@ -154,7 +154,7 @@ void main() {
       );
       final missing = ClassicHareegFiftyClaimPlanner.evaluate(
         purpose: ClassicHareegFiftyClaimPurpose.apply,
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         window: windowFor(discarded),
         claimant: PlayerSeat.east,
         phase: TurnPhase.draw,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../aids/table_aids.dart';
+import '../../../domain/classic_hareeg/models/table_strictness.dart';
 import '../audio/table_audio.dart';
 import '../cards/card_theme.dart';
 import '../cards/card_theme_registry.dart';
@@ -26,24 +26,29 @@ class CardThemeScope extends InheritedWidget {
   }
 }
 
-/// Inherits the active [TableAids] selection.
-class AidsScope extends InheritedWidget {
-  /// Creates a table-aids scope.
-  const AidsScope({super.key, required this.aids, required super.child});
+/// Inherits the active [TableStrictness] selection.
+class StrictnessScope extends InheritedWidget {
+  /// Creates a strictness scope.
+  const StrictnessScope({
+    super.key,
+    required this.strictness,
+    required super.child,
+  });
 
-  /// Active aid level.
-  final TableAids aids;
+  /// Active strictness tier.
+  final TableStrictness strictness;
 
-  /// Reads the nearest aid level; falls back to [TableAids.guided] if not
-  /// wrapped.
-  static TableAids of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AidsScope>();
-    return scope?.aids ?? TableAids.guided;
+  /// Reads the nearest strictness tier; falls back to [TableStrictness.coaching]
+  /// if not wrapped (matches the fresh-install default).
+  static TableStrictness of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<StrictnessScope>();
+    return scope?.strictness ?? TableStrictness.coaching;
   }
 
   @override
-  bool updateShouldNotify(covariant AidsScope oldWidget) {
-    return oldWidget.aids != aids;
+  bool updateShouldNotify(covariant StrictnessScope oldWidget) {
+    return oldWidget.strictness != strictness;
   }
 }
 

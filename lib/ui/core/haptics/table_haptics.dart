@@ -29,6 +29,9 @@ enum TableHapticEvent {
 
   /// Round ends (any outcome).
   roundEnd,
+
+  /// Match ends with the human player winning.
+  matchEnd,
 }
 
 /// Lightweight wrapper around [HapticFeedback] that respects a runtime
@@ -56,6 +59,7 @@ class TableHaptics {
       TableHapticEvent.snapBack => HapticFeedback.mediumImpact(),
       TableHapticEvent.fiftyClaim => HapticFeedback.heavyImpact(),
       TableHapticEvent.roundEnd => HapticFeedback.vibrate(),
+      TableHapticEvent.matchEnd => HapticFeedback.heavyImpact(),
     };
   }
 }

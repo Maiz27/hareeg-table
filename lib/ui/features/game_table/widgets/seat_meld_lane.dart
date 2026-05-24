@@ -187,6 +187,12 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
               );
 
               if (sideFacing) {
+                // Bunch melds together with a fixed gap between them and
+                // center the cluster vertically in the lane. The viewport is
+                // forced to at least lane height so the column can center
+                // when there's slack; when content exceeds the lane height
+                // the SingleChildScrollView still scrolls.
+                final meldGap = widget.compact ? 8.0 : 12.0;
                 return SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   physics: const BouncingScrollPhysics(),
@@ -196,9 +202,14 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
                       minHeight: constraints.maxHeight,
                     ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
-                      children: meldWidgets,
+                      children: [
+                        for (var i = 0; i < meldWidgets.length; i++) ...[
+                          if (i > 0) SizedBox(height: meldGap),
+                          meldWidgets[i],
+                        ],
+                      ],
                     ),
                   ),
                 );

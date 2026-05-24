@@ -1,26 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/table_strictness.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/mistake_preset_rules.dart';
 
 void main() {
   group('ClassicHareegMistakePresetRules', () {
-    test('assisted preset blocks selected illegal actions', () {
-      final cover = ClassicHareegMistakePresetRules.resolve(
-        preset: RulePreset.assisted,
-        mistake: MistakeType.illegalCoverDiscard,
-      );
-      final jokerReplacement = ClassicHareegMistakePresetRules.resolve(
-        preset: RulePreset.assisted,
-        mistake: MistakeType.wrongJokerReplacement,
-      );
+    test('blocking tiers refuse selected illegal actions', () {
+      for (final tier in [TableStrictness.coaching, TableStrictness.standard]) {
+        final cover = ClassicHareegMistakePresetRules.resolve(
+          strictness: tier,
+          mistake: MistakeType.illegalCoverDiscard,
+        );
+        final jokerReplacement = ClassicHareegMistakePresetRules.resolve(
+          strictness: tier,
+          mistake: MistakeType.wrongJokerReplacement,
+        );
 
-      expect(cover.isAllowed, isFalse);
-      expect(jokerReplacement.isAllowed, isFalse);
+        expect(cover.isAllowed, isFalse, reason: 'tier=$tier');
+        expect(jokerReplacement.isAllowed, isFalse, reason: 'tier=$tier');
+      }
     });
 
-    test('penalty preset allows selected mistakes with +3', () {
+    test('strict tier allows selected mistakes with +3', () {
       final result = ClassicHareegMistakePresetRules.resolve(
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         mistake: MistakeType.wrongFiftyClaim,
       );
 
@@ -29,9 +31,9 @@ void main() {
       expect(result.removeFromRound, isFalse);
     });
 
-    test('hard table preset applies +17 and removes player from round', () {
+    test('table tier applies +17 and removes player from round', () {
       final result = ClassicHareegMistakePresetRules.resolve(
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         mistake: MistakeType.insufficientOpening,
       );
 
@@ -41,39 +43,44 @@ void main() {
       expect(result.keepExistingMelds, isTrue);
     });
 
-    test('normal joker discard remains hard-blocked in every preset', () {
-      for (final preset in RulePreset.values) {
+    test('normal joker discard remains hard-blocked in every tier', () {
+      for (final tier in TableStrictness.values) {
         final result = ClassicHareegMistakePresetRules.resolve(
-          preset: preset,
+          strictness: tier,
           mistake: MistakeType.normalJokerDiscard,
         );
 
-        expect(result.isAllowed, isFalse);
-        expect(result.penaltyPoints, 0);
+        expect(result.isAllowed, isFalse, reason: 'tier=$tier');
+        expect(result.penaltyPoints, 0, reason: 'tier=$tier');
       }
     });
 
-    test('CPU mistakes are tied to preset and easier difficulties', () {
+    test('CPU mistakes are tied to strictness, not difficulty', () {
       expect(
         ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          preset: RulePreset.assisted,
-          difficulty: CpuDifficulty.beginner,
+          TableStrictness.coaching,
         ),
         isFalse,
       );
       expect(
         ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          preset: RulePreset.tablePenalties,
-          difficulty: CpuDifficulty.beginner,
+          TableStrictness.standard,
+        ),
+        isFalse,
+      );
+      // Strict reverts the action so a CPU "mistake" would just waste a turn;
+      // only Table tier accepts CPU mistakes (full +17 + round removal).
+      expect(
+        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
+          TableStrictness.strict,
+        ),
+        isFalse,
+      );
+      expect(
+        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
+          TableStrictness.table,
         ),
         isTrue,
-      );
-      expect(
-        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          preset: RulePreset.tablePenalties,
-          difficulty: CpuDifficulty.expert,
-        ),
-        isFalse,
       );
     });
   });

@@ -15,29 +15,35 @@ import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
+import '../../../../domain/classic_hareeg/rules/opening_rules.dart' show PlacedMeld;
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/audio/table_audio.dart';
-import '../../../core/aids/table_aids.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
+import '../../../core/strictness/strictness_ui_profile.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
+import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
 import '../table_card_flight_planner.dart';
+import '../table_flight_anchors.dart';
+import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
 import '../table_human_action_flow_planner.dart';
 import '../table_human_action_start_planner.dart';
 import '../table_interaction_adapter.dart';
 import '../table_persistence_planner.dart';
 import '../table_turn_flow_planner.dart';
+import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
+import '../../match_over/views/match_over_screen.dart';
 
 /// Live Classic Hareeg table.
 ///
@@ -85,6 +91,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   static const _successFeedbackDuration = Duration(milliseconds: 1400);
   static const _errorFeedbackDuration = Duration(milliseconds: 2400);
   static const _roundResultDisplayDuration = Duration(milliseconds: 2400);
+  static const _matchEndOverlayDwell = Duration(milliseconds: 1400);
+  static const _jokerDeclarationFeedbackDuration = Duration(seconds: 3);
+  static const _fastJokerDeclarationFeedbackDuration = Duration(
+    milliseconds: 1500,
+  );
 
   late ClassicHareegGameController _controller;
   final _handInteraction = ClassicHareegHandInteractionState();
@@ -101,11 +112,26 @@ class _GameTableScreenState extends State<GameTableScreen>
   Timer? _fiftyTicker;
   Timer? _feedbackTimer;
   Timer? _roundAdvanceTimer;
-  _CardFlight? _cardFlight;
+  Set<String>? _placedJokerSnapshot;
+  // FIFO of joker declaration cues waiting to display. Used when more than
+  // one joker is placed in quick succession (e.g. CPU plays two meld sets
+  // back-to-back, each with a joker) so each cue gets its own dwell instead
+  // of being clobbered by the next one.
+  final List<({PlayerSeat seat, CardIdentity identity})> _jokerCueQueue = [];
+  bool _isJokerCueActive = false;
+  final List<_CardFlight> _activeFlights = [];
+  late final MeldFlightController _meldFlight;
   DealChoreography? _dealChoreography;
   bool _pendingDealBuild = false;
   HareegCard? _inspectedCard;
+  // Card id of the most recently rejected Strict-tier discard. While set, the
+  // south hand renders a brief flash on this card so the human can see which
+  // discard the +3 penalty refers to.
+  String? _revertFlashCardId;
+  Timer? _revertFlashTimer;
+  static const _revertFlashDuration = Duration(milliseconds: 1100);
   ClassicHareegRoundResultPresentation? _roundResultPresentation;
+  final Map<PlayerSeat, int> _matchEliminatedRoundBySeat = {};
   int _flightSerial = 0;
 
   @override
@@ -118,6 +144,11 @@ class _GameTableScreenState extends State<GameTableScreen>
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
           );
+    _meldFlight = MeldFlightController(
+      handLookup: _cardInHand,
+      baseMeldIndexLookup: (seat) => _controller.tableMeldsFor(seat).length,
+      isMounted: () => mounted,
+    )..addListener(_handleMeldFlightChange);
     _resetHandInteraction();
     if (snapshot == null) {
       _pendingDealBuild = true;
@@ -150,12 +181,21 @@ class _GameTableScreenState extends State<GameTableScreen>
     _fiftyTicker = null;
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    _revertFlashTimer?.cancel();
+    _revertFlashTimer = null;
     _roundAdvanceTimer?.cancel();
     _roundAdvanceTimer = null;
     _dealChoreography?.dispose();
     _dealChoreography = null;
+    _meldFlight.removeListener(_handleMeldFlightChange);
+    _meldFlight.dispose();
     AppOrientation.usePortrait();
     super.dispose();
+  }
+
+  void _handleMeldFlightChange() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _returnToMainMenu() {
@@ -166,7 +206,10 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _resetHandInteraction() {
     final initialHand = _controller.handFor(PlayerSeat.south);
-    _handInteraction.resetFromHand(initialHand, widget.preferences.handSortMode);
+    _handInteraction.resetFromHand(
+      initialHand,
+      widget.preferences.handSortMode,
+    );
   }
 
   void _ensureFiftyTicker() {
@@ -377,6 +420,48 @@ class _GameTableScreenState extends State<GameTableScreen>
       ? _scaledDelay(TableMotion.fastCpuFlight)
       : _scaledDelay(TableMotion.cpuFlight);
 
+  Duration get _cpuPostMeldDwell => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.fastCpuPostMeldDwell)
+      : _scaledDelay(TableMotion.cpuPostMeldDwell);
+
+  /// Duration of the multi-card meld flight (fan travel from hand to meld
+  /// zone). Used for both CPU and human south melds so the player sees a
+  /// consistent "set leaving the hand for the table" beat regardless of seat.
+  Duration get _meldFlightDuration => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.meldFlightFast)
+      : _scaledDelay(TableMotion.meldFlightNormal);
+
+  // Joker cue duration shared between the in-card memoryReveal animation and
+  // the feedback chip lifetime. Fast-cpu mode shortens both so the cue doesn't
+  // outlive the surrounding CPU pacing.
+  Duration get _activeJokerChipDuration => widget.preferences.fastCpuTurns
+      ? _fastJokerDeclarationFeedbackDuration
+      : _jokerDeclarationFeedbackDuration;
+
+  Duration? _activeJokerVisualCueDuration(TableStrictness strictness) {
+    final base = strictness.jokerCueDuration;
+    if (base == null) return null;
+    return widget.preferences.fastCpuTurns
+        ? Duration(milliseconds: base.inMilliseconds ~/ 2)
+        : base;
+  }
+
+  // Actions that materially change the table side need a longer beat before
+  // the next CPU action fires; the joker-declaration chip and meld arrival
+  // would otherwise stack on top of the immediately-following discard.
+  Duration _postActionDwell(String actionId) {
+    final kind = ClassicHareegActionIds.describe(actionId).kind;
+    switch (kind) {
+      case ClassicHareegActionKind.playMeld:
+      case ClassicHareegActionKind.playMeldWithJoker:
+      case ClassicHareegActionKind.placeCover:
+      case ClassicHareegActionKind.replaceJoker:
+        return _cpuPostMeldDwell;
+      default:
+        return _cpuBetweenActionPause;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
@@ -391,27 +476,29 @@ class _GameTableScreenState extends State<GameTableScreen>
         : const <String>[];
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);
-    final aids = AidsScope.of(context);
-    final jokerAidsEnabled = _jokerAidsEnabledFor(_controller.setup);
-    final jokerDisplay = !jokerAidsEnabled
-        ? JokerDisplay.unassigned
-        : widget.preferences.memoryJokerDisplay
-        ? JokerDisplay.memoryReveal
-        : JokerDisplay.assisted;
+    final strictness = _controller.setup.tableStrictness;
+    final jokerDisplay = strictness.jokerDisplay;
     final southHand = _southHandInteraction();
     final southCards = southHand.orderedCards;
     final openingDealFrame = _openingDealFrame(southCards);
-    final visibleSouthCards = openingDealFrame?.southCards ?? southCards;
+    final southIsRemoved = _controller.removedSeats.contains(PlayerSeat.south);
+    final visibleSouthCards = openingDealFrame?.southCards ??
+        (southIsRemoved ? const <HareegCard>[] : southCards);
+    final removedSeats = _controller.removedSeats;
     final visibleCardCounts =
         openingDealFrame?.cardCounts ??
         {
           for (final seat in PlayerSeat.values)
-            seat: _controller.cardCountFor(seat),
+            // Removed seats (Table tier +17) are out of the round; clear
+            // their visible hand so the table reflects the round state.
+            seat: removedSeats.contains(seat)
+                ? 0
+                : _controller.cardCountFor(seat),
         };
     final visibleStockCount =
         openingDealFrame?.stockCount ?? _controller.stockCount;
     final tableInteraction = _tableInteraction(southHand);
-    final meldSuggestions = aids.showsMeldPicker
+    final meldSuggestions = strictness.showsMeldPicker
         ? _meldSuggestions(tableInteraction)
         : const <TableMeldSuggestion>[];
     final meldValidation = isHumanTurn && southHand.hasSelection
@@ -433,6 +520,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       surface: widget.preferences.tableSurfaceTheme,
       child: JokerDisplayScope(
         display: jokerDisplay,
+        cueDuration: _activeJokerVisualCueDuration(strictness),
         child: Stack(
           children: [
             PhysicalTablePlayfield(
@@ -442,10 +530,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               topDiscard: _controller.topDiscard,
               pendingDiscard: pending,
               cardCounts: visibleCardCounts,
-              tableMelds: {
-                for (final seat in PlayerSeat.values)
-                  seat: _controller.tableMeldsFor(seat),
-              },
+              tableMelds: _tableMeldsForBuild(),
               southCards: visibleSouthCards,
               selectedIds: southHand.selectedIds,
               onCardTap: _toggleSelectedCard,
@@ -510,14 +595,15 @@ class _GameTableScreenState extends State<GameTableScreen>
                   ? null
                   : () => unawaited(_playSelectedMeld(primaryMeldAction)),
               meldSuggestions: meldSuggestions,
-              showMeldSuggestions: aids.showsMeldPicker,
+              showMeldSuggestions: strictness.showsMeldPicker,
               onMeldSuggestion: (actionId) {
                 unawaited(_runHumanAction(actionId));
               },
               isHumanTurn: isHumanTurn,
               isCpuRunning: _isCpuRunning,
               currentSeat: _controller.currentSeat,
-              activeSeats: _controller.activeSeats.toSet(),
+              activeSeats: _controller.roundActiveSeats.toSet(),
+              southFlashCardId: _revertFlashCardId,
             ),
             if (_dealChoreography != null)
               Positioned.fill(
@@ -606,13 +692,21 @@ class _GameTableScreenState extends State<GameTableScreen>
                 );
               },
             ),
-            if (_cardFlight != null)
+            for (final flight in _activeFlights)
               Positioned.fill(
+                key: ValueKey('flight-${flight.serial}'),
                 child: _CardFlightOverlay(
-                  key: ValueKey(_cardFlight!.serial),
-                  flight: _cardFlight!,
+                  flight: flight,
                   theme: theme,
-                  duration: _scaledDelay(const Duration(milliseconds: 230)),
+                  duration: flight.duration,
+                ),
+              ),
+            for (final meld in _meldFlight.activeFlights)
+              Positioned.fill(
+                key: ValueKey('meld-flight-${meld.serial}'),
+                child: MeldFlightOverlay(
+                  flight: meld,
+                  theme: theme,
                 ),
               ),
           ],
@@ -648,15 +742,11 @@ class _GameTableScreenState extends State<GameTableScreen>
               overlayKey: 'pause-overlay',
               duration: _scaledDelay(const Duration(milliseconds: 180)),
               child: PauseOverlay(
-                aids: widget.preferences.tableAids,
                 motionSpeed: widget.preferences.motionSpeed,
                 fastCpuTurns: widget.preferences.fastCpuTurns,
                 hapticsEnabled: widget.preferences.hapticsEnabled,
                 soundEnabled: widget.preferences.soundEnabled,
                 highContrastCards: widget.preferences.highContrastCards,
-                onAidsChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(tableAids: v),
-                ),
                 onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
                   widget.preferences.copyWith(motionSpeed: v),
                 ),
@@ -680,8 +770,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               _CardInspectOverlay(
                 card: _inspectedCard!,
                 theme: theme,
-                aids: aids,
-                jokerAidsEnabled: jokerAidsEnabled,
+                strictness: strictness,
                 onClose: () => setState(() => _inspectedCard = null),
               ),
             _AnimatedOverlaySlot(
@@ -873,9 +962,32 @@ class _GameTableScreenState extends State<GameTableScreen>
     setState(() => _inspectedCard = card);
   }
 
+  /// Pulses the offending card during a Strict-tier +3 reject. The "+N"
+  /// toast itself is driven by the flow planner and `_replaceHumanFeedback`;
+  /// this only manages the brief invalid-state flash on the south hand.
+  /// Caller already wrapped this in a `setState`.
+  void _scheduleRevertFlash(String? revertedCardId) {
+    _revertFlashTimer?.cancel();
+    _revertFlashTimer = null;
+    _revertFlashCardId = revertedCardId;
+    if (revertedCardId == null) return;
+    _revertFlashTimer = Timer(_scaledDelay(_revertFlashDuration), () {
+      if (!mounted) return;
+      setState(() {
+        if (_revertFlashCardId == revertedCardId) {
+          _revertFlashCardId = null;
+        }
+      });
+    });
+  }
+
   void _replaceHumanFeedback(String? message, {required bool isError}) {
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    // Any non-joker feedback (errors, hints, success messages) supersedes
+    // pending joker cues — drop the queue so we don't pop them on top.
+    _jokerCueQueue.clear();
+    _isJokerCueActive = false;
     final nextMessage = message == null || message.isEmpty
         ? null
         : context.strings.gameMessage(message);
@@ -904,41 +1016,158 @@ class _GameTableScreenState extends State<GameTableScreen>
     });
   }
 
+  Set<String> _capturePlacedJokerIds() {
+    final ids = <String>{};
+    for (final seat in PlayerSeat.values) {
+      for (final meld in _controller.tableMeldsFor(seat)) {
+        for (final card in meld.cards) {
+          if (card.isJoker && card.representedIdentity != null) {
+            ids.add(card.id);
+          }
+        }
+      }
+    }
+    return ids;
+  }
+
+  List<({PlayerSeat seat, CardIdentity identity})> _consumeJokerPlacements() {
+    final before = _placedJokerSnapshot;
+    _placedJokerSnapshot = null;
+    if (before == null) return const [];
+    final placements = <({PlayerSeat seat, CardIdentity identity})>[];
+    for (final seat in PlayerSeat.values) {
+      for (final meld in _controller.tableMeldsFor(seat)) {
+        for (final card in meld.cards) {
+          if (!card.isJoker) continue;
+          final represented = card.representedIdentity;
+          if (represented == null) continue;
+          if (before.contains(card.id)) continue;
+          placements.add((seat: seat, identity: represented));
+        }
+      }
+    }
+    return placements;
+  }
+
+  /// Drains the post-apply joker snapshot diff and enqueues every new joker
+  /// for a sequential cue. Each cue gets a full dwell — when several jokers
+  /// land back-to-back the chips show in order rather than clobbering each
+  /// other. Caller controls whether the enqueue happens inside its own
+  /// `setState` (human path) or needs one (CPU path).
+  void _emitFeedbackForFirstNewJoker({required bool needsSetState}) {
+    final newJokers = _consumeJokerPlacements();
+    if (newJokers.isEmpty) return;
+    void run() {
+      _jokerCueQueue.addAll(newJokers);
+      _processNextJokerCue();
+    }
+
+    if (needsSetState) {
+      if (!mounted) return;
+      setState(run);
+    } else {
+      run();
+    }
+  }
+
+  void _processNextJokerCue() {
+    if (_isJokerCueActive) return;
+    if (_jokerCueQueue.isEmpty) return;
+    final next = _jokerCueQueue.removeAt(0);
+    _isJokerCueActive = true;
+    _emitJokerDeclarationFeedback(seat: next.seat, identity: next.identity);
+  }
+
+  void _emitJokerDeclarationFeedback({
+    required PlayerSeat seat,
+    required CardIdentity identity,
+  }) {
+    final strings = context.strings;
+    final message = seat == PlayerSeat.south
+        ? strings.youDeclaredJoker(identity)
+        : strings.jokerDeclaredBySeat(seat, identity);
+    unawaited(_audio.play(TableSoundEvent.jokerDeclared));
+    // All cue state mutations go through setState so queued cues (popped
+    // from the timer callback below) actually trigger a repaint — the
+    // first cue arrives inside its caller's setState but subsequent cues
+    // would otherwise mutate state silently.
+    setState(() {
+      _feedbackTimer?.cancel();
+      _feedbackTimer = null;
+      _humanFeedback = message;
+      _humanFeedbackIsError = false;
+    });
+    final duration = _scaledDelay(_activeJokerChipDuration);
+    _feedbackTimer = Timer(duration, () {
+      if (!mounted) {
+        _isJokerCueActive = false;
+        return;
+      }
+      setState(() {
+        if (_humanFeedback == message && !_humanFeedbackIsError) {
+          _humanFeedback = null;
+        }
+        _isJokerCueActive = false;
+      });
+      // Pump the queue so the next pending cue gets its own dwell window.
+      _processNextJokerCue();
+    });
+  }
+
   /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
   /// action so the human can see which seat acted and where the card went.
   Future<void> _playFlightForCpuAction(PlayerSeat seat, String actionId) async {
+    final descriptor = ClassicHareegActionIds.describe(actionId);
+    if (descriptor.isMeldPlay) {
+      await _playMeldFlight(seat: seat, actionId: actionId);
+      return;
+    }
     final plan = ClassicHareegActionPresentationPlanner.forCpuAction(
       seat: seat,
       actionId: actionId,
     );
-    final flight = _flightForPlan(plan.flight);
+    final flight = _flightForPlan(plan.flight, duration: _cpuFlightDuration);
     if (flight == null) {
       unawaited(_playSound(plan.sound));
       return;
     }
     unawaited(_playSound(plan.sound));
-    setState(() => _cardFlight = flight);
+    setState(() => _activeFlights.add(flight));
     await Future<void>.delayed(_cpuFlightDuration);
-    if (mounted && identical(_cardFlight, flight)) {
-      setState(() => _cardFlight = null);
-    }
+    if (!mounted) return;
+    setState(() => _activeFlights.remove(flight));
   }
 
   Future<bool> _playFlightForHumanAction(
-    TableActionPresentationPlan presentation,
-  ) async {
-    final flight = _flightForPlan(presentation.flight);
+    TableActionPresentationPlan presentation, {
+    required String actionId,
+  }) async {
+    final descriptor = ClassicHareegActionIds.describe(actionId);
+    if (descriptor.isMeldPlay) {
+      return _playMeldFlight(
+        seat: PlayerSeat.south,
+        actionId: actionId,
+        sound: presentation.sound,
+      );
+    }
+    final humanFlightDuration = _scaledDelay(const Duration(milliseconds: 230));
+    final flight = _flightForPlan(
+      presentation.flight,
+      duration: humanFlightDuration,
+    );
     if (flight == null) return false;
     unawaited(_playSound(presentation.sound));
-    setState(() => _cardFlight = flight);
-    await Future<void>.delayed(_scaledDelay(const Duration(milliseconds: 230)));
-    if (mounted && identical(_cardFlight, flight)) {
-      setState(() => _cardFlight = null);
-    }
+    setState(() => _activeFlights.add(flight));
+    await Future<void>.delayed(humanFlightDuration);
+    if (!mounted) return true;
+    setState(() => _activeFlights.remove(flight));
     return true;
   }
 
-  _CardFlight? _flightForPlan(TableActionFlightPlan? plan) {
+  _CardFlight? _flightForPlan(
+    TableActionFlightPlan? plan, {
+    required Duration duration,
+  }) {
     final serial = _flightSerial + 1;
     final realization = TableCardFlightPlanner.realize(
       presentation: plan,
@@ -963,34 +1192,52 @@ class _GameTableScreenState extends State<GameTableScreen>
       faceDown: realization.faceDown,
       begin: _flightBegin(presentation),
       end: _flightEnd(presentation),
+      duration: duration,
       beginHandSlot: realization.beginHandSlot,
       endHandSlot: realization.endHandSlot,
       endMeldSlot: realization.endMeldSlot,
     );
   }
 
+  /// Animates a `play-meld` action via [MeldFlightController]. The
+  /// orchestrator owns the per-set decomposition and inter-set sequencing;
+  /// the screen just supplies durations and the sound hook.
+  Future<bool> _playMeldFlight({
+    required PlayerSeat seat,
+    required String actionId,
+    TableSoundEvent? sound,
+  }) {
+    return _meldFlight.playMeld(
+      seat: seat,
+      actionId: actionId,
+      flightDuration: _meldFlightDuration,
+      interSetDelay: _meldInterSetDelay,
+      onSoundPlay: () =>
+          unawaited(_playSound(sound ?? TableSoundEvent.meldPlace)),
+    );
+  }
+
+  Duration get _meldInterSetDelay => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.meldInterSetDelayFast)
+      : _scaledDelay(TableMotion.meldInterSetDelayNormal);
+
   Alignment _flightBegin(TableActionFlightPlan plan) {
     return switch (plan.source) {
-      TableActionFlightSource.stockBack => _FlightAnchor.stock.alignment,
-      TableActionFlightSource.topDiscard => _FlightAnchor.discard.alignment,
+      TableActionFlightSource.stockBack => TableFlightAnchors.stock,
+      TableActionFlightSource.topDiscard => TableFlightAnchors.discard,
       TableActionFlightSource.pendingDiscard ||
-      TableActionFlightSource.handCard => _handAnchorForSeat(plan.seat),
+      TableActionFlightSource.handCard => TableFlightAnchors.seatHand(plan.seat),
     };
   }
 
   Alignment _flightEnd(TableActionFlightPlan plan) {
     return switch (plan.destination) {
-      TableActionFlightDestination.seatHand => _handAnchorForSeat(plan.seat),
-      TableActionFlightDestination.discardPile =>
-        _FlightAnchor.discard.alignment,
-      TableActionFlightDestination.tableMeld => _handAnchorForSeat(plan.seat),
+      TableActionFlightDestination.seatHand =>
+        TableFlightAnchors.seatHand(plan.seat),
+      TableActionFlightDestination.discardPile => TableFlightAnchors.discard,
+      TableActionFlightDestination.tableMeld =>
+        TableFlightAnchors.seatHand(plan.seat),
     };
-  }
-
-  Alignment _handAnchorForSeat(PlayerSeat seat) {
-    return seat == PlayerSeat.south
-        ? _FlightAnchor.hand.alignment
-        : _alignmentForSeat(seat);
   }
 
   SeatHandFlightSlot _southHandAppendSlot() {
@@ -1045,6 +1292,25 @@ class _GameTableScreenState extends State<GameTableScreen>
     return null;
   }
 
+  /// Builds the `tableMelds` map handed to the playfield. When no flight has
+  /// landed a ghost meld yet, reuses the controller's lists directly so the
+  /// common case avoids 4 list concatenations per frame.
+  Map<PlayerSeat, List<PlacedMeld>> _tableMeldsForBuild() {
+    if (!_meldFlight.hasPendingSettled) {
+      return {
+        for (final seat in PlayerSeat.values)
+          seat: _controller.tableMeldsFor(seat),
+      };
+    }
+    return {
+      for (final seat in PlayerSeat.values)
+        seat: [
+          ..._controller.tableMeldsFor(seat),
+          ...?_meldFlight.pendingFor(seat),
+        ],
+    };
+  }
+
   Future<void> _claimFifty() async {
     await _runHumanAction(ClassicHareegActionIds.claimFifty);
     if (!mounted) return;
@@ -1079,7 +1345,10 @@ class _GameTableScreenState extends State<GameTableScreen>
       var flightPlayed = false;
       final presentation = startPlan.presentation;
       if (startPlan.shouldPlayFlight && presentation != null) {
-        flightPlayed = await _playFlightForHumanAction(presentation);
+        flightPlayed = await _playFlightForHumanAction(
+          presentation,
+          actionId: actionId,
+        );
       }
       final applyGate = ClassicHareegHumanActionStartPlanner.afterPreApply(
         isMounted: mounted,
@@ -1108,9 +1377,19 @@ class _GameTableScreenState extends State<GameTableScreen>
     required bool soundPlayedWithFlight,
     required Stopwatch totalWatch,
   }) async {
+    // Only meld / cover / joker-replacement actions can introduce a newly
+    // declared joker, so skip the seat × meld × card snapshot scan for the
+    // many draw/discard actions that can't.
+    final descriptor = ClassicHareegActionIds.describe(actionId);
+    _placedJokerSnapshot = descriptor.canPlaceJoker
+        ? _capturePlacedJokerIds()
+        : null;
     final applyWatch = Stopwatch()..start();
     final result = _controller.applyAction(actionId);
     applyWatch.stop();
+    if (!result.isSuccess) {
+      _placedJokerSnapshot = null;
+    }
     _debugTableLog(
       'human action applied action=$actionId success=${result.isSuccess} '
       'applyElapsed=${applyWatch.elapsedMilliseconds}ms '
@@ -1122,6 +1401,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       isSuccess: result.isSuccess,
       message: result.message,
       soundPlayedWithFlight: soundPlayedWithFlight,
+      wasReverted: result.wasReverted,
     );
 
     final haptic = flowPlan.haptic;
@@ -1137,6 +1417,17 @@ class _GameTableScreenState extends State<GameTableScreen>
         flowPlan.feedbackMessage,
         isError: flowPlan.feedbackIsError,
       );
+      if (result.wasReverted) {
+        // Strict +3: planner surfaced the "+N" chip above; flash the
+        // offending card so the human sees which discard was rejected.
+        _scheduleRevertFlash(result.revertedCardId);
+      } else if (result.isSuccess) {
+        // Multi-joker melds report only the leftmost declaration.
+        _emitFeedbackForFirstNewJoker(needsSetState: false);
+      }
+      // Controller now owns the real melds; drop UI-only ghosts published
+      // by the per-set flight so we don't double-render.
+      _meldFlight.dropPendingSettledFor(PlayerSeat.south);
       if (flowPlan.shouldClearSelection) {
         _handInteraction.clearSelection();
       }
@@ -1230,6 +1521,10 @@ class _GameTableScreenState extends State<GameTableScreen>
               'action=${decision.actionId} '
               'elapsed=${flightWatch.elapsedMilliseconds}ms',
             );
+            final descriptor = ClassicHareegActionIds.describe(decision.actionId);
+            _placedJokerSnapshot = descriptor.canPlaceJoker
+                ? _capturePlacedJokerIds()
+                : null;
             return mounted;
           },
           afterApply: (decision, result) async {
@@ -1239,6 +1534,14 @@ class _GameTableScreenState extends State<GameTableScreen>
               'current=${_controller.currentSeat.name} '
               'phase=${_controller.turnPhase}',
             );
+            if (result.isSuccess) {
+              _emitFeedbackForFirstNewJoker(needsSetState: true);
+            } else {
+              _placedJokerSnapshot = null;
+            }
+            // Controller has the real melds now; drop UI-only ghosts from
+            // the per-set flight.
+            _meldFlight.dropPendingSettledFor(decision.seat);
             _ensureFiftyTicker();
             final persistWatch = Stopwatch()..start();
             await _persistAndMaybeFinish();
@@ -1251,9 +1554,10 @@ class _GameTableScreenState extends State<GameTableScreen>
             if (!mounted) return false;
             return !_controller.isRoundOver && _roundResultPresentation == null;
           },
-          beforeNextAction: (_) async {
-            if (_cpuBetweenActionPause > Duration.zero) {
-              await Future<void>.delayed(_cpuBetweenActionPause);
+          beforeNextAction: (previous) async {
+            final dwell = _postActionDwell(previous.actionId);
+            if (dwell > Duration.zero) {
+              await Future<void>.delayed(dwell);
             }
             return mounted;
           },
@@ -1266,10 +1570,18 @@ class _GameTableScreenState extends State<GameTableScreen>
       }
       _prewarmHumanDrawControls();
       final hitCpuSafetyLimit = result.reachedSafetyLimit;
+      // When the human is out of the round we cannot let the CPU loop pause
+      // on the safety cap — there is no human to take over, so the round
+      // would deadlock waiting for input. Re-enter the loop instead; the
+      // round will end naturally on stock exhaustion or a CPU finish.
+      final humanRemoved =
+          _controller.removedSeats.contains(PlayerSeat.south);
+      final shouldAutoRestart = hitCpuSafetyLimit && humanRemoved;
       setState(() {
         _isCpuRunning = false;
-        _cardFlight = null;
-        if (hitCpuSafetyLimit) {
+        _activeFlights.clear();
+        _meldFlight.clear();
+        if (hitCpuSafetyLimit && !shouldAutoRestart) {
           _replaceHumanFeedback(
             context.strings.cpuTurnSafetyCapReached(
               _cpuActionLimit,
@@ -1279,6 +1591,14 @@ class _GameTableScreenState extends State<GameTableScreen>
           );
         }
       });
+      if (shouldAutoRestart && mounted) {
+        // Defer to the next microtask so the surrounding setState commits
+        // before the recursive call grabs the running flag again.
+        scheduleMicrotask(() {
+          if (!mounted) return;
+          unawaited(_runCpuTurns());
+        });
+      }
       totalWatch.stop();
       _debugTableLog(
         'cpu loop end elapsed=${totalWatch.elapsedMilliseconds}ms '
@@ -1300,7 +1620,8 @@ class _GameTableScreenState extends State<GameTableScreen>
       if (mounted) {
         setState(() {
           _isCpuRunning = false;
-          _cardFlight = null;
+          _activeFlights.clear();
+          _meldFlight.clear();
           _replaceHumanFeedback(
             context.strings.cpuTurnPaused(_controller.currentSeat),
             isError: true,
@@ -1389,6 +1710,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (_roundResultPresentation != null) {
       return;
     }
+    _rememberEliminatedRoundsFromController();
     unawaited(_haptics.fire(TableHapticEvent.roundEnd));
     unawaited(_audio.play(TableSoundEvent.roundEnd));
     setState(() {
@@ -1399,6 +1721,11 @@ class _GameTableScreenState extends State<GameTableScreen>
     });
     final nextSnapshot = presentation.nextSnapshot;
     if (nextSnapshot == null) {
+      _roundAdvanceTimer?.cancel();
+      _roundAdvanceTimer = Timer(_scaledDelay(_matchEndOverlayDwell), () {
+        if (!mounted) return;
+        _openMatchOver(presentation);
+      });
       return;
     }
     _roundAdvanceTimer?.cancel();
@@ -1408,13 +1735,48 @@ class _GameTableScreenState extends State<GameTableScreen>
     });
   }
 
-  void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
+  void _rememberEliminatedRoundsFromController() {
+    _matchEliminatedRoundBySeat.addAll(_controller.seatEliminatedRound);
+  }
+
+  void _openMatchOver(ClassicHareegRoundResultPresentation presentation) {
+    _rememberEliminatedRoundsFromController();
     _roundAdvanceTimer?.cancel();
     _roundAdvanceTimer = null;
     _fiftyTicker?.cancel();
     _fiftyTicker = null;
     _feedbackTimer?.cancel();
     _feedbackTimer = null;
+    _dealChoreography?.dispose();
+    _dealChoreography = null;
+    Navigator.of(context).pushReplacementNamed(
+      AppRoutes.matchOver,
+      arguments: MatchOverArguments(
+        result: presentation.result,
+        progress: presentation.progress,
+        previousScores: presentation.previousScores,
+        roundsPlayed: _controller.roundNumber,
+        // Use the controller's current setup, not the (potentially stale)
+        // widget.setup — settings may have been retuned mid-match via the
+        // pause overlay, and rematch should mirror what just played.
+        setup: _controller.setup,
+        eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
+          _matchEliminatedRoundBySeat,
+        ),
+      ),
+    );
+  }
+
+  void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
+    _rememberEliminatedRoundsFromController();
+    _roundAdvanceTimer?.cancel();
+    _roundAdvanceTimer = null;
+    _fiftyTicker?.cancel();
+    _fiftyTicker = null;
+    _feedbackTimer?.cancel();
+    _feedbackTimer = null;
+    _revertFlashTimer?.cancel();
+    _revertFlashTimer = null;
     _dealChoreography?.dispose();
     _dealChoreography = null;
     setState(() {
@@ -1427,7 +1789,14 @@ class _GameTableScreenState extends State<GameTableScreen>
       _fiftyPulse = false;
       _humanFeedback = null;
       _humanFeedbackIsError = false;
-      _cardFlight = null;
+      _revertFlashCardId = null;
+      // Drop any pending joker cues from the prior round so the queue
+      // can't pump a stale declaration against the freshly dealt hand.
+      _jokerCueQueue.clear();
+      _isJokerCueActive = false;
+      _placedJokerSnapshot = null;
+      _activeFlights.clear();
+      _meldFlight.clear();
       _inspectedCard = null;
       _roundResultPresentation = null;
     });
@@ -1979,33 +2348,27 @@ class _CardInspectOverlay extends StatelessWidget {
   const _CardInspectOverlay({
     required this.card,
     required this.theme,
-    required this.aids,
-    required this.jokerAidsEnabled,
+    required this.strictness,
     required this.onClose,
   });
 
   final HareegCard card;
   final HareegCardTheme theme;
-  final TableAids aids;
-  final bool jokerAidsEnabled;
+  final TableStrictness strictness;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
     final highContrast = CardContrastScope.enabledOf(context);
+    final revealsRepresented = strictness.longPressRevealsRepresented;
     final title = _inspectTitle(
       card,
       strings,
-      jokerAidsEnabled: jokerAidsEnabled,
+      revealsRepresented: revealsRepresented,
     );
-    final body = _inspectBody(
-      card,
-      aids,
-      strings: strings,
-      jokerAidsEnabled: jokerAidsEnabled,
-    );
-    final inspectJokerDisplay = jokerAidsEnabled
+    final body = _inspectBody(card, strictness, strings: strings);
+    final inspectJokerDisplay = revealsRepresented
         ? JokerDisplay.assisted
         : JokerDisplay.unassigned;
     return Positioned.fill(
@@ -2167,25 +2530,6 @@ class _CardInspectOverlay extends StatelessWidget {
   }
 }
 
-enum _FlightAnchor {
-  stock(Alignment(-0.86, 0.56)),
-  discard(Alignment(0, 0)),
-  hand(Alignment(0, 0.82));
-
-  const _FlightAnchor(this.alignment);
-
-  final Alignment alignment;
-}
-
-Alignment _alignmentForSeat(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => const Alignment(0, 0.48),
-    PlayerSeat.north => const Alignment(0, -0.48),
-    PlayerSeat.east => const Alignment(0.68, 0),
-    PlayerSeat.west => const Alignment(-0.68, 0),
-  };
-}
-
 HareegCard _backSeed(int index) {
   return HareegCard.standard(
     rank: CardRank.ace,
@@ -2200,6 +2544,7 @@ class _CardFlight {
     required this.card,
     required this.begin,
     required this.end,
+    required this.duration,
     this.faceDown = false,
     this.beginHandSlot,
     this.endHandSlot,
@@ -2210,128 +2555,15 @@ class _CardFlight {
   final HareegCard card;
   final Alignment begin;
   final Alignment end;
+  final Duration duration;
   final bool faceDown;
   final SeatHandFlightSlot? beginHandSlot;
   final SeatHandFlightSlot? endHandSlot;
   final TableMeldFlightSlot? endMeldSlot;
 }
 
-/// Shared seat-hand geometry used by both [_CardFlightOverlay] and
-/// [_OpeningDealFlightCard]. Both surfaces target the exact same hand strip
-/// layout, so resolving the slot position lives in one place. The geometry
-/// has no widget-state dependency — it's pure math on the inputs.
-Offset _resolveSeatHandSlot(
-  SeatHandFlightSlot slot,
-  Size size,
-  Size flightCardSize,
-) {
-  return switch (slot.seat) {
-    PlayerSeat.south => _resolveSouthHandSlot(slot, size, flightCardSize),
-    PlayerSeat.north => _resolveNorthHandSlot(slot, size, flightCardSize),
-    PlayerSeat.west ||
-    PlayerSeat.east => _resolveSideHandSlot(slot, size, flightCardSize),
-  };
-}
-
-Offset _resolveSouthHandSlot(
-  SeatHandFlightSlot slot,
-  Size size,
-  Size flightCardSize,
-) {
-  final compact = size.height <= 390 || size.width <= 700;
-  final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
-  final controlWidth = compact ? 60.0 : 72.0;
-  final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
-  final edgeInset = (size.width * 0.026)
-      .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
-      .toDouble();
-  final handRightInset = controlWidth + edgeInset + (compact ? 10.0 : 16.0);
-  final handHorizontalInset = math.max(handRightInset, compact ? 70.0 : 96.0);
-  final handBottom = compact ? 0.0 : 2.0;
-  final handWidth = math.max(0.0, size.width - handHorizontalInset * 2);
-  final count = math.max(1, slot.count);
-  final index = slot.index.clamp(0, count - 1).toInt();
-  final minGap = handCardSize.width * 0.42;
-  final preferredGap = handCardSize.width * 0.78;
-  final available = math.max(0.0, handWidth - 8);
-  final fittedGap = count <= 1
-      ? 0.0
-      : ((available - handCardSize.width) / (count - 1))
-            .clamp(minGap, preferredGap)
-            .toDouble();
-  final stripWidth = handCardSize.width + math.max(0, count - 1) * fittedGap;
-  final canvasWidth = math.max(stripWidth, available);
-  final start = math.max(0.0, (canvasWidth - stripWidth) / 2);
-  final handTop = size.height - handBottom - bottomHandHeight;
-  final centerX =
-      handHorizontalInset + start + index * fittedGap + handCardSize.width / 2;
-  final centerY = handTop + bottomHandHeight - 2 - handCardSize.height / 2;
-  return _centeredFlightOffset(centerX, centerY, flightCardSize);
-}
-
-Offset _resolveNorthHandSlot(
-  SeatHandFlightSlot slot,
-  Size size,
-  Size flightCardSize,
-) {
-  final compact = size.height <= 390 || size.width <= 700;
-  final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
-  final topInset = (size.height * 0.032)
-      .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
-      .toDouble();
-  final visibleCount = compact ? 9 : 12;
-  final shown = math.min(math.max(1, slot.count), visibleCount);
-  final index = slot.index.clamp(0, shown - 1).toInt();
-  final gap = cardSize.width * 0.38;
-  final stackWidth = cardSize.width + (shown - 1) * gap;
-  final left = (size.width - stackWidth) / 2;
-  final top = topInset + (compact ? 6.0 : 8.0);
-  final centerX = left + index * gap + cardSize.width / 2;
-  final centerY = top + cardSize.height / 2;
-  return _centeredFlightOffset(centerX, centerY, flightCardSize);
-}
-
-Offset _resolveSideHandSlot(
-  SeatHandFlightSlot slot,
-  Size size,
-  Size flightCardSize,
-) {
-  final compact = size.height <= 390 || size.width <= 700;
-  final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
-  final sideRailWidth = compact ? 46.0 : 56.0;
-  final edgeInset = (size.width * 0.026)
-      .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
-      .toDouble();
-  final topInset = (size.height * 0.032)
-      .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
-      .toDouble();
-  final sideRailVisibleCount = compact ? 5 : 6;
-  final sideRailHeight = cardSize.height + (sideRailVisibleCount - 1) * 14.0;
-  final sideRailTop = topInset + cardSize.height + 12;
-  final visibleCount = compact ? 8 : 11;
-  final shown = math.min(math.max(1, slot.count), visibleCount);
-  final index = slot.index.clamp(0, shown - 1).toInt();
-  final gap = 16.0;
-  final stackHeight = cardSize.height + (shown - 1) * gap;
-  final top = sideRailTop + (sideRailHeight - stackHeight) / 2;
-  final left = switch (slot.seat) {
-    PlayerSeat.west => edgeInset,
-    PlayerSeat.east =>
-      size.width - edgeInset - sideRailWidth + sideRailWidth - cardSize.width,
-    PlayerSeat.north || PlayerSeat.south => 0.0,
-  };
-  final centerX = left + cardSize.width / 2;
-  final centerY = top + index * gap + cardSize.height / 2;
-  return _centeredFlightOffset(centerX, centerY, flightCardSize);
-}
-
-Offset _centeredFlightOffset(double centerX, double centerY, Size cardSize) {
-  return Offset(centerX - cardSize.width / 2, centerY - cardSize.height / 2);
-}
-
 class _CardFlightOverlay extends StatelessWidget {
   const _CardFlightOverlay({
-    super.key,
     required this.flight,
     required this.theme,
     required this.duration,
@@ -2350,19 +2582,18 @@ class _CardFlightOverlay extends StatelessWidget {
           final cardSize = constraints.maxHeight <= 390
               ? const Size(44, 62)
               : const Size(58, 82);
-          final begin = _resolveFlightPoint(
+          final begin = resolveFlightAnchor(
             flight.begin,
             size,
             cardSize,
-            flight.beginHandSlot,
-            null,
+            handSlot: flight.beginHandSlot,
           );
-          final end = _resolveFlightPoint(
+          final end = resolveFlightAnchor(
             flight.end,
             size,
             cardSize,
-            flight.endHandSlot,
-            flight.endMeldSlot,
+            handSlot: flight.endHandSlot,
+            meldSlot: flight.endMeldSlot,
           );
           return TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
@@ -2407,92 +2638,6 @@ class _CardFlightOverlay extends StatelessWidget {
     );
   }
 
-  Offset _resolveFlightPoint(
-    Alignment alignment,
-    Size size,
-    Size cardSize,
-    SeatHandFlightSlot? handSlot,
-    TableMeldFlightSlot? meldSlot,
-  ) {
-    if (handSlot != null) {
-      return _resolveSeatHandSlot(handSlot, size, cardSize);
-    }
-    if (meldSlot != null) {
-      return _resolveTableMeldSlot(meldSlot, size, cardSize);
-    }
-    return Offset(
-      ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
-      ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
-    );
-  }
-
-  Offset _resolveTableMeldSlot(
-    TableMeldFlightSlot slot,
-    Size size,
-    Size flightCardSize,
-  ) {
-    final compact = size.height <= 390 || size.width <= 700;
-    final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
-    final opponentCardSize = compact ? const Size(26, 36) : const Size(32, 44);
-    final sideMeldCardSize = compact ? const Size(28, 40) : const Size(34, 48);
-    final sideRailWidth = compact ? 46.0 : 56.0;
-    final edgeInset = (size.width * 0.026)
-        .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
-        .toDouble();
-    final topInset = (size.height * 0.032)
-        .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
-        .toDouble();
-    final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
-    final southMeldHeight = compact ? 50.0 : 60.0;
-    final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
-    final sideMeldBottomSafe = size.height - (compact ? 12.0 : 16.0);
-    final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
-    final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
-    final sideMeldGap = compact ? 6.0 : 10.0;
-    final horizontalMeldInset = (size.width * 0.25)
-        .clamp(compact ? 126.0 : 210.0, compact ? 180.0 : 390.0)
-        .toDouble();
-
-    final (centerX, centerY) = switch (slot.seat) {
-      PlayerSeat.south => (
-        size.width * 0.5,
-        size.height - southMeldBottom - southMeldHeight * 0.5,
-      ),
-      PlayerSeat.north => (
-        size.width * 0.5,
-        topInset +
-            opponentCardSize.height +
-            (compact ? 18.0 : 24.0) +
-            (compact ? 58.0 : 70.0) * 0.5,
-      ),
-      PlayerSeat.west => (
-        edgeInset + sideRailWidth + sideMeldGap + sideMeldWidth * 0.5,
-        sideMeldTop + sideMeldHeight * 0.5,
-      ),
-      PlayerSeat.east => (
-        size.width -
-            edgeInset -
-            sideRailWidth -
-            sideMeldGap -
-            sideMeldWidth * 0.5,
-        sideMeldTop + sideMeldHeight * 0.5,
-      ),
-    };
-
-    final laneInset = switch (slot.seat) {
-      PlayerSeat.south || PlayerSeat.north => horizontalMeldInset,
-      PlayerSeat.east || PlayerSeat.west => 0.0,
-    };
-    final clampedCenterX = centerX.clamp(
-      laneInset + flightCardSize.width * 0.5,
-      size.width - laneInset - flightCardSize.width * 0.5,
-    );
-    return _centeredFlightOffset(
-      clampedCenterX.toDouble(),
-      centerY,
-      flightCardSize,
-    );
-  }
 }
 
 class _OpeningDealOverlay extends StatelessWidget {
@@ -2571,17 +2716,16 @@ class _OpeningDealFlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final begin = _resolveFlightPoint(
-      _FlightAnchor.stock.alignment,
+    final begin = resolveFlightAnchor(
+      TableFlightAnchors.stock,
       viewportSize,
       cardSize,
-      null,
     );
-    final end = _resolveFlightPoint(
-      _alignmentForSeat(step.seat),
+    final end = resolveFlightAnchor(
+      TableFlightAnchors.seatLane(step.seat),
       viewportSize,
       cardSize,
-      step.endHandSlot,
+      handSlot: step.endHandSlot,
     );
     final value = progress.clamp(0.0, 1.0).toDouble();
     final dx = end.dx - begin.dx;
@@ -2643,20 +2787,6 @@ class _OpeningDealFlightCard extends StatelessWidget {
     );
   }
 
-  Offset _resolveFlightPoint(
-    Alignment alignment,
-    Size size,
-    Size cardSize,
-    SeatHandFlightSlot? handSlot,
-  ) {
-    if (handSlot != null) {
-      return _resolveSeatHandSlot(handSlot, size, cardSize);
-    }
-    return Offset(
-      ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
-      ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
-    );
-  }
 }
 
 class _FeedbackChip extends StatelessWidget {
@@ -2728,21 +2858,17 @@ String _debugActionSummary(Iterable<String> actionIds) {
   return '[$shown, +${ids.length - maxShown} more]';
 }
 
-bool _jokerAidsEnabledFor(ClassicHareegSetup setup) {
-  return setup.rulePreset != RulePreset.hardTable17;
-}
-
 String _inspectTitle(
   HareegCard card,
   AppStrings strings, {
-  required bool jokerAidsEnabled,
+  required bool revealsRepresented,
 }) {
   final identity = card.identity;
   if (identity != null) {
     return strings.cardName(identity);
   }
 
-  if (!jokerAidsEnabled) {
+  if (!revealsRepresented) {
     return strings.joker;
   }
 
@@ -2756,34 +2882,28 @@ String _inspectTitle(
 
 String? _inspectBody(
   HareegCard card,
-  TableAids aids, {
+  TableStrictness strictness, {
   required AppStrings strings,
-  required bool jokerAidsEnabled,
 }) {
-  if (aids == TableAids.tableMode) {
+  if (card.isJoker && !strictness.longPressRevealsRepresented) {
     return null;
   }
 
-  if (card.isJoker && !jokerAidsEnabled) {
-    return null;
-  }
-
+  final isCoaching = strictness.inspectVerbosity == InspectVerbosity.coaching;
   final identity = card.effectiveIdentity;
   if (identity == null) {
-    return aids == TableAids.guided
-        ? strings.unassignedJokerGuided
-        : strings.unassignedJoker;
+    return isCoaching ? strings.unassignedJokerGuided : strings.unassignedJoker;
   }
 
   final value = identity.rank.value;
   if (card.isJoker) {
-    return aids == TableAids.guided
+    return isCoaching
         ? strings.representedJokerGuided(strings.cardName(identity))
         : '${strings.representedJoker(strings.cardName(identity))} '
               '${strings.cardValue(value)}';
   }
 
-  if (aids == TableAids.guided) {
+  if (isCoaching) {
     return strings.cardValueGuided(value);
   }
   return strings.cardValueWithSuit(value, strings.suitWord(identity.suit));

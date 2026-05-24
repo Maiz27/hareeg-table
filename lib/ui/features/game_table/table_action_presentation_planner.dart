@@ -202,6 +202,18 @@ abstract final class ClassicHareegActionPresentationPlanner {
         cardId: action.cardId,
         allowFaceDownFallback: true,
       ),
+      ClassicHareegActionKind.placeCover
+          when action.coverTarget != null &&
+              action.coverTarget!.cardIds.isNotEmpty =>
+        TableActionFlightPlan(
+          source: TableActionFlightSource.handCard,
+          destination: TableActionFlightDestination.tableMeld,
+          seat: seat,
+          cardId: action.coverTarget!.cardIds.first,
+          targetSeat: action.coverTarget!.targetSeat,
+          targetMeldIndex: action.coverTarget!.meldIndex,
+          allowFaceDownFallback: true,
+        ),
       _ => null,
     };
   }

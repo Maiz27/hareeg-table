@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../domain/classic_hareeg/models/player_seat.dart';
 import '../domain/classic_hareeg/models/playing_card.dart';
+import '../domain/classic_hareeg/models/table_strictness.dart';
 
 /// Locale-aware string catalog for user-facing copy.
 ///
@@ -111,8 +112,6 @@ class AppStrings {
   String get resumeTable => _v('resumeTable');
   String get leaveTable => _v('leaveTable');
   String get pauseInMatchControls => _v('pauseInMatchControls');
-  String get aidsLabel => _v('aidsLabel');
-  String get aidsHelp => _v('aidsHelp');
   String get motionSpeedLabel => _v('motionSpeedLabel');
   String get fastCpuTurns => _v('fastCpuTurns');
   String get fastCpuTurnsDescription => _v('fastCpuTurnsDescription');
@@ -133,9 +132,6 @@ class AppStrings {
   String get kenneyCasinoAudioAttribution => _v('kenneyCasinoAudioAttribution');
   String get kenneyCasinoAudioUrl => _v('kenneyCasinoAudioUrl');
   String get licensesFooter => _v('licensesFooter');
-  String get aidGuidedDescription => _v('aidGuidedDescription');
-  String get aidStandardDescription => _v('aidStandardDescription');
-  String get aidTableModeDescription => _v('aidTableModeDescription');
   String get openScoresButton => _v('openScoresButton');
   String get openPauseButton => _v('openPauseButton');
   String get playMeld => _v('playMeld');
@@ -155,11 +151,10 @@ class AppStrings {
   String get fiftyTimer => _v('fiftyTimer');
   String get handSort => _v('handSort');
   String get handSortDescription => _v('handSortDescription');
-  String get assistance => _v('assistance');
-  String get assistanceDescription => _v('assistanceDescription');
-  String get memoryJokerDisplay => _v('memoryJokerDisplay');
-  String get memoryJokerDisplayDescription =>
-      _v('memoryJokerDisplayDescription');
+  String get tableStrictnessTitle => _v('tableStrictnessTitle');
+  String get tableStrictnessSectionDescription =>
+      _v('tableStrictnessSectionDescription');
+  String get strictnessLockedActiveMatch => _v('strictnessLockedActiveMatch');
   String get look => _v('look');
   String get lookDescription => _v('lookDescription');
   String get feel => _v('feel');
@@ -183,10 +178,6 @@ class AppStrings {
   String get firstStarter => _v('firstStarter');
   String get youStart => _v('youStart');
   String get random => _v('random');
-  String get rulePreset => _v('rulePreset');
-  String get assisted => _v('assisted');
-  String get penalties => _v('penalties');
-  String get hard17 => _v('hard17');
   String get openingRequirement => _v('openingRequirement');
   String get jokers => _v('jokers');
   String get houseRules => _v('houseRules');
@@ -197,9 +188,6 @@ class AppStrings {
   String get normalMotion => _v('normalMotion');
   String get fastMotion => _v('fastMotion');
   String get reducedMotion => _v('reducedMotion');
-  String get guided => _v('guided');
-  String get standard => _v('standard');
-  String get tableMode => _v('tableMode');
   String get sandlineLounge => _v('sandlineLounge');
   String get darkFelt => _v('darkFelt');
   String get lightWood => _v('lightWood');
@@ -208,8 +196,12 @@ class AppStrings {
   String get close => _v('close');
   String get empty => _v('empty');
   String get noMeldsYet => _v('noMeldsYet');
-  String get roundSummary => _v('roundSummary');
-  String get continueNextRound => _v('continueNextRound');
+  String get matchOver => _v('matchOver');
+  String get youWinTheMatch => _v('youWinTheMatch');
+  String get finalStandings => _v('finalStandings');
+  String get newMatchSameSetup => _v('newMatchSameSetup');
+  String get wonByFifty => _v('wonByFifty');
+  String get wonByFinish => _v('wonByFinish');
   String get returnToMenu => _v('returnToMenu');
   String get eliminated => _v('eliminated');
   String get nextNow => _v('nextNow');
@@ -251,12 +243,53 @@ class AppStrings {
   String houseRulesSummary({
     required int deckCount,
     required int fiftyTimerSeconds,
-    required String aidsLabel,
   }) {
     if (isRtl) {
-      return '$deckCount رزم  ·  $fiftyTimerSeconds ثوان للخمسين  ·  مساعدات $aidsLabel';
+      return '$deckCount رزم  ·  $fiftyTimerSeconds ثوان للخمسين';
     }
-    return '$deckCount decks  ·  ${fiftyTimerSeconds}s fifty  ·  $aidsLabel aids';
+    return '$deckCount decks  ·  ${fiftyTimerSeconds}s fifty';
+  }
+
+  /// Player-facing label for a [TableStrictness] tier.
+  String tableStrictnessLabel(TableStrictness tier) {
+    if (isRtl) {
+      return switch (tier) {
+        TableStrictness.coaching => 'تدريب',
+        TableStrictness.standard => 'قياسي',
+        TableStrictness.strict => 'صارم',
+        TableStrictness.table => 'طاولة',
+      };
+    }
+    return switch (tier) {
+      TableStrictness.coaching => 'Coaching',
+      TableStrictness.standard => 'Standard',
+      TableStrictness.strict => 'Strict',
+      TableStrictness.table => 'Table',
+    };
+  }
+
+  /// Player-facing description for a [TableStrictness] tier.
+  String tableStrictnessDescription(TableStrictness tier) {
+    if (isRtl) {
+      return switch (tier) {
+        TableStrictness.coaching =>
+          'يمنع الحركات غير القانونية ويظهر تلميحات كاملة.',
+        TableStrictness.standard =>
+          'يمنع الحركات غير القانونية، بدون تلميحات استباقية.',
+        TableStrictness.strict => 'يسمح بأخطاء محددة مع +3، بدون تلميحات.',
+        TableStrictness.table =>
+          'يسمح بأخطاء مع +17 وإخراج اللاعب، بدون تلميحات.',
+      };
+    }
+    return switch (tier) {
+      TableStrictness.coaching =>
+        'Blocks illegal moves and surfaces full hints.',
+      TableStrictness.standard => 'Blocks illegal moves, no proactive hints.',
+      TableStrictness.strict =>
+        'Allows selected mistakes with +3 penalty, no hints.',
+      TableStrictness.table =>
+        'Allows selected mistakes with +17 and round-out, no hints.',
+    };
   }
 
   String cardThemePreview(String themeLabel) {
@@ -366,6 +399,20 @@ class AppStrings {
     return isRtl ? 'جوكر يمثل $represented' : 'Joker representing $represented';
   }
 
+  String jokerDeclaredBySeat(PlayerSeat seat, CardIdentity identity) {
+    final name = cardName(identity);
+    return isRtl
+        ? '${seatLabel(seat)} أعلن الجوكر كـ $name.'
+        : '${seatLabel(seat)} declared joker as $name.';
+  }
+
+  String youDeclaredJoker(CardIdentity identity) {
+    final name = cardName(identity);
+    return isRtl
+        ? 'أعلنت الجوكر كـ $name.'
+        : 'You declared joker as $name.';
+  }
+
   String playerFinished(PlayerSeat seat) {
     return isRtl
         ? '${seatLabel(seat)} أنهى الجولة'
@@ -429,6 +476,26 @@ class AppStrings {
         : '${seatLabel(seat)} wins the match.';
   }
 
+  String matchWinnerHeadline(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      return youWinTheMatch;
+    }
+    return isRtl
+        ? '${seatLabel(seat)} فاز بالمباراة'
+        : '${seatLabel(seat)} wins the match';
+  }
+
+  String eliminatedInRound(int round) {
+    return isRtl ? 'خرج في الجولة $round' : 'Eliminated in round $round';
+  }
+
+  String roundsPlayed(int rounds) {
+    if (isRtl) {
+      return rounds == 1 ? 'لُعبت جولة واحدة' : 'لُعبت $rounds جولات';
+    }
+    return rounds == 1 ? '1 round played' : '$rounds rounds played';
+  }
+
   String cpuTurnSafetyCapReached(int limit, PlayerSeat seat) {
     return isRtl
         ? 'توقف دور اللاعب الآلي بعد $limit حركة عند ${seatLabel(seat)}.'
@@ -439,29 +506,6 @@ class AppStrings {
     return isRtl
         ? 'توقف دور اللاعب الآلي عند ${seatLabel(seat)}.'
         : 'CPU turn paused at ${seatLabel(seat)}.';
-  }
-
-  String roundSummaryDetailNormal() {
-    return isRtl
-        ? 'الفائز يسجل -1. بقية اللاعبين النشطين يسجلون عدد أوراقهم المتبقية.'
-        : 'Winner scores -1. Other active players score their remaining card count.';
-  }
-
-  String roundSummaryDetailFifty({required bool firstRoundException}) {
-    if (isRtl) {
-      return firstRoundException
-          ? 'استثناء خمسين الجولة الأولى: الفائز يسجل -1؛ الرامي يأخذ الأوراق المتبقية زائد 3.'
-          : 'فائز الخمسين يسجل -3؛ الرامي يأخذ الأوراق المتبقية زائد 3.';
-    }
-    return firstRoundException
-        ? 'First-round Fifty exception: winner scores -1; discarder takes remaining cards plus 3.'
-        : 'Fifty winner scores -3; discarder takes remaining cards plus 3.';
-  }
-
-  String roundSummaryDetailDraw() {
-    return isRtl
-        ? 'لا توجد تغييرات في النقاط. نفس اللاعب يبدأ مرة أخرى.'
-        : 'No score changes. The same starter deals again.';
   }
 
   String roundResultDetailNormal() {
@@ -678,9 +722,6 @@ const _englishValues = {
   'resumeTable': 'Resume table',
   'leaveTable': 'Leave table',
   'pauseInMatchControls': 'In-match settings',
-  'aidsLabel': 'Table aids',
-  'aidsHelp':
-      'Aids only change which hints the app shows. Scoring stays the same.',
   'motionSpeedLabel': 'Motion speed',
   'fastCpuTurns': 'Fast CPU turns',
   'fastCpuTurnsDescription':
@@ -706,11 +747,6 @@ const _englishValues = {
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
-  'aidGuidedDescription':
-      'Full hints. Legal targets glow, pending warnings show, invalid moves explain themselves, Fifty prompts appear when valid.',
-  'aidStandardDescription': 'Meld picker remains; fewer proactive hints.',
-  'aidTableModeDescription':
-      'Minimal aids while preserving accessibility and state feedback.',
   'openScoresButton': 'Scores',
   'openPauseButton': 'Pause',
   'playMeld': 'Play meld',
@@ -730,10 +766,11 @@ const _englishValues = {
   'fiftyTimer': 'Fifty timer',
   'handSort': 'Card sorting',
   'handSortDescription': 'Initial sort applied to your hand each round.',
-  'assistance': 'Assistance',
-  'assistanceDescription': 'Hints and joker memory display.',
-  'memoryJokerDisplay': 'Memory joker display',
-  'memoryJokerDisplayDescription': 'Briefly show represented joker identities.',
+  'tableStrictnessTitle': 'Table strictness',
+  'tableStrictnessSectionDescription':
+      'Rule enforcement, hints, and joker memory behavior. Locked during an active match.',
+  'strictnessLockedActiveMatch':
+      'Strictness is locked during an active match. Leave the table and start a new game to change it.',
   'look': 'Look',
   'lookDescription': 'Card faces and the felt under them.',
   'feel': 'Feel',
@@ -758,10 +795,6 @@ const _englishValues = {
   'firstStarter': 'First starter',
   'youStart': 'You start',
   'random': 'Random',
-  'rulePreset': 'Rule preset',
-  'assisted': 'Assisted',
-  'penalties': 'Penalties',
-  'hard17': 'Hard 17',
   'openingRequirement': 'Opening requirement',
   'jokers': 'Jokers',
   'houseRules': 'House rules',
@@ -772,9 +805,6 @@ const _englishValues = {
   'normalMotion': 'Normal motion',
   'fastMotion': 'Fast motion',
   'reducedMotion': 'Reduced motion',
-  'guided': 'Guided',
-  'standard': 'Standard',
-  'tableMode': 'Table mode',
   'sandlineLounge': 'Sandline Lounge',
   'darkFelt': 'Dark felt',
   'lightWood': 'Light wood',
@@ -783,8 +813,12 @@ const _englishValues = {
   'close': 'Close',
   'empty': 'Empty',
   'noMeldsYet': 'No melds yet',
-  'roundSummary': 'Round summary',
-  'continueNextRound': 'Continue next round',
+  'matchOver': 'Match over',
+  'youWinTheMatch': 'You win the match',
+  'finalStandings': 'Final standings',
+  'newMatchSameSetup': 'New match, same setup',
+  'wonByFifty': 'Won by Fifty',
+  'wonByFinish': 'Won by finish',
   'returnToMenu': 'Return to menu',
   'eliminated': 'Eliminated',
   'nextNow': 'Next now',
@@ -880,8 +914,6 @@ const _arabicValues = {
   'resumeTable': 'استئناف الطاولة',
   'leaveTable': 'مغادرة الطاولة',
   'pauseInMatchControls': 'إعدادات أثناء المباراة',
-  'aidsLabel': 'مساعدات الطاولة',
-  'aidsHelp': 'المساعدات تغير التلميحات فقط. التسجيل لا يتغير.',
   'motionSpeedLabel': 'سرعة الحركة',
   'hapticsLabel': 'اهتزازات الطاولة',
   'hapticsHelp': 'اهتزازات خفيفة عند الضغط، الإفلات، والخمسين.',
@@ -904,11 +936,6 @@ const _arabicValues = {
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'الأصول المضمنة تحتفظ بتراخيص CC0 / الملكية العامة الأصلية.',
-  'aidGuidedDescription':
-      'تلميحات كاملة. الأهداف القانونية تتوهج، التحذيرات المعلقة تظهر، الحركات الخاطئة تشرح نفسها، وتظهر مطالبات الخمسين عند صحتها.',
-  'aidStandardDescription': 'يبقى منتقي المجموعات مع تلميحات استباقية أقل.',
-  'aidTableModeDescription':
-      'مساعدات قليلة مع الحفاظ على الوصولية وتغذية حالة اللعب.',
   'openScoresButton': 'النقاط',
   'openPauseButton': 'إيقاف',
   'playMeld': 'العب مجموعة',
@@ -928,10 +955,11 @@ const _arabicValues = {
   'fiftyTimer': 'مؤقت الخمسين',
   'handSort': 'ترتيب الأوراق',
   'handSortDescription': 'الترتيب المبدئي ليدك في بداية كل جولة.',
-  'assistance': 'المساعدة',
-  'assistanceDescription': 'تلميحات وعرض ذاكرة الجوكر.',
-  'memoryJokerDisplay': 'عرض ذاكرة الجوكر',
-  'memoryJokerDisplayDescription': 'اعرض هويات الجوكر الممثلة لفترة قصيرة.',
+  'tableStrictnessTitle': 'مستوى صرامة الطاولة',
+  'tableStrictnessSectionDescription':
+      'تطبيق القواعد، التلميحات، وسلوك ذاكرة الجوكر. مقفل أثناء المباراة النشطة.',
+  'strictnessLockedActiveMatch':
+      'مستوى الصرامة مقفل أثناء المباراة النشطة. غادر الطاولة وابدأ مباراة جديدة لتغييره.',
   'look': 'المظهر',
   'lookDescription': 'وجوه الأوراق والسطح تحتها.',
   'feel': 'الإحساس',
@@ -956,10 +984,6 @@ const _arabicValues = {
   'firstStarter': 'البداية الأولى',
   'youStart': 'أنت تبدأ',
   'random': 'عشوائي',
-  'rulePreset': 'إعداد القواعد',
-  'assisted': 'مساعدة',
-  'penalties': 'عقوبات',
-  'hard17': 'صعبة 17',
   'openingRequirement': 'شرط الافتتاح',
   'jokers': 'الجوكر',
   'houseRules': 'قواعد البيت',
@@ -970,9 +994,6 @@ const _arabicValues = {
   'normalMotion': 'حركة عادية',
   'fastMotion': 'حركة سريعة',
   'reducedMotion': 'حركة مخفضة',
-  'guided': 'موجهة',
-  'standard': 'قياسية',
-  'tableMode': 'وضع الطاولة',
   'sandlineLounge': 'Sandline Lounge',
   'darkFelt': 'لباد داكن',
   'lightWood': 'خشب فاتح',
@@ -981,8 +1002,12 @@ const _arabicValues = {
   'close': 'إغلاق',
   'empty': 'فارغ',
   'noMeldsYet': 'لا توجد مجموعات بعد',
-  'roundSummary': 'ملخص الجولة',
-  'continueNextRound': 'متابعة الجولة التالية',
+  'matchOver': 'انتهت المباراة',
+  'youWinTheMatch': 'فزت بالمباراة',
+  'finalStandings': 'الترتيب النهائي',
+  'newMatchSameSetup': 'مباراة جديدة، نفس الإعدادات',
+  'wonByFifty': 'فاز بالخمسين',
+  'wonByFinish': 'فاز بإنهاء الجولة',
   'returnToMenu': 'العودة للقائمة',
   'eliminated': 'خارج اللعب',
   'nextNow': 'التالي الآن',

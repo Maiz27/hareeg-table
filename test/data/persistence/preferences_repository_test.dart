@@ -15,7 +15,7 @@ void main() {
       final preferences = await repository.loadPreferences();
 
       expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
-      expect(preferences.setup.rulePreset, RulePreset.assisted);
+      expect(preferences.setup.tableStrictness, TableStrictness.coaching);
       expect(preferences.handSortMode, HandSortMode.byRank);
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.fastCpuTurns, isTrue);
@@ -36,13 +36,12 @@ void main() {
           deckCount: 3,
           jokerCount: 4,
           fiftyTimerSeconds: 6,
-          rulePreset: RulePreset.hardTable17,
+          tableStrictness: TableStrictness.table,
         ),
         handSortMode: HandSortMode.bySuit,
         motionSpeed: MotionSpeed.reduced,
         fastCpuTurns: false,
         soundEnabled: false,
-        memoryJokerDisplay: true,
         language: AppLanguage.arabic,
         highContrastCards: true,
         tableSurfaceTheme: TableSurfaceTheme.wood,
@@ -56,13 +55,12 @@ void main() {
       expect(restored.setup.deckCount, 3);
       expect(restored.setup.jokerCount, 4);
       expect(restored.setup.fiftyTimerSeconds, 6);
-      expect(restored.setup.rulePreset, RulePreset.hardTable17);
+      expect(restored.setup.tableStrictness, TableStrictness.table);
       expect(restored.handSortMode, HandSortMode.bySuit);
       expect(restored.motionSpeed, MotionSpeed.reduced);
       expect(restored.fastCpuTurns, isFalse);
       expect(restored.reducedMotion, isTrue);
       expect(restored.soundEnabled, isFalse);
-      expect(restored.memoryJokerDisplay, isTrue);
       expect(restored.language, AppLanguage.arabic);
       expect(restored.highContrastCards, isTrue);
       expect(restored.tableSurfaceTheme, TableSurfaceTheme.wood);
@@ -122,7 +120,7 @@ void main() {
 
       final preferences = await repository.loadPreferences();
 
-      expect(preferences.setup.rulePreset, RulePreset.assisted);
+      expect(preferences.setup.tableStrictness, TableStrictness.coaching);
       expect(store.values.containsKey('preferences.v1'), isFalse);
     });
 

@@ -1,5 +1,5 @@
-import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
+import '../models/table_strictness.dart';
 import '../rules/match_progression_rules.dart';
 import '../rules/mistake_preset_rules.dart';
 import 'classic_hareeg_round.dart';
@@ -88,13 +88,13 @@ class ClassicHareegMistakeConsequencePlan {
 
 /// Plans mistake consequences behind a single pure rules-engine interface.
 abstract final class ClassicHareegMistakeConsequencePlanner {
-  /// Resolves [mistake] under [preset] and plans its consequences.
+  /// Resolves [mistake] under [strictness] and plans its consequences.
   ///
   /// [remainingCardCounts] is the pre-mistake card-count map for all active
   /// seats. The planner subtracts the seat itself when the resolution causes
   /// removal, so callers do not need to pre-filter the map.
   static ClassicHareegMistakeConsequencePlan evaluate({
-    required RulePreset preset,
+    required TableStrictness strictness,
     required MistakeType mistake,
     required PlayerSeat seat,
     required Map<PlayerSeat, int> scores,
@@ -105,7 +105,7 @@ abstract final class ClassicHareegMistakeConsequencePlanner {
   }) {
     return fromResolution(
       resolution: ClassicHareegMistakePresetRules.resolve(
-        preset: preset,
+        strictness: strictness,
         mistake: mistake,
       ),
       seat: seat,

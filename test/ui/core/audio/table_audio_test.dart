@@ -35,6 +35,9 @@ void main() {
       await audio.play(TableSoundEvent.meldPlace);
       await audio.play(TableSoundEvent.cardReturn);
       await audio.play(TableSoundEvent.fiftyClaim);
+      await audio.play(TableSoundEvent.jokerDeclared);
+      await audio.play(TableSoundEvent.roundEnd);
+      await audio.play(TableSoundEvent.matchEnd);
 
       expect(player.paths, [
         'sounds/kenney_casino/card-shuffle.ogg',
@@ -44,6 +47,9 @@ void main() {
         'sounds/kenney_casino/card-fan-1.ogg',
         'sounds/kenney_casino/card-shove-3.ogg',
         'sounds/kenney_casino/cards-pack-open-1.ogg',
+        'sounds/kenney_casino/cards-pack-take-out-2.ogg',
+        'sounds/kenney_casino/cards-pack-take-out-1.ogg',
+        'sounds/kenney_casino/cards-pack-open-2.ogg',
       ]);
     });
 

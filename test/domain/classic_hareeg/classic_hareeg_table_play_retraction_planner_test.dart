@@ -21,7 +21,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         openingState: OpeningState.initial(51),
         ledger: ledger(openingMelds: [tenSet]),
       );
@@ -60,7 +60,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         openingState: opened(PlayerSeat.south),
         ledger: ledger(
           meldPlays: [
@@ -73,7 +73,7 @@ void main() {
             seat: PlayerSeat.south,
             currentSeat: PlayerSeat.south,
             phase: TurnPhase.action,
-            preset: RulePreset.hardTable17,
+            strictness: TableStrictness.table,
             openingState: opened(PlayerSeat.south),
             ledger: ledger(coverPlays: [coverPlay]),
             tableMelds: {
@@ -89,16 +89,19 @@ void main() {
 
       expect(
         bulkMeldPlan.scenario,
-        ClassicHareegTablePlayRetractionScenario.blockedHardTable,
+        ClassicHareegTablePlayRetractionScenario.blockedByStrictness,
       );
       expect(bulkMeldPlan.isAllowed, isFalse);
       expect(bulkMeldPlan.shouldAdvertise, isFalse);
       expect(
         targetCoverPlan.scenario,
-        ClassicHareegTablePlayRetractionScenario.blockedHardTable,
+        ClassicHareegTablePlayRetractionScenario.blockedByStrictness,
       );
       expect(targetCoverPlan.isAllowed, isFalse);
-      expect(targetCoverPlan.message, contains('Hard table mode'));
+      expect(
+        targetCoverPlan.message,
+        contains('does not allow taking back'),
+      );
     });
 
     test('bulk plan distinguishes mixed current-turn table plays', () {
@@ -118,7 +121,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.tablePenalties,
+        strictness: TableStrictness.strict,
         openingState: opened(PlayerSeat.south),
         ledger: ledger(
           meldPlays: [
@@ -161,7 +164,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
         ledger: ledger(
           coverPlays: [
@@ -210,7 +213,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
         ledger: ledger(
           meldPlays: [
@@ -250,7 +253,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.hardTable17,
+        strictness: TableStrictness.table,
         openingState: OpeningState.initial(51),
         ledger: ledger(openingMelds: [tenSet, nineSet]),
         tableMelds: {
@@ -276,7 +279,7 @@ void main() {
         seat: PlayerSeat.south,
         currentSeat: PlayerSeat.south,
         phase: TurnPhase.action,
-        preset: RulePreset.assisted,
+        strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
         ledger: ledger(),
         tableMelds: const {},

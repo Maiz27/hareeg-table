@@ -515,7 +515,11 @@ abstract final class CardPainting {
     final fade = request.jokerDisplay == JokerDisplay.memoryReveal
         ? 0.90
         : 0.95;
-    final color = palette.colorFor(represented.suit).withValues(alpha: fade);
+    final opacity = (fade * request.revealOpacity).clamp(0.0, 1.0);
+    if (opacity <= 0.0) {
+      return;
+    }
+    final color = palette.colorFor(represented.suit).withValues(alpha: opacity);
     final labelSize = shortSide * 0.2;
     final glyphSize = shortSide * 0.18;
     final gap = shortSide * 0.04;

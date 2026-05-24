@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
+import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/aids/table_aids.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
@@ -17,9 +17,9 @@ import 'card_theme_preview.dart';
 /// Settings screen.
 ///
 /// Receives prefs and a setter so the app shell can update [MotionScope] /
-/// [AidsScope] / [CardThemeScope] / [HapticsScope] immediately when the user
-/// toggles them. The screen itself is a thin form - it does not own any of
-/// those scopes.
+/// [StrictnessScope] / [CardThemeScope] / [HapticsScope] immediately when the
+/// user toggles them. The screen itself is a thin form - it does not own any
+/// of those scopes.
 class SettingsScreen extends StatefulWidget {
   /// Creates the settings screen.
   const SettingsScreen({
@@ -183,30 +183,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _AccordionSection(
                   key: _sectionKeys[SettingsSection.assistance],
-                  icon: Icons.visibility_outlined,
-                  title: strings.assistance,
-                  description: strings.assistanceDescription,
-                  preview: [_aidsLabel(_preferences.tableAids, strings)],
+                  icon: Icons.gavel_outlined,
+                  title: strings.tableStrictnessTitle,
+                  description: strings.tableStrictnessSectionDescription,
+                  preview: [
+                    strings.tableStrictnessLabel(
+                      _preferences.setup.tableStrictness,
+                    ),
+                  ],
                   expanded: _openSection == SettingsSection.assistance,
                   onToggle: () => _toggle(SettingsSection.assistance),
-                  child: Column(
-                    children: [
-                      _AidsPicker(
-                        value: _preferences.tableAids,
-                        onChanged: (value) =>
-                            _save(_preferences.copyWith(tableAids: value)),
-                      ),
-                      const _ThinDivider(),
-                      _SwitchSetting(
-                        icon: Icons.casino_outlined,
-                        title: strings.memoryJokerDisplay,
-                        subtitle: strings.memoryJokerDisplayDescription,
-                        value: _preferences.memoryJokerDisplay,
-                        onChanged: (value) => _save(
-                          _preferences.copyWith(memoryJokerDisplay: value),
+                  child: _StrictnessPicker(
+                    value: _preferences.setup.tableStrictness,
+                    locked: widget.isMatchActive,
+                    onChanged: (value) => _save(
+                      _preferences.copyWith(
+                        setup: _preferences.setup.copyWith(
+                          tableStrictness: value,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 _AccordionSection(
@@ -337,14 +333,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MotionSpeed.normal => strings.normalMotion,
       MotionSpeed.fast => strings.fastMotion,
       MotionSpeed.reduced => strings.reducedMotion,
-    };
-  }
-
-  static String _aidsLabel(TableAids aid, AppStrings strings) {
-    return switch (aid) {
-      TableAids.guided => strings.guided,
-      TableAids.standard => strings.standard,
-      TableAids.tableMode => strings.tableMode,
     };
   }
 
@@ -693,43 +681,52 @@ class _SwitchSetting extends StatelessWidget {
   }
 }
 
-class _AidsPicker extends StatelessWidget {
-  const _AidsPicker({required this.value, required this.onChanged});
+class _StrictnessPicker extends StatelessWidget {
+  const _StrictnessPicker({
+    required this.value,
+    required this.locked,
+    required this.onChanged,
+  });
 
-  final TableAids value;
-  final ValueChanged<TableAids> onChanged;
+  final TableStrictness value;
+  final bool locked;
+  final ValueChanged<TableStrictness> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return Column(
-      children: [
-        for (final aid in TableAids.values) ...[
-          _RadioRow<TableAids>(
-            value: aid,
-            groupValue: value,
-            icon: switch (aid) {
-              TableAids.guided => Icons.assistant_direction_outlined,
-              TableAids.standard => Icons.route_outlined,
-              TableAids.tableMode => Icons.table_restaurant_outlined,
-            },
-            title: _SettingsScreenState._aidsLabel(aid, strings),
-            subtitle: _aidDescription(aid, strings),
-            onChanged: onChanged,
-          ),
-          if (aid != TableAids.values.last) const _ThinDivider(),
+    return Opacity(
+      opacity: locked ? 0.64 : 1,
+      child: Column(
+        children: [
+          for (final tier in TableStrictness.values) ...[
+            _RadioRow<TableStrictness>(
+              value: tier,
+              groupValue: value,
+              icon: switch (tier) {
+                TableStrictness.coaching => Icons.assistant_direction_outlined,
+                TableStrictness.standard => Icons.route_outlined,
+                TableStrictness.strict => Icons.gavel_outlined,
+                TableStrictness.table => Icons.table_restaurant_outlined,
+              },
+              title: strings.tableStrictnessLabel(tier),
+              subtitle: strings.tableStrictnessDescription(tier),
+              onChanged: locked ? null : onChanged,
+            ),
+            if (tier != TableStrictness.values.last) const _ThinDivider(),
+          ],
+          if (locked)
+            Padding(
+              padding: const EdgeInsets.only(top: LoungeTokens.space3),
+              child: Text(
+                strings.strictnessLockedActiveMatch,
+                style: LoungeTokens.bodyMuted,
+              ),
+            ),
         ],
-      ],
+      ),
     );
-  }
-
-  static String _aidDescription(TableAids aid, AppStrings strings) {
-    return switch (aid) {
-      TableAids.guided => strings.aidGuidedDescription,
-      TableAids.standard => strings.aidStandardDescription,
-      TableAids.tableMode => strings.aidTableModeDescription,
-    };
   }
 }
 
@@ -788,15 +785,16 @@ class _RadioRow<T> extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final ValueChanged<T> onChanged;
+  final ValueChanged<T>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     final selected = value == groupValue;
+    final tap = onChanged;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => onChanged(value),
+        onTap: tap == null ? null : () => tap(value),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space2),
           child: Row(

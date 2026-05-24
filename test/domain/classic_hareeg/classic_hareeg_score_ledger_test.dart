@@ -12,7 +12,7 @@ void main() {
       () {
         final original = {PlayerSeat.south: 5};
         final penalty = ClassicHareegMistakePresetRules.resolve(
-          preset: RulePreset.tablePenalties,
+          strictness: TableStrictness.strict,
           mistake: MistakeType.wrongFiftyClaim,
         );
 

@@ -1,7 +1,8 @@
-import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../models/table_strictness.dart';
 import '../rules/opening_rules.dart';
+import '../rules/strictness_rule_profile.dart';
 import 'classic_hareeg_action.dart';
 import 'classic_hareeg_round.dart';
 import 'classic_hareeg_turn_ledger.dart';
@@ -14,8 +15,8 @@ enum ClassicHareegTablePlayRetractionScenario {
   /// The queried seat is not the active action-phase seat.
   notCurrentActionTurn,
 
-  /// Hard table mode blocks same-turn regular meld and cover retractions.
-  blockedHardTable,
+  /// Table strictness blocks same-turn regular meld and cover retractions.
+  blockedByStrictness,
 
   /// The requested table meld no longer exists.
   targetMissing,
@@ -92,7 +93,7 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     required PlayerSeat seat,
     required PlayerSeat currentSeat,
     required TurnPhase phase,
-    required RulePreset preset,
+    required TableStrictness strictness,
     required OpeningState openingState,
     required ClassicHareegTurnLedger ledger,
   }) {
@@ -121,9 +122,12 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     // for those play types; keep bulk evaluation consistent so a mixed state
     // can never bypass the block.
     if (hasTurnMelds || hasTurnCovers) {
-      final hardBlock = _hardTableBlock(preset: preset, target: null);
-      if (hardBlock != null) {
-        return hardBlock;
+      final strictnessBlock = _strictnessBlock(
+        strictness: strictness,
+        target: null,
+      );
+      if (strictnessBlock != null) {
+        return strictnessBlock;
       }
     }
 
@@ -161,7 +165,7 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     required PlayerSeat seat,
     required PlayerSeat currentSeat,
     required TurnPhase phase,
-    required RulePreset preset,
+    required TableStrictness strictness,
     required OpeningState openingState,
     required ClassicHareegTurnLedger ledger,
     required Map<PlayerSeat, List<PlacedMeld>> tableMelds,
@@ -196,9 +200,12 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
         )
         .toList(growable: false);
     if (coverPlays.isNotEmpty) {
-      final hardBlock = _hardTableBlock(preset: preset, target: target);
-      if (hardBlock != null) {
-        return hardBlock;
+      final strictnessBlock = _strictnessBlock(
+        strictness: strictness,
+        target: target,
+      );
+      if (strictnessBlock != null) {
+        return strictnessBlock;
       }
       return ClassicHareegTablePlayRetractionPlan(
         scenario: ClassicHareegTablePlayRetractionScenario.specificCoverStack,
@@ -216,9 +223,12 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
       targetMeld: targetMeld,
     );
     if (turnMeldPlay != null) {
-      final hardBlock = _hardTableBlock(preset: preset, target: target);
-      if (hardBlock != null) {
-        return hardBlock;
+      final strictnessBlock = _strictnessBlock(
+        strictness: strictness,
+        target: target,
+      );
+      if (strictnessBlock != null) {
+        return strictnessBlock;
       }
       return ClassicHareegTablePlayRetractionPlan(
         scenario: ClassicHareegTablePlayRetractionScenario.specificTurnMeld,
@@ -278,19 +288,19 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     );
   }
 
-  static ClassicHareegTablePlayRetractionPlan? _hardTableBlock({
-    required RulePreset preset,
+  static ClassicHareegTablePlayRetractionPlan? _strictnessBlock({
+    required TableStrictness strictness,
     required ReturnTablePlayTarget? target,
   }) {
-    if (preset != RulePreset.hardTable17) {
+    if (strictness.allowsTablePlayRetraction) {
       return null;
     }
 
     return ClassicHareegTablePlayRetractionPlan(
-      scenario: ClassicHareegTablePlayRetractionScenario.blockedHardTable,
+      scenario: ClassicHareegTablePlayRetractionScenario.blockedByStrictness,
       isAllowed: false,
       shouldAdvertise: false,
-      message: 'Hard table mode does not allow taking back table plays.',
+      message: 'This table tier does not allow taking back table plays.',
       target: target,
     );
   }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../domain/classic_hareeg/models/playing_card.dart';
@@ -62,11 +60,18 @@ class HareegCardView extends StatefulWidget {
   State<HareegCardView> createState() => _HareegCardViewState();
 }
 
-class _HareegCardViewState extends State<HareegCardView> {
-  static const _memoryRevealDuration = Duration(milliseconds: 1600);
+class _HareegCardViewState extends State<HareegCardView>
+    with SingleTickerProviderStateMixin {
+  /// Fade-in window before the cue settles at full opacity.
+  static const _fadeInDuration = Duration(milliseconds: 200);
 
-  Timer? _memoryRevealTimer;
+  /// Fade-out window after the hold expires.
+  static const _fadeOutDuration = Duration(milliseconds: 400);
+
+  AnimationController? _cueController;
+  Animation<double>? _cueOpacity;
   JokerDisplay? _lastResolvedJokerDisplay;
+  Duration? _lastResolvedCueDuration;
   bool _memoryRevealQuieted = false;
 
   @override
@@ -74,12 +79,16 @@ class _HareegCardViewState extends State<HareegCardView> {
     super.didChangeDependencies();
     final resolvedDisplay =
         widget.jokerDisplay ?? JokerDisplayScope.of(context);
-    if (_lastResolvedJokerDisplay != resolvedDisplay) {
+    final resolvedCueDuration = JokerDisplayScope.cueDurationOf(context);
+    final displayChanged = _lastResolvedJokerDisplay != resolvedDisplay;
+    final durationChanged = _lastResolvedCueDuration != resolvedCueDuration;
+    if (displayChanged || durationChanged) {
       _lastResolvedJokerDisplay = resolvedDisplay;
+      _lastResolvedCueDuration = resolvedCueDuration;
       _memoryRevealQuieted = false;
-      _syncMemoryRevealTimer();
-    } else if (_memoryRevealTimer == null && _shouldMemoryReveal) {
-      _syncMemoryRevealTimer();
+      _syncCue();
+    } else if (_cueController == null && _shouldMemoryReveal) {
+      _syncCue();
     }
   }
 
@@ -91,16 +100,18 @@ class _HareegCardViewState extends State<HareegCardView> {
         oldWidget.card.representedIdentity != widget.card.representedIdentity;
     final displayChanged = oldWidget.jokerDisplay != widget.jokerDisplay;
     if (cardChanged || displayChanged) {
+      // Re-resolve from scope when the override is removed; falling back
+      // to the cached value would keep the prior override pinned forever.
       _lastResolvedJokerDisplay =
-          widget.jokerDisplay ?? _lastResolvedJokerDisplay;
+          widget.jokerDisplay ?? JokerDisplayScope.of(context);
       _memoryRevealQuieted = false;
-      _syncMemoryRevealTimer();
+      _syncCue();
     }
   }
 
   @override
   void dispose() {
-    _memoryRevealTimer?.cancel();
+    _cueController?.dispose();
     super.dispose();
   }
 
@@ -114,17 +125,51 @@ class _HareegCardViewState extends State<HareegCardView> {
         display == JokerDisplay.memoryReveal;
   }
 
-  void _syncMemoryRevealTimer() {
-    _memoryRevealTimer?.cancel();
-    _memoryRevealTimer = null;
+  void _syncCue() {
+    _cueController?.dispose();
+    _cueController = null;
+    _cueOpacity = null;
     if (!_shouldMemoryReveal) {
       _memoryRevealQuieted = false;
       return;
     }
-    _memoryRevealTimer = Timer(_memoryRevealDuration, () {
-      if (!mounted) return;
-      setState(() => _memoryRevealQuieted = true);
+    final hold = _lastResolvedCueDuration;
+    if (hold == null) {
+      return;
+    }
+    final motion = MotionScope.of(context);
+    final fadeIn = motion.scale(_fadeInDuration);
+    final fadeOut = motion.scale(_fadeOutDuration);
+    final scaledHold = motion.scale(hold);
+    final controller = AnimationController(
+      vsync: this,
+      duration: fadeIn + scaledHold + fadeOut,
+    );
+    final fadeInWeight = fadeIn.inMilliseconds.toDouble().clamp(1.0, 1e9);
+    final holdWeight = scaledHold.inMilliseconds.toDouble().clamp(1.0, 1e9);
+    final fadeOutWeight = fadeOut.inMilliseconds.toDouble().clamp(1.0, 1e9);
+    final opacity = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0),
+        weight: fadeInWeight,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween(1.0),
+        weight: holdWeight,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.0),
+        weight: fadeOutWeight,
+      ),
+    ]).animate(controller);
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _memoryRevealQuieted = true);
+      }
     });
+    _cueController = controller;
+    _cueOpacity = opacity;
+    controller.forward(from: 0);
   }
 
   @override
@@ -139,32 +184,9 @@ class _HareegCardViewState extends State<HareegCardView> {
     final effectiveJokerDisplay = _shouldMemoryReveal && _memoryRevealQuieted
         ? JokerDisplay.unassigned
         : scopedJokerDisplay;
-    final request = CardRenderRequest(
-      card: widget.card,
-      variant: widget.variant,
-      size: widget.size,
-      visualState: widget.visualState,
-      jokerDisplay: effectiveJokerDisplay,
-      badge: widget.badge,
-      faceDown: widget.faceDown,
-    );
-
-    final assetPath = widget.theme.imageAssetFor(request);
-    final surface = assetPath == null
-        ? CustomPaint(
-            painter: _CardThemePainter(
-              theme: widget.theme,
-              request: request,
-              overlay: overlay,
-            ),
-            size: widget.size,
-          )
-        : _AssetCardSurface(
-            assetPath: assetPath,
-            request: request,
-            overlay: overlay,
-          );
-
+    final opacityAnimation = _cueOpacity;
+    final cueActive =
+        _shouldMemoryReveal && !_memoryRevealQuieted && opacityAnimation != null;
     final label =
         widget.semanticsLabel ??
         _defaultSemanticsLabel(context, effectiveJokerDisplay);
@@ -182,9 +204,51 @@ class _HareegCardViewState extends State<HareegCardView> {
             '${widget.visualState}-$effectiveJokerDisplay',
           ),
           size: widget.size,
-          child: surface,
+          child: cueActive
+              ? AnimatedBuilder(
+                  animation: opacityAnimation,
+                  builder: (context, _) => _buildSurface(
+                    effectiveJokerDisplay,
+                    opacityAnimation.value,
+                    overlay,
+                  ),
+                )
+              : _buildSurface(effectiveJokerDisplay, 1.0, overlay),
         ),
       ),
+    );
+  }
+
+  Widget _buildSurface(
+    JokerDisplay effectiveJokerDisplay,
+    double revealOpacity,
+    CardStateOverlayStyle overlay,
+  ) {
+    final request = CardRenderRequest(
+      card: widget.card,
+      variant: widget.variant,
+      size: widget.size,
+      visualState: widget.visualState,
+      jokerDisplay: effectiveJokerDisplay,
+      badge: widget.badge,
+      faceDown: widget.faceDown,
+      revealOpacity: revealOpacity,
+    );
+    final assetPath = widget.theme.imageAssetFor(request);
+    if (assetPath == null) {
+      return CustomPaint(
+        painter: _CardThemePainter(
+          theme: widget.theme,
+          request: request,
+          overlay: overlay,
+        ),
+        size: widget.size,
+      );
+    }
+    return _AssetCardSurface(
+      assetPath: assetPath,
+      request: request,
+      overlay: overlay,
     );
   }
 
@@ -220,6 +284,11 @@ class _AssetCardSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final represented = request.card.representedIdentity;
+    final showBadge =
+        request.card.isJoker &&
+        represented != null &&
+        request.jokerDisplay != JokerDisplay.unassigned &&
+        request.revealOpacity > 0.0;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -228,10 +297,17 @@ class _AssetCardSurface extends StatelessWidget {
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
         ),
-        if (request.card.isJoker &&
-            represented != null &&
-            request.jokerDisplay != JokerDisplay.unassigned)
-          _RepresentedJokerBadge(identity: represented, size: request.size),
+        if (showBadge)
+          if (request.revealOpacity >= 1.0)
+            _RepresentedJokerBadge(identity: represented, size: request.size)
+          else
+            Opacity(
+              opacity: request.revealOpacity.clamp(0.0, 1.0),
+              child: _RepresentedJokerBadge(
+                identity: represented,
+                size: request.size,
+              ),
+            ),
         CustomPaint(painter: _CardStateOverlayPainter(overlay: overlay)),
       ],
     );
@@ -364,6 +440,7 @@ class _CardThemePainter extends CustomPainter {
         oldDelegate.request.size != request.size ||
         oldDelegate.request.faceDown != request.faceDown ||
         oldDelegate.request.jokerDisplay != request.jokerDisplay ||
-        oldDelegate.request.badge != request.badge;
+        oldDelegate.request.badge != request.badge ||
+        oldDelegate.request.revealOpacity != request.revealOpacity;
   }
 }
