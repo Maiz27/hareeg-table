@@ -13,6 +13,7 @@ import '../rules/meld_candidate_search.dart';
 import '../rules/meld_validator.dart';
 import '../rules/mistake_preset_rules.dart';
 import '../rules/opening_rules.dart';
+import '../rules/strictness_rule_profile.dart';
 import '../rules/turn_flow_rules.dart';
 import 'classic_hareeg_action.dart';
 import 'classic_hareeg_action_surface_planner.dart';
@@ -503,6 +504,26 @@ class ClassicHareegGameController {
       ClassicHareegActionSurfacePurpose.cpu,
       logSearches: true,
     );
+    // Strip mistake-class action ids (`discard-blocked-cover:*`, plus the
+    // joker discard prefix) when the strictness rules out CPU mistakes. The
+    // discard eligibility planner advertises these for any tier where the
+    // mistake `isAllowed` so humans can opt in to a paid mistake; for the
+    // CPU surface that advertisement is a leak. Without this filter the
+    // runner observes a `discard-blocked-cover:<card>` as legal, applies it,
+    // the controller reverts the action (Strict tier: penalty applied, card
+    // stays in hand, turn does NOT advance), then the runner re-polls the
+    // same surface and the planner picks the same id again — burning the
+    // safety cap on consecutive penalties. The same shape exists for any
+    // future mistake-class id we add.
+    if (!setup.tableStrictness.cpuMistakesAllowed) {
+      final filtered = [
+        for (final id in plan.actionIds)
+          if (!ClassicHareegActionIds.describe(id).isMistake) id,
+      ];
+      if (filtered.length != plan.actionIds.length) {
+        return finish('${plan.reason}+nomistake', filtered);
+      }
+    }
     return finish(plan.reason, plan.actionIds);
   }
 

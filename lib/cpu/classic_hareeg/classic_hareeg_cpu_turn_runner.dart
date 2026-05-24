@@ -256,6 +256,22 @@ class ClassicHareegCpuTurnRunner {
           '${applyResult.message}',
         );
       }
+      if (applyResult.wasReverted) {
+        // A reverted result means the controller charged a Strict-tier
+        // mistake penalty AND left the card in hand — so the same seat is
+        // still on turn with the same state. Re-polling the planner from
+        // that state will pick the same action again, looping until the
+        // safety cap and burning ~64 × 3 penalty points per CPU turn. With
+        // the cpuActionIdsFor mistake filter in place this branch should
+        // never fire for a CPU; throwing surfaces the planner leak loudly
+        // instead of silently penalising the seat.
+        throw StateError(
+          'CPU action ${intent.actionId} was reverted with a mistake '
+          'penalty — CPUs must not surface mistake-class action ids when '
+          'cpuMistakesAllowed is false. seat=${decision.seat.name} '
+          'message=${applyResult.message}',
+        );
+      }
 
       appliedActionCount += 1;
       appliedDecisions.add(decision);
