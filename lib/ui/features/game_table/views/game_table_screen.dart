@@ -1514,7 +1514,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       _humanFeedback = null;
       _humanFeedbackIsError = false;
       _jokerCueQueue.clear();
-      _isJokerCueActive = false;
       _activeFlights.clear();
       _meldFlight.clear();
     });
