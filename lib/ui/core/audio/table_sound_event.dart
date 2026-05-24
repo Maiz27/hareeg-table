@@ -27,9 +27,17 @@ enum TableSoundEvent {
   /// Successful Fifty claim.
   fiftyClaim,
 
+  /// Joker placed with a declared identity — short distinct cue to focus the
+  /// memory-reveal window. Plays in every strictness tier so players hear the
+  /// declaration regardless of whether the badge persists.
+  jokerDeclared,
+
   /// Invalid move feedback.
   invalidAction,
 
   /// Round result appears.
   roundEnd,
+
+  /// Final match-over screen appears.
+  matchEnd,
 }

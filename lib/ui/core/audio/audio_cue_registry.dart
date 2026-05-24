@@ -41,9 +41,7 @@ abstract final class AudioCueRegistry {
   /// Returns every distinct asset path referenced by the registry, used by
   /// the preloading sound player to warm SoundPool entries once at boot.
   static Set<String> allAssetPaths() {
-    return <String>{
-      for (final cue in _cues.values) ...cue.assets,
-    };
+    return <String>{for (final cue in _cues.values) ...cue.assets};
   }
 }
 
@@ -108,6 +106,13 @@ const Map<TableSoundEvent, AudioCue> _cues = {
     assets: ['${_prefix}cards-pack-open-1.ogg'],
     volume: 0.58,
   ),
+  // Distinct from `meldPlace`/`discardCard`; `cards-pack-take-out-2.ogg` is a
+  // softer rustle that focuses the placement without competing with the
+  // meldPlace fan that immediately precedes it.
+  TableSoundEvent.jokerDeclared: AudioCue(
+    assets: ['${_prefix}cards-pack-take-out-2.ogg'],
+    volume: 0.52,
+  ),
   TableSoundEvent.invalidAction: AudioCue(
     assets: ['${_prefix}card-shove-4.ogg'],
     volume: 0.34,
@@ -115,5 +120,9 @@ const Map<TableSoundEvent, AudioCue> _cues = {
   TableSoundEvent.roundEnd: AudioCue(
     assets: ['${_prefix}cards-pack-take-out-1.ogg'],
     volume: 0.46,
+  ),
+  TableSoundEvent.matchEnd: AudioCue(
+    assets: ['${_prefix}cards-pack-open-2.ogg'],
+    volume: 0.52,
   ),
 };

@@ -126,6 +126,9 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
   // Per-asset load futures — playAsset awaits the specific entry so it only
   // waits for its own sample (~200ms) instead of all 21 in parallel (~1.5s).
   final Map<String, Future<void>> _sourceLoads = {};
+  // Last applied volume per player; lets [playAsset] skip the setVolume
+  // platform-channel call when the value hasn't changed since the prior play.
+  final Map<String, double> _lastVolume = {};
   Future<void>? _initFuture;
 
   @override
@@ -148,32 +151,79 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
   static const _splashCriticalPath =
       'sounds/kenney_casino/cards-pack-take-out-1.ogg';
 
+  /// Grace period after warmup begins before non-splash players start
+  /// configuring + loading. The splash → home → setup transition kicks off
+  /// during this window; deferring the heavier setup avoids contention with
+  /// route-transition frames.
+  static const _warmupStartupGrace = Duration(milliseconds: 1200);
+
+  /// Gap between each non-splash player's configure + load step. Wider gaps
+  /// keep mediaserver IPC from piling up during navigation; total warmup
+  /// stretches to ~`gap × N` ms but each frame stays cheap.
+  static const _warmupStepGap = Duration(milliseconds: 60);
+
   Future<void> _initAllPlayers() async {
     final uniquePaths = AudioCueRegistry.allAssetPaths();
     // Create the AudioPlayer instances synchronously so [playAsset] can find
-    // them in the map immediately.
+    // them in the map immediately. This is one platform-channel `create` call
+    // per player — cheap individually, but the configure + setSource steps
+    // are deferred onto the chain so they don't blast the main thread at
+    // launch.
     for (final path in uniquePaths) {
       _players[path] = AudioPlayer();
     }
-    // Configure every player's player-mode / audio-context / release-mode in
-    // parallel (fast — ~3 method-channel calls each).
-    await Future.wait([
-      for (final player in _players.values) _configureBasic(player),
-    ]);
-    // Load the splash cue FIRST and await it. Android's SoundPool decodes its
-    // load queue serially on a background thread, so unless we sequence the
-    // splash sample ahead of the others it ends up at the back of the queue
-    // and only finishes after the splash has handed off to home.
+    // Configure + load the splash sample synchronously so the splash audio
+    // cue isn't racing anything else.
     final splashPlayer = _players[_splashCriticalPath];
     if (splashPlayer != null) {
+      await _configureBasic(splashPlayer);
       final future = _loadSourceSafely(splashPlayer, _splashCriticalPath);
       _sourceLoads[_splashCriticalPath] = future;
       await future;
     }
-    // Fire the rest in parallel; tracked so playAsset can await per-asset.
-    for (final entry in _players.entries) {
-      if (entry.key == _splashCriticalPath) continue;
-      _sourceLoads[entry.key] = _loadSourceSafely(entry.value, entry.key);
+    // Defer configure + setSource for every other player onto a chain that
+    // starts after [_warmupStartupGrace] and spaces each step by
+    // [_warmupStepGap]. Each step is ~4 platform-channel calls (3 configure +
+    // 1 setSource); spreading them out keeps the splash → home → setup
+    // transitions free of mediaserver IPC pressure.
+    _scheduleStaggeredLoads(
+      [
+        for (final entry in _players.entries)
+          if (entry.key != _splashCriticalPath) entry,
+      ],
+      startupGrace: _warmupStartupGrace,
+      gap: _warmupStepGap,
+    );
+  }
+
+  void _scheduleStaggeredLoads(
+    List<MapEntry<String, AudioPlayer>> entries, {
+    required Duration startupGrace,
+    required Duration gap,
+  }) {
+    final completers = <String, Completer<void>>{
+      for (final entry in entries) entry.key: Completer<void>(),
+    };
+    // Publish per-asset futures synchronously so playAsset can await them
+    // even before the load future actually runs.
+    for (final entry in entries) {
+      _sourceLoads[entry.key] = completers[entry.key]!.future;
+    }
+    Future<void> chain = Future<void>.delayed(startupGrace);
+    for (final entry in entries) {
+      final localPath = entry.key;
+      final localPlayer = entry.value;
+      chain = chain.then((_) async {
+        try {
+          await _configureBasic(localPlayer);
+          await _loadSourceSafely(localPlayer, localPath);
+        } finally {
+          if (!completers[localPath]!.isCompleted) {
+            completers[localPath]!.complete();
+          }
+        }
+        await Future<void>.delayed(gap);
+      });
     }
   }
 
@@ -224,7 +274,10 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
       // no-ops. `stop()` clears both flags so `resume()` falls through to
       // `soundPool.play(soundId)` on the cached sample — no codec churn.
       await player.stop();
-      await player.setVolume(volume);
+      if (_lastVolume[path] != volume) {
+        await player.setVolume(volume);
+        _lastVolume[path] = volume;
+      }
       await player.resume();
       if (kDebugMode) {
         debugPrint('[audio] resume returned: $path');
@@ -251,6 +304,7 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
     } finally {
       _players.clear();
       _sourceLoads.clear();
+      _lastVolume.clear();
     }
   }
 }
