@@ -42,6 +42,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   audioplayers_platform_interface: ^7.1.1
+  # Used by L0 cue/animation queue tests to fast-forward Timer dwells without
+  # blocking real wall time.
+  fake_async: ^1.3.3
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
