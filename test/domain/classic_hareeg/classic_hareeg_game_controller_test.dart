@@ -2654,6 +2654,72 @@ void main() {
       expect(next.roundNumber, 2);
     });
 
+    test(
+      'south crossing elimination flips isHumanEliminated on round end',
+      () {
+        // South sits at 30 (one point shy of 31) and east finishes the round
+        // with south still holding two non-joker cards worth +1 each. The
+        // resulting +2 pushes south to 32, which is the score-elimination
+        // condition the spectator-skip product flow keys off of.
+        final meldCards = [
+          _card(CardRank.five, CardSuit.clubs, 44),
+          _card(CardRank.six, CardSuit.clubs, 44),
+          _card(CardRank.seven, CardSuit.clubs, 44),
+        ];
+        final finalDiscard = _card(CardRank.two, CardSuit.hearts, 44);
+        final southHoldOne = _card(CardRank.three, CardSuit.spades, 44);
+        final southHoldTwo = _card(CardRank.four, CardSuit.spades, 44);
+        final controller = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.south: [southHoldOne, southHoldTwo],
+              PlayerSeat.east: [...meldCards, finalDiscard],
+            },
+            currentSeat: PlayerSeat.east,
+            turnPhase: TurnPhase.action,
+            openingState: _opened(PlayerSeat.east),
+            scores: {
+              PlayerSeat.south: 30,
+              PlayerSeat.east: 0,
+              PlayerSeat.north: 0,
+              PlayerSeat.west: 0,
+            },
+          ),
+        );
+
+        // Mid-round: nothing scored yet, so south is not yet eliminated.
+        expect(controller.isHumanEliminated, isFalse);
+
+        final play = controller.applyAction(
+          ClassicHareegActionIds.playMeldActionId(
+            meldCards.map((card) => card.id),
+          ),
+        );
+        final discard = controller.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}${finalDiscard.id}',
+        );
+
+        expect(play.isSuccess, isTrue);
+        expect(discard.isSuccess, isTrue);
+        expect(controller.isRoundOver, isTrue);
+        expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
+        expect(controller.roundResult?.winner, PlayerSeat.east);
+
+        final progress = controller.roundProgress;
+        expect(progress, isNotNull);
+        // South's score crossed 31 (30 + 2 = 32), so the progression rules
+        // dropped it from activeSeats.
+        expect(progress!.activeSeats, isNot(contains(PlayerSeat.south)));
+        // Match isn't over yet — east/north/west are still active — but the
+        // human is out for good. The controller surfaces that combination
+        // through isHumanEliminated so the table screen can short-circuit
+        // straight to the match-over surface.
+        expect(progress.matchWinner, isNull);
+        expect(controller.isHumanEliminated, isTrue);
+      },
+    );
+
     test('stock exhaustion in draw phase ends the round as a draw', () {
       // Build a snapshot where stock is empty and South is in draw phase
       // because West just discarded. Stock exhaustion + no finish logic

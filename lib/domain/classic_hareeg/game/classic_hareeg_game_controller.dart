@@ -284,6 +284,21 @@ class ClassicHareegGameController {
   /// Match progress produced by the completed round, if any.
   MatchProgressState? get roundProgress => _matchFlow.progressFor(_roundResult);
 
+  /// Whether the human seat ([PlayerSeat.south]) has been eliminated from the
+  /// match by score after the just-completed round.
+  ///
+  /// Returns true only when the active round has produced a result and that
+  /// result drops south out of [MatchProgressState.activeSeats]. Watching CPUs
+  /// finish the match without the human is pointless, so the table screen
+  /// short-circuits to the match-over surface when this flips true.
+  bool get isHumanEliminated {
+    final progress = roundProgress;
+    if (progress == null) {
+      return false;
+    }
+    return !progress.activeSeats.contains(PlayerSeat.south);
+  }
+
   ClassicHareegMatchFlow get _matchFlow {
     return ClassicHareegMatchFlow(
       setup: setup,

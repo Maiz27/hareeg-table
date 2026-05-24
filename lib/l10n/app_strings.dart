@@ -107,6 +107,7 @@ class AppStrings {
   String get splashTapToContinue => _v('splashTapToContinue');
   String get scores => _v('scores');
   String get pauseTable => _v('pauseTable');
+  String get skipToNextRound => _v('skipToNextRound');
   String get scoresTitle => _v('scoresTitle');
   String get pauseTitle => _v('pauseTitle');
   String get resumeTable => _v('resumeTable');
@@ -717,6 +718,7 @@ const _englishValues = {
   'splashTapToContinue': 'Tap to continue',
   'scores': 'Scores',
   'pauseTable': 'Pause',
+  'skipToNextRound': 'Skip to next round',
   'scoresTitle': 'Match scores',
   'pauseTitle': 'Paused',
   'resumeTable': 'Resume table',
@@ -909,6 +911,7 @@ const _arabicValues = {
   'splashTapToContinue': 'اضغط للمتابعة',
   'scores': 'النقاط',
   'pauseTable': 'إيقاف',
+  'skipToNextRound': 'تخطي للجولة التالية',
   'scoresTitle': 'نقاط المباراة',
   'pauseTitle': 'متوقفة',
   'resumeTable': 'استئناف الطاولة',

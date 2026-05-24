@@ -101,6 +101,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   late ClassicHareegGameController _controller;
   final _handInteraction = ClassicHareegHandInteractionState();
   bool _isCpuRunning = false;
+  // Set while the Table-tier fast-forward button is ripping through the
+  // remaining CPU turns without animations or audio. Locks the chrome
+  // button against double-taps and is cleared in finally.
+  bool _isFastForwardingRound = false;
   // Set while a human action's pre-apply flight/sound is in flight and the
   // controller hasn't applied the move yet. Used to lock the UI so a second
   // tap doesn't queue a parallel action against the same controller state.
@@ -669,12 +673,32 @@ class _GameTableScreenState extends State<GameTableScreen>
                     Positioned(
                       top: safe.top + edgeInset,
                       right: safe.right + edgeInset,
-                      child: _TableChromeButton(
-                        tooltip: strings.pauseTable,
-                        icon: Icons.pause_rounded,
-                        diameter: buttonSize,
-                        iconSize: iconSize,
-                        onPressed: () => setState(() => _pauseOpen = true),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_canShowFastForwardRound()) ...[
+                            _TableChromeButton(
+                              key: const ValueKey(
+                                'table-chrome-fast-forward',
+                              ),
+                              tooltip: strings.skipToNextRound,
+                              icon: Icons.fast_forward_rounded,
+                              diameter: buttonSize,
+                              iconSize: iconSize,
+                              onPressed: _isFastForwardingRound
+                                  ? () {}
+                                  : () => unawaited(_fastForwardRound()),
+                            ),
+                            SizedBox(width: edgeInset * 0.6),
+                          ],
+                          _TableChromeButton(
+                            tooltip: strings.pauseTable,
+                            icon: Icons.pause_rounded,
+                            diameter: buttonSize,
+                            iconSize: iconSize,
+                            onPressed: () => setState(() => _pauseOpen = true),
+                          ),
+                        ],
                       ),
                     ),
                     if (_humanFeedback != null)
@@ -1447,6 +1471,87 @@ class _GameTableScreenState extends State<GameTableScreen>
     await _audio.play(event);
   }
 
+  /// Whether the Table-tier "skip to next round" chrome button should show.
+  ///
+  /// Visibility is intentionally narrow:
+  /// 1. `strictness == TableStrictness.table` — the +17/removal penalty is
+  ///    the only flow that puts the human out of an in-flight round.
+  /// 2. South is currently in `removedSeats` — the human has actually been
+  ///    kicked from this round and is locked out of acting on it.
+  /// 3. The round is not over yet — there is still CPU play to skip.
+  ///
+  /// While the fast-forward is already running we still return true so the
+  /// button keeps its slot (it just no-ops on tap via the disabled handler).
+  bool _canShowFastForwardRound() {
+    if (_controller.setup.tableStrictness != TableStrictness.table) {
+      return false;
+    }
+    if (!_controller.removedSeats.contains(PlayerSeat.south)) {
+      return false;
+    }
+    if (_controller.isRoundOver) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Rips the remaining CPU turns to the end of the round with no animations,
+  /// no audio cues, and no per-action persistence. The CPU planner is reused
+  /// so scoring stays honest (the round outcome is exactly what would happen
+  /// if the player watched it play out) but the spectating beats are skipped.
+  /// Once the round ends we hand off to the normal persistence + round-result
+  /// pipeline, which then schedules the next round (or short-circuits to
+  /// MatchOver when south has dropped under the elimination score).
+  Future<void> _fastForwardRound() async {
+    if (_isFastForwardingRound) return;
+    if (_controller.isRoundOver) return;
+    if (!_canShowFastForwardRound()) return;
+
+    setState(() {
+      _isFastForwardingRound = true;
+      _isCpuRunning = true;
+      // Hide pending feedback chips so they don't linger across the rip.
+      _humanFeedback = null;
+      _humanFeedbackIsError = false;
+      _jokerCueQueue.clear();
+      _isJokerCueActive = false;
+      _activeFlights.clear();
+      _meldFlight.clear();
+    });
+    try {
+      // Hookless runner — no flight pacing, no audio, no UI rebuilds between
+      // CPU actions. Allow plenty of headroom in the action cap since we
+      // intentionally play out an entire round in one rip.
+      const fastForwardActionLimit = 4096;
+      while (mounted && !_controller.isRoundOver) {
+        final runner = ClassicHareegCpuTurnRunner(
+          controller: _controller,
+          strategy: widget.cpuStrategy,
+          actionLimit: fastForwardActionLimit,
+        );
+        final result = await runner.run();
+        if (!result.didApplyAction && !_controller.isRoundOver) {
+          // The runner stopped without applying anything and the round is
+          // still live (e.g. the planner returned an action the controller
+          // rejected). Bail to avoid spinning forever.
+          break;
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFastForwardingRound = false;
+          _isCpuRunning = false;
+        });
+      } else {
+        _isFastForwardingRound = false;
+        _isCpuRunning = false;
+      }
+    }
+    if (!mounted) return;
+    await _persistAndMaybeFinish();
+  }
+
   Future<bool> _runCpuTurns() async {
     if (_isCpuRunning ||
         _isOpeningDealRunning ||
@@ -1709,7 +1814,13 @@ class _GameTableScreenState extends State<GameTableScreen>
       _roundResultPresentation = presentation;
     });
     final nextSnapshot = presentation.nextSnapshot;
-    if (nextSnapshot == null) {
+    // Short-circuit straight to match-over when the human (south) was
+    // eliminated by score this round. Letting the CPUs play out the rest of
+    // the match offers nothing to a spectating player, so we skip ahead to
+    // the final standings even though, mechanically, the match isn't over
+    // yet (other CPU seats are still match-active).
+    final humanEliminated = _controller.isHumanEliminated;
+    if (nextSnapshot == null || humanEliminated) {
       _roundAdvanceTimer?.cancel();
       _roundAdvanceTimer = Timer(_scaledDelay(_matchEndOverlayDwell), () {
         if (!mounted) return;
@@ -1805,6 +1916,7 @@ class _TableChromeButton extends StatelessWidget {
     required this.onPressed,
     this.diameter = 40,
     this.iconSize = 22,
+    super.key,
   });
 
   final String tooltip;
