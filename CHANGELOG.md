@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0-alpha.5](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-05-24)
+
+
+### Features
+
+* **cpu:** add Skilled/Expert/Priority planners with observation-aware strategy ([5870064](https://github.com/Maiz27/hareeg-table/commit/587006432714e6c1dcecbf30635edadfd656960e))
+* **rules:** add TableStrictness with mistake handling, meld partition, and discard history ([81e6d96](https://github.com/Maiz27/hareeg-table/commit/81e6d96aa90536e72f4bbcbb42e1be19d5ab4670))
+* **ui:** meld flight, joker reveal, match-over screen, and strictness pickers ([4042fcd](https://github.com/Maiz27/hareeg-table/commit/4042fcd983d763324d927de5efc0a541f50efaa9))
+
+
+### Bug Fixes
+
+* **audio:** stagger startup warmup and add joker / meld cue events ([63bfa56](https://github.com/Maiz27/hareeg-table/commit/63bfa56a60fec10df5a71fbae200babefe11d139))
+* **rules:** address review nits across enumerator, ui flow, audio chain, and tests ([9946d58](https://github.com/Maiz27/hareeg-table/commit/9946d58ef5bb6301e0ff0db1de06475d53bca1ee))
+* **ui:** clear joker cue queue on round advance ([f5db30d](https://github.com/Maiz27/hareeg-table/commit/f5db30de6e63013f9d24806d0c7199536842dc14))
+
 ## [1.0.0-alpha.4](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-05-23)
 
 
