@@ -103,6 +103,22 @@ class ClassicHareegActionDescriptor {
   /// Whether the action is a safe plain discard.
   bool get isSafeDiscard => kind == ClassicHareegActionKind.discard;
 
+  /// Whether the action is a mistake-class advertisement.
+  ///
+  /// True for [ClassicHareegActionKind.discardBlockedCover] and
+  /// [ClassicHareegActionKind.discardJoker] — the two discard ids the rules
+  /// engine surfaces only because Strict/Table tiers accept them as paid
+  /// mistakes. Under tiers where `cpuMistakesAllowed` is false (Coaching,
+  /// Standard, Strict), the CPU action surface filters these out so the
+  /// runner cannot loop into a repeated penalty.
+  bool get isMistake {
+    return switch (kind) {
+      ClassicHareegActionKind.discardBlockedCover ||
+      ClassicHareegActionKind.discardJoker => true,
+      _ => false,
+    };
+  }
+
   /// Whether the action places selected cards as a meld.
   bool get isMeldPlay {
     return switch (kind) {
