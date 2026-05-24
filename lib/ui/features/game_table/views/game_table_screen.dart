@@ -1790,6 +1790,11 @@ class _GameTableScreenState extends State<GameTableScreen>
       _humanFeedback = null;
       _humanFeedbackIsError = false;
       _revertFlashCardId = null;
+      // Drop any pending joker cues from the prior round so the queue
+      // can't pump a stale declaration against the freshly dealt hand.
+      _jokerCueQueue.clear();
+      _isJokerCueActive = false;
+      _placedJokerSnapshot = null;
       _activeFlights.clear();
       _meldFlight.clear();
       _inspectedCard = null;
