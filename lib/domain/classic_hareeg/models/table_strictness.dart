@@ -11,23 +11,21 @@
 /// UI-relevant derivations live on `StrictnessUiProfile`
 /// (`lib/ui/core/strictness/strictness_ui_profile.dart`).
 enum TableStrictness {
-  /// Blocks illegal moves; shows proactive hints, meld picker, full inspect
-  /// detail. Persistent joker identity badge.
+  /// Blocks illegal moves; shows proactive hints, full inspect detail.
+  /// Persistent joker identity badge.
   coaching('Coaching', 'Blocks illegal moves and surfaces full hints.'),
 
-  /// Blocks illegal moves; no proactive hints. Meld confirm rack is
-  /// available (it is a reactive confirm/disambiguate surface, not a
-  /// proactive hint). Persistent joker identity badge.
+  /// Blocks illegal moves; no proactive hints. Persistent joker identity
+  /// badge.
   standard('Standard', 'Blocks illegal moves, no proactive hints.'),
 
-  /// Allows selected mistakes with a +3 score penalty; no hints, no meld
-  /// picker. Joker identity revealed briefly on placement then hidden —
-  /// players must remember.
+  /// Allows selected mistakes with a +3 score penalty; no hints. Joker
+  /// identity revealed briefly on placement then hidden — players must
+  /// remember.
   strict('Strict', 'Allows mistakes with +3 penalty, no hints.'),
 
   /// Allows selected mistakes with a +17 score penalty and round-out; no
-  /// hints, no meld picker. Joker identity revealed briefly on placement
-  /// then hidden.
+  /// hints. Joker identity revealed briefly on placement then hidden.
   table('Table', 'Allows mistakes with +17 and round-out, no hints.');
 
   const TableStrictness(this.label, this.description);

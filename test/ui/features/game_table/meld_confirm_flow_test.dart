@@ -13,12 +13,13 @@ import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 
 import '../../../support/test_fixtures.dart';
 
-/// L2 regression for HT-28: the meld-suggestion chip rack must appear as the
-/// human's meld-confirm surface for every strictness tier that BLOCKS illegal
-/// moves (coaching + standard). Before HT-28 the rack was gated on
-/// `strictness.showsMeldPicker` which was true only for `coaching`, so users
-/// migrated from the legacy `tableAids: 'standard'` setting lost the rack
-/// silently — the regression that brought the bug report in.
+/// L2 regression for HT-28: the meld-suggestion chip rack is the human's
+/// meld-confirm surface and must appear for every strictness tier. The rack
+/// is essential UX (it is the only way to commit a sub-selection that is a
+/// legal meld when the full selection isn't), so it is not strictness-gated.
+/// Before HT-28 the rack was gated on `strictness.showsMeldPicker` which was
+/// true only for `coaching`, leaving every other tier without a confirm
+/// surface for valid selections.
 void main() {
   // Home screen runs a looping idle animation; pin it so pumpAndSettle does
   // not hang waiting on the loop.
@@ -94,6 +95,49 @@ void main() {
         );
       },
     );
+
+    for (final tier in const [TableStrictness.strict, TableStrictness.table]) {
+      testWidgets(
+        '${tier.name} tier still surfaces the meld-suggestion chip',
+        (tester) async {
+          final diamondRun = [
+            _card(CardRank.eight, CardSuit.diamonds, 80),
+            _card(CardRank.nine, CardSuit.diamonds, 80),
+            _card(CardRank.ten, CardSuit.diamonds, 80),
+          ];
+          await _openTable(
+            tester,
+            southHand: [
+              ...diamondRun,
+              _card(CardRank.two, CardSuit.clubs, 80),
+            ],
+            strictness: tier,
+          );
+
+          await tester.tap(
+            find.bySemanticsLabel('Eight of Diamonds').first,
+            warnIfMissed: false,
+          );
+          await tester.tap(
+            find.bySemanticsLabel('Nine of Diamonds').first,
+            warnIfMissed: false,
+          );
+          await tester.tap(
+            find.bySemanticsLabel('Ten of Diamonds').first,
+            warnIfMissed: false,
+          );
+          await tester.pumpAndSettle();
+
+          final actionId = ClassicHareegActionIds.playMeldActionId(
+            diamondRun.map((card) => card.id),
+          );
+          expect(
+            find.byKey(ValueKey('meld-suggestion-$actionId')),
+            findsOneWidget,
+          );
+        },
+      );
+    }
   });
 }
 

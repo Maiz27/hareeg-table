@@ -14,21 +14,6 @@ void main() {
       });
     });
 
-    group('showsMeldPicker', () {
-      test('is true for the tiers that block illegal moves', () {
-        // The chip rack only ever shows sub-selections of cards the player has
-        // already selected, so it acts as a confirm/disambiguate surface
-        // rather than a proactive hint. We keep it on for coaching + standard
-        // (the move-blocking tiers) and hide it for strict / table where the
-        // player is meant to commit selections through the CTA alone and live
-        // with the +3 / +17 sting if they picked wrong.
-        expect(TableStrictness.coaching.showsMeldPicker, isTrue);
-        expect(TableStrictness.standard.showsMeldPicker, isTrue);
-        expect(TableStrictness.strict.showsMeldPicker, isFalse);
-        expect(TableStrictness.table.showsMeldPicker, isFalse);
-      });
-    });
-
     group('showsCardValueInInspect', () {
       test('is true for every tier', () {
         for (final tier in TableStrictness.values) {
