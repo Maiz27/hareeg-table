@@ -273,7 +273,18 @@ class PhysicalTablePlayfield extends StatelessWidget {
         final stockBottom = compact ? 6.0 : 10.0;
         final stockReservedHeight = tableCardSize.height + (compact ? 32 : 42);
         final southMeldBottom = handCardSize.height + (compact ? 10.0 : 18.0);
-        final southMeldHeight = compact ? 50.0 : 60.0;
+        // The lane must absorb the height delta a meld card picks up when
+        // tapped to expand (`_TableMeldStack.expandedScale`). Sizing the
+        // lane for the expanded card means the bottom-anchored content
+        // keeps its resting position and the extra headroom is added
+        // invisibly above, into the empty table-center band — never down
+        // into the south hand area where the expansion used to crop.
+        const meldExpandedScaleRegular = 1.26;
+        const meldExpandedScaleCompact = 1.16;
+        final southMeldHeight = (compact
+                ? meldCardSize.height * meldExpandedScaleCompact
+                : meldCardSize.height * meldExpandedScaleRegular) +
+            (compact ? 12.0 : 16.0);
         // Side rail (opponent hand) shrinks to a compact deck-stack hint —
         // 5 backs in compact, 6 in regular — and is centered on the table's
         // vertical axis. Earlier versions anchored this under the north hand,
