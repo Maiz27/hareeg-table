@@ -1720,7 +1720,13 @@ class _GameTableScreenState extends State<GameTableScreen>
       _roundResultPresentation = presentation;
     });
     final nextSnapshot = presentation.nextSnapshot;
-    if (nextSnapshot == null) {
+    // Short-circuit straight to match-over when the human (south) was
+    // eliminated by score this round. Letting the CPUs play out the rest of
+    // the match offers nothing to a spectating player, so we skip ahead to
+    // the final standings even though, mechanically, the match isn't over
+    // yet (other CPU seats are still match-active).
+    final humanEliminated = _controller.isHumanEliminated;
+    if (nextSnapshot == null || humanEliminated) {
       _roundAdvanceTimer?.cancel();
       _roundAdvanceTimer = Timer(_scaledDelay(_matchEndOverlayDwell), () {
         if (!mounted) return;

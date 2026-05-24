@@ -1273,6 +1273,49 @@ void main() {
       await _openTable(tester);
       expect(find.byType(FiftyRing), findsNothing);
     });
+
+    testWidgets(
+      'match short-circuits to MatchOver when south is score-eliminated',
+      (tester) async {
+        // South sits one shy of elimination. CPU east finishes the round with
+        // south still holding a card, scoring south past 31. The table screen
+        // should skip the next-round handoff and push MatchOver directly,
+        // even though the match is mechanically still alive for the CPUs.
+        final eastMeld = [
+          _card(CardRank.five, CardSuit.clubs, 200),
+          _card(CardRank.six, CardSuit.clubs, 200),
+          _card(CardRank.seven, CardSuit.clubs, 200),
+        ];
+        final eastFinalDiscard = _card(CardRank.two, CardSuit.hearts, 200);
+        final southCard = _card(CardRank.three, CardSuit.spades, 200);
+        final snapshot = _savedSnapshot(
+          hands: {
+            PlayerSeat.south: [southCard],
+            PlayerSeat.east: [...eastMeld, eastFinalDiscard],
+            PlayerSeat.north: [_card(CardRank.eight, CardSuit.diamonds, 201)],
+            PlayerSeat.west: [_card(CardRank.nine, CardSuit.diamonds, 202)],
+          },
+          openingState: _opened(PlayerSeat.east),
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.action,
+          scores: const {
+            PlayerSeat.south: 30,
+            PlayerSeat.east: 0,
+            PlayerSeat.north: 0,
+            PlayerSeat.west: 0,
+          },
+        );
+        await _openTable(tester, savedSnapshot: snapshot);
+        // Drive the CPU until the round ends and the post-round timers fire.
+        // pumpAndSettle would hang on the looping CPU pacing, so we step
+        // through a few generous slices instead.
+        for (var i = 0; i < 8; i++) {
+          await tester.pump(const Duration(seconds: 2));
+        }
+
+        expect(find.byType(MatchOverScreen), findsOneWidget);
+      },
+    );
   });
 }
 
@@ -1391,6 +1434,7 @@ Future<void> _pumpPlayfield(
 
 ClassicHareegMatchSnapshot _savedSnapshot({
   List<HareegCard>? southHand,
+  Map<PlayerSeat, List<HareegCard>>? hands,
   ClassicHareegSetup? setup,
   PlayerSeat currentSeat = PlayerSeat.south,
   TurnPhase turnPhase = TurnPhase.action,
@@ -1405,12 +1449,14 @@ ClassicHareegMatchSnapshot _savedSnapshot({
 }) {
   final resolvedSetup = setup ?? ClassicHareegSetup.defaults();
   final snapshot = ClassicHareegRound.deal(setup: resolvedSetup, seed: 3);
-  final hands = southHand == null
-      ? snapshot.hands
-      : {...snapshot.hands, PlayerSeat.south: southHand};
+  final mergedHands = hands == null
+      ? (southHand == null
+            ? snapshot.hands
+            : {...snapshot.hands, PlayerSeat.south: southHand})
+      : {...snapshot.hands, ...hands};
   return ClassicHareegMatchSnapshot(
     setup: resolvedSetup,
-    hands: hands,
+    hands: mergedHands,
     stock: snapshot.stock,
     discardPile: discardPile ?? snapshot.discardPile,
     starter: snapshot.starter,
