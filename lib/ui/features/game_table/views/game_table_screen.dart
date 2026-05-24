@@ -27,6 +27,7 @@ import '../../../core/scopes/app_scopes.dart';
 import '../../../core/strictness/strictness_ui_profile.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
+import '../cue/joker_cue_queue.dart';
 import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
 import '../table_card_flight_planner.dart';
@@ -116,9 +117,16 @@ class _GameTableScreenState extends State<GameTableScreen>
   // FIFO of joker declaration cues waiting to display. Used when more than
   // one joker is placed in quick succession (e.g. CPU plays two meld sets
   // back-to-back, each with a joker) so each cue gets its own dwell instead
-  // of being clobbered by the next one.
-  final List<({PlayerSeat seat, CardIdentity identity})> _jokerCueQueue = [];
-  bool _isJokerCueActive = false;
+  // of being clobbered by the next one. Mechanics (enqueue / dwell / clear)
+  // live in [JokerCueQueue] so they're unit-testable without spinning up
+  // the whole table widget; this screen only wires the side effects.
+  late final JokerCueQueue<({PlayerSeat seat, CardIdentity identity})>
+      _jokerCueQueue = JokerCueQueue<
+          ({PlayerSeat seat, CardIdentity identity})>(
+        onCueStart: _onJokerCueStart,
+        onCueEnd: _onJokerCueEnd,
+        dwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
+      );
   final List<_CardFlight> _activeFlights = [];
   late final MeldFlightController _meldFlight;
   DealChoreography? _dealChoreography;
@@ -185,6 +193,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     _revertFlashTimer = null;
     _roundAdvanceTimer?.cancel();
     _roundAdvanceTimer = null;
+    _jokerCueQueue.clear();
     _dealChoreography?.dispose();
     _dealChoreography = null;
     _meldFlight.removeListener(_handleMeldFlightChange);
@@ -987,7 +996,6 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Any non-joker feedback (errors, hints, success messages) supersedes
     // pending joker cues — drop the queue so we don't pop them on top.
     _jokerCueQueue.clear();
-    _isJokerCueActive = false;
     final nextMessage = message == null || message.isEmpty
         ? null
         : context.strings.gameMessage(message);
@@ -1052,65 +1060,48 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// Drains the post-apply joker snapshot diff and enqueues every new joker
   /// for a sequential cue. Each cue gets a full dwell — when several jokers
   /// land back-to-back the chips show in order rather than clobbering each
-  /// other. Caller controls whether the enqueue happens inside its own
-  /// `setState` (human path) or needs one (CPU path).
+  /// other. The [needsSetState] flag is preserved for symmetry with the
+  /// pre-refactor signature; the queue's start/end callbacks each wrap
+  /// their own setState, so callers no longer need to.
   void _emitFeedbackForFirstNewJoker({required bool needsSetState}) {
     final newJokers = _consumeJokerPlacements();
     if (newJokers.isEmpty) return;
-    void run() {
-      _jokerCueQueue.addAll(newJokers);
-      _processNextJokerCue();
-    }
-
-    if (needsSetState) {
-      if (!mounted) return;
-      setState(run);
-    } else {
-      run();
-    }
+    if (needsSetState && !mounted) return;
+    _jokerCueQueue.enqueueAll(newJokers);
   }
 
-  void _processNextJokerCue() {
-    if (_isJokerCueActive) return;
-    if (_jokerCueQueue.isEmpty) return;
-    final next = _jokerCueQueue.removeAt(0);
-    _isJokerCueActive = true;
-    _emitJokerDeclarationFeedback(seat: next.seat, identity: next.identity);
-  }
-
-  void _emitJokerDeclarationFeedback({
-    required PlayerSeat seat,
-    required CardIdentity identity,
-  }) {
+  void _onJokerCueStart(({PlayerSeat seat, CardIdentity identity}) cue) {
+    if (!mounted) return;
     final strings = context.strings;
-    final message = seat == PlayerSeat.south
-        ? strings.youDeclaredJoker(identity)
-        : strings.jokerDeclaredBySeat(seat, identity);
+    final message = cue.seat == PlayerSeat.south
+        ? strings.youDeclaredJoker(cue.identity)
+        : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
     unawaited(_audio.play(TableSoundEvent.jokerDeclared));
-    // All cue state mutations go through setState so queued cues (popped
-    // from the timer callback below) actually trigger a repaint — the
-    // first cue arrives inside its caller's setState but subsequent cues
-    // would otherwise mutate state silently.
+    // The cue queue calls this for both the first cue (synchronously from
+    // [enqueueAll]) and every subsequent cue (synchronously from the dwell
+    // timer). Wrapping in setState here keeps both paths consistent and
+    // guarantees a repaint without the caller needing to wrap.
     setState(() {
       _feedbackTimer?.cancel();
       _feedbackTimer = null;
       _humanFeedback = message;
       _humanFeedbackIsError = false;
     });
-    final duration = _scaledDelay(_activeJokerChipDuration);
-    _feedbackTimer = Timer(duration, () {
-      if (!mounted) {
-        _isJokerCueActive = false;
-        return;
+  }
+
+  void _onJokerCueEnd(({PlayerSeat seat, CardIdentity identity}) cue) {
+    if (!mounted) return;
+    final strings = context.strings;
+    final message = cue.seat == PlayerSeat.south
+        ? strings.youDeclaredJoker(cue.identity)
+        : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
+    // Withdraw this cue's message if it still owns the feedback line; the
+    // next cue's start callback (if any) fires immediately after this and
+    // will publish its own message inside its own setState.
+    setState(() {
+      if (_humanFeedback == message && !_humanFeedbackIsError) {
+        _humanFeedback = null;
       }
-      setState(() {
-        if (_humanFeedback == message && !_humanFeedbackIsError) {
-          _humanFeedback = null;
-        }
-        _isJokerCueActive = false;
-      });
-      // Pump the queue so the next pending cue gets its own dwell window.
-      _processNextJokerCue();
     });
   }
 
@@ -1793,7 +1784,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       // Drop any pending joker cues from the prior round so the queue
       // can't pump a stale declaration against the freshly dealt hand.
       _jokerCueQueue.clear();
-      _isJokerCueActive = false;
       _placedJokerSnapshot = null;
       _activeFlights.clear();
       _meldFlight.clear();
