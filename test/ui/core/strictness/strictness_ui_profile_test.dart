@@ -14,15 +14,6 @@ void main() {
       });
     });
 
-    group('showsMeldPicker', () {
-      test('is true only for coaching', () {
-        expect(TableStrictness.coaching.showsMeldPicker, isTrue);
-        expect(TableStrictness.standard.showsMeldPicker, isFalse);
-        expect(TableStrictness.strict.showsMeldPicker, isFalse);
-        expect(TableStrictness.table.showsMeldPicker, isFalse);
-      });
-    });
-
     group('showsCardValueInInspect', () {
       test('is true for every tier', () {
         for (final tier in TableStrictness.values) {

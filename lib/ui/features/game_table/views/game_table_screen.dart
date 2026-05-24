@@ -507,9 +507,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     final visibleStockCount =
         openingDealFrame?.stockCount ?? _controller.stockCount;
     final tableInteraction = _tableInteraction(southHand);
-    final meldSuggestions = strictness.showsMeldPicker
-        ? _meldSuggestions(tableInteraction)
-        : const <TableMeldSuggestion>[];
+    final meldSuggestions = _meldSuggestions(tableInteraction);
     final meldValidation = isHumanTurn && southHand.hasSelection
         ? _controller.singleMeldValidationFor(
             humanSeat,
@@ -604,7 +602,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                   ? null
                   : () => unawaited(_playSelectedMeld(primaryMeldAction)),
               meldSuggestions: meldSuggestions,
-              showMeldSuggestions: strictness.showsMeldPicker,
+              showMeldSuggestions: true,
               onMeldSuggestion: (actionId) {
                 unawaited(_runHumanAction(actionId));
               },

@@ -24,12 +24,6 @@ extension StrictnessUiProfile on TableStrictness {
   /// still get rule validation but no unsolicited help.
   bool get showsProactiveHints => this == TableStrictness.coaching;
 
-  /// Whether the meld picker is available to the player.
-  ///
-  /// Only [TableStrictness.coaching]. Standard players are expected to
-  /// recognize their own melds.
-  bool get showsMeldPicker => this == TableStrictness.coaching;
-
   /// Whether the long-press card inspect overlay surfaces the card's value.
   ///
   /// True in every tier except where hints are stripped to match real-table
