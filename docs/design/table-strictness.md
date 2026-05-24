@@ -1,6 +1,8 @@
 # `TableStrictness` Two-Axis Settings Design
 
-Status: Proposed. Scope: collapse three independent enums plus one bool
+Status: Shipped (HT-27). Subsequent revisions documented inline below
+(see HT-28 / HT-36 notes on the picker gate and CPU mistake enforcement).
+Scope: collapse three independent enums plus one bool
 (`CpuDifficulty` × `RulePreset` × `TableAids` × `memoryJokerDisplay`) into a
 two-axis settings model: `CpuDifficulty` (renamed concept "Opponents") stays as
 is; `TableStrictness` replaces the other three.
@@ -42,14 +44,14 @@ engine must never see UI types and the UI never re-derives rule behavior.
 | `removesPlayerOnMistake` | `bool` | only `table`. |
 | `allowsTablePlayRetraction` | `bool` | true except for `table`. |
 | `fiftyClaimNeedsFinishProofForAdvertise` | `bool` | true only when `blocksIllegalMoves`. |
-| `cpuMistakesAllowed` | `bool` | true iff `!blocksIllegalMoves`. |
+| `cpuMistakesAllowed` | `bool` | **true only on `table`.** Revised in HT-27: Strict reverts mistakes (a CPU pursuing a mistake would re-loop), so the only tier where CPUs may incur penalties is Table. HT-36 added the runtime enforcement in `cpuActionIdsFor`. |
 
 ### UI-side (`lib/ui/core/strictness/strictness_ui_profile.dart`)
 
 | Property | Returns | Replaces |
 |---|---|---|
 | `showsProactiveHints` | `bool` (only coaching) | `TableAids.showsProactiveHints` |
-| `showsMeldPicker` | `bool` (only coaching) | `TableAids.showsMeldPicker` |
+| ~~`showsMeldPicker`~~ | **Removed in HT-28.** The meld-confirm chip rack is essential UX (the only commit path for a valid sub-selection that isn't itself the whole selection), not assistance, so it is no longer strictness-gated and always renders. The audit framework used to reach this verdict — **essential / confirm / proactive hint / cosmetic** — is also the rule of thumb for any future gate. |
 | `showsCardValueInInspect` | `bool` (all four) | the `aids == TableAids.tableMode` early-return |
 | `inspectVerbosity` | `enum {coaching, terse}` | the two branches inside `_inspectBody` |
 | `jokerDisplay` | `JokerDisplay` (coaching/standard → `assisted`, strict/table → `memoryReveal`) | the `widget.preferences.memoryJokerDisplay` ternary |
@@ -139,11 +141,18 @@ is lossless. Two transitional fields would create two sources of truth.
 
 ## 7. Mistake permission gating
 
-**Confirm the proposed move.** Today only `ClassicHareegMistakePresetRules.cpuMistakesAllowed`
-at `mistake_preset_rules.dart:91-103` reads `CpuDifficulty` for mistakes. Grep
-confirms zero production call sites (test-only). After the change:
-`cpuMistakesAllowed` takes only `TableStrictness`; coaching/standard block,
-strict/table allow. CPU difficulty no longer gates mistake permission.
+**Confirm the proposed move.** Originally only `ClassicHareegMistakePresetRules.cpuMistakesAllowed`
+at `mistake_preset_rules.dart:91-103` read `CpuDifficulty` for mistakes. CPU
+difficulty no longer gates mistake permission — `TableStrictness` does.
+
+**HT-27 narrowing:** coaching/standard/strict all return `false`; only Table
+returns `true`. Strict reverts the action and keeps the seat on turn, so a CPU
+pursuing a mistake would re-emit the same action ID and loop indefinitely.
+
+**HT-36 runtime enforcement:** `cpuActionIdsFor` strips any action ID whose
+descriptor `isMistake` when `!cpuMistakesAllowed`, with a `StateError` in the
+CPU turn runner if any planner ever leaks a mistake-class ID through. This
+closes the gap where `cpuMistakesAllowed` existed as documentation only.
 
 `CpuDifficultyProfile` (cpu_strategy.dart:65-107) only governs Fifty
 timing/miss-chance — unrelated.
@@ -155,7 +164,8 @@ timing/miss-chance — unrelated.
 - `coaching and standard block illegal cover discards, strict applies +3, table applies +17`
 - `strictness rule profile derivations match agreed ladder`
 - `strictness UI profile maps strict and table to memoryReveal joker display`
-- `cpuMistakesAllowed returns true only when strictness allows mistakes`
+- `cpuMistakesAllowed returns true only on Table` (HT-27)
+- `cpuActionIdsFor strips mistake-class action ids when cpuMistakesAllowed is false` (HT-36)
 
 ## 9. Open questions
 

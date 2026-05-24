@@ -22,3 +22,4 @@ Themes can be code-rendered or backed by bundled assets. Asset-backed themes mus
 - Table widgets can switch themes without duplicating card-state overlay logic.
 - Represented joker display and memory-mode behavior are consistent across hand, discard, meld, and animation surfaces.
 - New themes must implement the full contract and prove compact readability before being exposed to players.
+- Themes must pass `test/ui/core/cards/card_face_asset_consistency_test.dart` — for every (rank, suit) the theme's returned asset path must contain both the rank slug and the suit slug, OR be `null` (deferring to the code-rendered painter). Added in HT-33 after a `sandline_lounge/jack_diamonds.webp` slot was found holding J♥ artwork; the test prevents the asset map and the artwork from drifting silently again.
