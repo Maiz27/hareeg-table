@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Modal-style score overlay shown above the table when the score button is
@@ -72,13 +72,19 @@ class ScoreOverlay extends StatelessWidget {
                         maxWidth: 480,
                         maxHeight: maxHeight,
                       ),
-                      child: _LoungePanel(
+                      child: LoungePanel(
                         highContrast: highContrast,
+                        padding: const EdgeInsets.fromLTRB(
+                          LoungeTokens.space5,
+                          LoungeTokens.space4,
+                          LoungeTokens.space5,
+                          LoungeTokens.space4,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _PanelHeader(
+                            LoungePanelHeader(
                               icon: Icons.emoji_events_outlined,
                               title: strings.scoresTitle,
                               subtitle: strings.roundToPlay(
@@ -86,6 +92,7 @@ class ScoreOverlay extends StatelessWidget {
                                 currentSeat,
                               ),
                               onClose: onClose,
+                              closeTooltip: strings.close,
                             ),
                             const SizedBox(height: LoungeTokens.space4),
                             // The seat list scrolls when the panel is shorter
@@ -393,127 +400,6 @@ class _LegendPill extends StatelessWidget {
           Text(label, style: LoungeTokens.bodyMuted),
         ],
       ),
-    );
-  }
-}
-
-class _LoungePanel extends StatelessWidget {
-  const _LoungePanel({required this.highContrast, required this.child});
-
-  final bool highContrast;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: highContrast
-              ? Colors.black.withValues(alpha: 0.98)
-              : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          border: Border.all(
-            color: highContrast
-                ? const Color(0xFFFFD400)
-                : LoungeTokens.sandLine.withValues(alpha: 0.32),
-            width: highContrast ? 2 : 1,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 28,
-              offset: Offset(0, 14),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -34,
-                right: -42,
-                child: IgnorePointer(
-                  child: SizedBox.square(
-                    dimension: 168,
-                    child: CustomPaint(
-                      painter: const GeometricMotifPainter(
-                        variant: LoungeMotifVariant.medallion,
-                        opacity: 0.05,
-                        strokeWidth: 1.0,
-                        density: 4,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  LoungeTokens.space5,
-                  LoungeTokens.space4,
-                  LoungeTokens.space5,
-                  LoungeTokens.space4,
-                ),
-                child: child,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onClose,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: LoungeTokens.feltRaised,
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-            border: Border.all(
-              color: LoungeTokens.sandLine.withValues(alpha: 0.4),
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: LoungeTokens.goldAccent, size: 22),
-        ),
-        const SizedBox(width: LoungeTokens.space4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: LoungeTokens.display.copyWith(fontSize: 22)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: LoungeTokens.bodyMuted),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(Icons.close),
-          tooltip: context.strings.close,
-          color: LoungeTokens.mutedText,
-        ),
-      ],
     );
   }
 }

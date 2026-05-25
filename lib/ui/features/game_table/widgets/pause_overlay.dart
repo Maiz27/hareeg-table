@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
+import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Landscape pause overlay.
@@ -84,13 +84,13 @@ class PauseOverlay extends StatelessWidget {
                         maxWidth: 540,
                         maxHeight: maxHeight,
                       ),
-                      child: _LoungePanel(
+                      child: LoungePanel(
                         highContrast: highContrastCards,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _PanelHeader(
+                            LoungePanelHeader(
                               icon: Icons.pause_circle_outline,
                               title: strings.pauseTitle,
                               subtitle: strings.pauseInMatchControls,
@@ -174,18 +174,18 @@ class PauseOverlay extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: LoungeTokens.space4),
-                            _PanelActions(
-                              primary: _PanelAction(
+                            LoungePanelActions(
+                              primary: LoungePanelAction(
                                 icon: Icons.play_arrow,
                                 label: strings.resumeTable,
                                 onTap: onResume,
-                                tone: _ActionTone.primary,
+                                tone: LoungePanelActionTone.primary,
                               ),
-                              secondary: _PanelAction(
+                              secondary: LoungePanelAction(
                                 icon: Icons.exit_to_app,
                                 label: strings.leaveTable,
                                 onTap: onLeave,
-                                tone: _ActionTone.danger,
+                                tone: LoungePanelActionTone.danger,
                               ),
                             ),
                           ],
@@ -202,135 +202,6 @@ class PauseOverlay extends StatelessWidget {
     );
   }
 
-}
-
-class _LoungePanel extends StatelessWidget {
-  const _LoungePanel({required this.highContrast, required this.child});
-
-  final bool highContrast;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: highContrast
-              ? Colors.black.withValues(alpha: 0.98)
-              : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          border: Border.all(
-            color: highContrast
-                ? const Color(0xFFFFD400)
-                : LoungeTokens.sandLine.withValues(alpha: 0.32),
-            width: highContrast ? 2 : 1,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 28,
-              offset: Offset(0, 14),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          child: Stack(
-            children: [
-              // Quiet corner medallion echoes the home menu backdrop so the
-              // panel reads as the same product, not a stock dialog.
-              Positioned(
-                top: -34,
-                right: -42,
-                child: IgnorePointer(
-                  child: SizedBox.square(
-                    dimension: 168,
-                    child: CustomPaint(
-                      painter: const GeometricMotifPainter(
-                        variant: LoungeMotifVariant.medallion,
-                        opacity: 0.05,
-                        strokeWidth: 1.0,
-                        density: 4,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(LoungeTokens.space5),
-                child: child,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onClose,
-    required this.closeTooltip,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onClose;
-  final String closeTooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _HeaderBadge(icon: icon),
-        const SizedBox(width: LoungeTokens.space4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: LoungeTokens.display.copyWith(fontSize: 22)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: LoungeTokens.bodyMuted),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(Icons.close),
-          tooltip: closeTooltip,
-          color: LoungeTokens.mutedText,
-        ),
-      ],
-    );
-  }
-}
-
-class _HeaderBadge extends StatelessWidget {
-  const _HeaderBadge({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: LoungeTokens.feltRaised,
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
-      ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: LoungeTokens.goldAccent, size: 22),
-    );
-  }
 }
 
 class _OverlaySection extends StatelessWidget {
@@ -422,89 +293,6 @@ class _PanelDivider extends StatelessWidget {
         thickness: 1,
         color: LoungeTokens.sandLine.withValues(alpha: 0.18),
       ),
-    );
-  }
-}
-
-enum _ActionTone { primary, danger }
-
-class _PanelAction {
-  const _PanelAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.tone,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final _ActionTone tone;
-}
-
-class _PanelActions extends StatelessWidget {
-  const _PanelActions({required this.primary, required this.secondary});
-
-  final _PanelAction primary;
-  final _PanelAction secondary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _buildAction(primary, isPrimary: true)),
-        const SizedBox(width: LoungeTokens.space3),
-        Expanded(child: _buildAction(secondary, isPrimary: false)),
-      ],
-    );
-  }
-
-  Widget _buildAction(_PanelAction action, {required bool isPrimary}) {
-    if (isPrimary) {
-      return FilledButton.icon(
-        onPressed: action.onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: LoungeTokens.goldAccent,
-          foregroundColor: LoungeTokens.coffeeCharcoal,
-          padding: const EdgeInsets.symmetric(
-            horizontal: LoungeTokens.space4,
-            vertical: LoungeTokens.space3,
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-          ),
-        ),
-        icon: Icon(action.icon, size: 20),
-        label: Text(action.label),
-      );
-    }
-    final isDanger = action.tone == _ActionTone.danger;
-    final accent = isDanger ? LoungeTokens.deepRed : LoungeTokens.sandLine;
-    return OutlinedButton.icon(
-      onPressed: action.onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: isDanger
-            ? LoungeTokens.offWhiteText
-            : LoungeTokens.offWhiteText,
-        side: BorderSide(color: accent.withValues(alpha: 0.55)),
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space4,
-          vertical: LoungeTokens.space3,
-        ),
-        textStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        ),
-      ),
-      icon: Icon(action.icon, size: 20, color: accent),
-      label: Text(action.label),
     );
   }
 }
