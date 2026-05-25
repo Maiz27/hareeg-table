@@ -3,6 +3,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../persistence/persistence_codec.dart';
 import '../rules/opening_rules.dart';
+import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot_v1.dart';
 import 'classic_hareeg_round.dart';
 
@@ -15,6 +16,18 @@ import 'classic_hareeg_round.dart';
 /// The wire format lives in a sibling file (`classic_hareeg_match_snapshot_v1
 /// .dart`) so the model stays focused on shape and a future schema version
 /// can be added without touching this file beyond the dispatcher.
+///
+/// ## Schema evolution
+///
+/// The `version` field on the wire format stays at v1; new optional fields
+/// are added with backward-compatible defaults so existing installs keep
+/// resuming through an app update. The current additions are:
+///
+/// - `discardHistory` — per-round CPU discard memory. Missing field falls
+///   back to an empty history; older saves replay as if CPU memory just
+///   reset for the round (the prior behaviour). When the wire format
+///   needs an incompatible change instead, bump to a `v2.dart` sibling and
+///   register it on the dispatcher.
 class ClassicHareegMatchSnapshot {
   /// Creates a saved match snapshot.
   const ClassicHareegMatchSnapshot({
@@ -39,6 +52,7 @@ class ClassicHareegMatchSnapshot {
     this.roundNumber = 1,
     this.removedSeats = const [],
     this.fiftyWindowOpenedAt,
+    this.discardHistoryEvents = const [],
   });
 
   /// Restores a saved match from JSON-compatible data, dispatching to the
@@ -101,6 +115,13 @@ class ClassicHareegMatchSnapshot {
 
   /// Time the snapshot was saved.
   final DateTime savedAt;
+
+  /// Per-round CPU discard memory captured at save time.
+  ///
+  /// Stored as the chronological [DiscardEvent] stream so restore can replay
+  /// each event through the live `recordDiscard` / `recordPickup` paths and
+  /// rebuild derived indices without the wire format duplicating them.
+  final List<DiscardEvent> discardHistoryEvents;
 
   /// Converts the snapshot to JSON-compatible data in the current schema.
   Map<String, Object?> toJson() => encodeMatchSnapshotV1(this);

@@ -28,6 +28,7 @@ import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_meld_play_eligibility.dart';
 import 'classic_hareeg_mistake_consequence_planner.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_round_memory_recorder.dart';
 import 'classic_hareeg_score_ledger.dart';
 import 'classic_hareeg_table_play_planner.dart';
 import 'classic_hareeg_table_play_retraction_planner.dart';
@@ -178,7 +179,7 @@ class ClassicHareegGameController {
        _fiftyWindowOpenedAt = restored.fiftyWindowOpenedAt,
        _roundOutcome = null,
        _roundResult = null,
-       _discardHistory = DiscardHistory(),
+       _discardHistory = restored.discardHistory,
        _turnLedger = ClassicHareegTurnLedger(source: restored.turnSource) {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
@@ -217,6 +218,8 @@ class ClassicHareegGameController {
   RoundOutcomeType? _roundOutcome;
   RoundProgressResult? _roundResult;
   final DiscardHistory _discardHistory;
+  late final RoundMemoryRecorder _roundMemory =
+      DiscardHistoryRoundMemoryRecorder(_discardHistory);
   final ClassicHareegTurnLedger _turnLedger;
   late final ClassicHareegActionSurfaceFacts _actionSurfaceFacts =
       _LiveActionSurfaceFacts(this);
@@ -447,6 +450,7 @@ class ClassicHareegGameController {
       removedSeats: _removedSeats.toList(growable: false),
       fiftyWindowOpenedAt: _fiftyWindowOpenedAt,
       savedAt: effectiveSavedAt,
+      discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
   }
 
@@ -772,7 +776,7 @@ class ClassicHareegGameController {
     final takenCard = next.pendingDiscard?.card;
     _applyTurnFlowState(next);
     if (takenCard != null) {
-      _discardHistory.recordPickup(_currentSeat, takenCard);
+      _roundMemory.onTakePreviousDiscard(_currentSeat, takenCard);
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
@@ -798,11 +802,7 @@ class ClassicHareegGameController {
       return ApplyActionResult.failure(error.message);
     }
     if (pending != null) {
-      _discardHistory.retract(
-        seat: returningSeat,
-        card: pending,
-        kind: DiscardEventKind.pickup,
-      );
+      _roundMemory.onReturnPendingDiscard(returningSeat, pending);
       _lastReturnedPendingDiscard =
           (seat: returningSeat, cardId: pending.id);
     }
@@ -1401,7 +1401,7 @@ class ClassicHareegGameController {
         // discard pile — the seat is out but the card has left their hand.
         hand.removeAt(index);
         _discardPile.add(card);
-        _discardHistory.recordDiscard(discardingSeat, card);
+        _roundMemory.onDiscard(discardingSeat, card);
         _previousDiscardSeat = discardingSeat;
         _lastReturnedPendingDiscard = null;
         return removal;
@@ -1433,7 +1433,7 @@ class ClassicHareegGameController {
 
     hand.removeAt(index);
     _discardPile.add(card);
-    _discardHistory.recordDiscard(_currentSeat, card);
+    _roundMemory.onDiscard(_currentSeat, card);
     _previousDiscardSeat = _currentSeat;
     _pendingDiscard = null;
     _turnConsumedPendingDiscard = null;
@@ -1671,7 +1671,7 @@ class ClassicHareegGameController {
       // CPU threat model (DiscardHistory) and any takeDiscard predicates
       // gated on _previousDiscardSeat see a consistent attribution.
       _previousDiscardSeat = removedSeat;
-      _discardHistory.recordDiscard(removedSeat, pending);
+      _roundMemory.onDiscard(removedSeat, pending);
       _lastReturnedPendingDiscard = null;
     }
     _pendingDiscard = null;

@@ -3,6 +3,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../persistence/persistence_codec.dart';
 import '../rules/opening_rules.dart';
+import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
 
@@ -65,6 +66,12 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   }
 
   final pendingJson = asJsonMap(json['pendingDiscard']);
+  // discardHistory is a v1-additive field: older saves without it restore
+  // an empty event list, matching the prior behaviour (CPU memory reset on
+  // resume). Documented in classic_hareeg_match_snapshot.dart.
+  final discardHistoryEvents = _discardHistoryEventsFromJson(
+    json['discardHistory'],
+  );
 
   return ClassicHareegMatchSnapshot(
     setup: ClassicHareegSetup.fromJson(setupJson),
@@ -93,6 +100,7 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
     ),
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt,
+    discardHistoryEvents: discardHistoryEvents,
   );
 }
 
@@ -124,7 +132,33 @@ Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) 
     'removedSeats': snapshot.removedSeats.map((seat) => seat.name).toList(),
     'fiftyWindowOpenedAt': snapshot.fiftyWindowOpenedAt?.toIso8601String(),
     'savedAt': snapshot.savedAt.toIso8601String(),
+    'discardHistory': {
+      'events': [
+        for (final event in snapshot.discardHistoryEvents) event.toJson(),
+      ],
+    },
   };
+}
+
+List<DiscardEvent> _discardHistoryEventsFromJson(Object? raw) {
+  if (raw == null) {
+    return const [];
+  }
+  final container = asJsonMap(raw);
+  if (container == null) {
+    throw const FormatException('Invalid discard history container.');
+  }
+  final events = asJsonList(container['events']);
+  if (events == null) {
+    return const [];
+  }
+  return [
+    for (final entry in events)
+      DiscardEvent.fromJson(
+        asJsonMap(entry) ??
+            (throw const FormatException('Invalid discard event entry.')),
+      ),
+  ];
 }
 
 List<HareegCard> _cardsFromJson(List<Object?> cardsJson) {

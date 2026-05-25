@@ -5,6 +5,7 @@ import '../rules/classic_hareeg_rules.dart';
 import '../rules/fifty_rules.dart';
 import '../rules/finish_rules.dart';
 import '../rules/opening_rules.dart';
+import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
 
@@ -24,6 +25,16 @@ abstract final class ClassicHareegMatchRestoration {
         : snapshot.currentSeat.previousAntiClockwise;
     final shouldRestoreFiftyWindow =
         snapshot.discardPile.isNotEmpty && snapshot.turnPhase == TurnPhase.draw;
+
+    final discardHistory = DiscardHistory();
+    for (final event in snapshot.discardHistoryEvents) {
+      switch (event.kind) {
+        case DiscardEventKind.discard:
+          discardHistory.recordDiscard(event.seat, event.card);
+        case DiscardEventKind.pickup:
+          discardHistory.recordPickup(event.seat, event.card);
+      }
+    }
 
     return ClassicHareegRestoredMatchState(
       setup: snapshot.setup,
@@ -67,6 +78,7 @@ abstract final class ClassicHareegMatchRestoration {
       turnSource: snapshot.pendingDiscard == null
           ? FinishCardSource.stock
           : FinishCardSource.previousDiscard,
+      discardHistory: discardHistory,
     );
   }
 }
@@ -74,7 +86,7 @@ abstract final class ClassicHareegMatchRestoration {
 /// Live state restored from a persisted Classic Hareeg match snapshot.
 class ClassicHareegRestoredMatchState {
   /// Creates restored match state.
-  const ClassicHareegRestoredMatchState({
+  ClassicHareegRestoredMatchState({
     required this.setup,
     required this.rules,
     required this.hands,
@@ -90,11 +102,12 @@ class ClassicHareegRestoredMatchState {
     required this.currentSeat,
     required this.turnPhase,
     required this.turnSource,
+    DiscardHistory? discardHistory,
     this.pendingDiscard,
     this.previousDiscardSeat,
     this.fiftyWindow,
     this.fiftyWindowOpenedAt,
-  });
+  }) : discardHistory = discardHistory ?? DiscardHistory();
 
   /// Restored setup.
   final ClassicHareegSetup setup;
@@ -152,6 +165,11 @@ class ClassicHareegRestoredMatchState {
 
   /// Source of the turn card for finish validation.
   final FinishCardSource turnSource;
+
+  /// Restored per-round discard memory (live, mutable). Pre-populated from
+  /// the snapshot when the saved match carried `discardHistoryEvents`;
+  /// empty otherwise.
+  final DiscardHistory discardHistory;
 }
 
 extension on PlayerSeat {
