@@ -31,6 +31,7 @@ import 'classic_hareeg_round.dart';
 import 'classic_hareeg_score_ledger.dart';
 import 'classic_hareeg_table_play_planner.dart';
 import 'classic_hareeg_table_play_retraction_planner.dart';
+import 'classic_hareeg_turn_checkpoint.dart';
 import 'classic_hareeg_turn_exit_planner.dart';
 import 'classic_hareeg_turn_ledger.dart';
 
@@ -424,23 +425,25 @@ class ClassicHareegGameController {
   /// Snapshots the live game state for persistence.
   ClassicHareegMatchSnapshot toSnapshot({DateTime? savedAt}) {
     final effectiveSavedAt = savedAt ?? DateTime.now().toUtc();
+    final resumeState = ClassicHareegTurnCheckpoint(
+      currentSeat: _currentSeat,
+      hands: _hands,
+      tableMelds: _tableMelds,
+      openingState: _openingState,
+      pendingDiscard: _pendingDiscard,
+      turnLedger: _turnLedger,
+    ).toSnapshotState();
     return ClassicHareegMatchSnapshot(
       setup: setup,
-      hands: {
-        for (final entry in _hands.entries)
-          entry.key: List<HareegCard>.of(entry.value),
-      },
+      hands: resumeState.hands,
       stock: List<HareegCard>.of(_stock),
       discardPile: List<HareegCard>.of(_discardPile),
-      tableMelds: {
-        for (final entry in _tableMelds.entries)
-          entry.key: List<PlacedMeld>.of(entry.value),
-      },
+      tableMelds: resumeState.tableMelds,
       starter: _starter,
       currentSeat: _currentSeat,
       turnPhase: _phase,
-      pendingDiscard: _pendingDiscard,
-      openingState: _openingState,
+      pendingDiscard: resumeState.pendingDiscard,
+      openingState: resumeState.openingState,
       scores: Map<PlayerSeat, int>.of(_scores),
       activeSeats: List<PlayerSeat>.of(_activeSeats),
       roundNumber: _roundNumber,
@@ -717,12 +720,14 @@ class ClassicHareegGameController {
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     return _tablePlayPlanner.coverActionIdForMeldTarget(
       seat: seat,
       cardIds: cardIds,
       targetSeat: targetSeat,
       meldIndex: meldIndex,
+      coverPlacement: coverPlacement,
     );
   }
 
@@ -803,8 +808,7 @@ class ClassicHareegGameController {
         card: pending,
         kind: DiscardEventKind.pickup,
       );
-      _lastReturnedPendingDiscard =
-          (seat: returningSeat, cardId: pending.id);
+      _lastReturnedPendingDiscard = (seat: returningSeat, cardId: pending.id);
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
@@ -1206,6 +1210,16 @@ class ClassicHareegGameController {
         'One or more selected cards are not in the hand.',
       );
     }
+    final resolvedSelectedCards =
+        ClassicHareegTablePlayPlanner.resolveCoverCardsWithJokerIdentities(
+          cards: selectedCards,
+          jokerIdentities: target.jokerIdentities,
+        );
+    if (resolvedSelectedCards == null) {
+      return const ApplyActionResult.failure(
+        'Selected joker identity does not match this cover.',
+      );
+    }
 
     final pending = _pendingDiscard;
     if (pending != null && !target.cardIds.toSet().contains(pending.id)) {
@@ -1226,7 +1240,7 @@ class ClassicHareegGameController {
     final targetMeld = targetMelds[target.meldIndex];
     final ordered = _orderedCoverCards(
       tableMeld: targetMeld.cards,
-      candidates: selectedCards,
+      candidates: resolvedSelectedCards,
     );
     if (ordered == null) {
       return const ApplyActionResult.failure(
@@ -1279,27 +1293,15 @@ class ClassicHareegGameController {
   }
 
   void _syncUnlockedBenchmarkWithTable({bool allowLower = false}) {
-    final owner = _openingState.benchmarkOwner;
-    if (owner == null || _openingState.isLocked) {
-      return;
-    }
-
-    final ownerTableTotal = (_tableMelds[owner] ?? const <PlacedMeld>[])
-        .fold<int>(0, (total, meld) => total + meld.totalValue);
-    final tableRequirement = ownerTableTotal > _openingState.baseRequirement
-        ? ownerTableTotal
-        : _openingState.baseRequirement;
-    if (tableRequirement == _openingState.currentRequirement ||
-        (!allowLower && tableRequirement < _openingState.currentRequirement)) {
-      return;
-    }
-
-    _openingState = OpeningState(
-      baseRequirement: _openingState.baseRequirement,
-      currentRequirement: tableRequirement,
-      benchmarkOwner: owner,
-      openedSeats: _openingState.openedSeats,
+    final synced = ClassicHareegTurnCheckpoint.openingStateSyncedWith(
+      openingState: _openingState,
+      tableMelds: _tableMelds,
+      allowLower: allowLower,
     );
+    if (identical(synced, _openingState)) {
+      return;
+    }
+    _openingState = synced;
   }
 
   ApplyActionResult _applyReplaceJoker(JokerReplacementActionTarget target) {
