@@ -35,6 +35,7 @@ import 'classic_hareeg_table_play_retraction_planner.dart';
 import 'classic_hareeg_turn_checkpoint.dart';
 import 'classic_hareeg_turn_exit_planner.dart';
 import 'classic_hareeg_turn_journal.dart';
+import 'physical_card_match.dart';
 
 export 'classic_hareeg_action.dart';
 
@@ -942,7 +943,7 @@ class ClassicHareegGameController {
       final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
       for (final staged in stagedMelds.reversed) {
         final index = tableMelds.lastIndexWhere((meld) {
-          return _samePhysicalCards(meld.cards, staged.cards);
+          return samePhysicalCards(meld.cards, staged.cards);
         });
         if (index != -1) {
           tableMelds.removeAt(index);
@@ -953,7 +954,7 @@ class ClassicHareegGameController {
       final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
       for (final play in turnMeldPlays.reversed) {
         final index = tableMelds.lastIndexWhere((meld) {
-          return _samePhysicalCards(meld.cards, play.meld.cards);
+          return samePhysicalCards(meld.cards, play.meld.cards);
         });
         if (index != -1) {
           tableMelds.removeAt(index);
@@ -2344,20 +2345,6 @@ String _playMeldActionIdFor(
     cardIds: cardIds,
     assignments: jokerAssignments,
   );
-}
-
-bool _samePhysicalCards(List<HareegCard> left, List<HareegCard> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  final leftIds = left.map((card) => card.id).toList()..sort();
-  final rightIds = right.map((card) => card.id).toList()..sort();
-  for (var index = 0; index < leftIds.length; index += 1) {
-    if (leftIds[index] != rightIds[index]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 ClassicTurnPhase _classicTurnPhaseFrom(TurnPhase phase) {

@@ -2,6 +2,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../rules/finish_rules.dart';
 import '../rules/opening_rules.dart';
+import 'physical_card_match.dart';
 
 /// Reversible table-play journal for the active turn.
 ///
@@ -128,8 +129,9 @@ class ClassicHareegTurnJournal {
     _source = source;
   }
 
-  /// Removes the first finish play whose card-ids match [meld] (physically).
-  /// No-op when no match exists.
+  /// Removes the last finish play whose card-ids match [meld] (physically) —
+  /// retraction undoes the most recent matching record. No-op when no match
+  /// exists.
   void removeFinishMeldMatching(PlacedMeld meld) {
     final index = _lastIndexOfPhysicalMatch(_finishMelds, meld.cards);
     if (index != -1) {
@@ -203,7 +205,7 @@ class ClassicHareegTurnJournal {
   /// or -1 when no staged meld matches.
   int findStagedOpeningIndexByPhysicalCards(List<HareegCard> targetCards) {
     return _openingMelds.indexWhere((staged) {
-      return _samePhysicalCards(staged.cards, targetCards);
+      return samePhysicalCards(staged.cards, targetCards);
     });
   }
 
@@ -215,7 +217,7 @@ class ClassicHareegTurnJournal {
   }) {
     for (final play in _turnMelds) {
       if (play.owner == owner &&
-          _samePhysicalCards(play.meld.cards, targetMeld.cards)) {
+          samePhysicalCards(play.meld.cards, targetMeld.cards)) {
         return play;
       }
     }
@@ -262,7 +264,7 @@ class ClassicHareegTurnJournal {
     List<HareegCard> targetCards,
   ) {
     for (var i = melds.length - 1; i >= 0; i -= 1) {
-      if (_samePhysicalCards(melds[i].cards, targetCards)) {
+      if (samePhysicalCards(melds[i].cards, targetCards)) {
         return i;
       }
     }
@@ -364,16 +366,3 @@ class ClassicHareegTurnJournalSnapshot {
   final FinishCardSource source;
 }
 
-bool _samePhysicalCards(List<HareegCard> left, List<HareegCard> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  final leftIds = left.map((card) => card.id).toList()..sort();
-  final rightIds = right.map((card) => card.id).toList()..sort();
-  for (var index = 0; index < leftIds.length; index += 1) {
-    if (leftIds[index] != rightIds[index]) {
-      return false;
-    }
-  }
-  return true;
-}

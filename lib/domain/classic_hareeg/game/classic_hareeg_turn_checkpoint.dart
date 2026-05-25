@@ -2,6 +2,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_turn_journal.dart';
+import 'physical_card_match.dart';
 
 /// Snapshot-ready state after reversible active-turn table plays are rolled
 /// back to a replayable checkpoint.
@@ -103,7 +104,7 @@ class ClassicHareegTurnCheckpoint {
       final ownerMelds = checkpointTableMelds[play.owner];
       if (ownerMelds != null) {
         final index = ownerMelds.lastIndexWhere((meld) {
-          return _samePhysicalCards(meld.cards, play.meld.cards);
+          return samePhysicalCards(meld.cards, play.meld.cards);
         });
         if (index != -1) {
           ownerMelds.removeAt(index);
@@ -119,7 +120,7 @@ class ClassicHareegTurnCheckpoint {
       if (ownerMelds != null) {
         for (final meld in journalSnapshot.openingMelds.reversed) {
           final index = ownerMelds.lastIndexWhere((candidate) {
-            return _samePhysicalCards(candidate.cards, meld.cards);
+            return samePhysicalCards(candidate.cards, meld.cards);
           });
           if (index != -1) {
             ownerMelds.removeAt(index);
@@ -189,16 +190,3 @@ class ClassicHareegTurnCheckpoint {
   }
 }
 
-bool _samePhysicalCards(List<HareegCard> left, List<HareegCard> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  final leftIds = left.map((card) => card.id).toList()..sort();
-  final rightIds = right.map((card) => card.id).toList()..sort();
-  for (var i = 0; i < leftIds.length; i++) {
-    if (leftIds[i] != rightIds[i]) {
-      return false;
-    }
-  }
-  return true;
-}

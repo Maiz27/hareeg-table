@@ -325,6 +325,8 @@ class TableCueChoreographer extends ChangeNotifier {
     _revertFlashTimer = null;
     _roundAdvanceTimer?.cancel();
     _roundAdvanceTimer = null;
+    _fiftyTicker?.cancel();
+    _fiftyTicker = null;
     _fiftyPulseTimer?.cancel();
     _fiftyPulseTimer = null;
     _fiftyPulse = false;

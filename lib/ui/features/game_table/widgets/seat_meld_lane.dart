@@ -324,13 +324,16 @@ class _TableMeldStackState extends State<_TableMeldStack> {
     });
   }
 
-  void _updateHover(DragTargetDetails<HareegCard> details) {
+  /// Computes the drop target for the current drag location. Returns null if
+  /// the render box isn't ready yet (theoretically not possible once a drag is
+  /// in flight, but the [RenderBox] cast is nullable).
+  TableMeldDropTarget? _targetFor(DragTargetDetails<HareegCard> details) {
     final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) {
-      return;
+      return null;
     }
     final local = box.globalToLocal(details.offset);
-    final target = TableMeldDropTargetPlanner.targetForLocalPosition(
+    return TableMeldDropTargetPlanner.targetForLocalPosition(
       owner: widget.owner,
       meldIndex: widget.meldIndex,
       cardCount: widget.meld.cards.length,
@@ -339,6 +342,11 @@ class _TableMeldStackState extends State<_TableMeldStack> {
       vertical: widget.vertical,
       quarterTurns: widget.quarterTurns,
     );
+  }
+
+  void _updateHover(DragTargetDetails<HareegCard> details) {
+    final target = _targetFor(details);
+    if (target == null) return;
     final placement = target.coverPlacement;
     final accepts = widget.canAccept(details.data, target);
     if (_hoverPlacement == placement && _hoverAccepts == accepts) {
@@ -391,26 +399,26 @@ class _TableMeldStackState extends State<_TableMeldStack> {
     return DragTarget<HareegCard>(
       key: _targetKey,
       onWillAcceptWithDetails: (details) {
-        return canAccept(
-          details.data,
-          TableMeldDropTarget(
-            owner: owner,
-            meldIndex: meldIndex,
-            coverPlacement: _hoverPlacement,
-          ),
-        );
+        final target =
+            _targetFor(details) ??
+            TableMeldDropTarget(
+              owner: owner,
+              meldIndex: meldIndex,
+              coverPlacement: _hoverPlacement,
+            );
+        return canAccept(details.data, target);
       },
       onMove: _updateHover,
       onLeave: (_) => _clearHover(),
       onAcceptWithDetails: (details) {
-        onAccept(
-          details.data,
-          TableMeldDropTarget(
-            owner: owner,
-            meldIndex: meldIndex,
-            coverPlacement: _hoverPlacement,
-          ),
-        );
+        final target =
+            _targetFor(details) ??
+            TableMeldDropTarget(
+              owner: owner,
+              meldIndex: meldIndex,
+              coverPlacement: _hoverPlacement,
+            );
+        onAccept(details.data, target);
         _clearHover();
       },
       builder: (context, candidates, rejected) {
