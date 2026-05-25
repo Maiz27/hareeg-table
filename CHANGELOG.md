@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0-alpha.7](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-05-25)
+
+
+### Features
+
+* **cards:** add Iron Rose theme ([14189cf](https://github.com/Maiz27/hareeg-table/commit/14189cf9a2e6537283b9efcf6bf5e531c5cb0668))
+
+
+### Bug Fixes
+
+* **cards:** replace sandline jack of diamonds art ([9ef9afb](https://github.com/Maiz27/hareeg-table/commit/9ef9afb2f289cfe06349ddba5cb8579d84861392))
+* **cards:** restore sandline jack asset via manifests ([abc277d](https://github.com/Maiz27/hareeg-table/commit/abc277dd7b4b598fe07e4a242c27b101e14e3548))
+* **domain:** preserve joker cover edge intent ([d19f980](https://github.com/Maiz27/hareeg-table/commit/d19f980d3328c26c143ba9872e7c650a24ce4be7))
+* **game:** checkpoint active turns for resume ([a5a4b79](https://github.com/Maiz27/hareeg-table/commit/a5a4b795439032c605df20d4a1ddbbc8ba2a04a5))
+* **game:** rebase cover-play indices when a meld is removed ([4282c71](https://github.com/Maiz27/hareeg-table/commit/4282c71637593d1c68a86192255b7d15d3572115))
+* **persistence:** persist DiscardHistory so resumed matches keep CPU memory ([a922bcf](https://github.com/Maiz27/hareeg-table/commit/a922bcf8e0cde3f5f1bcfc9804116872f8662a36))
+
 ## [1.0.0-alpha.6](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-05-24)
 
 
