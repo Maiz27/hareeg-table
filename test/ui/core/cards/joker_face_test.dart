@@ -3,16 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
-import 'package:hareeg_table/ui/core/cards/themes/minimal_symbols_theme.dart';
-import 'package:hareeg_table/ui/core/cards/themes/wikimedia_pd_theme.dart';
+import 'package:hareeg_table/ui/core/cards/themes/bundled_themes.dart';
 
 /// Code-rendered themes that route jokers through the shared
 /// [CardPainting.paintJokerFace]. Kenney Classic is excluded because it
 /// returns a bundled PNG for jokers, so the painter's corner indices do not
 /// apply.
 const _sharedJokerThemes = <(String, HareegCardTheme)>[
-  ('Minimal Symbols', MinimalSymbolsCardTheme()),
-  ('Wikimedia PD', WikimediaPdCardTheme()),
+  ('Minimal Symbols', minimalSymbolsCardTheme),
+  ('Wikimedia PD', wikimediaPdCardTheme),
 ];
 
 const _sizesByVariant = <(String, CardVariant, Size)>[
@@ -74,7 +73,7 @@ void main() {
 
     await _pumpJoker(
       tester,
-      theme: const MinimalSymbolsCardTheme(),
+      theme: minimalSymbolsCardTheme,
       variant: CardVariant.full,
       size: const Size(80, 116),
       card: card,
@@ -92,7 +91,7 @@ void main() {
     (tester) async {
       await _pumpJoker(
         tester,
-        theme: const MinimalSymbolsCardTheme(),
+        theme: minimalSymbolsCardTheme,
         variant: CardVariant.full,
         size: const Size(80, 116),
         jokerDisplay: JokerDisplay.unassigned,

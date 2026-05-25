@@ -3,13 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
-import 'package:hareeg_table/ui/core/cards/themes/sandline_lounge_theme.dart';
+import 'package:hareeg_table/ui/core/cards/themes/bundled_themes.dart';
 
 void main() {
   testWidgets(
     'Sandline Lounge renders face, back, and represented joker assets',
     (tester) async {
-      const theme = SandlineLoungeCardTheme();
+      const theme = sandlineLoungeCardTheme;
       final ace = HareegCard.standard(
         rank: CardRank.ace,
         suit: CardSuit.spades,

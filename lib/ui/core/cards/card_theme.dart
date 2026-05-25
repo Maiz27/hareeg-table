@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/classic_hareeg/models/playing_card.dart';
+import 'card_painting.dart';
 import 'card_state.dart';
 
 /// Origin of a card theme's assets.
@@ -157,49 +158,177 @@ class CardRenderRequest {
   final double revealOpacity;
 }
 
-/// Contract every card theme implements.
+/// Optional extra-drawing hook a theme can run after the shared
+/// [CardPainting] helpers have laid down the body, face, and back.
 ///
-/// One theme provides the painting for every variant (full / compact /
-/// picker / back) plus a representation for jokers. State overlays are
-/// applied generically — themes can override the overlay map if their
-/// palette demands a different highlight set.
-abstract class HareegCardTheme {
-  /// Creates a card theme.
-  const HareegCardTheme();
+/// Receives the live [Canvas] and the [CardRenderRequest] so themes can
+/// decorate the painted face with extras (e.g., Kenney Classic's mid-line
+/// sand stroke). Returns nothing.
+typedef CardPaintExtras = void Function(
+  Canvas canvas,
+  CardRenderRequest request,
+);
 
-  /// Stable identifier persisted to preferences.
-  String get id;
+/// Slug used in bundled asset filenames for each rank.
+///
+/// Kept here (not in a manifest field) so every asset-backed theme uses the
+/// exact same vocabulary — `ace`, `two`, `three`, ..., `king`. This is the
+/// same slug set the asset-consistency test asserts against, so themes that
+/// pick their own renaming scheme cannot drift without the test flagging it.
+const Map<CardRank, String> _rankSlugs = {
+  CardRank.ace: 'ace',
+  CardRank.two: 'two',
+  CardRank.three: 'three',
+  CardRank.four: 'four',
+  CardRank.five: 'five',
+  CardRank.six: 'six',
+  CardRank.seven: 'seven',
+  CardRank.eight: 'eight',
+  CardRank.nine: 'nine',
+  CardRank.ten: 'ten',
+  CardRank.jack: 'jack',
+  CardRank.queen: 'queen',
+  CardRank.king: 'king',
+};
+
+/// Describes the bundled-asset surface of a [HareegCardTheme].
+///
+/// A null manifest means the theme is fully code-rendered. A non-null
+/// manifest gives [HareegCardTheme.imageAssetFor] the data it needs to
+/// resolve a `(card, variant)` request into a path under `assets/`:
+///
+/// - back  → `{root}/back.{extension}` when [hasBack] is true
+/// - joker → `{root}/joker_red.{extension}` for the even-index joker,
+///           `{root}/joker_black.{extension}` for the odd one, when
+///           [hasJokers] is true
+/// - standard face → `{root}/{rankSlug}_{suit}.{extension}`
+///
+/// Identities listed in [skipFaces] always resolve to `null` so the
+/// code-rendered painter takes over for that one card — used for the
+/// Sandline Lounge J♦ asset that currently holds J♥ artwork.
+@immutable
+class CardThemeAssetManifest {
+  /// Creates an asset manifest.
+  const CardThemeAssetManifest({
+    required this.root,
+    required this.extension,
+    this.hasBack = true,
+    this.hasJokers = true,
+    this.skipFaces = const [],
+  });
+
+  /// Directory under `assets/` holding this theme's artwork.
+  final String root;
+
+  /// File extension (without the dot) for every artwork file (`png`, `webp`).
+  final String extension;
+
+  /// Whether `{root}/back.{extension}` exists. False for themes that paint
+  /// their backs in code (Wikimedia PD ships only court faces).
+  final bool hasBack;
+
+  /// Whether `{root}/joker_red` / `joker_black` exist. False for themes that
+  /// paint jokers in code (Wikimedia PD again).
+  final bool hasJokers;
+
+  /// `(rank, suit)` identities whose face asset is intentionally bypassed —
+  /// the code-rendered painter draws them instead. Used to keep mismatched
+  /// court art (e.g., the duplicate Sandline Lounge `jack_diamonds.webp`)
+  /// from being shown. Modelled as a [List] (not a [Set]) so the manifest
+  /// can be `const`-constructed — `CardIdentity` overrides `==`, which
+  /// disqualifies it from `const` set membership.
+  final List<CardIdentity> skipFaces;
+
+  /// Resolves the asset path for [request], or null when the theme should
+  /// fall back to the code-rendered painter.
+  String? assetFor(CardRenderRequest request) {
+    if (request.faceDown || request.variant == CardVariant.back) {
+      return hasBack ? '$root/back.$extension' : null;
+    }
+    if (request.card.isJoker) {
+      if (!hasJokers) return null;
+      final suffix = (request.card.jokerIndex ?? 0).isEven ? 'red' : 'black';
+      return '$root/joker_$suffix.$extension';
+    }
+    final identity = request.card.identity ?? request.card.representedIdentity;
+    if (identity == null) return null;
+    if (skipFaces.contains(identity)) return null;
+    final rankSlug = _rankSlugs[identity.rank]!;
+    return '$root/${rankSlug}_${identity.suit.name}.$extension';
+  }
+}
+
+/// Bundled card theme rendered by [HareegCardView].
+///
+/// `HareegCardTheme` is a value object: a `const`-constructible bundle of
+/// identity, palette, asset manifest, and optional paint extras. One theme
+/// covers every variant (full / compact / picker / back) plus a
+/// representation for jokers. State overlays are applied generically —
+/// themes can swap in [overlayOverrides] if their palette needs a different
+/// highlight set.
+@immutable
+class HareegCardTheme {
+  /// Creates a card theme.
+  const HareegCardTheme({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.palette,
+    required this.source,
+    required this.readableOnCompactLayouts,
+    this.assetManifest,
+    this.licenseAttribution,
+    this.sourceUrl,
+    this.available = true,
+    this.unavailableReason,
+    this.overlayOverrides,
+    this.paintExtras,
+  });
+
+  /// Stable identifier persisted to preferences. Changing this orphans
+  /// every player's saved theme preference, so don't.
+  final String id;
 
   /// Player-facing label.
-  String get label;
+  final String label;
 
   /// Short description shown in the theme picker.
-  String get description;
+  final String description;
+
+  /// Colour palette consumed by the shared [CardPainting] helpers.
+  final CardThemePalette palette;
 
   /// Whether the theme's assets are code-rendered or bundled.
-  CardThemeAssetSource get source;
+  final CardThemeAssetSource source;
+
+  /// Bundled-asset surface, or null for fully code-rendered themes.
+  final CardThemeAssetManifest? assetManifest;
 
   /// Optional license attribution shown on Settings → About → Licenses.
-  String? get licenseAttribution;
+  final String? licenseAttribution;
 
   /// Optional source URL shown on Settings → About → Licenses.
-  String? get sourceUrl;
+  final String? sourceUrl;
 
   /// Whether the compact/picker variants remain readable on the smallest
   /// supported Android landscape viewport.
-  bool get readableOnCompactLayouts;
+  final bool readableOnCompactLayouts;
 
   /// Whether the theme is currently available to play with. Themes whose
   /// bundled assets are not yet sourced can ship disabled but still listed
   /// in the picker.
-  bool get available => true;
+  final bool available;
 
   /// Disabled-reason copy used by the picker (e.g., "Asset bundle pending").
-  String? get unavailableReason => null;
+  final String? unavailableReason;
 
-  /// Optional overlay map; themes that return null inherit
-  /// [DefaultCardStateOverlays.map].
-  CardStateOverlayMap? get overlayOverrides => null;
+  /// Optional overlay map; null inherits [DefaultCardStateOverlays.map].
+  final CardStateOverlayMap? overlayOverrides;
+
+  /// Optional extra drawing run after the shared face/back painters. Used
+  /// by Kenney Classic to lay a sand-line stroke across the centre of the
+  /// face — every other bundled theme leaves this null.
+  final CardPaintExtras? paintExtras;
 
   /// Resolves the overlay style for a state, applying any theme override.
   CardStateOverlayStyle overlayFor(CardVisualState state) {
@@ -212,15 +341,30 @@ abstract class HareegCardTheme {
 
   /// Optional bundled raster asset for this card.
   ///
-  /// Code-rendered themes return null and paint everything on the canvas.
-  /// Asset-backed themes return a path under `assets/` for faces/backs that
-  /// should be composed by [HareegCardView] before the state overlay.
-  String? imageAssetFor(CardRenderRequest request) => null;
+  /// Code-rendered themes (no [assetManifest]) return null and paint
+  /// everything on the canvas. Asset-backed themes return a path under
+  /// `assets/` that [HareegCardView] composes before the state overlay.
+  String? imageAssetFor(CardRenderRequest request) {
+    return assetManifest?.assetFor(request);
+  }
 
   /// Paints the card for the given request.
   ///
-  /// Themes are expected to draw the face / back inside the rect
-  /// `Offset.zero & request.size`. The framework applies the state overlay
-  /// afterwards using [overlayFor].
-  void paint(Canvas canvas, CardRenderRequest request);
+  /// Draws the face / back inside the rect `Offset.zero & request.size`
+  /// using the shared [CardPainting] helpers, then runs [paintExtras] if
+  /// the theme wants to decorate the result. The framework applies the
+  /// state overlay afterwards using [overlayFor].
+  void paint(Canvas canvas, CardRenderRequest request) {
+    if (request.faceDown || request.variant == CardVariant.back) {
+      CardPainting.paintBack(canvas, request, palette);
+      return;
+    }
+    CardPainting.paintBody(canvas, request, palette);
+    if (request.card.isJoker) {
+      CardPainting.paintJokerFace(canvas, request, palette);
+    } else {
+      CardPainting.paintStandardFace(canvas, request, palette);
+    }
+    paintExtras?.call(canvas, request);
+  }
 }
