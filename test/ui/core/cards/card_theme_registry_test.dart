@@ -8,6 +8,13 @@ void main() {
     expect(CardThemeRegistry.all().first.id, 'sandline_lounge');
   });
 
+  test('Iron Rose is the second selectable official card theme', () {
+    expect(CardThemeRegistry.all().take(2).map((theme) => theme.id), [
+      'sandline_lounge',
+      'iron_rose',
+    ]);
+  });
+
   test('High Contrast is not a selectable card theme', () {
     expect(
       CardThemeRegistry.all().map((theme) => theme.id),

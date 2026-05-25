@@ -28,11 +28,14 @@ import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_meld_play_eligibility.dart';
 import 'classic_hareeg_mistake_consequence_planner.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_round_memory_recorder.dart';
 import 'classic_hareeg_score_ledger.dart';
 import 'classic_hareeg_table_play_planner.dart';
 import 'classic_hareeg_table_play_retraction_planner.dart';
+import 'classic_hareeg_turn_checkpoint.dart';
 import 'classic_hareeg_turn_exit_planner.dart';
-import 'classic_hareeg_turn_ledger.dart';
+import 'classic_hareeg_turn_journal.dart';
+import 'physical_card_match.dart';
 
 export 'classic_hareeg_action.dart';
 
@@ -136,7 +139,7 @@ class ClassicHareegGameController {
        _roundOutcome = null,
        _roundResult = null,
        _discardHistory = DiscardHistory(),
-       _turnLedger = ClassicHareegTurnLedger() {
+       _turnJournal = ClassicHareegTurnJournal() {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -178,8 +181,8 @@ class ClassicHareegGameController {
        _fiftyWindowOpenedAt = restored.fiftyWindowOpenedAt,
        _roundOutcome = null,
        _roundResult = null,
-       _discardHistory = DiscardHistory(),
-       _turnLedger = ClassicHareegTurnLedger(source: restored.turnSource) {
+       _discardHistory = restored.discardHistory,
+       _turnJournal = ClassicHareegTurnJournal(source: restored.turnSource) {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -217,7 +220,9 @@ class ClassicHareegGameController {
   RoundOutcomeType? _roundOutcome;
   RoundProgressResult? _roundResult;
   final DiscardHistory _discardHistory;
-  final ClassicHareegTurnLedger _turnLedger;
+  final ClassicHareegTurnJournal _turnJournal;
+  late final RoundMemoryRecorder _roundMemory =
+      DiscardHistoryRoundMemoryRecorder(_discardHistory);
   late final ClassicHareegActionSurfaceFacts _actionSurfaceFacts =
       _LiveActionSurfaceFacts(this);
   String? _previousDiscardFinishCacheKey;
@@ -321,46 +326,11 @@ class ClassicHareegGameController {
     );
   }
 
-  List<PlacedMeld> get _turnFinishPlays => _turnLedger.finishPlays;
-  set _turnFinishPlays(List<PlacedMeld> value) {
-    _turnLedger.finishPlays
-      ..clear()
-      ..addAll(value);
-  }
+  List<PlacedMeld> get _turnFinishPlays => _turnJournal.finishMeldsView;
 
-  List<PlacedMeld> get _turnOpeningMelds => _turnLedger.openingMelds;
-  set _turnOpeningMelds(List<PlacedMeld> value) {
-    _turnLedger.openingMelds
-      ..clear()
-      ..addAll(value);
-  }
+  List<PlacedMeld> get _turnOpeningMelds => _turnJournal.openingMeldsView;
 
-  List<_TurnMeldPlay> get _turnMeldPlays => _turnLedger.meldPlays;
-  set _turnMeldPlays(List<_TurnMeldPlay> value) {
-    _turnLedger.meldPlays
-      ..clear()
-      ..addAll(value);
-  }
-
-  List<_TurnCoverPlay> get _turnCoverPlays => _turnLedger.coverPlays;
-  set _turnCoverPlays(List<_TurnCoverPlay> value) {
-    _turnLedger.coverPlays
-      ..clear()
-      ..addAll(value);
-  }
-
-  HareegCard? get _turnConsumedPendingDiscard {
-    return _turnLedger.consumedPendingDiscard;
-  }
-
-  set _turnConsumedPendingDiscard(HareegCard? value) {
-    _turnLedger.consumedPendingDiscard = value;
-  }
-
-  FinishCardSource get _turnSource => _turnLedger.source;
-  set _turnSource(FinishCardSource value) {
-    _turnLedger.source = value;
-  }
+  FinishCardSource get _turnSource => _turnJournal.source;
 
   /// Live card count for a seat.
   int cardCountFor(PlayerSeat seat) => _hands[seat]?.length ?? 0;
@@ -424,29 +394,32 @@ class ClassicHareegGameController {
   /// Snapshots the live game state for persistence.
   ClassicHareegMatchSnapshot toSnapshot({DateTime? savedAt}) {
     final effectiveSavedAt = savedAt ?? DateTime.now().toUtc();
+    final resumeState = ClassicHareegTurnCheckpoint(
+      currentSeat: _currentSeat,
+      hands: _hands,
+      tableMelds: _tableMelds,
+      openingState: _openingState,
+      pendingDiscard: _pendingDiscard,
+      journalSnapshot: _turnJournal.toSnapshot(),
+    ).toSnapshotState();
     return ClassicHareegMatchSnapshot(
       setup: setup,
-      hands: {
-        for (final entry in _hands.entries)
-          entry.key: List<HareegCard>.of(entry.value),
-      },
+      hands: resumeState.hands,
       stock: List<HareegCard>.of(_stock),
       discardPile: List<HareegCard>.of(_discardPile),
-      tableMelds: {
-        for (final entry in _tableMelds.entries)
-          entry.key: List<PlacedMeld>.of(entry.value),
-      },
+      tableMelds: resumeState.tableMelds,
       starter: _starter,
       currentSeat: _currentSeat,
       turnPhase: _phase,
-      pendingDiscard: _pendingDiscard,
-      openingState: _openingState,
+      pendingDiscard: resumeState.pendingDiscard,
+      openingState: resumeState.openingState,
       scores: Map<PlayerSeat, int>.of(_scores),
       activeSeats: List<PlayerSeat>.of(_activeSeats),
       roundNumber: _roundNumber,
       removedSeats: _removedSeats.toList(growable: false),
       fiftyWindowOpenedAt: _fiftyWindowOpenedAt,
       savedAt: effectiveSavedAt,
+      discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
   }
 
@@ -717,12 +690,14 @@ class ClassicHareegGameController {
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     return _tablePlayPlanner.coverActionIdForMeldTarget(
       seat: seat,
       cardIds: cardIds,
       targetSeat: targetSeat,
       meldIndex: meldIndex,
+      coverPlacement: coverPlacement,
     );
   }
 
@@ -761,7 +736,7 @@ class ClassicHareegGameController {
     _applyTurnFlowState(next);
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnLedger.resetForNewTurn();
+    _turnJournal.resetForNewTurn();
     return const ApplyActionResult.success();
   }
 
@@ -772,11 +747,11 @@ class ClassicHareegGameController {
     final takenCard = next.pendingDiscard?.card;
     _applyTurnFlowState(next);
     if (takenCard != null) {
-      _discardHistory.recordPickup(_currentSeat, takenCard);
+      _roundMemory.onTakePreviousDiscard(_currentSeat, takenCard);
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnLedger.resetForNewTurn(source: FinishCardSource.previousDiscard);
+    _turnJournal.resetForNewTurn(source: FinishCardSource.previousDiscard);
     return const ApplyActionResult.success();
   }
 
@@ -798,17 +773,12 @@ class ClassicHareegGameController {
       return ApplyActionResult.failure(error.message);
     }
     if (pending != null) {
-      _discardHistory.retract(
-        seat: returningSeat,
-        card: pending,
-        kind: DiscardEventKind.pickup,
-      );
-      _lastReturnedPendingDiscard =
-          (seat: returningSeat, cardId: pending.id);
+      _roundMemory.onReturnPendingDiscard(returningSeat, pending);
+      _lastReturnedPendingDiscard = (seat: returningSeat, cardId: pending.id);
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnLedger.resetForNewTurn();
+    _turnJournal.resetForNewTurn();
     _evaluateRoundEnd();
     return const ApplyActionResult.success();
   }
@@ -877,15 +847,14 @@ class ClassicHareegGameController {
     _tableMelds
         .putIfAbsent(_currentSeat, () => <PlacedMeld>[])
         .addAll(resolved.melds);
-    _turnFinishPlays = [..._turnFinishPlays, ...resolved.melds];
+    _turnJournal.recordFinishMelds(resolved.melds);
 
     if (alreadyOpened) {
       final value = resolved.melds.fold<int>(
         0,
         (total, meld) => total + meld.valueSnapshot,
       );
-      _turnMeldPlays = [
-        ..._turnMeldPlays,
+      _turnJournal.recordTurnMelds([
         for (final meld in resolved.melds)
           _TurnMeldPlay(
             owner: _currentSeat,
@@ -896,7 +865,7 @@ class ClassicHareegGameController {
                 ? pending
                 : null,
           ),
-      ];
+      ]);
       _openingState = ClassicHareegOpeningRules.recordBenchmarkContribution(
         state: _openingState,
         seat: _currentSeat,
@@ -904,15 +873,14 @@ class ClassicHareegGameController {
       );
       _syncUnlockedBenchmarkWithTable();
     } else {
-      _turnOpeningMelds = [..._turnOpeningMelds, ...resolved.melds];
+      _turnJournal.recordOpeningMelds(resolved.melds);
       if (eligibility.opensPlayer) {
         _openingState = ClassicHareegOpeningRules.applyOpening(
           state: _openingState,
           seat: _currentSeat,
-          melds: _turnOpeningMelds,
+          melds: _turnJournal.openingMeldsView,
         );
-        _turnOpeningMelds = <PlacedMeld>[];
-        _turnConsumedPendingDiscard = null;
+        _turnJournal.commitOpeningMelds();
         _syncUnlockedBenchmarkWithTable();
       }
     }
@@ -920,7 +888,7 @@ class ClassicHareegGameController {
     if (pending != null) {
       _consumePendingDiscard();
       if (!alreadyOpened && !_openingState.hasOpened(_currentSeat)) {
-        _turnConsumedPendingDiscard = pending;
+        _turnJournal.recordConsumedPendingDiscard(pending);
       }
     }
     return ApplyActionResult.success(message);
@@ -943,7 +911,7 @@ class ClassicHareegGameController {
       phase: _phase,
       strictness: setup.tableStrictness,
       openingState: _openingState,
-      ledger: _turnLedger,
+      journal: _turnJournal,
     );
   }
 
@@ -956,7 +924,7 @@ class ClassicHareegGameController {
       phase: _phase,
       strictness: setup.tableStrictness,
       openingState: _openingState,
-      ledger: _turnLedger,
+      journal: _turnJournal,
       tableMelds: _tableMelds,
       target: target,
     );
@@ -975,7 +943,7 @@ class ClassicHareegGameController {
       final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
       for (final staged in stagedMelds.reversed) {
         final index = tableMelds.lastIndexWhere((meld) {
-          return _samePhysicalCards(meld.cards, staged.cards);
+          return samePhysicalCards(meld.cards, staged.cards);
         });
         if (index != -1) {
           tableMelds.removeAt(index);
@@ -986,7 +954,7 @@ class ClassicHareegGameController {
       final tableMelds = _tableMelds[_currentSeat] ?? <PlacedMeld>[];
       for (final play in turnMeldPlays.reversed) {
         final index = tableMelds.lastIndexWhere((meld) {
-          return _samePhysicalCards(meld.cards, play.meld.cards);
+          return samePhysicalCards(meld.cards, play.meld.cards);
         });
         if (index != -1) {
           tableMelds.removeAt(index);
@@ -999,16 +967,16 @@ class ClassicHareegGameController {
       for (final card in meld.cards) {
         hand.add(card.isJoker ? card.withoutRepresentation() : card);
       }
-      _removeTurnFinishPlay(meld);
+      _turnJournal.removeFinishMeldMatching(meld);
     }
     for (final play in turnMeldPlays) {
       for (final card in play.meld.cards) {
         hand.add(card.isJoker ? card.withoutRepresentation() : card);
       }
-      _removeTurnFinishPlay(play.meld);
+      _turnJournal.removeFinishMeldMatching(play.meld);
     }
 
-    HareegCard? restoredPending = _turnConsumedPendingDiscard;
+    HareegCard? restoredPending = _turnJournal.consumedPendingDiscard;
     for (final play in turnMeldPlays.reversed) {
       restoredPending = play.consumedPendingDiscard ?? restoredPending;
     }
@@ -1019,7 +987,7 @@ class ClassicHareegGameController {
           play.meldIndex < targetMelds.length) {
         targetMelds[play.meldIndex] = play.previousMeld;
       }
-      _removeTurnFinishPlay(play.coverMeld);
+      _turnJournal.removeFinishMeldMatching(play.coverMeld);
       _openingState = play.previousOpeningState;
       restoredPending = play.consumedPendingDiscard ?? restoredPending;
     }
@@ -1030,15 +998,18 @@ class ClassicHareegGameController {
       }
     }
 
-    _turnOpeningMelds = <PlacedMeld>[];
-    _turnMeldPlays = <_TurnMeldPlay>[];
-    _turnCoverPlays = <_TurnCoverPlay>[];
+    _turnJournal
+      ..drainOpeningMelds()
+      ..drainTurnMelds()
+      ..drainCoverPlays()
+      ..clearConsumedPendingDiscard();
     _syncUnlockedBenchmarkWithTable(allowLower: true);
     _pendingDiscard = restoredPending;
-    _turnConsumedPendingDiscard = null;
-    _turnSource = _pendingDiscard == null
-        ? FinishCardSource.stock
-        : FinishCardSource.previousDiscard;
+    _turnJournal.setSource(
+      _pendingDiscard == null
+          ? FinishCardSource.stock
+          : FinishCardSource.previousDiscard,
+    );
     return ApplyActionResult.success(plan.message);
   }
 
@@ -1073,19 +1044,22 @@ class ClassicHareegGameController {
     }
 
     tableMelds.removeAt(target.meldIndex);
+    _turnJournal.rebaseCoverPlaysAfterMeldRemoval(
+      targetSeat: target.owner,
+      removedIndex: target.meldIndex,
+    );
     final hand = _handFor(_currentSeat);
     for (final card in play.meld.cards) {
       hand.add(card.isJoker ? card.withoutRepresentation() : card);
     }
-    _removeTurnFinishPlay(play.meld);
-    _turnMeldPlays = _turnMeldPlays
-        .where((candidate) => !identical(candidate, play))
-        .toList(growable: false);
+    _turnJournal
+      ..removeFinishMeldMatching(play.meld)
+      ..removeTurnMeld(play);
     _syncUnlockedBenchmarkWithTable(allowLower: true);
     final consumed = play.consumedPendingDiscard;
     if (consumed != null) {
       _pendingDiscard = consumed;
-      _turnSource = FinishCardSource.previousDiscard;
+      _turnJournal.setSource(FinishCardSource.previousDiscard);
     }
     return const ApplyActionResult.success('Melds returned to your hand.');
   }
@@ -1103,30 +1077,31 @@ class ClassicHareegGameController {
       );
     }
 
-    if (stagedIndex < 0 || stagedIndex >= _turnOpeningMelds.length) {
+    if (!_turnJournal.isValidStagedOpeningIndex(stagedIndex)) {
       return const ApplyActionResult.failure(
         'That opening meld cannot be taken back right now.',
       );
     }
 
-    final staged = _turnOpeningMelds[stagedIndex];
+    final staged = _turnJournal.removeStagedOpeningAt(stagedIndex)!;
     tableMelds.removeAt(target.meldIndex);
+    _turnJournal.rebaseCoverPlaysAfterMeldRemoval(
+      targetSeat: target.owner,
+      removedIndex: target.meldIndex,
+    );
     final hand = _handFor(_currentSeat);
     for (final card in staged.cards) {
       hand.add(card.isJoker ? card.withoutRepresentation() : card);
     }
-    _removeTurnFinishPlay(staged);
-    _turnOpeningMelds = [
-      ..._turnOpeningMelds.take(stagedIndex),
-      ..._turnOpeningMelds.skip(stagedIndex + 1),
-    ];
+    _turnJournal.removeFinishMeldMatching(staged);
 
-    final consumed = _turnConsumedPendingDiscard;
+    final consumed = _turnJournal.consumedPendingDiscard;
     if (consumed != null &&
         staged.cards.any((card) => card.id == consumed.id)) {
       _pendingDiscard = consumed;
-      _turnConsumedPendingDiscard = null;
-      _turnSource = FinishCardSource.previousDiscard;
+      _turnJournal
+        ..clearConsumedPendingDiscard()
+        ..setSource(FinishCardSource.previousDiscard);
     }
     return const ApplyActionResult.success(
       'Opening melds returned to your hand.',
@@ -1150,7 +1125,7 @@ class ClassicHareegGameController {
     final hand = _handFor(_currentSeat);
     HareegCard? restoredPending;
     for (final play in coverPlays.reversed) {
-      _removeTurnFinishPlay(play.coverMeld);
+      _turnJournal.removeFinishMeldMatching(play.coverMeld);
       restoredPending = play.consumedPendingDiscard ?? restoredPending;
     }
     for (final play in coverPlays) {
@@ -1159,30 +1134,16 @@ class ClassicHareegGameController {
       }
     }
 
-    _turnCoverPlays = _turnCoverPlays
-        .where(
-          (play) =>
-              play.targetSeat != target.owner ||
-              play.meldIndex != target.meldIndex,
-        )
-        .toList(growable: false);
+    _turnJournal.removeCoverPlaysFor(
+      targetSeat: target.owner,
+      meldIndex: target.meldIndex,
+    );
     _syncUnlockedBenchmarkWithTable(allowLower: true);
     if (restoredPending != null) {
       _pendingDiscard = restoredPending;
-      _turnSource = FinishCardSource.previousDiscard;
+      _turnJournal.setSource(FinishCardSource.previousDiscard);
     }
     return const ApplyActionResult.success('Covers returned to your hand.');
-  }
-
-  void _removeTurnFinishPlay(PlacedMeld play) {
-    final finishPlays = List<PlacedMeld>.of(_turnFinishPlays);
-    final index = finishPlays.lastIndexWhere((meld) {
-      return _samePhysicalCards(meld.cards, play.cards);
-    });
-    if (index != -1) {
-      finishPlays.removeAt(index);
-      _turnFinishPlays = finishPlays;
-    }
   }
 
   ApplyActionResult _applyPlaceCover(CoverActionTarget target) {
@@ -1206,6 +1167,16 @@ class ClassicHareegGameController {
         'One or more selected cards are not in the hand.',
       );
     }
+    final resolvedSelectedCards =
+        ClassicHareegTablePlayPlanner.resolveCoverCardsWithJokerIdentities(
+          cards: selectedCards,
+          jokerIdentities: target.jokerIdentities,
+        );
+    if (resolvedSelectedCards == null) {
+      return const ApplyActionResult.failure(
+        'Selected joker identity does not match this cover.',
+      );
+    }
 
     final pending = _pendingDiscard;
     if (pending != null && !target.cardIds.toSet().contains(pending.id)) {
@@ -1226,7 +1197,7 @@ class ClassicHareegGameController {
     final targetMeld = targetMelds[target.meldIndex];
     final ordered = _orderedCoverCards(
       tableMeld: targetMeld.cards,
-      candidates: selectedCards,
+      candidates: resolvedSelectedCards,
     );
     if (ordered == null) {
       return const ApplyActionResult.failure(
@@ -1253,15 +1224,14 @@ class ClassicHareegGameController {
       cards: List.unmodifiable(ordered),
       valueSnapshot: coverValue,
     );
-    _turnFinishPlays = [..._turnFinishPlays, coverMeld];
+    _turnJournal.recordFinishMelds([coverMeld]);
     _openingState = ClassicHareegOpeningRules.recordBenchmarkContribution(
       state: _openingState,
       seat: _currentSeat,
       value: coverValue,
     );
     _syncUnlockedBenchmarkWithTable();
-    _turnCoverPlays = [
-      ..._turnCoverPlays,
+    _turnJournal.recordCoverPlay(
       _TurnCoverPlay(
         targetSeat: target.targetSeat,
         meldIndex: target.meldIndex,
@@ -1270,36 +1240,24 @@ class ClassicHareegGameController {
         previousOpeningState: previousOpeningState,
         consumedPendingDiscard: consumedPendingDiscard,
       ),
-    ];
+    );
     if (pending != null) {
       _consumePendingDiscard();
-      _turnConsumedPendingDiscard = null;
+      _turnJournal.clearConsumedPendingDiscard();
     }
     return const ApplyActionResult.success('Cover placed.');
   }
 
   void _syncUnlockedBenchmarkWithTable({bool allowLower = false}) {
-    final owner = _openingState.benchmarkOwner;
-    if (owner == null || _openingState.isLocked) {
-      return;
-    }
-
-    final ownerTableTotal = (_tableMelds[owner] ?? const <PlacedMeld>[])
-        .fold<int>(0, (total, meld) => total + meld.totalValue);
-    final tableRequirement = ownerTableTotal > _openingState.baseRequirement
-        ? ownerTableTotal
-        : _openingState.baseRequirement;
-    if (tableRequirement == _openingState.currentRequirement ||
-        (!allowLower && tableRequirement < _openingState.currentRequirement)) {
-      return;
-    }
-
-    _openingState = OpeningState(
-      baseRequirement: _openingState.baseRequirement,
-      currentRequirement: tableRequirement,
-      benchmarkOwner: owner,
-      openedSeats: _openingState.openedSeats,
+    final synced = ClassicHareegTurnCheckpoint.openingStateSyncedWith(
+      openingState: _openingState,
+      tableMelds: _tableMelds,
+      allowLower: allowLower,
     );
+    if (identical(synced, _openingState)) {
+      return;
+    }
+    _openingState = synced;
   }
 
   ApplyActionResult _applyReplaceJoker(JokerReplacementActionTarget target) {
@@ -1366,7 +1324,7 @@ class ClassicHareegGameController {
     );
     if (pending != null) {
       _consumePendingDiscard();
-      _turnConsumedPendingDiscard = null;
+      _turnJournal.clearConsumedPendingDiscard();
     }
     return const ApplyActionResult.success('Joker replaced.');
   }
@@ -1401,7 +1359,7 @@ class ClassicHareegGameController {
         // discard pile — the seat is out but the card has left their hand.
         hand.removeAt(index);
         _discardPile.add(card);
-        _discardHistory.recordDiscard(discardingSeat, card);
+        _roundMemory.onDiscard(discardingSeat, card);
         _previousDiscardSeat = discardingSeat;
         _lastReturnedPendingDiscard = null;
         return removal;
@@ -1433,10 +1391,10 @@ class ClassicHareegGameController {
 
     hand.removeAt(index);
     _discardPile.add(card);
-    _discardHistory.recordDiscard(_currentSeat, card);
+    _roundMemory.onDiscard(_currentSeat, card);
     _previousDiscardSeat = _currentSeat;
     _pendingDiscard = null;
-    _turnConsumedPendingDiscard = null;
+    _turnJournal.clearConsumedPendingDiscard();
     // A new card now sits on top of the discard pile, so the previous
     // return-pending-discard memory no longer matters.
     _lastReturnedPendingDiscard = null;
@@ -1458,7 +1416,7 @@ class ClassicHareegGameController {
     } else {
       _currentSeat = exit.nextSeat!;
       _phase = exit.nextPhase!;
-      _turnLedger.resetForNewTurn();
+      _turnJournal.resetForNewTurn();
       _evaluateRoundEnd();
     }
     return ApplyActionResult.success(successMessage);
@@ -1671,7 +1629,7 @@ class ClassicHareegGameController {
       // CPU threat model (DiscardHistory) and any takeDiscard predicates
       // gated on _previousDiscardSeat see a consistent attribution.
       _previousDiscardSeat = removedSeat;
-      _discardHistory.recordDiscard(removedSeat, pending);
+      _roundMemory.onDiscard(removedSeat, pending);
       _lastReturnedPendingDiscard = null;
     }
     _pendingDiscard = null;
@@ -1680,7 +1638,7 @@ class ClassicHareegGameController {
       _fiftyWindowOpenedAt = null;
     }
     if (plan.shouldResetTurnState) {
-      _turnLedger.resetForNewTurn();
+      _turnJournal.resetForNewTurn();
     }
     _removedSeats
       ..clear()
@@ -2395,20 +2353,6 @@ String _playMeldActionIdFor(
     cardIds: cardIds,
     assignments: jokerAssignments,
   );
-}
-
-bool _samePhysicalCards(List<HareegCard> left, List<HareegCard> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  final leftIds = left.map((card) => card.id).toList()..sort();
-  final rightIds = right.map((card) => card.id).toList()..sort();
-  for (var index = 0; index < leftIds.length; index += 1) {
-    if (leftIds[index] != rightIds[index]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 ClassicTurnPhase _classicTurnPhaseFrom(TurnPhase phase) {

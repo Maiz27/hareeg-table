@@ -378,6 +378,7 @@ class ClassicHareegTablePlayPlanner {
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     if (seat != currentSeat ||
         phase != TurnPhase.action ||
@@ -387,7 +388,7 @@ class ClassicHareegTablePlayPlanner {
         )) {
       return null;
     }
-    final cards = _cardsFromHand(seat, cardIds);
+    var cards = _cardsFromHand(seat, cardIds);
     if (cards == null) {
       return null;
     }
@@ -398,6 +399,19 @@ class ClassicHareegTablePlayPlanner {
     final melds = tableMelds[targetSeat] ?? const <PlacedMeld>[];
     if (meldIndex < 0 || meldIndex >= melds.length) {
       return null;
+    }
+    var jokerIdentities = const <String, CardIdentity>{};
+    if (coverPlacement != null) {
+      final preferred = _coverCardsForPlacement(
+        tableMeld: melds[meldIndex].cards,
+        cards: cards,
+        placement: coverPlacement,
+      );
+      if (preferred == null) {
+        return null;
+      }
+      cards = preferred.cards;
+      jokerIdentities = preferred.jokerIdentities;
     }
     final ordered = orderedCoverCards(
       tableMeld: melds[meldIndex].cards,
@@ -410,6 +424,7 @@ class ClassicHareegTablePlayPlanner {
       targetSeat: targetSeat,
       meldIndex: meldIndex,
       cardIds: cardIds,
+      jokerIdentities: jokerIdentities,
     );
   }
 
@@ -508,8 +523,7 @@ class ClassicHareegTablePlayPlanner {
       final melds = tableMelds[owner] ?? const <PlacedMeld>[];
       for (final meld in melds) {
         for (final tableCard in meld.cards) {
-          if (tableCard.isJoker &&
-              tableCard.representedIdentity == identity) {
+          if (tableCard.isJoker && tableCard.representedIdentity == identity) {
             return true;
           }
         }
@@ -850,6 +864,35 @@ class ClassicHareegTablePlayPlanner {
     );
   }
 
+  /// Applies explicit represented identities to unresolved joker cover cards.
+  static List<HareegCard>? resolveCoverCardsWithJokerIdentities({
+    required List<HareegCard> cards,
+    required Map<String, CardIdentity> jokerIdentities,
+  }) {
+    if (jokerIdentities.isEmpty) {
+      return cards;
+    }
+
+    final cardIds = cards.map((card) => card.id).toSet();
+    if (jokerIdentities.keys.toSet().difference(cardIds).isNotEmpty) {
+      return null;
+    }
+
+    final resolved = <HareegCard>[];
+    for (final card in cards) {
+      final identity = jokerIdentities[card.id];
+      if (identity == null) {
+        resolved.add(card);
+        continue;
+      }
+      if (!card.isJoker || card.representedIdentity != null) {
+        return null;
+      }
+      resolved.add(card.asRepresenting(identity));
+    }
+    return resolved;
+  }
+
   static String _jokerAssignmentMessage(List<JokerMeldAssignment> assignments) {
     if (assignments.length == 1) {
       return 'Joker as ${assignments.single.identity.label}';
@@ -980,4 +1023,45 @@ class ClassicHareegTablePlayPlanner {
       }
     }
   }
+}
+
+class _ResolvedCoverCards {
+  const _ResolvedCoverCards({
+    required this.cards,
+    required this.jokerIdentities,
+  });
+
+  final List<HareegCard> cards;
+  final Map<String, CardIdentity> jokerIdentities;
+}
+
+_ResolvedCoverCards? _coverCardsForPlacement({
+  required List<HareegCard> tableMeld,
+  required List<HareegCard> cards,
+  required CoverPlacement placement,
+}) {
+  if (cards.length != 1) {
+    return _ResolvedCoverCards(cards: cards, jokerIdentities: const {});
+  }
+
+  final card = cards.single;
+  final options = ClassicHareegCoverRules.coverExtensions(
+    tableMeld: tableMeld,
+    candidate: card,
+  );
+  for (final option in options) {
+    if (option.placement != placement) {
+      continue;
+    }
+    final represented = option.card.representedIdentity;
+    final jokerIdentities =
+        card.isJoker && card.representedIdentity == null && represented != null
+        ? {card.id: represented}
+        : const <String, CardIdentity>{};
+    return _ResolvedCoverCards(
+      cards: [option.card],
+      jokerIdentities: jokerIdentities,
+    );
+  }
+  return null;
 }

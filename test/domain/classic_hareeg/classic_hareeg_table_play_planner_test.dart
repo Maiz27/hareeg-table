@@ -4,6 +4,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
@@ -204,6 +205,37 @@ void main() {
           meldIndex: 0,
           cardId: replacement.id,
         ),
+      );
+    });
+
+    test('targeted joker cover can choose the high sequence end', () {
+      const joker = HareegCard.joker(deckIndex: 17, jokerIndex: 0);
+      final planner = _planner(
+        southHand: [joker, _card(CardRank.two, CardSuit.spades, 17)],
+        openingState: _opened(PlayerSeat.south),
+        tableMelds: {
+          PlayerSeat.east: [
+            PlacedMeld.fromCards([
+              _card(CardRank.six, CardSuit.clubs, 17),
+              _card(CardRank.seven, CardSuit.clubs, 17),
+              _card(CardRank.eight, CardSuit.clubs, 17),
+            ]),
+          ],
+        },
+      );
+
+      final actionId = planner.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [joker.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        coverPlacement: CoverPlacement.highEnd,
+      );
+      final target = ClassicHareegActionIds.coverActionTarget(actionId!);
+
+      expect(
+        target?.jokerIdentities[joker.id],
+        const CardIdentity(rank: CardRank.nine, suit: CardSuit.clubs),
       );
     });
   });

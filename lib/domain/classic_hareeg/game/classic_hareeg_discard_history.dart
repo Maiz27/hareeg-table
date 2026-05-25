@@ -1,5 +1,6 @@
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../persistence/persistence_codec.dart';
 
 /// Type of discard-memory event recorded during one round.
 enum DiscardEventKind {
@@ -20,6 +21,30 @@ class DiscardEvent {
     required this.sequence,
   });
 
+  /// Restores an event from persisted JSON-compatible data.
+  factory DiscardEvent.fromJson(Map<String, Object?> json) {
+    final seat = PlayerSeat.fromName(asJsonString(json['seat']));
+    final cardJson = asJsonMap(json['card']);
+    final kindName = asJsonString(json['kind']);
+    final sequence = asJsonInt(json['sequence']);
+    if (seat == null ||
+        cardJson == null ||
+        kindName == null ||
+        sequence == null) {
+      throw const FormatException('Invalid discard event.');
+    }
+    final kind = _discardEventKindByName(kindName);
+    if (kind == null) {
+      throw FormatException('Unknown discard event kind: $kindName.');
+    }
+    return DiscardEvent(
+      seat: seat,
+      card: HareegCard.fromJson(cardJson),
+      kind: kind,
+      sequence: sequence,
+    );
+  }
+
   /// Seat that produced the event.
   final PlayerSeat seat;
 
@@ -31,6 +56,25 @@ class DiscardEvent {
 
   /// Monotonic sequence number within this round.
   final int sequence;
+
+  /// Converts the event to JSON-compatible data.
+  Map<String, Object?> toJson() {
+    return {
+      'seat': seat.name,
+      'card': card.toJson(),
+      'kind': kind.name,
+      'sequence': sequence,
+    };
+  }
+}
+
+DiscardEventKind? _discardEventKindByName(String name) {
+  for (final kind in DiscardEventKind.values) {
+    if (kind.name == name) {
+      return kind;
+    }
+  }
+  return null;
 }
 
 /// Read-only discard-memory view consumed by CPU strategies.
@@ -85,6 +129,34 @@ class DiscardHistory implements DiscardHistoryView {
     : _discardIndicesBySeat = _emptySeatIndexMap(),
       _pickupIndicesBySeat = _emptySeatIndexMap(),
       _countsByRank = List<int>.filled(CardRank.values.length, 0);
+
+  /// Restores discard memory from persisted JSON-compatible data.
+  ///
+  /// The wire format only persists the chronological event stream; per-seat
+  /// indices, rank counts, and identity counts are rebuilt by replaying each
+  /// event in order so the live invariants stay defined in one place
+  /// (recordDiscard/recordPickup).
+  factory DiscardHistory.fromJson(Map<String, Object?> json) {
+    final eventsJson = asJsonList(json['events']);
+    if (eventsJson == null) {
+      throw const FormatException('Invalid discard history events.');
+    }
+    final history = DiscardHistory();
+    for (final raw in eventsJson) {
+      final eventJson = asJsonMap(raw);
+      if (eventJson == null) {
+        throw const FormatException('Invalid discard event entry.');
+      }
+      final event = DiscardEvent.fromJson(eventJson);
+      switch (event.kind) {
+        case DiscardEventKind.discard:
+          history.recordDiscard(event.seat, event.card);
+        case DiscardEventKind.pickup:
+          history.recordPickup(event.seat, event.card);
+      }
+    }
+    return history;
+  }
 
   final List<DiscardEvent> _events = [];
   final Map<PlayerSeat, List<int>> _discardIndicesBySeat;
@@ -195,6 +267,19 @@ class DiscardHistory implements DiscardHistoryView {
 
   @override
   int get jokersDiscarded => _jokersDiscarded;
+
+  /// Converts discard memory to JSON-compatible data.
+  ///
+  /// Only the chronological event stream is persisted — derived indices and
+  /// rank/identity counts are rebuilt from the events on restore. Keeping
+  /// the wire format minimal lets [DiscardHistory.fromJson] route through
+  /// the same `recordDiscard` / `recordPickup` paths the live engine uses,
+  /// so the live invariants never get out of sync with the persisted form.
+  Map<String, Object?> toJson() {
+    return {
+      'events': [for (final event in _events) event.toJson()],
+    };
+  }
 
   DiscardEvent _append({
     required PlayerSeat seat,

@@ -104,6 +104,130 @@ void main() {
       expect(history.cardSeenAt(CardRank.five, CardSuit.clubs), isFalse);
       expect(history.discardsCount(CardRank.five), 0);
     });
+
+    test(
+      'JSON round-trip preserves CPU-visible memory across persistence',
+      () {
+        // Build a history that exercises every derived field a CPU planner
+        // reads: per-seat discard / pickup queues, rank counts, identity
+        // hit-tests, last-seen lookups, and the jokers-discarded counter.
+        // After serialize -> deserialize the restored history must answer
+        // every question the original answered.
+        final original = DiscardHistory();
+        final sevenSpades = _card(CardRank.seven, CardSuit.spades, 100);
+        final sevenHearts = _card(CardRank.seven, CardSuit.hearts, 100);
+        final fourClubs = _card(CardRank.four, CardSuit.clubs, 100);
+        const joker = HareegCard.joker(deckIndex: 100, jokerIndex: 0);
+        original
+          ..recordDiscard(PlayerSeat.south, sevenSpades)
+          ..recordDiscard(PlayerSeat.east, sevenHearts)
+          ..recordPickup(PlayerSeat.north, sevenHearts)
+          ..recordDiscard(PlayerSeat.north, fourClubs)
+          ..recordDiscard(PlayerSeat.west, joker);
+
+        final restored = DiscardHistory.fromJson(original.toJson());
+
+        // Per-seat discard queues remain newest-first.
+        expect(restored.lastDiscardsBy(PlayerSeat.south, 1).single, sevenSpades);
+        expect(restored.lastDiscardsBy(PlayerSeat.east, 1).single, sevenHearts);
+        expect(restored.lastDiscardsBy(PlayerSeat.north, 1).single, fourClubs);
+        // Pickup memory survives, attributed to north.
+        expect(
+          restored.lastPickupsBy(PlayerSeat.north, 1).single,
+          sevenHearts,
+        );
+        // Rank counts and identity hit-tests stay correct.
+        expect(restored.discardsCount(CardRank.seven), 2);
+        expect(restored.discardsCount(CardRank.four), 1);
+        expect(restored.cardSeenAt(CardRank.seven, CardSuit.spades), isTrue);
+        expect(restored.cardSeenAt(CardRank.seven, CardSuit.hearts), isTrue);
+        // Joker discards counted separately, not by rank.
+        expect(restored.jokersDiscarded, 1);
+        // Full event stream count matches.
+        expect(restored.events, hasLength(5));
+      },
+    );
+
+    test('JSON round-trip on empty history yields an empty history', () {
+      final restored = DiscardHistory.fromJson(DiscardHistory().toJson());
+      expect(restored.events, isEmpty);
+      expect(restored.jokersDiscarded, 0);
+      expect(restored.discardsCount(CardRank.ace), 0);
+    });
+
+    test(
+      'resumed match snapshot replays history so CPU sees prior discards',
+      () {
+        // End-to-end: a controller records discards, the snapshot captures
+        // them through toJson(), and a fresh controller restored from the
+        // serialized JSON exposes the same DiscardHistoryView to CPU code.
+        // This is the playtest bug behind ARCH NEW #1 — saved Strict/Table
+        // matches used to resume with empty CPU memory.
+        final fiveClubs = _card(CardRank.five, CardSuit.clubs, 200);
+        final original = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.south: [
+                fiveClubs,
+                _card(CardRank.king, CardSuit.hearts, 200),
+              ],
+            },
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.action,
+          ),
+        );
+
+        original.applyAction(
+          '${ClassicHareegActionIds.discardPrefix}${fiveClubs.id}',
+        );
+
+        final persisted = original.toSnapshot(
+          savedAt: DateTime.utc(2026, 5, 25, 12),
+        );
+        final wire = ClassicHareegMatchSnapshot.fromJson(persisted.toJson());
+        final restored = ClassicHareegGameController.fromSnapshot(wire);
+
+        // Match: the discard the human just made is visible to CPU memory
+        // after restore exactly as it was before save.
+        expect(
+          restored.discardHistory.lastDiscardsBy(PlayerSeat.south, 1).single
+              .id,
+          fiveClubs.id,
+        );
+        expect(
+          restored.discardHistory.cardSeenAt(CardRank.five, CardSuit.clubs),
+          isTrue,
+        );
+        expect(restored.discardHistory.discardsCount(CardRank.five), 1);
+      },
+    );
+
+    test(
+      'legacy snapshots without discardHistory restore with empty memory',
+      () {
+        // Backward-compat guard: snapshots written before this change ship
+        // without the discardHistory field. They must still restore (just
+        // with empty CPU memory), so installs that updated mid-match keep
+        // working.
+        final base = ClassicHareegMatchSnapshot(
+          setup: ClassicHareegSetup.defaults(),
+          hands: {for (final seat in PlayerSeat.values) seat: <HareegCard>[]},
+          stock: const [],
+          discardPile: const [],
+          starter: PlayerSeat.south,
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          savedAt: DateTime.utc(2026, 5, 25),
+        );
+        final encoded = Map<String, Object?>.of(base.toJson())
+          ..remove('discardHistory');
+
+        final decoded = ClassicHareegMatchSnapshot.fromJson(encoded);
+
+        expect(decoded.discardHistoryEvents, isEmpty);
+      },
+    );
   });
 
   group('ClassicHareegGameController discard history', () {

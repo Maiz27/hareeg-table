@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_table_play_retraction_planner.dart';
-import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_turn_ledger.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_turn_journal.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
@@ -23,7 +23,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.table,
         openingState: OpeningState.initial(51),
-        ledger: ledger(openingMelds: [tenSet]),
+        journal: ledger(openingMelds: [tenSet]),
       );
 
       expect(
@@ -62,7 +62,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.table,
         openingState: opened(PlayerSeat.south),
-        ledger: ledger(
+        journal: ledger(
           meldPlays: [
             ClassicHareegTurnMeldPlay(owner: PlayerSeat.south, meld: turnMeld),
           ],
@@ -75,7 +75,7 @@ void main() {
             phase: TurnPhase.action,
             strictness: TableStrictness.table,
             openingState: opened(PlayerSeat.south),
-            ledger: ledger(coverPlays: [coverPlay]),
+            journal: ledger(coverPlays: [coverPlay]),
             tableMelds: {
               PlayerSeat.east: [
                 original.addCoverCards([cover]),
@@ -123,7 +123,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.strict,
         openingState: opened(PlayerSeat.south),
-        ledger: ledger(
+        journal: ledger(
           meldPlays: [
             ClassicHareegTurnMeldPlay(owner: PlayerSeat.south, meld: turnMeld),
           ],
@@ -166,7 +166,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
-        ledger: ledger(
+        journal: ledger(
           coverPlays: [
             ClassicHareegTurnCoverPlay(
               targetSeat: PlayerSeat.east,
@@ -215,7 +215,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
-        ledger: ledger(
+        journal: ledger(
           meldPlays: [
             ClassicHareegTurnMeldPlay(owner: PlayerSeat.south, meld: turnMeld),
           ],
@@ -255,7 +255,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.table,
         openingState: OpeningState.initial(51),
-        ledger: ledger(openingMelds: [tenSet, nineSet]),
+        journal: ledger(openingMelds: [tenSet, nineSet]),
         tableMelds: {
           PlayerSeat.south: [tenSet, nineSet],
         },
@@ -281,7 +281,7 @@ void main() {
         phase: TurnPhase.action,
         strictness: TableStrictness.coaching,
         openingState: opened(PlayerSeat.south),
-        ledger: ledger(),
+        journal: ledger(),
         tableMelds: const {},
         target: const ReturnTablePlayTarget(
           owner: PlayerSeat.east,
@@ -300,14 +300,14 @@ void main() {
   });
 }
 
-ClassicHareegTurnLedger ledger({
+ClassicHareegTurnJournal ledger({
   List<PlacedMeld> openingMelds = const [],
   List<ClassicHareegTurnMeldPlay> meldPlays = const [],
   List<ClassicHareegTurnCoverPlay> coverPlays = const [],
 }) {
-  return ClassicHareegTurnLedger(
+  return ClassicHareegTurnJournal(
     openingMelds: openingMelds,
-    meldPlays: meldPlays,
+    turnMelds: meldPlays,
     coverPlays: coverPlays,
   );
 }

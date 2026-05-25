@@ -3,6 +3,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.da
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/ui/features/game_table/table_interaction_planner.dart';
 
 void main() {
@@ -356,6 +357,7 @@ class _FakeTableInteractionActionReader
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     return targetCoverActions[_targetKey(targetSeat, meldIndex, cardIds)];
   }

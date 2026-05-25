@@ -13,6 +13,7 @@ import 'south_hand_fan.dart';
 import 'south_meld_controls.dart';
 import 'table_center_area.dart';
 
+export '../table_meld_drop_target.dart' show TableMeldDropTarget;
 export 'seat_meld_lane.dart'
     show
         TableMeldDropPredicate,
@@ -281,7 +282,8 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // into the south hand area where the expansion used to crop.
         const meldExpandedScaleRegular = 1.26;
         const meldExpandedScaleCompact = 1.16;
-        final southMeldHeight = (compact
+        final southMeldHeight =
+            (compact
                 ? meldCardSize.height * meldExpandedScaleCompact
                 : meldCardSize.height * meldExpandedScaleRegular) +
             (compact ? 12.0 : 16.0);
@@ -602,6 +604,3 @@ class PhysicalTablePlayfield extends StatelessWidget {
     );
   }
 }
-
-
-

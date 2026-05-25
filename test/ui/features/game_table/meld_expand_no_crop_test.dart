@@ -36,9 +36,7 @@ void main() {
         size: playfieldSize,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('table-meld-south-0-normal')),
-      );
+      await tester.tap(find.byKey(const ValueKey('table-meld-south-0-normal')));
       await tester.pumpAndSettle();
 
       final expanded = find.byKey(
@@ -90,50 +88,51 @@ void main() {
     },
   );
 
-  testWidgets(
-    'east opponent meld expansion stays inside the playfield',
-    (tester) async {
-      final cards = [
-        _card(CardRank.queen, CardSuit.hearts, 111),
-        _card(CardRank.queen, CardSuit.diamonds, 111),
-        _card(CardRank.queen, CardSuit.clubs, 111),
-        _card(CardRank.queen, CardSuit.spades, 111),
-      ];
-      final meld = PlacedMeld.fromCards(cards);
+  testWidgets('east opponent meld expansion stays inside the playfield', (
+    tester,
+  ) async {
+    final cards = [
+      _card(CardRank.queen, CardSuit.hearts, 111),
+      _card(CardRank.queen, CardSuit.diamonds, 111),
+      _card(CardRank.queen, CardSuit.clubs, 111),
+      _card(CardRank.queen, CardSuit.spades, 111),
+    ];
+    final meld = PlacedMeld.fromCards(cards);
 
-      const playfieldSize = Size(900, 500);
-      await _pumpPlayfield(
-        tester,
-        tableMelds: {
-          PlayerSeat.east: [meld],
-        },
-        size: playfieldSize,
-      );
+    const playfieldSize = Size(900, 500);
+    await _pumpPlayfield(
+      tester,
+      tableMelds: {
+        PlayerSeat.east: [meld],
+      },
+      size: playfieldSize,
+    );
 
-      await tester.tap(
-        find.byKey(const ValueKey('table-meld-east-0-normal')),
-      );
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('table-meld-east-0-normal')));
+    await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey('table-meld-east-0-expanded')),
+      findsOneWidget,
+    );
+
+    // The east meld is rotated; its expansion grows along the visual
+    // vertical axis. Assert each card is not cropped by an ancestor.
+    for (final label in const [
+      'Queen of Hearts',
+      'Queen of Diamonds',
+      'Queen of Clubs',
+      'Queen of Spades',
+    ]) {
+      final cardFinder = find.bySemanticsLabel(label);
       expect(
-        find.byKey(const ValueKey('table-meld-east-0-expanded')),
+        cardFinder,
         findsOneWidget,
+        reason: 'opponent card $label missing',
       );
-
-      // The east meld is rotated; its expansion grows along the visual
-      // vertical axis. Assert each card is not cropped by an ancestor.
-      for (final label in const [
-        'Queen of Hearts',
-        'Queen of Diamonds',
-        'Queen of Clubs',
-        'Queen of Spades',
-      ]) {
-        final cardFinder = find.bySemanticsLabel(label);
-        expect(cardFinder, findsOneWidget, reason: 'opponent card $label missing');
-        _expectNotClippedByAncestors(tester, cardFinder);
-      }
-    },
-  );
+      _expectNotClippedByAncestors(tester, cardFinder);
+    }
+  });
 }
 
 /// Asserts that the widget under [finder] is fully inside every clipping
@@ -209,11 +208,11 @@ Future<void> _pumpPlayfield(
             canDiscardCard: (_) => false,
             canPlayCardOnTable: (_) => false,
             canPlaceMeldOnTable: (_) => false,
-            canPlayCardOnMeld: (_, _, _) => false,
+            canPlayCardOnMeld: (_, _) => false,
             canRetractMeld: (_, _) => false,
             onDiscardCard: (_) {},
             onPlayCardOnTable: (_) {},
-            onPlayCardOnMeld: (_, _, _) {},
+            onPlayCardOnMeld: (_, _) {},
             onRetractMeld: (_, _) {},
             canDrawStock: false,
             canTakeDiscard: false,

@@ -105,6 +105,22 @@ void main() {
       expect(coverAction.coverTarget?.targetSeat, PlayerSeat.west);
       expect(coverAction.coverTarget?.meldIndex, 2);
 
+      const coverIdentity = CardIdentity(
+        rank: CardRank.nine,
+        suit: CardSuit.clubs,
+      );
+      final explicitCoverAction = ClassicHareegActionIds.describe(
+        ClassicHareegActionIds.placeCoverActionId(
+          targetSeat: PlayerSeat.west,
+          meldIndex: 2,
+          cardIds: ['joker-cover'],
+          jokerIdentities: const {'joker-cover': coverIdentity},
+        ),
+      );
+      expect(explicitCoverAction.coverTarget?.jokerIdentities, const {
+        'joker-cover': coverIdentity,
+      });
+
       final replacementAction = ClassicHareegActionIds.describe(
         ClassicHareegActionIds.replaceJokerActionId(
           targetSeat: PlayerSeat.north,

@@ -38,23 +38,14 @@ void main() {
         final preferences = MemoryPreferencesRepository();
         final repository = await _openTable(
           tester,
-          southHand: [
-            ...diamondRun,
-            _card(CardRank.two, CardSuit.clubs, 80),
-          ],
+          southHand: [...diamondRun, _card(CardRank.two, CardSuit.clubs, 80)],
           strictness: TableStrictness.standard,
           preferencesRepository: preferences,
         );
 
-        await tester.tap(
-          find.bySemanticsLabel('Eight of Diamonds').first,
-        );
-        await tester.tap(
-          find.bySemanticsLabel('Nine of Diamonds').first,
-        );
-        await tester.tap(
-          find.bySemanticsLabel('Ten of Diamonds').first,
-        );
+        await tester.tap(find.bySemanticsLabel('Eight of Diamonds').first);
+        await tester.tap(find.bySemanticsLabel('Nine of Diamonds').first);
+        await tester.tap(find.bySemanticsLabel('Ten of Diamonds').first);
         await tester.pumpAndSettle();
 
         final actionId = ClassicHareegActionIds.playMeldActionId(
@@ -72,68 +63,70 @@ void main() {
         // attached when the CTA is tappable (see `_MeldCtaButton.isCta`).
         expect(find.byTooltip('Play selected meld'), findsOneWidget);
 
-        // (c) Tapping the chip plays the meld: the south hand shrinks by 3
-        // and the played run is recorded on the south meld lane. Read the
-        // persisted snapshot — the persistence planner saves after every
-        // applied action.
+        // (c) Tapping the chip plays the meld on the live table. Active saves
+        // intentionally roll current-turn table plays back so leave/resume can
+        // replay the turn from a coherent action boundary.
         await tester.tap(chip);
         await tester.pumpAndSettle();
 
+        expect(
+          find.byKey(const ValueKey('table-meld-south-0-normal')),
+          findsOneWidget,
+        );
+        expect(chip, findsNothing);
+
         final saved = repository.saved;
         expect(saved, isNotNull);
-        // South started with the diamond run plus a single discard card.
-        // After the meld plays, only the discard card remains in hand.
-        expect(saved!.hands[PlayerSeat.south]?.length, 1);
+        // South started with the diamond run plus a single discard card. The
+        // saved active snapshot restores the run to hand so a resumed game can
+        // redo the current-turn meld before the final discard.
+        expect(saved!.hands[PlayerSeat.south]?.length, 4);
         final southMelds = saved.tableMelds[PlayerSeat.south] ?? const [];
-        expect(southMelds, hasLength(1));
+        expect(southMelds, isEmpty);
         expect(
-          southMelds.single.cards.map((card) => card.id).toSet(),
-          diamondRun.map((card) => card.id).toSet(),
+          saved.hands[PlayerSeat.south]!.map((card) => card.id).toSet(),
+          containsAll(diamondRun.map((card) => card.id)),
         );
       },
     );
 
     for (final tier in const [TableStrictness.strict, TableStrictness.table]) {
-      testWidgets(
-        '${tier.name} tier still surfaces the meld-suggestion chip',
-        (tester) async {
-          final diamondRun = [
-            _card(CardRank.eight, CardSuit.diamonds, 80),
-            _card(CardRank.nine, CardSuit.diamonds, 80),
-            _card(CardRank.ten, CardSuit.diamonds, 80),
-          ];
-          await _openTable(
-            tester,
-            southHand: [
-              ...diamondRun,
-              _card(CardRank.two, CardSuit.clubs, 80),
-            ],
-            strictness: tier,
-          );
+      testWidgets('${tier.name} tier still surfaces the meld-suggestion chip', (
+        tester,
+      ) async {
+        final diamondRun = [
+          _card(CardRank.eight, CardSuit.diamonds, 80),
+          _card(CardRank.nine, CardSuit.diamonds, 80),
+          _card(CardRank.ten, CardSuit.diamonds, 80),
+        ];
+        await _openTable(
+          tester,
+          southHand: [...diamondRun, _card(CardRank.two, CardSuit.clubs, 80)],
+          strictness: tier,
+        );
 
-          await tester.tap(
-            find.bySemanticsLabel('Eight of Diamonds').first,
-            warnIfMissed: false,
-          );
-          await tester.tap(
-            find.bySemanticsLabel('Nine of Diamonds').first,
-            warnIfMissed: false,
-          );
-          await tester.tap(
-            find.bySemanticsLabel('Ten of Diamonds').first,
-            warnIfMissed: false,
-          );
-          await tester.pumpAndSettle();
+        await tester.tap(
+          find.bySemanticsLabel('Eight of Diamonds').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Nine of Diamonds').first,
+          warnIfMissed: false,
+        );
+        await tester.tap(
+          find.bySemanticsLabel('Ten of Diamonds').first,
+          warnIfMissed: false,
+        );
+        await tester.pumpAndSettle();
 
-          final actionId = ClassicHareegActionIds.playMeldActionId(
-            diamondRun.map((card) => card.id),
-          );
-          expect(
-            find.byKey(ValueKey('meld-suggestion-$actionId')),
-            findsOneWidget,
-          );
-        },
-      );
+        final actionId = ClassicHareegActionIds.playMeldActionId(
+          diamondRun.map((card) => card.id),
+        );
+        expect(
+          find.byKey(ValueKey('meld-suggestion-$actionId')),
+          findsOneWidget,
+        );
+      });
     }
   });
 }

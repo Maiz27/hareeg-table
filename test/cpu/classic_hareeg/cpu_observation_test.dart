@@ -1,15 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_observation.dart';
-import 'package:hareeg_table/cpu/classic_hareeg/cpu_strategy.dart'
-    show CpuDifficultyProfile;
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
-import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_score_ledger.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
-import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   group('LiveCpuObservation', () {
@@ -150,6 +146,7 @@ void main() {
       seat: PlayerSeat.north,
       legalActionIds: const ['draw-stock'],
       difficulty: CpuDifficulty.expert,
+      ownScore: 7,
     );
 
     expect(observation.seat, PlayerSeat.north);
@@ -214,135 +211,7 @@ Map<PlayerSeat, List<HareegCard>> _mutableHands(ClassicHareegRound round) {
   };
 }
 
-class _FakeCpuObservation implements CpuObservation {
-  _FakeCpuObservation({
-    required this.seat,
-    required Iterable<String> legalActionIds,
-    required this.difficulty,
-  }) : legalActionIds = List.unmodifiable(legalActionIds);
-
-  @override
-  final PlayerSeat seat;
-
-  @override
-  final CpuDifficulty difficulty;
-
-  @override
-  final List<String> legalActionIds;
-
-  @override
-  TurnPhase get turnPhase => TurnPhase.draw;
-
-  @override
-  HareegCard? get pendingDiscard => null;
-
-  @override
-  List<HareegCard> get ownHand => const [];
-
-  @override
-  int handCountFor(PlayerSeat seat) => 0;
-
-  @override
-  List<PlacedMeld> tableMeldsFor(PlayerSeat seat) => const [];
-
-  @override
-  Map<PlayerSeat, List<PlacedMeld>> get tableMelds => const {};
-
-  @override
-  int get tableMeldCount => 0;
-
-  @override
-  int get stockCount => 0;
-
-  @override
-  HareegCard? get topDiscard => null;
-
-  @override
-  int get discardCount => 0;
-
-  @override
-  OpeningState get openingState => OpeningState.initial(51);
-
-  @override
-  bool hasOpened(PlayerSeat seat) => false;
-
-  @override
-  bool ownHasOpened() => false;
-
-  @override
-  PlayerSeat? get benchmarkOwner => null;
-
-  @override
-  int get currentOpeningRequirement => openingState.currentRequirement;
-
-  @override
-  ClassicHareegScoreView get scoreView {
-    return const ClassicHareegScoreView(
-      previousScores: {PlayerSeat.north: 7},
-      currentScores: {PlayerSeat.north: 7},
-    );
-  }
-
-  @override
-  int scoreFor(PlayerSeat seat) => scoreView.currentScores[seat] ?? 0;
-
-  @override
-  int get ownScore => scoreFor(seat);
-
-  @override
-  int get eliminationThreshold => 31;
-
-  @override
-  List<PlayerSeat> get activeSeats => const [
-    PlayerSeat.south,
-    PlayerSeat.east,
-    PlayerSeat.north,
-    PlayerSeat.west,
-  ];
-
-  @override
-  PlayerSeat get currentSeat => seat;
-
-  @override
-  List<PlayerSeat> get opponents {
-    // Compute opponents relative to `seat` so the list never includes the
-    // observer itself. Anti-clockwise order matches the real
-    // CpuObservation: nextAntiClockwise, then the next two seats.
-    var next = seat.nextAntiClockwise;
-    final result = <PlayerSeat>[];
-    while (next != seat) {
-      result.add(next);
-      next = next.nextAntiClockwise;
-    }
-    return List.unmodifiable(result);
-  }
-
-  @override
-  PlayerSeat? get fiftyClaimant => null;
-
-  @override
-  int? get fiftySecondsRemaining => null;
-
-  @override
-  bool get ownIsFiftyClaimant => false;
-
-  @override
-  DiscardHistoryView get discardHistory => const EmptyDiscardHistoryView();
-
-  @override
-  MeldPartitionView get partitions => const EmptyMeldPartitionView();
-
-  @override
-  MeldPartition? shortestSingleMeld() => null;
-
-  @override
-  MeldPartition? finishingPartition() => null;
-
-  @override
-  CpuDifficultyProfile get difficultyProfile {
-    return CpuDifficultyProfile.forDifficulty(difficulty);
-  }
-}
+typedef _FakeCpuObservation = CpuObservationFacts;
 
 HareegCard _card(CardRank rank, CardSuit suit, {required int deckIndex}) {
   return HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex);

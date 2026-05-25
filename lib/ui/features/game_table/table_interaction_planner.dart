@@ -2,7 +2,9 @@ import '../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../domain/classic_hareeg/rules/cover_rules.dart';
 import '../../../domain/classic_hareeg/rules/opening_rules.dart';
+import 'table_meld_drop_target.dart';
 
 /// Read-only action lookup needed by the table interaction planner.
 abstract interface class TableInteractionActionReader {
@@ -46,6 +48,7 @@ abstract interface class TableInteractionActionReader {
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   });
 
   /// First legal represented-joker replacement action for [cardIds], if any.
@@ -268,15 +271,48 @@ class ClassicHareegTableInteractionPlanner {
   }
 
   /// Whether [card] can be dropped onto a specific table meld.
-  bool canDropCardToMeld(HareegCard card, PlayerSeat owner, int meldIndex) {
-    return resolveMeldDrop(card, owner, meldIndex).isAction;
+  bool canDropCardToMeld(
+    HareegCard card,
+    PlayerSeat owner,
+    int meldIndex, {
+    CoverPlacement? coverPlacement,
+  }) {
+    return canDropCardToMeldTarget(
+      card,
+      TableMeldDropTarget(
+        owner: owner,
+        meldIndex: meldIndex,
+        coverPlacement: coverPlacement,
+      ),
+    );
+  }
+
+  /// Whether [card] can be dropped onto a typed table meld target.
+  bool canDropCardToMeldTarget(HareegCard card, TableMeldDropTarget target) {
+    return resolveMeldDropTarget(card, target).isAction;
   }
 
   /// Resolves a drop onto a specific table meld.
   TableInteractionResolution resolveMeldDrop(
     HareegCard card,
     PlayerSeat owner,
-    int meldIndex,
+    int meldIndex, {
+    CoverPlacement? coverPlacement,
+  }) {
+    return resolveMeldDropTarget(
+      card,
+      TableMeldDropTarget(
+        owner: owner,
+        meldIndex: meldIndex,
+        coverPlacement: coverPlacement,
+      ),
+    );
+  }
+
+  /// Resolves a drop onto a typed table meld target.
+  TableInteractionResolution resolveMeldDropTarget(
+    HareegCard card,
+    TableMeldDropTarget target,
   ) {
     if (!_canInteract) {
       return const TableInteractionResolution.blocked(
@@ -286,7 +322,12 @@ class ClassicHareegTableInteractionPlanner {
     }
 
     for (final cardIds in _dropCardIdCandidatesForMeld(card)) {
-      final action = _tableActionForMeldTarget(cardIds, owner, meldIndex);
+      final action = _tableActionForMeldTarget(
+        cardIds,
+        target.owner,
+        target.meldIndex,
+        coverPlacement: target.coverPlacement,
+      );
       if (action != null) {
         return TableInteractionResolution.action(
           action.actionId,
@@ -412,8 +453,9 @@ class ClassicHareegTableInteractionPlanner {
   _ResolvedTableInteractionAction? _tableActionForMeldTarget(
     List<String> cardIds,
     PlayerSeat owner,
-    int meldIndex,
-  ) {
+    int meldIndex, {
+    CoverPlacement? coverPlacement,
+  }) {
     if (cardIds.isEmpty) return null;
     final pending = reader.pendingDiscard;
     if (pending != null && !cardIds.contains(pending.id)) {
@@ -425,6 +467,7 @@ class ClassicHareegTableInteractionPlanner {
       cardIds: cardIds,
       targetSeat: owner,
       meldIndex: meldIndex,
+      coverPlacement: coverPlacement,
     );
     if (coverActionId != null) {
       return _ResolvedTableInteractionAction(
@@ -490,7 +533,6 @@ class ClassicHareegTableInteractionPlanner {
     ];
     return PlacedMeld.fromCards(resolvedCards).cards;
   }
-
 }
 
 class _ResolvedTableInteractionAction {

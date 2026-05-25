@@ -283,8 +283,9 @@ void main() {
       // re-taking the same top card would let the CPU loop forever between
       // take-discard and return-pending-discard. The guard re-arms as soon
       // as someone discards a new card on top of the pile.
-      final postReturnControls =
-          controller.controlActionIdsFor(PlayerSeat.east);
+      final postReturnControls = controller.controlActionIdsFor(
+        PlayerSeat.east,
+      );
       expect(postReturnControls, contains(ClassicHareegActionIds.drawStock));
       expect(
         postReturnControls,
@@ -320,8 +321,9 @@ void main() {
         // can take the top because they didn't return it.
         controller.applyAction(ClassicHareegActionIds.drawStock);
         final eastHand = controller.handFor(PlayerSeat.east);
-        final eastDiscardCard =
-            eastHand.firstWhere((c) => !c.isJoker && c.id != discarded.id);
+        final eastDiscardCard = eastHand.firstWhere(
+          (c) => !c.isJoker && c.id != discarded.id,
+        );
         controller.applyAction(
           '${ClassicHareegActionIds.discardPrefix}${eastDiscardCard.id}',
         );
@@ -1134,7 +1136,9 @@ void main() {
         final cover = _card(CardRank.six, CardSuit.clubs, 132);
         final controller = ClassicHareegGameController.fromSnapshot(
           _snapshot(
-            setup: ClassicHareegSetup.defaults().copyWith(tableStrictness: strictness),
+            setup: ClassicHareegSetup.defaults().copyWith(
+              tableStrictness: strictness,
+            ),
             handsBuilder: (defaults) => {
               ...defaults,
               PlayerSeat.south: [cover, ...defaults[PlayerSeat.south]!],
@@ -1372,6 +1376,69 @@ void main() {
             .map((card) => card.label),
         ['AC', '2C', '3C', 'J(4C)'],
       );
+    });
+
+    test('active snapshots reset current-turn covers before resume', () {
+      final tableMeld = [
+        _card(CardRank.six, CardSuit.clubs, 144),
+        _card(CardRank.seven, CardSuit.clubs, 144),
+        _card(CardRank.eight, CardSuit.clubs, 144),
+      ];
+      final cover = _card(CardRank.nine, CardSuit.clubs, 144);
+      final finalDiscard = _card(CardRank.two, CardSuit.spades, 144);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [cover, finalDiscard],
+          },
+          tableMelds: {
+            PlayerSeat.east: [PlacedMeld.fromCards(tableMeld)],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+      final coverAction = controller.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [cover.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+      );
+      expect(controller.applyAction(coverAction!).isSuccess, isTrue);
+      expect(controller.handFor(PlayerSeat.south), [finalDiscard]);
+
+      final saved = controller.toSnapshot();
+
+      expect(saved.hands[PlayerSeat.south]!.map((card) => card.id), [
+        cover.id,
+        finalDiscard.id,
+      ]);
+      expect(
+        saved.tableMelds[PlayerSeat.east]!.single.cards.map(
+          (card) => card.label,
+        ),
+        ['6C', '7C', '8C'],
+      );
+
+      final resumed = ClassicHareegGameController.fromSnapshot(saved);
+      final resumedCoverAction = resumed.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [cover.id],
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+      );
+      expect(resumed.applyAction(resumedCoverAction!).isSuccess, isTrue);
+      expect(
+        resumed
+            .applyAction(
+              '${ClassicHareegActionIds.discardPrefix}${finalDiscard.id}',
+            )
+            .isSuccess,
+        isTrue,
+      );
+      expect(resumed.roundOutcome, RoundOutcomeType.normalFinish);
     });
 
     test(
@@ -2654,71 +2721,68 @@ void main() {
       expect(next.roundNumber, 2);
     });
 
-    test(
-      'south crossing elimination flips isHumanEliminated on round end',
-      () {
-        // South sits at 30 (one point shy of 31) and east finishes the round
-        // with south still holding two non-joker cards worth +1 each. The
-        // resulting +2 pushes south to 32, which is the score-elimination
-        // condition the spectator-skip product flow keys off of.
-        final meldCards = [
-          _card(CardRank.five, CardSuit.clubs, 44),
-          _card(CardRank.six, CardSuit.clubs, 44),
-          _card(CardRank.seven, CardSuit.clubs, 44),
-        ];
-        final finalDiscard = _card(CardRank.two, CardSuit.hearts, 44);
-        final southHoldOne = _card(CardRank.three, CardSuit.spades, 44);
-        final southHoldTwo = _card(CardRank.four, CardSuit.spades, 44);
-        final controller = ClassicHareegGameController.fromSnapshot(
-          _snapshot(
-            handsBuilder: (defaults) => {
-              ...defaults,
-              PlayerSeat.south: [southHoldOne, southHoldTwo],
-              PlayerSeat.east: [...meldCards, finalDiscard],
-            },
-            currentSeat: PlayerSeat.east,
-            turnPhase: TurnPhase.action,
-            openingState: _opened(PlayerSeat.east),
-            scores: {
-              PlayerSeat.south: 30,
-              PlayerSeat.east: 0,
-              PlayerSeat.north: 0,
-              PlayerSeat.west: 0,
-            },
-          ),
-        );
+    test('south crossing elimination flips isHumanEliminated on round end', () {
+      // South sits at 30 (one point shy of 31) and east finishes the round
+      // with south still holding two non-joker cards worth +1 each. The
+      // resulting +2 pushes south to 32, which is the score-elimination
+      // condition the spectator-skip product flow keys off of.
+      final meldCards = [
+        _card(CardRank.five, CardSuit.clubs, 44),
+        _card(CardRank.six, CardSuit.clubs, 44),
+        _card(CardRank.seven, CardSuit.clubs, 44),
+      ];
+      final finalDiscard = _card(CardRank.two, CardSuit.hearts, 44);
+      final southHoldOne = _card(CardRank.three, CardSuit.spades, 44);
+      final southHoldTwo = _card(CardRank.four, CardSuit.spades, 44);
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [southHoldOne, southHoldTwo],
+            PlayerSeat.east: [...meldCards, finalDiscard],
+          },
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.east),
+          scores: {
+            PlayerSeat.south: 30,
+            PlayerSeat.east: 0,
+            PlayerSeat.north: 0,
+            PlayerSeat.west: 0,
+          },
+        ),
+      );
 
-        // Mid-round: nothing scored yet, so south is not yet eliminated.
-        expect(controller.isHumanEliminated, isFalse);
+      // Mid-round: nothing scored yet, so south is not yet eliminated.
+      expect(controller.isHumanEliminated, isFalse);
 
-        final play = controller.applyAction(
-          ClassicHareegActionIds.playMeldActionId(
-            meldCards.map((card) => card.id),
-          ),
-        );
-        final discard = controller.applyAction(
-          '${ClassicHareegActionIds.discardPrefix}${finalDiscard.id}',
-        );
+      final play = controller.applyAction(
+        ClassicHareegActionIds.playMeldActionId(
+          meldCards.map((card) => card.id),
+        ),
+      );
+      final discard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${finalDiscard.id}',
+      );
 
-        expect(play.isSuccess, isTrue);
-        expect(discard.isSuccess, isTrue);
-        expect(controller.isRoundOver, isTrue);
-        expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
-        expect(controller.roundResult?.winner, PlayerSeat.east);
+      expect(play.isSuccess, isTrue);
+      expect(discard.isSuccess, isTrue);
+      expect(controller.isRoundOver, isTrue);
+      expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
+      expect(controller.roundResult?.winner, PlayerSeat.east);
 
-        final progress = controller.roundProgress;
-        expect(progress, isNotNull);
-        // South's score crossed 31 (30 + 2 = 32), so the progression rules
-        // dropped it from activeSeats.
-        expect(progress!.activeSeats, isNot(contains(PlayerSeat.south)));
-        // Match isn't over yet — east/north/west are still active — but the
-        // human is out for good. The controller surfaces that combination
-        // through isHumanEliminated so the table screen can short-circuit
-        // straight to the match-over surface.
-        expect(progress.matchWinner, isNull);
-        expect(controller.isHumanEliminated, isTrue);
-      },
-    );
+      final progress = controller.roundProgress;
+      expect(progress, isNotNull);
+      // South's score crossed 31 (30 + 2 = 32), so the progression rules
+      // dropped it from activeSeats.
+      expect(progress!.activeSeats, isNot(contains(PlayerSeat.south)));
+      // Match isn't over yet — east/north/west are still active — but the
+      // human is out for good. The controller surfaces that combination
+      // through isHumanEliminated so the table screen can short-circuit
+      // straight to the match-over surface.
+      expect(progress.matchWinner, isNull);
+      expect(controller.isHumanEliminated, isTrue);
+    });
 
     test('stock exhaustion in draw phase ends the round as a draw', () {
       // Build a snapshot where stock is empty and South is in draw phase

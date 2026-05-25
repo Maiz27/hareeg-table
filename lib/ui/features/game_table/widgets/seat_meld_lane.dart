@@ -4,21 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../../domain/classic_hareeg/rules/cover_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../table_meld_drop_target.dart';
 
 /// Predicate that decides whether a dragged card may land on a specific table
-/// meld owned by [owner] at [meldIndex].
+/// meld target.
 typedef TableMeldDropPredicate =
-    bool Function(HareegCard card, PlayerSeat owner, int meldIndex);
+    bool Function(HareegCard card, TableMeldDropTarget target);
 
 /// Handler invoked when a card is successfully dropped onto a table meld.
 typedef TableMeldDropHandler =
-    void Function(HareegCard card, PlayerSeat owner, int meldIndex);
+    void Function(HareegCard card, TableMeldDropTarget target);
 
 /// Predicate that decides whether a placed meld may be retracted.
 typedef TableMeldRetractPredicate =
@@ -264,7 +266,7 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
   }
 }
 
-class _TableMeldStack extends StatelessWidget {
+class _TableMeldStack extends StatefulWidget {
   const _TableMeldStack({
     super.key,
     required this.theme,
@@ -304,7 +306,75 @@ class _TableMeldStack extends StatelessWidget {
   final int quarterTurns;
 
   @override
+  State<_TableMeldStack> createState() => _TableMeldStackState();
+}
+
+class _TableMeldStackState extends State<_TableMeldStack> {
+  final _targetKey = GlobalKey();
+  CoverPlacement? _hoverPlacement;
+  bool _hoverAccepts = true;
+
+  void _clearHover() {
+    if (_hoverPlacement == null && _hoverAccepts) {
+      return;
+    }
+    setState(() {
+      _hoverPlacement = null;
+      _hoverAccepts = true;
+    });
+  }
+
+  /// Computes the drop target for the current drag location. Returns null if
+  /// the render box isn't ready yet (theoretically not possible once a drag is
+  /// in flight, but the [RenderBox] cast is nullable).
+  TableMeldDropTarget? _targetFor(DragTargetDetails<HareegCard> details) {
+    final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) {
+      return null;
+    }
+    final local = box.globalToLocal(details.offset);
+    return TableMeldDropTargetPlanner.targetForLocalPosition(
+      owner: widget.owner,
+      meldIndex: widget.meldIndex,
+      cardCount: widget.meld.cards.length,
+      localPosition: local,
+      bounds: box.size,
+      vertical: widget.vertical,
+      quarterTurns: widget.quarterTurns,
+    );
+  }
+
+  void _updateHover(DragTargetDetails<HareegCard> details) {
+    final target = _targetFor(details);
+    if (target == null) return;
+    final placement = target.coverPlacement;
+    final accepts = widget.canAccept(details.data, target);
+    if (_hoverPlacement == placement && _hoverAccepts == accepts) {
+      return;
+    }
+    setState(() {
+      _hoverPlacement = placement;
+      _hoverAccepts = accepts;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final owner = widget.owner;
+    final meldIndex = widget.meldIndex;
+    final meld = widget.meld;
+    final cardSize = widget.cardSize;
+    final compact = widget.compact;
+    final canAccept = widget.canAccept;
+    final onAccept = widget.onAccept;
+    final onCardLongPress = widget.onCardLongPress;
+    final expanded = widget.expanded;
+    final canRetract = widget.canRetract;
+    final onRetract = widget.onRetract;
+    final onToggleExpanded = widget.onToggleExpanded;
+    final vertical = widget.vertical;
+    final quarterTurns = widget.quarterTurns;
     final strings = context.strings;
     final cards = meld.cards;
     final sideFacing = quarterTurns % 2 != 0;
@@ -327,15 +397,39 @@ class _TableMeldStack extends StatelessWidget {
         : effectiveCardSize.height;
     final accent = _seatAccent(owner);
     return DragTarget<HareegCard>(
-      onWillAcceptWithDetails: (details) =>
-          canAccept(details.data, owner, meldIndex),
-      onAcceptWithDetails: (details) =>
-          onAccept(details.data, owner, meldIndex),
+      key: _targetKey,
+      onWillAcceptWithDetails: (details) {
+        final target =
+            _targetFor(details) ??
+            TableMeldDropTarget(
+              owner: owner,
+              meldIndex: meldIndex,
+              coverPlacement: _hoverPlacement,
+            );
+        return canAccept(details.data, target);
+      },
+      onMove: _updateHover,
+      onLeave: (_) => _clearHover(),
+      onAcceptWithDetails: (details) {
+        final target =
+            _targetFor(details) ??
+            TableMeldDropTarget(
+              owner: owner,
+              meldIndex: meldIndex,
+              coverPlacement: _hoverPlacement,
+            );
+        onAccept(details.data, target);
+        _clearHover();
+      },
       builder: (context, candidates, rejected) {
         final hot = candidates.isNotEmpty;
         final retractable = canRetract && onRetract != null;
         final bodyWidth = vertical ? width : width + (expanded ? 14 : 10);
         final bodyHeight = vertical ? height + (expanded ? 14 : 10) : height;
+        final hoverPlacement = _hoverPlacement;
+        final hoverColor = _hoverAccepts
+            ? LoungeTokens.goldAccent
+            : LoungeTokens.deepRed;
         final body = AnimatedScale(
           duration: const Duration(milliseconds: 120),
           curve: Curves.easeOutCubic,
@@ -367,6 +461,15 @@ class _TableMeldStack extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
+                if (hot &&
+                    (hoverPlacement == CoverPlacement.lowEnd ||
+                        hoverPlacement == CoverPlacement.highEnd))
+                  _CoverEdgeIndicator(
+                    placement: hoverPlacement!,
+                    vertical: vertical || sideFacing,
+                    compact: compact,
+                    color: hoverColor,
                   ),
                 for (var i = 0; i < cards.length; i++)
                   Positioned(
@@ -483,4 +586,55 @@ Color _seatAccent(PlayerSeat seat) {
     PlayerSeat.north => LoungeTokens.coffeeCharcoal,
     PlayerSeat.west => LoungeTokens.indigoAccent,
   };
+}
+
+class _CoverEdgeIndicator extends StatelessWidget {
+  const _CoverEdgeIndicator({
+    required this.placement,
+    required this.vertical,
+    required this.compact,
+    required this.color,
+  });
+
+  final CoverPlacement placement;
+  final bool vertical;
+  final bool compact;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final thickness = compact ? 4.0 : 5.0;
+    final inset = compact ? 4.0 : 5.0;
+    final decoration = BoxDecoration(
+      color: color.withValues(alpha: 0.78),
+      borderRadius: BorderRadius.circular(99),
+      boxShadow: [
+        BoxShadow(
+          color: color.withValues(alpha: 0.30),
+          blurRadius: 10,
+          spreadRadius: 1,
+        ),
+      ],
+    );
+
+    if (vertical) {
+      return Positioned(
+        left: inset,
+        right: inset,
+        top: placement == CoverPlacement.lowEnd ? 0 : null,
+        bottom: placement == CoverPlacement.highEnd ? 0 : null,
+        height: thickness,
+        child: DecoratedBox(decoration: decoration),
+      );
+    }
+
+    return Positioned(
+      top: inset,
+      bottom: inset,
+      left: placement == CoverPlacement.lowEnd ? 0 : null,
+      right: placement == CoverPlacement.highEnd ? 0 : null,
+      width: thickness,
+      child: DecoratedBox(decoration: decoration),
+    );
+  }
 }

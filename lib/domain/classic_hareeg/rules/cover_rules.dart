@@ -1,4 +1,5 @@
 import '../models/playing_card.dart';
+import 'meld_card_ordering.dart';
 import 'meld_validator.dart';
 
 /// Result of checking discard legality for a cover card.
@@ -16,13 +17,32 @@ class CoverDiscardResult {
 /// One legal cover card plus the meld shape after applying it.
 class CoverExtension {
   /// Creates a resolved cover extension.
-  const CoverExtension({required this.card, required this.extendedMeld});
+  const CoverExtension({
+    required this.card,
+    required this.extendedMeld,
+    required this.placement,
+  });
 
   /// Physical cover card, with joker representation assigned when needed.
   final HareegCard card;
 
   /// Table meld after [card] has been appended.
   final List<HareegCard> extendedMeld;
+
+  /// Display end where the cover lands.
+  final CoverPlacement placement;
+}
+
+/// Position where a cover card extends a target meld.
+enum CoverPlacement {
+  /// Cover lands before the first sequence card.
+  lowEnd,
+
+  /// Cover lands after the last sequence card.
+  highEnd,
+
+  /// Cover fills a same-rank set rather than a sequence end.
+  set,
 }
 
 /// Classic Hareeg cover detection and discard restriction rules.
@@ -121,15 +141,32 @@ abstract final class ClassicHareegCoverRules {
     required HareegCard candidate,
     bool resolveJoker = true,
   }) {
+    final options = coverExtensions(
+      tableMeld: tableMeld,
+      candidate: candidate,
+      resolveJoker: resolveJoker,
+    );
+    return options.isEmpty ? null : options.first;
+  }
+
+  /// Resolves every legal cover extension produced by [candidate].
+  static List<CoverExtension> coverExtensions({
+    required List<HareegCard> tableMeld,
+    required HareegCard candidate,
+    bool resolveJoker = true,
+  }) {
     final direct = _directCoverExtension(
       tableMeld: tableMeld,
       candidate: candidate,
     );
-    if (direct != null || !resolveJoker) {
-      return direct;
+    if (direct != null) {
+      return [direct];
+    }
+    if (!resolveJoker) {
+      return const [];
     }
     if (!candidate.isJoker || candidate.representedIdentity != null) {
-      return null;
+      return const [];
     }
 
     final options = <CoverExtension>[];
@@ -147,7 +184,7 @@ abstract final class ClassicHareegCoverRules {
       }
     }
     if (options.isEmpty) {
-      return null;
+      return const [];
     }
     options.sort((left, right) {
       final leftIdentity = left.card.effectiveIdentity!;
@@ -160,7 +197,7 @@ abstract final class ClassicHareegCoverRules {
       }
       return leftIdentity.rank.order.compareTo(rightIdentity.rank.order);
     });
-    return options.first;
+    return List.unmodifiable(options);
   }
 
   /// Checks normal cover discard restriction.
@@ -211,6 +248,31 @@ abstract final class ClassicHareegCoverRules {
       return null;
     }
 
-    return CoverExtension(card: candidate, extendedMeld: extendedMeld);
+    return CoverExtension(
+      card: candidate,
+      extendedMeld: extendedMeld,
+      placement: _coverPlacement(
+        extendedMeld: extendedMeld,
+        candidate: candidate,
+        type: extended.type!,
+      ),
+    );
   }
+}
+
+CoverPlacement _coverPlacement({
+  required List<HareegCard> extendedMeld,
+  required HareegCard candidate,
+  required MeldType type,
+}) {
+  if (type == MeldType.set) {
+    return CoverPlacement.set;
+  }
+
+  final ordered = MeldCardOrdering.forCards(extendedMeld);
+  final candidateIndex = ordered.indexWhere((card) => card.id == candidate.id);
+  if (candidateIndex == 0) {
+    return CoverPlacement.lowEnd;
+  }
+  return CoverPlacement.highEnd;
 }

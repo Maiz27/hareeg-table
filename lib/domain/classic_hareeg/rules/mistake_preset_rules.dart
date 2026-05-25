@@ -61,6 +61,11 @@ class MistakeResolution {
 /// Mistake-handling behavior derived from [TableStrictness].
 abstract final class ClassicHareegMistakePresetRules {
   /// Resolves a mistake under a strictness tier.
+  ///
+  /// The structural facts (allowed / penalty / removal) come straight from
+  /// [StrictnessRuleProfile] so the tier ladder lives in exactly one place.
+  /// Only the player-facing copy and the [MistakeType.normalJokerDiscard]
+  /// hard-block override are decided here.
   static MistakeResolution resolve({
     required TableStrictness strictness,
     required MistakeType mistake,
@@ -75,30 +80,29 @@ abstract final class ClassicHareegMistakePresetRules {
       );
     }
 
+    final allowed = !strictness.blocksIllegalMoves;
+    final removeFromRound = strictness.removesPlayerOnMistake;
+    // Strict-tier semantics: penalty applies but the action is undone. That
+    // is exactly the case where the mistake is allowed (penalised) yet the
+    // player stays in the round.
+    final revertsAction = allowed && !removeFromRound;
+    return MistakeResolution(
+      isAllowed: allowed,
+      penaltyPoints: strictness.mistakePenaltyPoints,
+      removeFromRound: removeFromRound,
+      keepExistingMelds: true,
+      revertsAction: revertsAction,
+      message: _messageFor(strictness),
+    );
+  }
+
+  static String _messageFor(TableStrictness strictness) {
     return switch (strictness) {
       TableStrictness.coaching || TableStrictness.standard =>
-        const MistakeResolution(
-          isAllowed: false,
-          penaltyPoints: 0,
-          removeFromRound: false,
-          keepExistingMelds: true,
-          message: 'This illegal action is blocked at this strictness.',
-        ),
-      TableStrictness.strict => const MistakeResolution(
-        isAllowed: true,
-        penaltyPoints: 3,
-        removeFromRound: false,
-        keepExistingMelds: true,
-        revertsAction: true,
-        message: 'Table penalty: +3.',
-      ),
-      TableStrictness.table => const MistakeResolution(
-        isAllowed: true,
-        penaltyPoints: 17,
-        removeFromRound: true,
-        keepExistingMelds: true,
-        message: 'Hard table mistake: +17 and out of this round.',
-      ),
+        'This illegal action is blocked at this strictness.',
+      TableStrictness.strict => 'Table penalty: +3.',
+      TableStrictness.table =>
+        'Hard table mistake: +17 and out of this round.',
     };
   }
 

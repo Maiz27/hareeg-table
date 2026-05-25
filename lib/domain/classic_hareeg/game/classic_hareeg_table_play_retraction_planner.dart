@@ -1,11 +1,10 @@
 import '../models/player_seat.dart';
-import '../models/playing_card.dart';
 import '../models/table_strictness.dart';
 import '../rules/opening_rules.dart';
 import '../rules/strictness_rule_profile.dart';
 import 'classic_hareeg_action.dart';
 import 'classic_hareeg_round.dart';
-import 'classic_hareeg_turn_ledger.dart';
+import 'classic_hareeg_turn_journal.dart';
 
 /// Table-play retraction scenario for the current turn.
 enum ClassicHareegTablePlayRetractionScenario {
@@ -82,7 +81,7 @@ class ClassicHareegTablePlayRetractionPlan {
   /// Same-turn cover plays included in the retraction.
   final List<ClassicHareegTurnCoverPlay> coverPlays;
 
-  /// Index into [ClassicHareegTurnLedger.openingMelds] for a specific opening.
+  /// Index into the journal's staged-opening stack for a specific opening.
   final int? stagedOpeningIndex;
 }
 
@@ -95,7 +94,7 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     required TurnPhase phase,
     required TableStrictness strictness,
     required OpeningState openingState,
-    required ClassicHareegTurnLedger ledger,
+    required ClassicHareegTurnJournal journal,
   }) {
     final turnCheck = _turnCheck(
       seat: seat,
@@ -108,10 +107,10 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     }
 
     final openingMelds = !openingState.hasOpened(seat)
-        ? ledger.openingMelds
+        ? journal.openingMeldsView
         : const <PlacedMeld>[];
-    final meldPlays = ledger.meldPlays;
-    final coverPlays = ledger.coverPlays;
+    final meldPlays = journal.turnMeldsView;
+    final coverPlays = journal.coverPlaysView;
     final hasOpeningMelds = openingMelds.isNotEmpty;
     final hasTurnMelds = meldPlays.isNotEmpty;
     final hasTurnCovers = coverPlays.isNotEmpty;
@@ -154,9 +153,9 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
         hasTurnMelds: hasTurnMelds,
         hasCovers: hasTurnCovers,
       ),
-      openingMelds: List.unmodifiable(openingMelds),
-      meldPlays: List.unmodifiable(meldPlays),
-      coverPlays: List.unmodifiable(coverPlays),
+      openingMelds: openingMelds,
+      meldPlays: meldPlays,
+      coverPlays: coverPlays,
     );
   }
 
@@ -167,7 +166,7 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     required TurnPhase phase,
     required TableStrictness strictness,
     required OpeningState openingState,
-    required ClassicHareegTurnLedger ledger,
+    required ClassicHareegTurnJournal journal,
     required Map<PlayerSeat, List<PlacedMeld>> tableMelds,
     required ReturnTablePlayTarget target,
   }) {
@@ -192,13 +191,10 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
       );
     }
 
-    final coverPlays = ledger.coverPlays
-        .where(
-          (play) =>
-              play.targetSeat == target.owner &&
-              play.meldIndex == target.meldIndex,
-        )
-        .toList(growable: false);
+    final coverPlays = journal.coverPlaysFor(
+      owner: target.owner,
+      meldIndex: target.meldIndex,
+    );
     if (coverPlays.isNotEmpty) {
       final strictnessBlock = _strictnessBlock(
         strictness: strictness,
@@ -217,9 +213,8 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
       );
     }
 
-    final turnMeldPlay = _turnMeldPlayForTarget(
-      ledger: ledger,
-      target: target,
+    final turnMeldPlay = journal.findTurnMeldFor(
+      owner: target.owner,
       targetMeld: targetMeld,
     );
     if (turnMeldPlay != null) {
@@ -241,9 +236,9 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     }
 
     if (!openingState.hasOpened(seat) && target.owner == seat) {
-      final stagedIndex = ledger.openingMelds.indexWhere((staged) {
-        return _samePhysicalCards(staged.cards, targetMeld.cards);
-      });
+      final stagedIndex = journal.findStagedOpeningIndexByPhysicalCards(
+        targetMeld.cards,
+      );
       if (stagedIndex != -1) {
         return ClassicHareegTablePlayRetractionPlan(
           scenario:
@@ -252,7 +247,9 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
           shouldAdvertise: true,
           message: 'Opening melds returned to your hand.',
           target: target,
-          openingMelds: List.unmodifiable([ledger.openingMelds[stagedIndex]]),
+          openingMelds: List.unmodifiable([
+            journal.stagedOpeningMeldAt(stagedIndex),
+          ]),
           stagedOpeningIndex: stagedIndex,
         );
       }
@@ -359,32 +356,4 @@ abstract final class ClassicHareegTablePlayRetractionPlanner {
     }
     return melds[target.meldIndex];
   }
-
-  static ClassicHareegTurnMeldPlay? _turnMeldPlayForTarget({
-    required ClassicHareegTurnLedger ledger,
-    required ReturnTablePlayTarget target,
-    required PlacedMeld targetMeld,
-  }) {
-    for (final play in ledger.meldPlays) {
-      if (play.owner == target.owner &&
-          _samePhysicalCards(play.meld.cards, targetMeld.cards)) {
-        return play;
-      }
-    }
-    return null;
-  }
-}
-
-bool _samePhysicalCards(List<HareegCard> left, List<HareegCard> right) {
-  if (left.length != right.length) {
-    return false;
-  }
-  final leftIds = left.map((card) => card.id).toList()..sort();
-  final rightIds = right.map((card) => card.id).toList()..sort();
-  for (var index = 0; index < leftIds.length; index += 1) {
-    if (leftIds[index] != rightIds[index]) {
-      return false;
-    }
-  }
-  return true;
 }
