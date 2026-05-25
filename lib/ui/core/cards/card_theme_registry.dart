@@ -1,4 +1,5 @@
 import 'card_theme.dart';
+import 'themes/iron_rose_theme.dart';
 import 'themes/kenney_classic_theme.dart';
 import 'themes/minimal_symbols_theme.dart';
 import 'themes/sandline_lounge_theme.dart';
@@ -13,6 +14,7 @@ abstract final class CardThemeRegistry {
 
   static const _themes = <HareegCardTheme>[
     SandlineLoungeCardTheme(),
+    IronRoseCardTheme(),
     MinimalSymbolsCardTheme(),
     KenneyClassicCardTheme(),
     WikimediaPdCardTheme(),
