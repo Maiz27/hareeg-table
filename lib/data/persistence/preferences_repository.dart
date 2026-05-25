@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import '../../domain/classic_hareeg/persistence/persistence_codec.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
 import '../../ui/core/motion/motion_speed.dart';
 import '../../ui/core/theme/table_surface_theme.dart';
@@ -75,34 +76,34 @@ class GamePreferences {
   /// never needs to know about the old shape.
   factory GamePreferences.fromJson(Map<String, Object?> json) {
     final defaults = GamePreferences.defaults();
-    final setupJson = jsonMapOrNull(json['setup']);
-    final legacyReducedMotion = _asBool(json['reducedMotion']) ?? false;
+    final setupJson = asJsonMap(json['setup']);
+    final legacyReducedMotion = asJsonBool(json['reducedMotion']) ?? false;
     final motionSpeed = json.containsKey('motionSpeed')
-        ? MotionSpeed.fromName(_asString(json['motionSpeed']))
+        ? MotionSpeed.fromName(asJsonString(json['motionSpeed']))
         : (legacyReducedMotion ? MotionSpeed.reduced : MotionSpeed.normal);
-    final savedSoundDefaultsVersion = _asInt(json['soundDefaultsVersion']);
+    final savedSoundDefaultsVersion = asJsonInt(json['soundDefaultsVersion']);
     final soundEnabled = savedSoundDefaultsVersion == _soundDefaultsVersion
-        ? _asBool(json['soundEnabled']) ?? defaults.soundEnabled
+        ? asJsonBool(json['soundEnabled']) ?? defaults.soundEnabled
         : defaults.soundEnabled;
     final setup = _restoreSetup(
       setupJson: setupJson,
-      legacyTableAids: _asString(json['tableAids']),
-      legacyMemoryJokerDisplay: _asBool(json['memoryJokerDisplay']),
+      legacyTableAids: asJsonString(json['tableAids']),
+      legacyMemoryJokerDisplay: asJsonBool(json['memoryJokerDisplay']),
     );
     return GamePreferences(
       setup: setup,
       handSortMode: _readHandSortMode(json, defaults.handSortMode),
-      language: AppLanguage.fromName(_asString(json['language'])),
+      language: AppLanguage.fromName(asJsonString(json['language'])),
       motionSpeed: motionSpeed,
-      fastCpuTurns: _asBool(json['fastCpuTurns']) ?? defaults.fastCpuTurns,
+      fastCpuTurns: asJsonBool(json['fastCpuTurns']) ?? defaults.fastCpuTurns,
       hapticsEnabled:
-          _asBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
+          asJsonBool(json['hapticsEnabled']) ?? defaults.hapticsEnabled,
       soundEnabled: soundEnabled,
-      cardThemeId: _asString(json['cardThemeId']) ?? defaults.cardThemeId,
+      cardThemeId: asJsonString(json['cardThemeId']) ?? defaults.cardThemeId,
       highContrastCards:
-          _asBool(json['highContrastCards']) ?? defaults.highContrastCards,
+          asJsonBool(json['highContrastCards']) ?? defaults.highContrastCards,
       tableSurfaceTheme: TableSurfaceTheme.fromName(
-        _asString(json['tableSurfaceTheme']),
+        asJsonString(json['tableSurfaceTheme']),
       ),
     );
   }
@@ -194,6 +195,10 @@ class GamePreferences {
 /// Migrates legacy `(rulePreset, tableAids, memoryJokerDisplay)` to
 /// [TableStrictness] before [ClassicHareegSetup.fromJson] sees the setup map.
 ///
+/// The transformation runs through the shared [PersistenceCodec] dispatcher
+/// as a named [JsonMigrationStep] (see [legacyTableStrictnessMigrationStep])
+/// so future schema migrations follow the same pipeline.
+///
 /// Rules (from `docs/design/table-strictness.md §5` plus the ratified
 /// `memoryJokerDisplay` special case):
 ///
@@ -215,21 +220,48 @@ ClassicHareegSetup _restoreSetup({
   if (setupJson == null) {
     return ClassicHareegSetup.defaults();
   }
-  if (setupJson.containsKey('tableStrictness')) {
-    return ClassicHareegSetup.fromJson(setupJson);
-  }
 
-  final legacyRulePreset = _asString(setupJson['rulePreset']);
-  final migrated = _migrateStrictness(
-    rulePreset: legacyRulePreset,
-    tableAids: legacyTableAids,
-    memoryJokerDisplay: legacyMemoryJokerDisplay,
+  final migrated = migrateLegacyMap(
+    setupJson,
+    steps: [
+      legacyTableStrictnessMigrationStep(
+        tableAids: legacyTableAids,
+        memoryJokerDisplay: legacyMemoryJokerDisplay,
+      ),
+    ],
   );
-  final upgraded = <String, Object?>{
-    ...setupJson,
-    'tableStrictness': migrated.name,
-  }..remove('rulePreset');
-  return ClassicHareegSetup.fromJson(upgraded);
+  return ClassicHareegSetup.fromJson(migrated);
+}
+
+/// Builds the legacy-`tableStrictness` migration step.
+///
+/// Reads sibling preference fields (`tableAids`, `memoryJokerDisplay`) from
+/// the parent preferences map because the strictness derivation depends on
+/// them, then upgrades the setup map in place. Lives in the dispatcher
+/// pipeline rather than the model factory so model code never has to know
+/// about the legacy shape.
+JsonMigrationStep legacyTableStrictnessMigrationStep({
+  required String? tableAids,
+  required bool? memoryJokerDisplay,
+}) {
+  return JsonMigrationStep(
+    name: 'preferences.setup.tableStrictness.v1->v2',
+    apply: (source) {
+      if (source.containsKey('tableStrictness')) {
+        return source;
+      }
+      final legacyRulePreset = asJsonString(source['rulePreset']);
+      final migrated = _migrateStrictness(
+        rulePreset: legacyRulePreset,
+        tableAids: tableAids,
+        memoryJokerDisplay: memoryJokerDisplay,
+      );
+      return <String, Object?>{
+        ...source,
+        'tableStrictness': migrated.name,
+      }..remove('rulePreset');
+    },
+  );
 }
 
 TableStrictness _migrateStrictness({
@@ -263,11 +295,11 @@ TableStrictness _migrateStrictness({
 /// no explicit mode is stored. `autoSort: true` → byRank (the previous
 /// auto-sort behaviour), `autoSort: false` → manual.
 HandSortMode _readHandSortMode(Map<String, Object?> json, HandSortMode fallback) {
-  final stored = _enumByName(HandSortMode.values, _asString(json['handSortMode']));
+  final stored = _enumByName(HandSortMode.values, asJsonString(json['handSortMode']));
   if (stored != null) {
     return stored;
   }
-  final legacyAutoSort = _asBool(json['autoSort']);
+  final legacyAutoSort = asJsonBool(json['autoSort']);
   if (legacyAutoSort != null) {
     return legacyAutoSort ? HandSortMode.byRank : HandSortMode.manual;
   }
@@ -302,7 +334,7 @@ class LocalPreferencesRepository implements PreferencesRepository {
 
     try {
       final decoded = jsonDecode(raw);
-      final json = jsonMapOrNull(decoded);
+      final json = asJsonMap(decoded);
       if (json != null) {
         return GamePreferences.fromJson(json);
       }
@@ -318,18 +350,6 @@ class LocalPreferencesRepository implements PreferencesRepository {
   Future<void> savePreferences(GamePreferences preferences) {
     return _store.saveString(_key, jsonEncode(preferences.toJson()));
   }
-}
-
-bool? _asBool(Object? value) {
-  return value is bool ? value : null;
-}
-
-int? _asInt(Object? value) {
-  return value is int ? value : null;
-}
-
-String? _asString(Object? value) {
-  return value is String ? value : null;
 }
 
 T? _enumByName<T extends Enum>(Iterable<T> values, String? name) {

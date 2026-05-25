@@ -1,3 +1,4 @@
+import '../persistence/persistence_codec.dart';
 import 'table_strictness.dart';
 
 export 'table_strictness.dart';
@@ -85,8 +86,8 @@ class ClassicHareegSetup {
   factory ClassicHareegSetup.fromJson(Map<String, Object?> json) {
     final defaults = ClassicHareegSetup.defaults();
     return ClassicHareegSetup(
-      cpuDifficulty: CpuDifficulty.fromName(_asString(json['cpuDifficulty'])),
-      starterMode: StarterMode.fromName(_asString(json['starterMode'])),
+      cpuDifficulty: CpuDifficulty.fromName(asJsonString(json['cpuDifficulty'])),
+      starterMode: StarterMode.fromName(asJsonString(json['starterMode'])),
       openingRequirement: _positiveIntOrDefault(
         json['openingRequirement'],
         defaults.openingRequirement,
@@ -101,7 +102,7 @@ class ClassicHareegSetup {
         defaults.fiftyTimerSeconds,
       ),
       tableStrictness: TableStrictness.fromName(
-        _asString(json['tableStrictness']),
+        asJsonString(json['tableStrictness']),
       ),
     );
   }
@@ -177,25 +178,12 @@ T? _enumByName<T extends Enum>(Iterable<T> values, String? name) {
   return null;
 }
 
-int? _asInt(Object? value) {
-  return switch (value) {
-    int() => value,
-    num() when value.isFinite && value % 1 == 0 => value.toInt(),
-    String() => int.tryParse(value),
-    _ => null,
-  };
-}
-
 int _positiveIntOrDefault(Object? value, int fallback) {
-  final parsed = _asInt(value);
+  final parsed = asJsonInt(value);
   return parsed == null || parsed <= 0 ? fallback : parsed;
 }
 
 int _nonNegativeIntOrDefault(Object? value, int fallback) {
-  final parsed = _asInt(value);
+  final parsed = asJsonInt(value);
   return parsed == null || parsed < 0 ? fallback : parsed;
-}
-
-String? _asString(Object? value) {
-  return value is String ? value : null;
 }

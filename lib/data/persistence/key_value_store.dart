@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/classic_hareeg/persistence/persistence_codec.dart';
+
 /// Minimal string key/value store used by persistence repositories.
 abstract interface class KeyValueStore {
   /// Loads a stored string value.
@@ -102,15 +104,6 @@ class MethodChannelKeyValueStore implements KeyValueStore {
 
 /// Coerces a dynamic JSON value into a `Map<String, Object?>` when possible.
 ///
-/// Shared by repositories that decode persisted JSON blobs and need to defend
-/// against unexpected types after schema evolution or manual edits.
-Map<String, Object?>? jsonMapOrNull(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
-}
+/// Repository-level alias kept for callers that pre-date the shared
+/// [PersistenceCodec] module; new code should call [asJsonMap] directly.
+Map<String, Object?>? jsonMapOrNull(Object? value) => asJsonMap(value);
