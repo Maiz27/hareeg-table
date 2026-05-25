@@ -1,7 +1,7 @@
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../rules/opening_rules.dart';
-import 'classic_hareeg_turn_ledger.dart';
+import 'classic_hareeg_turn_journal.dart';
 
 /// Snapshot-ready state after reversible active-turn table plays are rolled
 /// back to a replayable checkpoint.
@@ -29,11 +29,13 @@ class ClassicHareegTurnCheckpointState {
 
 /// Deep module for the active-turn persistence checkpoint.
 ///
-/// The live controller records reversible table play in [turnLedger]. This
-/// module owns how that ledger is projected into a saved match snapshot: covers
-/// are peeled back, current-turn melds are removed, pending discard ownership
-/// is restored, represented jokers return to hand as physical jokers, and the
-/// unlocked opening benchmark is reconciled with the resulting table.
+/// The live controller records reversible table play in
+/// [ClassicHareegTurnJournal] and hands this projector a value snapshot of it.
+/// This module owns how that snapshot is projected into a saved match
+/// snapshot: covers are peeled back, current-turn melds are removed, pending
+/// discard ownership is restored, represented jokers return to hand as
+/// physical jokers, and the unlocked opening benchmark is reconciled with the
+/// resulting table.
 class ClassicHareegTurnCheckpoint {
   /// Creates a checkpoint projector from live controller facts.
   const ClassicHareegTurnCheckpoint({
@@ -42,7 +44,7 @@ class ClassicHareegTurnCheckpoint {
     required this.tableMelds,
     required this.openingState,
     required this.pendingDiscard,
-    required this.turnLedger,
+    required this.journalSnapshot,
   });
 
   /// Seat whose active turn may have reversible table plays.
@@ -60,8 +62,8 @@ class ClassicHareegTurnCheckpoint {
   /// Live pending discard.
   final HareegCard? pendingDiscard;
 
-  /// Active-turn reversible play ledger.
-  final ClassicHareegTurnLedger turnLedger;
+  /// Active-turn reversible play snapshot from the journal.
+  final ClassicHareegTurnJournalSnapshot journalSnapshot;
 
   /// Produces the resume-safe state used by match snapshots.
   ClassicHareegTurnCheckpointState toSnapshotState() {
@@ -84,7 +86,7 @@ class ClassicHareegTurnCheckpoint {
       ]);
     }
 
-    for (final play in turnLedger.coverPlays.reversed) {
+    for (final play in journalSnapshot.coverPlays.reversed) {
       final targetMelds = checkpointTableMelds[play.targetSeat];
       if (targetMelds != null &&
           play.meldIndex >= 0 &&
@@ -97,7 +99,7 @@ class ClassicHareegTurnCheckpoint {
           play.consumedPendingDiscard ?? checkpointPendingDiscard;
     }
 
-    for (final play in turnLedger.meldPlays.reversed) {
+    for (final play in journalSnapshot.turnMelds.reversed) {
       final ownerMelds = checkpointTableMelds[play.owner];
       if (ownerMelds != null) {
         final index = ownerMelds.lastIndexWhere((meld) {
@@ -112,10 +114,10 @@ class ClassicHareegTurnCheckpoint {
           play.consumedPendingDiscard ?? checkpointPendingDiscard;
     }
 
-    if (turnLedger.openingMelds.isNotEmpty) {
+    if (journalSnapshot.openingMelds.isNotEmpty) {
       final ownerMelds = checkpointTableMelds[currentSeat];
       if (ownerMelds != null) {
-        for (final meld in turnLedger.openingMelds.reversed) {
+        for (final meld in journalSnapshot.openingMelds.reversed) {
           final index = ownerMelds.lastIndexWhere((candidate) {
             return _samePhysicalCards(candidate.cards, meld.cards);
           });
@@ -124,13 +126,13 @@ class ClassicHareegTurnCheckpoint {
           }
         }
       }
-      for (final meld in turnLedger.openingMelds.reversed) {
+      for (final meld in journalSnapshot.openingMelds.reversed) {
         returnCards(meld.cards);
       }
     }
 
     checkpointPendingDiscard =
-        turnLedger.consumedPendingDiscard ?? checkpointPendingDiscard;
+        journalSnapshot.consumedPendingDiscard ?? checkpointPendingDiscard;
     if (returnedCards.isNotEmpty) {
       checkpointHands[currentSeat] = [
         ...returnedCards,

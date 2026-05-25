@@ -241,7 +241,7 @@ void main() {
           ..recordFinishMelds([openingMeld, turnPlay.meld, coverPlay.coverMeld])
           ..setSource(FinishCardSource.previousDiscard);
 
-        final checkpoint = journal.projectCheckpoint();
+        final checkpoint = journal.toSnapshot();
         expect(checkpoint.openingMelds, [openingMeld]);
         expect(checkpoint.turnMelds, [turnPlay]);
         expect(checkpoint.coverPlays, [coverPlay]);

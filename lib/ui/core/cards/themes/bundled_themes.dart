@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../theme/lounge_tokens.dart';
 import '../card_painting.dart';
 import '../card_theme.dart';

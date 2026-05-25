@@ -399,7 +399,7 @@ class ClassicHareegGameController {
       tableMelds: _tableMelds,
       openingState: _openingState,
       pendingDiscard: _pendingDiscard,
-      turnLedger: _turnLedger,
+      journalSnapshot: _turnJournal.toSnapshot(),
     ).toSnapshotState();
     return ClassicHareegMatchSnapshot(
       setup: setup,

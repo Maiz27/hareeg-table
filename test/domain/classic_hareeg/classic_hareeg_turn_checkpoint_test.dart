@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_turn_checkpoint.dart';
-import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_turn_ledger.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_turn_journal.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/finish_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
@@ -31,10 +32,15 @@ void main() {
           openedSeats: const {PlayerSeat.east},
         ),
         pendingDiscard: null,
-        turnLedger: ClassicHareegTurnLedger(
-          meldPlays: [
+        journalSnapshot: ClassicHareegTurnJournalSnapshot(
+          finishMelds: const [],
+          openingMelds: const [],
+          turnMelds: [
             ClassicHareegTurnMeldPlay(owner: PlayerSeat.east, meld: meld),
           ],
+          coverPlays: const [],
+          consumedPendingDiscard: null,
+          source: FinishCardSource.stock,
         ),
       ).toSnapshotState();
 
@@ -75,7 +81,10 @@ void main() {
           openedSeats: const {PlayerSeat.east},
         ),
         pendingDiscard: null,
-        turnLedger: ClassicHareegTurnLedger(
+        journalSnapshot: ClassicHareegTurnJournalSnapshot(
+          finishMelds: const [],
+          openingMelds: const [],
+          turnMelds: const [],
           coverPlays: [
             ClassicHareegTurnCoverPlay(
               targetSeat: PlayerSeat.east,
@@ -86,6 +95,8 @@ void main() {
               consumedPendingDiscard: pending,
             ),
           ],
+          consumedPendingDiscard: null,
+          source: FinishCardSource.stock,
         ),
       ).toSnapshotState();
 

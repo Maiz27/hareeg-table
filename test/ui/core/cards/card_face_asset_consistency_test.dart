@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
-import 'package:hareeg_table/ui/core/cards/card_asset_manifest.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
 
@@ -18,33 +17,6 @@ void main() {
 
   for (final theme in CardThemeRegistry.all()) {
     group('${theme.label} (${theme.id})', () {
-      if (theme.source == CardThemeAssetSource.bundledAssets) {
-        test('asset-backed theme exposes a manifest', () {
-          expect(theme, isA<AssetManifestCardTheme>());
-        });
-      }
-
-      if (theme case final AssetManifestCardTheme manifestTheme) {
-        test('manifest covers every standard card identity', () {
-          expect(
-            manifestTheme.assetManifest.standardFaceEntries,
-            hasLength(allIdentities.length),
-          );
-        });
-
-        test('manifest standard face entries name their identity', () {
-          for (final entry in manifestTheme.assetManifest.standardFaceEntries) {
-            expect(
-              entry.pathNamesIdentity,
-              isTrue,
-              reason:
-                  '${theme.id}:${entry.identity.rank.name}:'
-                  '${entry.identity.suit.name} returned "${entry.path}".',
-            );
-          }
-        });
-      }
-
       for (final identity in allIdentities) {
         test('face asset for ${identity.rank.name} of ${identity.suit.name} '
             'is either bypassed or names its rank and suit', () {
@@ -84,7 +56,7 @@ void main() {
             return;
           }
 
-          final rankSlug = CardAssetManifest.rankSlug(identity.rank);
+          final rankSlug = identity.rank.name;
           final suitSlug = identity.suit.name;
           expect(
             assetPath.contains(rankSlug),

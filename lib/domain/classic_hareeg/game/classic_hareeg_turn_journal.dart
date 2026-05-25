@@ -234,10 +234,10 @@ class ClassicHareegTurnJournal {
         .toList(growable: false);
   }
 
-  /// Captures the journal as an immutable checkpoint value the controller can
+  /// Captures the journal as an immutable snapshot value the controller can
   /// hand off without exposing internal lists.
-  ClassicHareegTurnCheckpoint projectCheckpoint() {
-    return ClassicHareegTurnCheckpoint(
+  ClassicHareegTurnJournalSnapshot toSnapshot() {
+    return ClassicHareegTurnJournalSnapshot(
       finishMelds: List<PlacedMeld>.unmodifiable(_finishMelds),
       openingMelds: List<PlacedMeld>.unmodifiable(_openingMelds),
       turnMelds: List<ClassicHareegTurnMeldPlay>.unmodifiable(_turnMelds),
@@ -325,9 +325,9 @@ class ClassicHareegTurnCoverPlay {
 /// The journal projects a checkpoint instead of letting the controller reach
 /// into its lists; consumers (e.g. resume-after-quit, debug overlays) read
 /// values, never the live state.
-class ClassicHareegTurnCheckpoint {
+class ClassicHareegTurnJournalSnapshot {
   /// Creates a checkpoint.
-  const ClassicHareegTurnCheckpoint({
+  const ClassicHareegTurnJournalSnapshot({
     required this.finishMelds,
     required this.openingMelds,
     required this.turnMelds,
@@ -337,7 +337,7 @@ class ClassicHareegTurnCheckpoint {
   });
 
   /// Empty starter checkpoint with default source.
-  const ClassicHareegTurnCheckpoint.empty({
+  const ClassicHareegTurnJournalSnapshot.empty({
     this.source = FinishCardSource.stock,
   }) : finishMelds = const <PlacedMeld>[],
        openingMelds = const <PlacedMeld>[],
