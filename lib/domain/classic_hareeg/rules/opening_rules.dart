@@ -1,5 +1,6 @@
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../persistence/persistence_codec.dart';
 import 'meld_card_ordering.dart';
 import 'meld_validator.dart';
 
@@ -27,9 +28,9 @@ class PlacedMeld {
 
   /// Restores a placed meld from persisted JSON-compatible data.
   factory PlacedMeld.fromJson(Map<String, Object?> json) {
-    final cardsJson = _asList(json['cards']);
-    final valueSnapshot = _asInt(json['valueSnapshot']);
-    final coverValue = _asInt(json['coverValue']) ?? 0;
+    final cardsJson = asJsonList(json['cards']);
+    final valueSnapshot = asJsonInt(json['valueSnapshot']);
+    final coverValue = asJsonInt(json['coverValue']) ?? 0;
     if (cardsJson == null || valueSnapshot == null) {
       throw const FormatException('Invalid placed meld.');
     }
@@ -107,9 +108,9 @@ class OpeningState {
 
   /// Restores opening benchmark state from persisted JSON-compatible data.
   factory OpeningState.fromJson(Map<String, Object?> json) {
-    final baseRequirement = _asInt(json['baseRequirement']);
-    final currentRequirement = _asInt(json['currentRequirement']);
-    final openedSeatNames = _asList(json['openedSeats']);
+    final baseRequirement = asJsonInt(json['baseRequirement']);
+    final currentRequirement = asJsonInt(json['currentRequirement']);
+    final openedSeatNames = asJsonList(json['openedSeats']);
     if (baseRequirement == null ||
         currentRequirement == null ||
         openedSeatNames == null) {
@@ -125,7 +126,7 @@ class OpeningState {
       openedSeats.add(seat);
     }
 
-    final owner = PlayerSeat.fromName(_asString(json['benchmarkOwner']));
+    final owner = PlayerSeat.fromName(asJsonString(json['benchmarkOwner']));
     final isLocked = json['isLocked'] == true;
 
     return OpeningState(
@@ -172,45 +173,13 @@ class OpeningState {
 List<HareegCard> _cardsFromJson(List<Object?> cardsJson) {
   final cards = <HareegCard>[];
   for (final cardJson in cardsJson) {
-    final cardMap = _asMap(cardJson);
+    final cardMap = asJsonMap(cardJson);
     if (cardMap == null) {
       throw const FormatException('Invalid placed meld card.');
     }
     cards.add(HareegCard.fromJson(cardMap));
   }
   return cards;
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
-}
-
-List<Object?>? _asList(Object? value) {
-  if (value is List) {
-    return value;
-  }
-
-  return null;
-}
-
-int? _asInt(Object? value) {
-  return switch (value) {
-    int() => value,
-    num() when value.isFinite && value % 1 == 0 => value.toInt(),
-    String() => int.tryParse(value),
-    _ => null,
-  };
-}
-
-String? _asString(Object? value) {
-  return value is String ? value : null;
 }
 
 /// Result of checking an opening attempt.

@@ -1,3 +1,5 @@
+import '../persistence/persistence_codec.dart';
+
 /// Suit identity for non-joker cards.
 enum CardSuit {
   /// Clubs.
@@ -94,8 +96,8 @@ class CardIdentity {
 
   /// Restores a card identity from persisted JSON-compatible data.
   factory CardIdentity.fromJson(Map<String, Object?> json) {
-    final rank = CardRank.fromName(_asString(json['rank']));
-    final suit = CardSuit.fromName(_asString(json['suit']));
+    final rank = CardRank.fromName(asJsonString(json['rank']));
+    final suit = CardSuit.fromName(asJsonString(json['suit']));
     if (rank == null || suit == null) {
       throw const FormatException('Invalid card identity.');
     }
@@ -149,16 +151,17 @@ class HareegCard {
 
   /// Restores a physical card from persisted JSON-compatible data.
   factory HareegCard.fromJson(Map<String, Object?> json) {
-    final deckIndex = _asInt(json['deckIndex']);
+    final deckIndex = asJsonInt(json['deckIndex']);
     if (deckIndex == null) {
       throw const FormatException('Invalid card deck index.');
     }
 
-    final jokerIndex = _asInt(json['jokerIndex']);
+    final jokerIndex = asJsonInt(json['jokerIndex']);
     if (jokerIndex != null) {
-      final represented = _asMap(json['representedIdentity']) == null
+      final representedJson = asJsonMap(json['representedIdentity']);
+      final represented = representedJson == null
           ? null
-          : CardIdentity.fromJson(_asMap(json['representedIdentity'])!);
+          : CardIdentity.fromJson(representedJson);
       return HareegCard.joker(
         deckIndex: deckIndex,
         jokerIndex: jokerIndex,
@@ -166,7 +169,7 @@ class HareegCard {
       );
     }
 
-    final identityJson = _asMap(json['identity']);
+    final identityJson = asJsonMap(json['identity']);
     if (identityJson == null) {
       throw const FormatException('Invalid standard card identity.');
     }
@@ -274,28 +277,4 @@ T? _enumByName<T extends Enum>(Iterable<T> values, String? name) {
   }
 
   return null;
-}
-
-int? _asInt(Object? value) {
-  return switch (value) {
-    int() => value,
-    num() when value.isFinite && value % 1 == 0 => value.toInt(),
-    String() => int.tryParse(value),
-    _ => null,
-  };
-}
-
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
-}
-
-String? _asString(Object? value) {
-  return value is String ? value : null;
 }

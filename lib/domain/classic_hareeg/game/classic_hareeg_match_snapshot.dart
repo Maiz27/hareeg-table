@@ -1,6 +1,7 @@
 import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../persistence/persistence_codec.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_match_snapshot_v1.dart';
 import 'classic_hareeg_round.dart';
@@ -42,8 +43,15 @@ class ClassicHareegMatchSnapshot {
 
   /// Restores a saved match from JSON-compatible data, dispatching to the
   /// decoder for the schema version embedded in [json].
+  ///
+  /// Routing goes through [decodeWithSchemaVersion] so future versions can
+  /// register additional decoders without changing call sites.
   factory ClassicHareegMatchSnapshot.fromJson(Map<String, Object?> json) {
-    return decodeMatchSnapshotV1(json);
+    return decodeWithSchemaVersion<ClassicHareegMatchSnapshot>(
+      json,
+      decoders: {matchSnapshotV1Version: decodeMatchSnapshotV1},
+      fallbackVersion: matchSnapshotV1Version,
+    );
   }
 
   /// Setup values active for the saved match.

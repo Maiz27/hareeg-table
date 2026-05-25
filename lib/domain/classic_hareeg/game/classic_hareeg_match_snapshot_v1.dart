@@ -1,6 +1,7 @@
 import '../models/classic_hareeg_setup.dart';
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../persistence/persistence_codec.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
@@ -18,30 +19,30 @@ const int matchSnapshotV1Version = 1;
 /// or fail to parse. Optional fields fall back to safe defaults so a long-
 /// running install survives schema additions made on the same major version.
 ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
-  final version = _asInt(json['version']);
+  final version = asJsonInt(json['version']);
   if (version != matchSnapshotV1Version) {
     throw const FormatException('Unsupported saved match version.');
   }
 
-  final setupJson = _asMap(json['setup']);
-  final handsJson = _asMap(json['hands']);
-  final stockJson = _asList(json['stock']);
-  final discardJson = _asList(json['discardPile']);
-  final tableMeldsJson = _asMap(json['tableMelds']);
-  final openingStateJson = _asMap(json['openingState']);
-  final scoresJson = _asMap(json['scores']);
-  final activeSeatsJson = _asList(json['activeSeats']);
-  final removedSeatsJson = _asList(json['removedSeats']);
-  final starter = PlayerSeat.fromName(_asString(json['starter']));
-  final currentSeat = PlayerSeat.fromName(_asString(json['currentSeat']));
-  final turnPhase = TurnPhase.fromName(_asString(json['turnPhase']));
-  final savedAtRaw = _asString(json['savedAt']);
+  final setupJson = asJsonMap(json['setup']);
+  final handsJson = asJsonMap(json['hands']);
+  final stockJson = asJsonList(json['stock']);
+  final discardJson = asJsonList(json['discardPile']);
+  final tableMeldsJson = asJsonMap(json['tableMelds']);
+  final openingStateJson = asJsonMap(json['openingState']);
+  final scoresJson = asJsonMap(json['scores']);
+  final activeSeatsJson = asJsonList(json['activeSeats']);
+  final removedSeatsJson = asJsonList(json['removedSeats']);
+  final starter = PlayerSeat.fromName(asJsonString(json['starter']));
+  final currentSeat = PlayerSeat.fromName(asJsonString(json['currentSeat']));
+  final turnPhase = TurnPhase.fromName(asJsonString(json['turnPhase']));
+  final savedAtRaw = asJsonString(json['savedAt']);
   final savedAt = savedAtRaw == null ? null : DateTime.tryParse(savedAtRaw);
-  final fiftyWindowOpenedAtRaw = _asString(json['fiftyWindowOpenedAt']);
+  final fiftyWindowOpenedAtRaw = asJsonString(json['fiftyWindowOpenedAt']);
   final fiftyWindowOpenedAt = fiftyWindowOpenedAtRaw == null
       ? null
       : DateTime.tryParse(fiftyWindowOpenedAtRaw);
-  final roundNumber = _asInt(json['roundNumber']) ?? 1;
+  final roundNumber = asJsonInt(json['roundNumber']) ?? 1;
 
   if (setupJson == null ||
       handsJson == null ||
@@ -56,14 +57,14 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
 
   final hands = <PlayerSeat, List<HareegCard>>{};
   for (final seat in PlayerSeat.values) {
-    final cardsJson = _asList(handsJson[seat.name]);
+    final cardsJson = asJsonList(handsJson[seat.name]);
     if (cardsJson == null) {
       throw const FormatException('Saved match is missing a hand.');
     }
     hands[seat] = _cardsFromJson(cardsJson);
   }
 
-  final pendingJson = _asMap(json['pendingDiscard']);
+  final pendingJson = asJsonMap(json['pendingDiscard']);
 
   return ClassicHareegMatchSnapshot(
     setup: ClassicHareegSetup.fromJson(setupJson),
@@ -129,7 +130,7 @@ Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) 
 List<HareegCard> _cardsFromJson(List<Object?> cardsJson) {
   final cards = <HareegCard>[];
   for (final cardJson in cardsJson) {
-    final cardMap = _asMap(cardJson);
+    final cardMap = asJsonMap(cardJson);
     if (cardMap == null) {
       throw const FormatException('Invalid saved card.');
     }
@@ -147,14 +148,14 @@ Map<PlayerSeat, List<PlacedMeld>> _tableMeldsFromJson(
 
   final tableMelds = <PlayerSeat, List<PlacedMeld>>{};
   for (final seat in PlayerSeat.values) {
-    final meldsJson = _asList(tableMeldsJson[seat.name]);
+    final meldsJson = asJsonList(tableMeldsJson[seat.name]);
     if (meldsJson == null) {
       continue;
     }
     tableMelds[seat] = [
       for (final meldJson in meldsJson)
         PlacedMeld.fromJson(
-          _asMap(meldJson) ??
+          asJsonMap(meldJson) ??
               (throw const FormatException('Invalid saved meld.')),
         ),
     ];
@@ -168,7 +169,7 @@ Map<PlayerSeat, int> _scoresFromJson(Map<String, Object?>? json) {
   }
 
   return {
-    for (final seat in PlayerSeat.values) seat: _asInt(json[seat.name]) ?? 0,
+    for (final seat in PlayerSeat.values) seat: asJsonInt(json[seat.name]) ?? 0,
   };
 }
 
@@ -192,34 +193,3 @@ List<PlayerSeat> _seatListFromJson(
       : List.unmodifiable(seats);
 }
 
-Map<String, Object?>? _asMap(Object? value) {
-  if (value is Map) {
-    return {
-      for (final entry in value.entries)
-        if (entry.key is String) entry.key as String: entry.value,
-    };
-  }
-
-  return null;
-}
-
-List<Object?>? _asList(Object? value) {
-  if (value is List) {
-    return value;
-  }
-
-  return null;
-}
-
-int? _asInt(Object? value) {
-  return switch (value) {
-    int() => value,
-    num() when value.isFinite && value % 1 == 0 => value.toInt(),
-    String() => int.tryParse(value),
-    _ => null,
-  };
-}
-
-String? _asString(Object? value) {
-  return value is String ? value : null;
-}
