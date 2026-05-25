@@ -2,9 +2,12 @@ import '../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart'
 import '../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../domain/classic_hareeg/rules/cover_rules.dart';
 import 'table_interaction_planner.dart';
+import 'table_meld_drop_target.dart';
 
 export 'table_interaction_planner.dart';
+export 'table_meld_drop_target.dart';
 
 /// Adapter from a live controller to the table interaction action reader.
 class ClassicHareegControllerTableInteractionReader
@@ -71,12 +74,14 @@ class ClassicHareegControllerTableInteractionReader
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     return controller.coverActionIdForMeldTarget(
       seat: seat,
       cardIds: cardIds,
       targetSeat: targetSeat,
       meldIndex: meldIndex,
+      coverPlacement: coverPlacement,
     );
   }
 
@@ -165,17 +170,46 @@ class ClassicHareegTableInteractionAdapter {
   }
 
   /// Whether [card] can be dropped onto a specific table meld.
-  bool canDropCardToMeld(HareegCard card, PlayerSeat owner, int meldIndex) {
-    return _planner.canDropCardToMeld(card, owner, meldIndex);
+  bool canDropCardToMeld(
+    HareegCard card,
+    PlayerSeat owner,
+    int meldIndex, {
+    CoverPlacement? coverPlacement,
+  }) {
+    return _planner.canDropCardToMeld(
+      card,
+      owner,
+      meldIndex,
+      coverPlacement: coverPlacement,
+    );
+  }
+
+  /// Whether [card] can be dropped onto a typed table meld target.
+  bool canDropCardToMeldTarget(HareegCard card, TableMeldDropTarget target) {
+    return _planner.canDropCardToMeldTarget(card, target);
   }
 
   /// Resolves a drop onto a specific table meld.
   TableInteractionResolution resolveMeldDrop(
     HareegCard card,
     PlayerSeat owner,
-    int meldIndex,
+    int meldIndex, {
+    CoverPlacement? coverPlacement,
+  }) {
+    return _planner.resolveMeldDrop(
+      card,
+      owner,
+      meldIndex,
+      coverPlacement: coverPlacement,
+    );
+  }
+
+  /// Resolves a drop onto a typed table meld target.
+  TableInteractionResolution resolveMeldDropTarget(
+    HareegCard card,
+    TableMeldDropTarget target,
   ) {
-    return _planner.resolveMeldDrop(card, owner, meldIndex);
+    return _planner.resolveMeldDropTarget(card, target);
   }
 
   /// Returns a play action for the exact selected single meld.

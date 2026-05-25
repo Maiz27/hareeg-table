@@ -15,7 +15,8 @@ import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
-import '../../../../domain/classic_hareeg/rules/opening_rules.dart' show PlacedMeld;
+import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
+    show PlacedMeld;
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
@@ -34,11 +35,9 @@ import '../table_card_flight_planner.dart';
 import '../table_flight_anchors.dart';
 import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
-import '../table_human_action_flow_planner.dart';
-import '../table_human_action_start_planner.dart';
 import '../table_interaction_adapter.dart';
 import '../table_persistence_planner.dart';
-import '../table_turn_flow_planner.dart';
+import '../table_session_flow_planner.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
@@ -125,12 +124,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   // live in [JokerCueQueue] so they're unit-testable without spinning up
   // the whole table widget; this screen only wires the side effects.
   late final JokerCueQueue<({PlayerSeat seat, CardIdentity identity})>
-      _jokerCueQueue = JokerCueQueue<
-          ({PlayerSeat seat, CardIdentity identity})>(
-        onCueStart: _onJokerCueStart,
-        onCueEnd: _onJokerCueEnd,
-        dwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
-      );
+  _jokerCueQueue = JokerCueQueue<({PlayerSeat seat, CardIdentity identity})>(
+    onCueStart: _onJokerCueStart,
+    onCueEnd: _onJokerCueEnd,
+    dwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
+  );
   final List<_CardFlight> _activeFlights = [];
   late final MeldFlightController _meldFlight;
   DealChoreography? _dealChoreography;
@@ -246,7 +244,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _scheduleTurnFlow() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final afterFramePlan = ClassicHareegTableTurnFlowPlanner.afterFrame(
+      final afterFramePlan = ClassicHareegTableSessionFlowPlanner.afterFrame(
         isMounted: mounted,
         hasOpeningDealToPlay: _hasOpeningDealToPlay,
         isCpuRunning: _isCpuRunning,
@@ -262,7 +260,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       }
 
       final afterOpeningDealPlan =
-          ClassicHareegTableTurnFlowPlanner.afterOpeningDeal(
+          ClassicHareegTableSessionFlowPlanner.afterOpeningDeal(
             isMounted: mounted,
             isCpuRunning: _isCpuRunning,
             isOpeningDealRunning: _isOpeningDealRunning,
@@ -272,7 +270,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       if (afterOpeningDealPlan.action ==
           ClassicHareegTableTurnFlowAction.runCpuTurns) {
         final didPersistOrNavigate = await _runCpuTurns();
-        final afterCpuPlan = ClassicHareegTableTurnFlowPlanner.afterCpuTurns(
+        final afterCpuPlan = ClassicHareegTableSessionFlowPlanner.afterCpuTurns(
           isMounted: mounted,
           didCpuPersistOrNavigate: didPersistOrNavigate,
         );
@@ -292,6 +290,14 @@ class _GameTableScreenState extends State<GameTableScreen>
   bool get _hasOpeningDealToPlay {
     final choreography = _dealChoreography;
     return choreography != null && choreography.sequence.steps.isNotEmpty;
+  }
+
+  bool get _canAcceptHumanInput {
+    return ClassicHareegTableSessionFlowPlanner.canAcceptHumanInput(
+      isCpuRunning: _isCpuRunning,
+      isOpeningDealRunning: _isOpeningDealRunning,
+      isHumanActionPending: _isHumanActionPending,
+    );
   }
 
   DealSequence _buildDealSequence() {
@@ -480,10 +486,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     final strings = context.strings;
     final humanSeat = PlayerSeat.south;
     final isHumanTurn =
-        _controller.currentSeat == humanSeat &&
-        !_isCpuRunning &&
-        !_isOpeningDealRunning &&
-        !_isHumanActionPending;
+        _controller.currentSeat == humanSeat && _canAcceptHumanInput;
     final controlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
@@ -495,7 +498,8 @@ class _GameTableScreenState extends State<GameTableScreen>
     final southCards = southHand.orderedCards;
     final openingDealFrame = _openingDealFrame(southCards);
     final southIsRemoved = _controller.removedSeats.contains(PlayerSeat.south);
-    final visibleSouthCards = openingDealFrame?.southCards ??
+    final visibleSouthCards =
+        openingDealFrame?.southCards ??
         (southIsRemoved ? const <HareegCard>[] : southCards);
     final removedSeats = _controller.removedSeats;
     final visibleCardCounts =
@@ -550,7 +554,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               canDiscardCard: tableInteraction.canDropCardToDiscard,
               canPlayCardOnTable: tableInteraction.canDropCardToTable,
               canPlaceMeldOnTable: tableInteraction.canPlaceNewMeldOnTable,
-              canPlayCardOnMeld: tableInteraction.canDropCardToMeld,
+              canPlayCardOnMeld: tableInteraction.canDropCardToMeldTarget,
               canRetractMeld: (owner, meldIndex) =>
                   controlActions.contains(
                     ClassicHareegActionIds.returnOpeningMelds,
@@ -558,8 +562,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                   _controller.canReturnTablePlayFromMeld(owner, meldIndex),
               onDiscardCard: (card) => unawaited(_dropCardToDiscard(card)),
               onPlayCardOnTable: (card) => unawaited(_dropCardToTable(card)),
-              onPlayCardOnMeld: (card, owner, meldIndex) =>
-                  unawaited(_dropCardToMeld(card, owner, meldIndex)),
+              onPlayCardOnMeld: (card, target) =>
+                  unawaited(_dropCardToMeld(card, target)),
               onRetractMeld: (owner, meldIndex) => unawaited(
                 _runHumanAction(
                   ClassicHareegActionIds.returnTablePlayActionId(
@@ -678,9 +682,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                         children: [
                           if (_canShowFastForwardRound()) ...[
                             _TableChromeButton(
-                              key: const ValueKey(
-                                'table-chrome-fast-forward',
-                              ),
+                              key: const ValueKey('table-chrome-fast-forward'),
                               tooltip: strings.skipToNextRound,
                               icon: Icons.fast_forward_rounded,
                               diameter: buttonSize,
@@ -735,10 +737,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             for (final meld in _meldFlight.activeFlights)
               Positioned.fill(
                 key: ValueKey('meld-flight-${meld.serial}'),
-                child: MeldFlightOverlay(
-                  flight: meld,
-                  theme: theme,
-                ),
+                child: MeldFlightOverlay(flight: meld, theme: theme),
               ),
           ],
         ),
@@ -857,29 +856,27 @@ class _GameTableScreenState extends State<GameTableScreen>
       seat: PlayerSeat.south,
       selectedCardIds: hand.selectedCardIds,
       handCards: hand.orderedCards,
-      inputLocked:
-          _isCpuRunning || _isOpeningDealRunning || _isHumanActionPending,
+      inputLocked: !_canAcceptHumanInput,
     );
   }
 
   Future<void> _dropCardToDiscard(HareegCard card) async {
-    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
+    if (!_canAcceptHumanInput) return;
     await _runTableInteraction(_tableInteraction().resolveDiscard(card));
   }
 
   Future<void> _dropCardToTable(HareegCard card) async {
-    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
+    if (!_canAcceptHumanInput) return;
     await _runTableInteraction(_tableInteraction().resolveTableDrop(card));
   }
 
   Future<void> _dropCardToMeld(
     HareegCard card,
-    PlayerSeat owner,
-    int meldIndex,
+    TableMeldDropTarget target,
   ) async {
-    if (_isCpuRunning || _isOpeningDealRunning || _isHumanActionPending) return;
+    if (!_canAcceptHumanInput) return;
     await _runTableInteraction(
-      _tableInteraction().resolveMeldDrop(card, owner, meldIndex),
+      _tableInteraction().resolveMeldDropTarget(card, target),
     );
   }
 
@@ -1239,17 +1236,21 @@ class _GameTableScreenState extends State<GameTableScreen>
       TableActionFlightSource.stockBack => TableFlightAnchors.stock,
       TableActionFlightSource.topDiscard => TableFlightAnchors.discard,
       TableActionFlightSource.pendingDiscard ||
-      TableActionFlightSource.handCard => TableFlightAnchors.seatHand(plan.seat),
+      TableActionFlightSource.handCard => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
     };
   }
 
   Alignment _flightEnd(TableActionFlightPlan plan) {
     return switch (plan.destination) {
-      TableActionFlightDestination.seatHand =>
-        TableFlightAnchors.seatHand(plan.seat),
+      TableActionFlightDestination.seatHand => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
       TableActionFlightDestination.discardPile => TableFlightAnchors.discard,
-      TableActionFlightDestination.tableMeld =>
-        TableFlightAnchors.seatHand(plan.seat),
+      TableActionFlightDestination.tableMeld => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
     };
   }
 
@@ -1338,7 +1339,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     String actionId, {
     bool playFlight = true,
   }) async {
-    final startPlan = ClassicHareegHumanActionStartPlanner.start(
+    final startPlan = ClassicHareegTableSessionFlowPlanner.startHumanAction(
       actionId: actionId,
       playFlight: playFlight,
       isCpuRunning: _isCpuRunning,
@@ -1363,7 +1364,7 @@ class _GameTableScreenState extends State<GameTableScreen>
           actionId: actionId,
         );
       }
-      final applyGate = ClassicHareegHumanActionStartPlanner.afterPreApply(
+      final applyGate = ClassicHareegTableSessionFlowPlanner.afterHumanPreApply(
         isMounted: mounted,
         plannedFlight: startPlan.shouldPlayFlight,
         flightPlayed: flightPlayed,
@@ -1409,7 +1410,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       'totalElapsed=${totalWatch.elapsedMilliseconds}ms '
       'current=${_controller.currentSeat.name} phase=${_controller.turnPhase}',
     );
-    final flowPlan = ClassicHareegHumanActionFlowPlanner.afterApply(
+    final flowPlan = ClassicHareegTableSessionFlowPlanner.afterHumanApply(
       actionId: actionId,
       isSuccess: result.isSuccess,
       message: result.message,
@@ -1483,16 +1484,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// While the fast-forward is already running we still return true so the
   /// button keeps its slot (it just no-ops on tap via the disabled handler).
   bool _canShowFastForwardRound() {
-    if (_controller.setup.tableStrictness != TableStrictness.table) {
-      return false;
-    }
-    if (!_controller.removedSeats.contains(PlayerSeat.south)) {
-      return false;
-    }
-    if (_controller.isRoundOver) {
-      return false;
-    }
-    return true;
+    return ClassicHareegTableSessionFlowPlanner.canFastForwardRound(
+      strictness: _controller.setup.tableStrictness,
+      removedSeats: _controller.removedSeats,
+      isRoundOver: _controller.isRoundOver,
+    );
   }
 
   /// Rips the remaining CPU turns to the end of the round with no animations,
@@ -1614,7 +1610,9 @@ class _GameTableScreenState extends State<GameTableScreen>
               'action=${decision.actionId} '
               'elapsed=${flightWatch.elapsedMilliseconds}ms',
             );
-            final descriptor = ClassicHareegActionIds.describe(decision.actionId);
+            final descriptor = ClassicHareegActionIds.describe(
+              decision.actionId,
+            );
             _placedJokerSnapshot = descriptor.canPlaceJoker
                 ? _capturePlacedJokerIds()
                 : null;
@@ -1667,8 +1665,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       // on the safety cap — there is no human to take over, so the round
       // would deadlock waiting for input. Re-enter the loop instead; the
       // round will end naturally on stock exhaustion or a CPU finish.
-      final humanRemoved =
-          _controller.removedSeats.contains(PlayerSeat.south);
+      final humanRemoved = _controller.removedSeats.contains(PlayerSeat.south);
       final shouldAutoRestart = hitCpuSafetyLimit && humanRemoved;
       setState(() {
         _isCpuRunning = false;
@@ -2736,7 +2733,6 @@ class _CardFlightOverlay extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _OpeningDealOverlay extends StatelessWidget {
@@ -2885,7 +2881,6 @@ class _OpeningDealFlightCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _FeedbackChip extends StatelessWidget {

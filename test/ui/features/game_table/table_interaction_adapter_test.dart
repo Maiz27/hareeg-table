@@ -6,6 +6,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_table_pla
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 import 'package:hareeg_table/ui/features/game_table/table_interaction_adapter.dart';
 
@@ -407,6 +408,7 @@ class _FakeTableInteractionActionReader
     required List<String> cardIds,
     required PlayerSeat targetSeat,
     required int meldIndex,
+    CoverPlacement? coverPlacement,
   }) {
     return null;
   }

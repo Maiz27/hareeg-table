@@ -494,11 +494,11 @@ void main() {
                 canDiscardCard: (_) => false,
                 canPlayCardOnTable: (_) => false,
                 canPlaceMeldOnTable: (_) => false,
-                canPlayCardOnMeld: (_, _, _) => false,
+                canPlayCardOnMeld: (_, _) => false,
                 canRetractMeld: (_, _) => false,
                 onDiscardCard: (_) {},
                 onPlayCardOnTable: (_) {},
-                onPlayCardOnMeld: (_, _, _) {},
+                onPlayCardOnMeld: (_, _) {},
                 onRetractMeld: (_, _) {},
                 canDrawStock: false,
                 canTakeDiscard: false,
@@ -1079,7 +1079,10 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 700));
 
-        expect(find.text('You declared joker as King of Hearts.'), findsOneWidget);
+        expect(
+          find.text('You declared joker as King of Hearts.'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -1445,11 +1448,11 @@ Future<void> _pumpPlayfield(
             canDiscardCard: (_) => false,
             canPlayCardOnTable: (_) => false,
             canPlaceMeldOnTable: (_) => false,
-            canPlayCardOnMeld: (_, _, _) => false,
+            canPlayCardOnMeld: (_, _) => false,
             canRetractMeld: (_, _) => false,
             onDiscardCard: (_) {},
             onPlayCardOnTable: (_) {},
-            onPlayCardOnMeld: (_, _, _) {},
+            onPlayCardOnMeld: (_, _) {},
             onRetractMeld: (_, _) {},
             canDrawStock: false,
             canTakeDiscard: false,
