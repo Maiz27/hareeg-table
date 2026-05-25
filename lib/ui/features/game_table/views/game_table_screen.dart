@@ -27,7 +27,7 @@ import '../../../core/scopes/app_scopes.dart';
 import '../../../core/strictness/strictness_ui_profile.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
-import '../cue/joker_cue_queue.dart';
+import '../cue/table_cue_choreographer.dart';
 import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
 import '../table_card_flight_planner.dart';
@@ -111,36 +111,28 @@ class _GameTableScreenState extends State<GameTableScreen>
   bool _isHumanActionPending = false;
   bool _scoreOpen = false;
   bool _pauseOpen = false;
-  bool _fiftyPulse = false;
-  String? _humanFeedback;
-  bool _humanFeedbackIsError = false;
-  Timer? _fiftyTicker;
-  Timer? _feedbackTimer;
-  Timer? _roundAdvanceTimer;
   Set<String>? _placedJokerSnapshot;
-  // FIFO of joker declaration cues waiting to display. Used when more than
-  // one joker is placed in quick succession (e.g. CPU plays two meld sets
-  // back-to-back, each with a joker) so each cue gets its own dwell instead
-  // of being clobbered by the next one. Mechanics (enqueue / dwell / clear)
-  // live in [JokerCueQueue] so they're unit-testable without spinning up
-  // the whole table widget; this screen only wires the side effects.
-  late final JokerCueQueue<({PlayerSeat seat, CardIdentity identity})>
-      _jokerCueQueue = JokerCueQueue<
-          ({PlayerSeat seat, CardIdentity identity})>(
-        onCueStart: _onJokerCueStart,
-        onCueEnd: _onJokerCueEnd,
-        dwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
-      );
+  // Single owner of every "schedule a cue, then rebuild" mechanism the
+  // screen used to manage inline (feedback chip, revert flash, fifty
+  // ticker, fifty pulse, round-advance, joker cue FIFO). The widget
+  // listens to it once and rebuilds whenever any cue changes; the queue
+  // / timer mechanics live in the choreographer so they're unit-testable
+  // without spinning up Flutter.
+  late final TableCueChoreographer _cues = TableCueChoreographer(
+    jokerDwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
+    onJokerCueStart: (cue) => _onJokerCueStart(
+      cue as ({PlayerSeat seat, CardIdentity identity}),
+    ),
+    onJokerCueEnd: (cue) => _onJokerCueEnd(
+      cue as ({PlayerSeat seat, CardIdentity identity}),
+    ),
+    isMounted: () => mounted,
+  );
   final List<_CardFlight> _activeFlights = [];
   late final MeldFlightController _meldFlight;
   DealChoreography? _dealChoreography;
   bool _pendingDealBuild = false;
   HareegCard? _inspectedCard;
-  // Card id of the most recently rejected Strict-tier discard. While set, the
-  // south hand renders a brief flash on this card so the human can see which
-  // discard the +3 penalty refers to.
-  String? _revertFlashCardId;
-  Timer? _revertFlashTimer;
   static const _revertFlashDuration = Duration(milliseconds: 1100);
   ClassicHareegRoundResultPresentation? _roundResultPresentation;
   final Map<PlayerSeat, int> _matchEliminatedRoundBySeat = {};
@@ -160,7 +152,8 @@ class _GameTableScreenState extends State<GameTableScreen>
       handLookup: _cardInHand,
       baseMeldIndexLookup: (seat) => _controller.tableMeldsFor(seat).length,
       isMounted: () => mounted,
-    )..addListener(_handleMeldFlightChange);
+    )..addListener(_handleCueOrFlightChange);
+    _cues.addListener(_handleCueOrFlightChange);
     _resetHandInteraction();
     if (snapshot == null) {
       _pendingDealBuild = true;
@@ -189,24 +182,21 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   @override
   void dispose() {
-    _fiftyTicker?.cancel();
-    _fiftyTicker = null;
-    _feedbackTimer?.cancel();
-    _feedbackTimer = null;
-    _revertFlashTimer?.cancel();
-    _revertFlashTimer = null;
-    _roundAdvanceTimer?.cancel();
-    _roundAdvanceTimer = null;
-    _jokerCueQueue.clear();
+    _cues.removeListener(_handleCueOrFlightChange);
+    _cues.dispose();
     _dealChoreography?.dispose();
     _dealChoreography = null;
-    _meldFlight.removeListener(_handleMeldFlightChange);
+    _meldFlight.removeListener(_handleCueOrFlightChange);
     _meldFlight.dispose();
     AppOrientation.usePortrait();
     super.dispose();
   }
 
-  void _handleMeldFlightChange() {
+  /// Single rebuild signal for both the cue choreographer (feedback /
+  /// revert flash / fifty ticker / fifty pulse / round-advance / joker
+  /// cues) and the meld-flight controller. The screen no longer scatters
+  /// per-cue setState wires across the state class.
+  void _handleCueOrFlightChange() {
     if (!mounted) return;
     setState(() {});
   }
@@ -227,20 +217,17 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _ensureFiftyTicker() {
     final fiftyVisible = _controller.fiftySecondsRemaining != null;
-    if (fiftyVisible && _fiftyTicker == null) {
-      _fiftyTicker = Timer.periodic(const Duration(milliseconds: 500), (_) {
-        if (!mounted) return;
-        if (_controller.fiftySecondsRemaining == null) {
-          _fiftyTicker?.cancel();
-          _fiftyTicker = null;
-          setState(() {});
-          return;
-        }
-        setState(() {});
-      });
-    } else if (!fiftyVisible && _fiftyTicker != null) {
-      _fiftyTicker?.cancel();
-      _fiftyTicker = null;
+    if (fiftyVisible && !_cues.isFiftyTickerActive) {
+      _cues.startFiftyTicker(
+        period: const Duration(milliseconds: 500),
+        onTick: () {
+          if (_controller.fiftySecondsRemaining == null) {
+            _cues.stopFiftyTicker();
+          }
+        },
+      );
+    } else if (!fiftyVisible && _cues.isFiftyTickerActive) {
+      _cues.stopFiftyTicker();
     }
   }
 
@@ -597,7 +584,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               ),
               fiftySecondsRemaining: _controller.fiftySecondsRemaining,
               fiftyTotalSeconds: _controller.setup.fiftyTimerSeconds,
-              fiftyPulse: _fiftyPulse,
+              fiftyPulse: _cues.fiftyPulse,
               meldRequirement: _controller.openingState.currentRequirement,
               meldSelectionValue: meldCtaValue,
               meldSelectionValid: canPlayMeld,
@@ -614,7 +601,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               isCpuRunning: _isCpuRunning,
               currentSeat: _controller.currentSeat,
               activeSeats: _controller.roundActiveSeats.toSet(),
-              southFlashCardId: _revertFlashCardId,
+              southFlashCardId: _cues.revertFlashCardId,
             ),
             if (_dealChoreography != null)
               Positioned.fill(
@@ -701,7 +688,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                         ],
                       ),
                     ),
-                    if (_humanFeedback != null)
+                    if (_cues.feedback != null)
                       Positioned(
                         top:
                             safe.top +
@@ -713,8 +700,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
                             child: _FeedbackChip(
-                              message: _humanFeedback!,
-                              isError: _humanFeedbackIsError,
+                              message: _cues.feedback!.text,
+                              isError: _cues.feedback!.isError,
                             ),
                           ),
                         ),
@@ -996,54 +983,31 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// Pulses the offending card during a Strict-tier +3 reject. The "+N"
   /// toast itself is driven by the flow planner and `_replaceHumanFeedback`;
   /// this only manages the brief invalid-state flash on the south hand.
-  /// Caller already wrapped this in a `setState`.
+  /// Delegates to [_cues] so the timer + clear semantics live in one place.
   void _scheduleRevertFlash(String? revertedCardId) {
-    _revertFlashTimer?.cancel();
-    _revertFlashTimer = null;
-    _revertFlashCardId = revertedCardId;
-    if (revertedCardId == null) return;
-    _revertFlashTimer = Timer(_scaledDelay(_revertFlashDuration), () {
-      if (!mounted) return;
-      setState(() {
-        if (_revertFlashCardId == revertedCardId) {
-          _revertFlashCardId = null;
-        }
-      });
-    });
+    _cues.scheduleRevertFlash(
+      revertedCardId,
+      dwell: _scaledDelay(_revertFlashDuration),
+    );
   }
 
   void _replaceHumanFeedback(String? message, {required bool isError}) {
-    _feedbackTimer?.cancel();
-    _feedbackTimer = null;
-    // Any non-joker feedback (errors, hints, success messages) supersedes
-    // pending joker cues — drop the queue so we don't pop them on top.
-    _jokerCueQueue.clear();
-    final nextMessage = message == null || message.isEmpty
+    final nextText = message == null || message.isEmpty
         ? null
         : context.strings.gameMessage(message);
-    _humanFeedback = nextMessage;
-    _humanFeedbackIsError = isError;
-    if (nextMessage == null) return;
-
-    final duration = _scaledDelay(
-      isError ? _errorFeedbackDuration : _successFeedbackDuration,
-    );
-    _feedbackTimer = Timer(duration, () {
-      if (!mounted) return;
-      setState(() {
-        if (_humanFeedback == nextMessage && _humanFeedbackIsError == isError) {
-          _humanFeedback = null;
-        }
-      });
-    });
+    final next = nextText == null
+        ? null
+        : TableFeedbackMessage(text: nextText, isError: isError);
+    final duration = next == null
+        ? Duration.zero
+        : _scaledDelay(isError ? _errorFeedbackDuration : _successFeedbackDuration);
+    _cues.replaceFeedback(next, autoDismissAfter: duration);
   }
 
   void _showInvalidFeedback(String message) {
     unawaited(_haptics.fire(TableHapticEvent.illegalAction));
     unawaited(_audio.play(TableSoundEvent.invalidAction));
-    setState(() {
-      _replaceHumanFeedback(message, isError: true);
-    });
+    _replaceHumanFeedback(message, isError: true);
   }
 
   Set<String> _capturePlacedJokerIds() {
@@ -1083,48 +1047,43 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// for a sequential cue. Each cue gets a full dwell — when several jokers
   /// land back-to-back the chips show in order rather than clobbering each
   /// other. The [needsSetState] flag is preserved for symmetry with the
-  /// pre-refactor signature; the queue's start/end callbacks each wrap
-  /// their own setState, so callers no longer need to.
+  /// pre-refactor signature; the choreographer notifies on each pump so the
+  /// caller no longer needs to wrap.
   void _emitFeedbackForFirstNewJoker({required bool needsSetState}) {
     final newJokers = _consumeJokerPlacements();
     if (newJokers.isEmpty) return;
     if (needsSetState && !mounted) return;
-    _jokerCueQueue.enqueueAll(newJokers);
+    _cues.enqueueJokerCues(newJokers);
   }
 
   void _onJokerCueStart(({PlayerSeat seat, CardIdentity identity}) cue) {
     if (!mounted) return;
     final strings = context.strings;
-    final message = cue.seat == PlayerSeat.south
+    final text = cue.seat == PlayerSeat.south
         ? strings.youDeclaredJoker(cue.identity)
         : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
     unawaited(_audio.play(TableSoundEvent.jokerDeclared));
-    // The cue queue calls this for both the first cue (synchronously from
-    // [enqueueAll]) and every subsequent cue (synchronously from the dwell
-    // timer). Wrapping in setState here keeps both paths consistent and
-    // guarantees a repaint without the caller needing to wrap.
-    setState(() {
-      _feedbackTimer?.cancel();
-      _feedbackTimer = null;
-      _humanFeedback = message;
-      _humanFeedbackIsError = false;
-    });
+    // The choreographer pumps this for both the first cue (synchronously
+    // from enqueueAll) and every subsequent cue (synchronously from the
+    // dwell timer); calling setFeedbackUnmanaged keeps both paths consistent
+    // and notifies listeners exactly once per pump.
+    _cues.setFeedbackUnmanaged(
+      TableFeedbackMessage(text: text, isError: false),
+    );
   }
 
   void _onJokerCueEnd(({PlayerSeat seat, CardIdentity identity}) cue) {
     if (!mounted) return;
     final strings = context.strings;
-    final message = cue.seat == PlayerSeat.south
+    final text = cue.seat == PlayerSeat.south
         ? strings.youDeclaredJoker(cue.identity)
         : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
-    // Withdraw this cue's message if it still owns the feedback line; the
-    // next cue's start callback (if any) fires immediately after this and
-    // will publish its own message inside its own setState.
-    setState(() {
-      if (_humanFeedback == message && !_humanFeedbackIsError) {
-        _humanFeedback = null;
-      }
-    });
+    // Withdraw this cue's message only if it still owns the feedback line;
+    // the next cue's start callback (if any) fires immediately after this
+    // and will publish its own message via setFeedbackUnmanaged.
+    _cues.withdrawFeedbackIf(
+      TableFeedbackMessage(text: text, isError: false),
+    );
   }
 
   /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
@@ -1327,11 +1286,8 @@ class _GameTableScreenState extends State<GameTableScreen>
   Future<void> _claimFifty() async {
     await _runHumanAction(ClassicHareegActionIds.claimFifty);
     if (!mounted) return;
-    setState(() => _fiftyPulse = true);
     unawaited(_haptics.fire(TableHapticEvent.fiftyClaim));
-    Future.delayed(_scaledDelay(TableMotion.fiftyHeatPulse), () {
-      if (mounted) setState(() => _fiftyPulse = false);
-    });
+    _cues.scheduleFiftyPulse(dwell: _scaledDelay(TableMotion.fiftyHeatPulse));
   }
 
   Future<void> _runHumanAction(
@@ -1510,10 +1466,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     setState(() {
       _isFastForwardingRound = true;
       _isCpuRunning = true;
-      // Hide pending feedback chips so they don't linger across the rip.
-      _humanFeedback = null;
-      _humanFeedbackIsError = false;
-      _jokerCueQueue.clear();
+      // Hide pending feedback chips and drain every cue mechanism so they
+      // don't linger across the rip.
+      _cues.resetAll();
       _activeFlights.clear();
       _meldFlight.clear();
     });
@@ -1820,15 +1775,13 @@ class _GameTableScreenState extends State<GameTableScreen>
     // yet (other CPU seats are still match-active).
     final humanEliminated = _controller.isHumanEliminated;
     if (nextSnapshot == null || humanEliminated) {
-      _roundAdvanceTimer?.cancel();
-      _roundAdvanceTimer = Timer(_scaledDelay(_matchEndOverlayDwell), () {
+      _cues.scheduleRoundAdvance(_scaledDelay(_matchEndOverlayDwell), () {
         if (!mounted) return;
         _openMatchOver(presentation);
       });
       return;
     }
-    _roundAdvanceTimer?.cancel();
-    _roundAdvanceTimer = Timer(_roundResultDisplayDuration, () {
+    _cues.scheduleRoundAdvance(_roundResultDisplayDuration, () {
       if (!mounted) return;
       _advanceToNextRound(nextSnapshot);
     });
@@ -1840,12 +1793,8 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _openMatchOver(ClassicHareegRoundResultPresentation presentation) {
     _rememberEliminatedRoundsFromController();
-    _roundAdvanceTimer?.cancel();
-    _roundAdvanceTimer = null;
-    _fiftyTicker?.cancel();
-    _fiftyTicker = null;
-    _feedbackTimer?.cancel();
-    _feedbackTimer = null;
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
     _dealChoreography?.dispose();
     _dealChoreography = null;
     Navigator.of(context).pushReplacementNamed(
@@ -1868,14 +1817,10 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
     _rememberEliminatedRoundsFromController();
-    _roundAdvanceTimer?.cancel();
-    _roundAdvanceTimer = null;
-    _fiftyTicker?.cancel();
-    _fiftyTicker = null;
-    _feedbackTimer?.cancel();
-    _feedbackTimer = null;
-    _revertFlashTimer?.cancel();
-    _revertFlashTimer = null;
+    // Drain every cue timer + the fifty ticker before swapping controllers
+    // so no stale dwell can fire against the freshly dealt hand.
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
     _dealChoreography?.dispose();
     _dealChoreography = null;
     setState(() {
@@ -1885,13 +1830,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       _isCpuRunning = false;
       _scoreOpen = false;
       _pauseOpen = false;
-      _fiftyPulse = false;
-      _humanFeedback = null;
-      _humanFeedbackIsError = false;
-      _revertFlashCardId = null;
-      // Drop any pending joker cues from the prior round so the queue
-      // can't pump a stale declaration against the freshly dealt hand.
-      _jokerCueQueue.clear();
       _placedJokerSnapshot = null;
       _activeFlights.clear();
       _meldFlight.clear();
