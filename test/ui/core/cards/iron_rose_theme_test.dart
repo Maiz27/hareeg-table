@@ -3,37 +3,56 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
-import 'package:hareeg_table/ui/core/cards/themes/iron_rose_theme.dart';
+import 'package:hareeg_table/ui/core/cards/themes/bundled_themes.dart';
 
 void main() {
   test('Iron Rose resolves bundled face, back, and joker artwork', () {
-    const theme = IronRoseCardTheme();
+    const theme = ironRoseCardTheme;
     final queenDiamonds = HareegCard.standard(
       rank: CardRank.queen,
       suit: CardSuit.diamonds,
       deckIndex: 0,
     );
 
-    final asset = theme.imageAssetFor(
+    final faceAsset = theme.imageAssetFor(
       CardRenderRequest(
         card: queenDiamonds,
         variant: CardVariant.full,
         size: const Size(64, 92),
       ),
     );
+    expect(faceAsset, 'assets/cards/iron_rose/queen_diamonds.webp');
 
-    expect(asset, 'assets/cards/iron_rose/queen_diamonds.webp');
-    expect(
-      theme.assetManifest.standardFace(queenDiamonds.identity!),
-      'assets/cards/iron_rose/queen_diamonds.webp',
+    final backAsset = theme.imageAssetFor(
+      CardRenderRequest(
+        card: queenDiamonds,
+        variant: CardVariant.back,
+        size: const Size(64, 92),
+        faceDown: true,
+      ),
     );
-    expect(theme.assetManifest.back, 'assets/cards/iron_rose/back.webp');
+    expect(backAsset, 'assets/cards/iron_rose/back.webp');
+
+    const redJoker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
+    const blackJoker = HareegCard.joker(deckIndex: 0, jokerIndex: 1);
     expect(
-      theme.assetManifest.jokerFace(jokerIndex: 0),
+      theme.imageAssetFor(
+        CardRenderRequest(
+          card: redJoker,
+          variant: CardVariant.full,
+          size: const Size(64, 92),
+        ),
+      ),
       'assets/cards/iron_rose/joker_red.webp',
     );
     expect(
-      theme.assetManifest.jokerFace(jokerIndex: 1),
+      theme.imageAssetFor(
+        CardRenderRequest(
+          card: blackJoker,
+          variant: CardVariant.full,
+          size: const Size(64, 92),
+        ),
+      ),
       'assets/cards/iron_rose/joker_black.webp',
     );
   });
@@ -41,7 +60,7 @@ void main() {
   testWidgets('Iron Rose renders face, back, and represented joker assets', (
     tester,
   ) async {
-    const theme = IronRoseCardTheme();
+    const theme = ironRoseCardTheme;
     final ace = HareegCard.standard(
       rank: CardRank.ace,
       suit: CardSuit.spades,

@@ -1,9 +1,5 @@
 import 'card_theme.dart';
-import 'themes/iron_rose_theme.dart';
-import 'themes/kenney_classic_theme.dart';
-import 'themes/minimal_symbols_theme.dart';
-import 'themes/sandline_lounge_theme.dart';
-import 'themes/wikimedia_pd_theme.dart';
+import 'themes/bundled_themes.dart';
 
 /// Registry of bundled card themes shown in the picker.
 ///
@@ -13,11 +9,11 @@ abstract final class CardThemeRegistry {
   static const defaultThemeId = 'sandline_lounge';
 
   static const _themes = <HareegCardTheme>[
-    SandlineLoungeCardTheme(),
-    IronRoseCardTheme(),
-    MinimalSymbolsCardTheme(),
-    KenneyClassicCardTheme(),
-    WikimediaPdCardTheme(),
+    sandlineLoungeCardTheme,
+    ironRoseCardTheme,
+    minimalSymbolsCardTheme,
+    kenneyClassicCardTheme,
+    wikimediaPdCardTheme,
   ];
 
   /// Returns all bundled themes.
