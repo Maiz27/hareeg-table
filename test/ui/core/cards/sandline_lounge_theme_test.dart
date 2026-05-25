@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
@@ -28,6 +30,20 @@ void main() {
       'assets/cards/sandline_lounge/jack_diamonds.webp',
     );
   });
+
+  test(
+    'Sandline Lounge Jack of Diamonds artwork is not the Jack of Hearts',
+    () {
+      final jackDiamonds = File(
+        'assets/cards/sandline_lounge/jack_diamonds.webp',
+      ).readAsBytesSync();
+      final jackHearts = File(
+        'assets/cards/sandline_lounge/jack_hearts.webp',
+      ).readAsBytesSync();
+
+      expect(jackDiamonds, isNot(jackHearts));
+    },
+  );
 
   testWidgets(
     'Sandline Lounge renders face, back, and represented joker assets',
