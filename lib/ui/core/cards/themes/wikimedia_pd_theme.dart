@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../card_asset_manifest.dart';
 import '../card_painting.dart';
 import '../card_theme.dart';
 
 /// Bundled Wikimedia Commons English-pattern face-card theme.
-class WikimediaPdCardTheme extends HareegCardTheme {
+class WikimediaPdCardTheme extends HareegCardTheme
+    implements AssetManifestCardTheme {
   /// Creates the theme.
   const WikimediaPdCardTheme();
+
+  static const _assetRoot = 'assets/cards/wikimedia_english';
+  static final CardAssetManifest _manifest = CardAssetManifest.standardDeck(
+    assetRoot: _assetRoot,
+    back: null,
+    redJoker: null,
+    blackJoker: null,
+    extension: 'png',
+  );
 
   static const _palette = CardThemePalette(
     faceBackground: Color(0xFFFBFBF6),
@@ -48,19 +58,16 @@ class WikimediaPdCardTheme extends HareegCardTheme {
   bool get readableOnCompactLayouts => true;
 
   @override
+  CardAssetManifest get assetManifest => _manifest;
+
+  @override
   String? imageAssetFor(CardRenderRequest request) {
     if (request.faceDown ||
         request.variant == CardVariant.back ||
         request.card.isJoker) {
       return null;
     }
-
-    final identity = request.card.identity ?? request.card.representedIdentity;
-    if (identity == null) {
-      return null;
-    }
-    return 'assets/cards/wikimedia_english/'
-        '${_rankSlug(identity.rank)}_${identity.suit.name}.png';
+    return assetManifest.assetFor(request);
   }
 
   @override
@@ -75,23 +82,5 @@ class WikimediaPdCardTheme extends HareegCardTheme {
     } else {
       CardPainting.paintStandardFace(canvas, request, _palette);
     }
-  }
-
-  static String _rankSlug(CardRank rank) {
-    return switch (rank) {
-      CardRank.ace => 'ace',
-      CardRank.two => 'two',
-      CardRank.three => 'three',
-      CardRank.four => 'four',
-      CardRank.five => 'five',
-      CardRank.six => 'six',
-      CardRank.seven => 'seven',
-      CardRank.eight => 'eight',
-      CardRank.nine => 'nine',
-      CardRank.ten => 'ten',
-      CardRank.jack => 'jack',
-      CardRank.queen => 'queen',
-      CardRank.king => 'king',
-    };
   }
 }

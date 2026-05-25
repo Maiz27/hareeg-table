@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../theme/lounge_tokens.dart';
+import '../card_asset_manifest.dart';
 import '../card_painting.dart';
 import '../card_theme.dart';
 
 /// Bundled Kenney.nl CC0 pixel-art card theme.
-class KenneyClassicCardTheme extends HareegCardTheme {
+class KenneyClassicCardTheme extends HareegCardTheme
+    implements AssetManifestCardTheme {
   /// Creates the theme.
   const KenneyClassicCardTheme();
+
+  static const _assetRoot = 'assets/cards/kenney_classic';
+  static final CardAssetManifest _manifest = CardAssetManifest.standardDeck(
+    assetRoot: _assetRoot,
+    back: '$_assetRoot/back.png',
+    redJoker: '$_assetRoot/joker_red.png',
+    blackJoker: '$_assetRoot/joker_black.png',
+    extension: 'png',
+  );
 
   static const _palette = CardThemePalette(
     faceBackground: Color(0xFFF6EFE0),
@@ -48,22 +58,11 @@ class KenneyClassicCardTheme extends HareegCardTheme {
   bool get readableOnCompactLayouts => true;
 
   @override
+  CardAssetManifest get assetManifest => _manifest;
+
+  @override
   String? imageAssetFor(CardRenderRequest request) {
-    if (request.faceDown || request.variant == CardVariant.back) {
-      return 'assets/cards/kenney_classic/back.png';
-    }
-
-    if (request.card.isJoker) {
-      final suffix = (request.card.jokerIndex ?? 0).isEven ? 'red' : 'black';
-      return 'assets/cards/kenney_classic/joker_$suffix.png';
-    }
-
-    final identity = request.card.identity ?? request.card.representedIdentity;
-    if (identity == null) {
-      return null;
-    }
-    return 'assets/cards/kenney_classic/'
-        '${_rankSlug(identity.rank)}_${identity.suit.name}.png';
+    return assetManifest.assetFor(request);
   }
 
   @override
@@ -92,23 +91,5 @@ class KenneyClassicCardTheme extends HareegCardTheme {
       Offset(size.width * 0.82, size.height * 0.5),
       paint,
     );
-  }
-
-  static String _rankSlug(CardRank rank) {
-    return switch (rank) {
-      CardRank.ace => 'ace',
-      CardRank.two => 'two',
-      CardRank.three => 'three',
-      CardRank.four => 'four',
-      CardRank.five => 'five',
-      CardRank.six => 'six',
-      CardRank.seven => 'seven',
-      CardRank.eight => 'eight',
-      CardRank.nine => 'nine',
-      CardRank.ten => 'ten',
-      CardRank.jack => 'jack',
-      CardRank.queen => 'queen',
-      CardRank.king => 'king',
-    };
   }
 }

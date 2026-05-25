@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../card_asset_manifest.dart';
 import '../../theme/lounge_tokens.dart';
 import '../card_painting.dart';
 import '../card_theme.dart';
@@ -9,11 +9,18 @@ import '../card_theme.dart';
 ///
 /// Uses medium-resolution lossless WebP assets to keep the internal theme
 /// package small while preserving the generated sand-line artwork.
-class SandlineLoungeCardTheme extends HareegCardTheme {
+class SandlineLoungeCardTheme extends HareegCardTheme
+    implements AssetManifestCardTheme {
   /// Creates the theme.
   const SandlineLoungeCardTheme();
 
   static const _assetRoot = 'assets/cards/sandline_lounge';
+  static final CardAssetManifest _manifest = CardAssetManifest.standardDeck(
+    assetRoot: _assetRoot,
+    back: '$_assetRoot/back.webp',
+    redJoker: '$_assetRoot/joker_red.webp',
+    blackJoker: '$_assetRoot/joker_black.webp',
+  );
 
   static const _palette = CardThemePalette(
     faceBackground: LoungeTokens.cardIvory,
@@ -52,30 +59,11 @@ class SandlineLoungeCardTheme extends HareegCardTheme {
   bool get readableOnCompactLayouts => true;
 
   @override
+  CardAssetManifest get assetManifest => _manifest;
+
+  @override
   String? imageAssetFor(CardRenderRequest request) {
-    if (request.faceDown || request.variant == CardVariant.back) {
-      return '$_assetRoot/back.webp';
-    }
-
-    if (request.card.isJoker) {
-      final suffix = (request.card.jokerIndex ?? 0).isEven ? 'red' : 'black';
-      return '$_assetRoot/joker_$suffix.webp';
-    }
-
-    final identity = request.card.identity ?? request.card.representedIdentity;
-    if (identity == null) {
-      return null;
-    }
-
-    // The bundled jack_diamonds.webp asset was a duplicate of jack_hearts —
-    // its image shows a heart corner pip while the game labels it J♦. Until
-    // a corrected piece of court art ships, fall back to the code-rendered
-    // painter for J♦ so the painted rank+pip match the card's identity.
-    if (identity.rank == CardRank.jack && identity.suit == CardSuit.diamonds) {
-      return null;
-    }
-
-    return '$_assetRoot/${_rankSlug(identity.rank)}_${identity.suit.name}.webp';
+    return assetManifest.assetFor(request);
   }
 
   @override
@@ -90,23 +78,5 @@ class SandlineLoungeCardTheme extends HareegCardTheme {
     } else {
       CardPainting.paintStandardFace(canvas, request, _palette);
     }
-  }
-
-  static String _rankSlug(CardRank rank) {
-    return switch (rank) {
-      CardRank.ace => 'ace',
-      CardRank.two => 'two',
-      CardRank.three => 'three',
-      CardRank.four => 'four',
-      CardRank.five => 'five',
-      CardRank.six => 'six',
-      CardRank.seven => 'seven',
-      CardRank.eight => 'eight',
-      CardRank.nine => 'nine',
-      CardRank.ten => 'ten',
-      CardRank.jack => 'jack',
-      CardRank.queen => 'queen',
-      CardRank.king => 'king',
-    };
   }
 }

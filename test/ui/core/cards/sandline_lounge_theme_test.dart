@@ -6,6 +6,29 @@ import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/themes/sandline_lounge_theme.dart';
 
 void main() {
+  test('Sandline Lounge uses its bundled Jack of Diamonds artwork', () {
+    const theme = SandlineLoungeCardTheme();
+    final jackDiamonds = HareegCard.standard(
+      rank: CardRank.jack,
+      suit: CardSuit.diamonds,
+      deckIndex: 0,
+    );
+
+    final asset = theme.imageAssetFor(
+      CardRenderRequest(
+        card: jackDiamonds,
+        variant: CardVariant.full,
+        size: const Size(64, 92),
+      ),
+    );
+
+    expect(asset, 'assets/cards/sandline_lounge/jack_diamonds.webp');
+    expect(
+      theme.assetManifest.standardFace(jackDiamonds.identity!),
+      'assets/cards/sandline_lounge/jack_diamonds.webp',
+    );
+  });
+
   testWidgets(
     'Sandline Lounge renders face, back, and represented joker assets',
     (tester) async {
