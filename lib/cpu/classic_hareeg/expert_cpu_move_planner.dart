@@ -1,22 +1,16 @@
-import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
-import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import '../../domain/classic_hareeg/rules/opening_rules.dart';
 import 'cpu_move_plan.dart';
+import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
 import 'skilled_cpu_move_planner.dart';
 
-class _ExpertCpuLegalAction {
-  const _ExpertCpuLegalAction({
-    required this.actionId,
-    required this.descriptor,
-  });
-
-  final String actionId;
-  final ClassicHareegActionDescriptor descriptor;
-}
-
 /// Expert CPU planner with offensive Fifty posture and opponent-aware defence.
+///
+/// This tier is a thin adapter — every stage of `plan()` runs in
+/// [CpuMovePlanPipeline]; this class only supplies the per-stage scoring weights
+/// for Expert's posture (opening-band push, interior-joker preference,
+/// opponent-threat discard model, finish-gated joker replacement).
 class ExpertCpuMovePlanner implements CpuMovePlanner {
   /// Creates an expert CPU move planner.
   const ExpertCpuMovePlanner();
@@ -34,182 +28,38 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
 
   @override
   ClassicHareegCpuMovePlan plan(CpuObservation observation) {
-    final legalActions = [
-      for (final id in observation.legalActionIds)
-        _ExpertCpuLegalAction(
-          actionId: id,
-          descriptor: ClassicHareegActionIds.describe(id),
-        ),
-    ];
-    if (legalActions.isEmpty) {
-      return const ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.noLegalActions,
-        actionId: null,
-      );
-    }
+    return _ExpertPipeline(_ExpertCpuPlanPolicy()).plan(observation);
+  }
+}
 
-    final fifty = _firstActionOfKind(
-      legalActions,
-      ClassicHareegActionKind.claimFifty,
+/// Expert uses a larger partition fan-out cap than the Skilled default. The
+/// pipeline exposes the cap via the [bestMeldAction] parameter, so we override
+/// the spine's call to inject Expert's 256-partition cap.
+class _ExpertPipeline extends CpuMovePlanPipeline {
+  const _ExpertPipeline(super.policy);
+
+  @override
+  String? bestMeldAction(
+    CpuObservation observation, {
+    required int partitionLimit,
+  }) {
+    return super.bestMeldAction(
+      observation,
+      partitionLimit: ExpertCpuMovePlanner._partitionLimit,
     );
-    if (fifty != null &&
-        SkilledCpuMovePlanner.canSuccessfullyClaimFifty(observation)) {
-      return ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.fiftyClaim,
-        actionId: fifty.actionId,
-      );
-    }
+  }
+}
 
-    if (observation.pendingDiscard != null) {
-      final pendingMeld = _bestMeldAction(observation);
-      if (pendingMeld != null) {
-        return ClassicHareegCpuMovePlan(
-          scenario: ClassicHareegCpuMoveScenario.meldPlay,
-          actionId: pendingMeld,
-        );
-      }
-      final pendingReturn = _firstActionOfKind(
-        legalActions,
-        ClassicHareegActionKind.returnPendingDiscard,
-      );
-      if (pendingReturn != null) {
-        return ClassicHareegCpuMovePlan(
-          scenario: ClassicHareegCpuMoveScenario.returnPendingDiscard,
-          actionId: pendingReturn.actionId,
-        );
-      }
-    }
+class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
+  const _ExpertCpuPlanPolicy();
 
-    if (observation.turnPhase == TurnPhase.draw) {
-      final takeDiscard = _firstActionOfKind(
-        legalActions,
-        ClassicHareegActionKind.takeDiscard,
-      );
-      if (takeDiscard != null && _shouldTakeDiscard(observation)) {
-        return ClassicHareegCpuMovePlan(
-          scenario: ClassicHareegCpuMoveScenario.takeDiscard,
-          actionId: takeDiscard.actionId,
-        );
-      }
-      final drawStock = _firstActionOfKind(
-        legalActions,
-        ClassicHareegActionKind.drawStock,
-      );
-      if (drawStock != null) {
-        return ClassicHareegCpuMovePlan(
-          scenario: ClassicHareegCpuMoveScenario.drawStock,
-          actionId: drawStock.actionId,
-        );
-      }
-    }
-
-    final holdForFifty = _shouldHoldForFifty(observation);
-    if (!holdForFifty) {
-      final meldAction = _bestMeldAction(observation);
-      if (meldAction != null) {
-        return ClassicHareegCpuMovePlan(
-          scenario: ClassicHareegCpuMoveScenario.meldPlay,
-          actionId: meldAction,
-        );
-      }
-    }
-
-    final replacement = _firstActionOfKind(
-      legalActions,
-      ClassicHareegActionKind.replaceJoker,
-    );
-    if (replacement != null && observation.finishingPartition() != null) {
-      return ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.jokerReplacement,
-        actionId: replacement.actionId,
-      );
-    }
-
-    final cover = _firstActionOfKind(
-      legalActions,
-      ClassicHareegActionKind.placeCover,
-    );
-    if (cover != null && !_shouldHoldCover(observation, cover)) {
-      return ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.cover,
-        actionId: cover.actionId,
-      );
-    }
-
-    final discard = _bestDiscardAction(observation, legalActions);
-    if (discard != null) {
-      return ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.safeDiscard,
-        actionId: discard.actionId,
-      );
-    }
-
-    return const SkilledCpuMovePlanner().plan(observation);
+  @override
+  bool shouldClaimFifty(CpuObservation observation) {
+    return canSuccessfullyClaimFiftyFor(observation);
   }
 
-  _ExpertCpuLegalAction? _firstActionOfKind(
-    List<_ExpertCpuLegalAction> actions,
-    ClassicHareegActionKind kind,
-  ) {
-    for (final action in actions) {
-      if (action.descriptor.kind == kind) {
-        return action;
-      }
-    }
-    return null;
-  }
-
-  String? _bestMeldAction(CpuObservation observation) {
-    if (observation.turnPhase != TurnPhase.action) {
-      return null;
-    }
-
-    final pending = observation.pendingDiscard;
-    final partitions = observation.partitions
-        .enumerate(
-          maxPartitions: _partitionLimit,
-          minMelds: 1,
-          maxMelds: 5,
-          mustUseCardId: pending?.id,
-          minTotalValue: observation.ownHasOpened()
-              ? null
-              : observation.currentOpeningRequirement,
-        )
-        .where((partition) => _canPlayPartition(observation, partition))
-        .toList();
-    if (partitions.isEmpty) {
-      return null;
-    }
-
-    partitions.sort((left, right) {
-      return _comparePartitions(observation, left, right);
-    });
-    final partition = partitions.first;
-    final cards = _cardsInHandOrder(observation, partition.cardsUsed);
-    if (cards.isEmpty || cards.length >= observation.ownHand.length) {
-      return null;
-    }
-    return _playMeldActionId(cards, partition.jokerAssignments);
-  }
-
-  bool _canPlayPartition(CpuObservation observation, MeldPartition partition) {
-    if (partition.cardsUsed.isEmpty || partition.cardsRemaining.isEmpty) {
-      return false;
-    }
-
-    final pending = observation.pendingDiscard;
-    if (pending != null && !partition.usesCardId(pending.id)) {
-      return false;
-    }
-
-    if (!observation.ownHasOpened() &&
-        partition.totalValue < observation.currentOpeningRequirement) {
-      return false;
-    }
-    return true;
-  }
-
-  int _comparePartitions(
+  @override
+  int comparePartitions(
     CpuObservation observation,
     MeldPartition left,
     MeldPartition right,
@@ -220,12 +70,12 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
 
     final leftFinishes = left.cardsRemaining.length == 1;
     final rightFinishes = right.cardsRemaining.length == 1;
-    final finishCompare = _boolDesc(leftFinishes, rightFinishes);
+    final finishCompare = boolDesc(leftFinishes, rightFinishes);
     if (finishCompare != 0) {
       return finishCompare;
     }
 
-    if (observation.stockCount <= _thinStockCount) {
+    if (observation.stockCount <= ExpertCpuMovePlanner._thinStockCount) {
       final remainingCompare = _remainingPips(
         left,
       ).compareTo(_remainingPips(right));
@@ -264,13 +114,138 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
     return _partitionKey(left).compareTo(_partitionKey(right));
   }
 
+  @override
+  List<HareegCard> selectMeldCards(
+    CpuObservation observation,
+    MeldPartition partition,
+  ) {
+    return CpuMovePlanPipeline.cardsInHandOrder(
+      observation,
+      partition.cardsUsed,
+    );
+  }
+
+  @override
+  bool shouldTakeDiscard(CpuObservation observation) {
+    // Call the shared predicate directly instead of recursing through
+    // Skilled's full plan — that path re-enumerates partitions and rebuilds
+    // threat profiles just to read this boolean.
+    if (shouldTakeDiscardForObservationCore(observation)) {
+      return true;
+    }
+    // Defensive thin-stock pickup only makes sense if the seat has already
+    // opened (or the pickup itself can satisfy opening). Picking up an
+    // unusable discard pre-opening forces the rules engine to return it,
+    // and the next draw choice will face the same discard top → loop.
+    if (observation.stockCount > ExpertCpuMovePlanner._thinStockCount ||
+        observation.topDiscard == null) {
+      return false;
+    }
+    return observation.ownHasOpened();
+  }
+
+  @override
+  bool shouldHoldNormalFinishForFifty(CpuObservation observation) {
+    if (observation.finishingPartition() == null ||
+        observation.stockCount < ExpertCpuMovePlanner._fiftyHoldStockFloor ||
+        handPipValue(observation.ownHand) <=
+            ExpertCpuMovePlanner._fiftyHoldHandValueFloor) {
+      return false;
+    }
+
+    if (observation.ownScore >= ExpertCpuMovePlanner._highRiskScoreFloor) {
+      return true;
+    }
+    return observation.opponents.any((opponent) {
+      return observation.scoreFor(opponent) >=
+          ExpertCpuMovePlanner._highRiskScoreFloor;
+    });
+  }
+
+  @override
+  bool gateJokerReplacement(CpuObservation observation) {
+    return observation.finishingPartition() != null;
+  }
+
+  @override
+  bool shouldHoldCover(CpuObservation observation, CpuLegalAction cover) {
+    final target = cover.descriptor.coverTarget;
+    if (target == null || target.targetSeat != observation.seat) {
+      return false;
+    }
+    final cardIds = cover.descriptor.cardIds;
+    if (cardIds.length != 1) {
+      return false;
+    }
+    final card = _cardById(observation, cardIds.single);
+    final identity = card?.effectiveIdentity;
+    if (identity == null) {
+      return false;
+    }
+    final ownMelds = observation.tableMeldsFor(observation.seat);
+    if (target.meldIndex < 0 || target.meldIndex >= ownMelds.length) {
+      return false;
+    }
+    final orders = _sequenceOrders(ownMelds[target.meldIndex]);
+    if (orders == null) {
+      return false;
+    }
+    final order = _rankOrder(identity.rank, highAce: orders.last == 14);
+    return order == orders.first - 1 || order == orders.last + 1;
+  }
+
+  @override
+  Comparator<CpuDiscardCandidate> discardComparator(
+    CpuObservation observation,
+  ) {
+    // Expert's legacy planner used `_shouldHoldForFifty` (the high-risk
+    // posture check) rather than the normal-finish hold gate when sorting
+    // discards. The two predicates share their hold-for-fifty floors but
+    // diverge on the "any opponent near-score" branch, so we keep the
+    // posture-only check here to preserve behaviour exactly.
+    final profile = _OpponentThreatProfile.fromObservation(observation);
+    final holdForFifty = shouldHoldNormalFinishForFifty(observation);
+
+    return (left, right) {
+      final leftCard = left.card;
+      final rightCard = right.card;
+      final leftDanger = profile.dangerScore(leftCard);
+      final rightDanger = profile.dangerScore(rightCard);
+      final dangerCompare = leftDanger.compareTo(rightDanger);
+      if (dangerCompare != 0) {
+        return dangerCompare;
+      }
+
+      final leftTarget = profile.fiftySetupScore(leftCard);
+      final rightTarget = profile.fiftySetupScore(rightCard);
+      final targetCompare = leftTarget.compareTo(rightTarget);
+      if (targetCompare != 0) {
+        return targetCompare;
+      }
+
+      final leftValue = cardPipValue(leftCard);
+      final rightValue = cardPipValue(rightCard);
+      return holdForFifty
+          ? rightValue.compareTo(leftValue)
+          : leftValue.compareTo(rightValue);
+    };
+  }
+
+  @override
+  bool allowAnyLegalMeldFallback(CpuObservation observation) => false;
+
+  @override
+  ClassicHareegCpuMovePlan fallback(CpuObservation observation) {
+    return const SkilledCpuMovePlanner().plan(observation);
+  }
+
   int _compareOpeningPartitions(
     CpuObservation observation,
     MeldPartition left,
     MeldPartition right,
   ) {
     if (observation.benchmarkOwner == null &&
-        observation.stockCount >= _freshStockCount) {
+        observation.stockCount >= ExpertCpuMovePlanner._freshStockCount) {
       final leftBand = _benchmarkBandScore(left.totalValue);
       final rightBand = _benchmarkBandScore(right.totalValue);
       final bandCompare = rightBand.compareTo(leftBand);
@@ -278,9 +253,12 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
         return bandCompare;
       }
 
-      final targetCompare = (left.totalValue - _benchmarkTarget)
-          .abs()
-          .compareTo((right.totalValue - _benchmarkTarget).abs());
+      final targetCompare =
+          (left.totalValue - ExpertCpuMovePlanner._benchmarkTarget)
+              .abs()
+              .compareTo(
+                (right.totalValue - ExpertCpuMovePlanner._benchmarkTarget).abs(),
+              );
       if (targetCompare != 0) {
         return targetCompare;
       }
@@ -302,10 +280,11 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
   }
 
   int _benchmarkBandScore(int value) {
-    if (value >= _benchmarkFloor && value <= _benchmarkCeiling) {
+    if (value >= ExpertCpuMovePlanner._benchmarkFloor &&
+        value <= ExpertCpuMovePlanner._benchmarkCeiling) {
       return 2;
     }
-    if (value > _benchmarkCeiling) {
+    if (value > ExpertCpuMovePlanner._benchmarkCeiling) {
       return 1;
     }
     return 0;
@@ -341,203 +320,6 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
     return score;
   }
 
-  List<int>? _sequenceOrders(PlacedMeld meld) {
-    final identities = meld.cards
-        .map((card) => card.effectiveIdentity)
-        .whereType<CardIdentity>()
-        .toList(growable: false);
-    if (identities.length != meld.cards.length || identities.length < 3) {
-      return null;
-    }
-    final suit = identities.first.suit;
-    if (identities.any((identity) => identity.suit != suit)) {
-      return null;
-    }
-
-    final lowOrders = identities.map((identity) => identity.rank.order).toList()
-      ..sort();
-    if (_isConsecutive(lowOrders)) {
-      return lowOrders;
-    }
-
-    final highOrders =
-        identities
-            .map((identity) => _rankOrder(identity.rank, highAce: true))
-            .toList()
-          ..sort();
-    if (_isConsecutive(highOrders)) {
-      return highOrders;
-    }
-    return null;
-  }
-
-  bool _isConsecutive(List<int> orders) {
-    for (var index = 1; index < orders.length; index += 1) {
-      if (orders[index] != orders[index - 1] + 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  int _rankOrder(CardRank rank, {required bool highAce}) {
-    if (highAce && rank == CardRank.ace) {
-      return 14;
-    }
-    return rank.order;
-  }
-
-  List<HareegCard> _cardsInHandOrder(
-    CpuObservation observation,
-    Iterable<HareegCard> selected,
-  ) {
-    final selectedIds = selected.map((card) => card.id).toSet();
-    return [
-      for (final card in observation.ownHand)
-        if (selectedIds.contains(card.id)) card,
-    ];
-  }
-
-  String _playMeldActionId(
-    List<HareegCard> cards,
-    List<JokerMeldAssignment> assignments,
-  ) {
-    final cardIds = cards.map((card) => card.id).toList(growable: false);
-    final selectedIds = cardIds.toSet();
-    final selectedAssignments = [
-      for (final assignment in assignments)
-        if (selectedIds.contains(assignment.jokerId)) assignment,
-    ];
-    if (selectedAssignments.isEmpty) {
-      return ClassicHareegActionIds.playMeldActionId(cardIds);
-    }
-    return ClassicHareegActionIds.playMeldWithJokerIdentitiesActionId(
-      cardIds: cardIds,
-      assignments: selectedAssignments,
-    );
-  }
-
-  bool _shouldTakeDiscard(CpuObservation observation) {
-    // Call the shared predicate directly instead of recursing through
-    // Skilled's full plan — that path re-enumerates partitions and rebuilds
-    // threat profiles just to read this boolean.
-    if (SkilledCpuMovePlanner.shouldTakeDiscardForObservation(observation)) {
-      return true;
-    }
-    // Defensive thin-stock pickup only makes sense if the seat has already
-    // opened (or the pickup itself can satisfy opening). Picking up an
-    // unusable discard pre-opening forces the rules engine to return it,
-    // and the next draw choice will face the same discard top → loop.
-    if (observation.stockCount > _thinStockCount ||
-        observation.topDiscard == null) {
-      return false;
-    }
-    return observation.ownHasOpened();
-  }
-
-  bool _shouldHoldForFifty(CpuObservation observation) {
-    if (observation.finishingPartition() == null ||
-        observation.stockCount < _fiftyHoldStockFloor ||
-        _handPipValue(observation.ownHand) <= _fiftyHoldHandValueFloor) {
-      return false;
-    }
-
-    if (observation.ownScore >= _highRiskScoreFloor) {
-      return true;
-    }
-    return observation.opponents.any((opponent) {
-      return observation.scoreFor(opponent) >= _highRiskScoreFloor;
-    });
-  }
-
-  bool _shouldHoldCover(
-    CpuObservation observation,
-    _ExpertCpuLegalAction cover,
-  ) {
-    final target = cover.descriptor.coverTarget;
-    if (target == null || target.targetSeat != observation.seat) {
-      return false;
-    }
-    final cardIds = cover.descriptor.cardIds;
-    if (cardIds.length != 1) {
-      return false;
-    }
-    final card = _cardById(observation, cardIds.single);
-    final identity = card?.effectiveIdentity;
-    if (identity == null) {
-      return false;
-    }
-    final ownMelds = observation.tableMeldsFor(observation.seat);
-    if (target.meldIndex < 0 || target.meldIndex >= ownMelds.length) {
-      return false;
-    }
-    final orders = _sequenceOrders(ownMelds[target.meldIndex]);
-    if (orders == null) {
-      return false;
-    }
-    final order = _rankOrder(identity.rank, highAce: orders.last == 14);
-    return order == orders.first - 1 || order == orders.last + 1;
-  }
-
-  _ExpertCpuLegalAction? _bestDiscardAction(
-    CpuObservation observation,
-    List<_ExpertCpuLegalAction> actions,
-  ) {
-    final discards = [
-      for (final action in actions)
-        if (action.descriptor.isSafeDiscard)
-          _ExpertDiscardCandidate(
-            action: action,
-            card: _cardForAction(observation, action),
-          ),
-    ].where((candidate) => candidate.card != null).toList();
-    if (discards.isEmpty) {
-      return null;
-    }
-
-    final profile = _OpponentThreatProfile.fromObservation(observation);
-    final holdForFifty = _shouldHoldForFifty(observation);
-    discards.sort((left, right) {
-      final leftCard = left.card!;
-      final rightCard = right.card!;
-      final leftDanger = profile.dangerScore(leftCard);
-      final rightDanger = profile.dangerScore(rightCard);
-      final dangerCompare = leftDanger.compareTo(rightDanger);
-      if (dangerCompare != 0) {
-        return dangerCompare;
-      }
-
-      final leftTarget = profile.fiftySetupScore(leftCard);
-      final rightTarget = profile.fiftySetupScore(rightCard);
-      final targetCompare = leftTarget.compareTo(rightTarget);
-      if (targetCompare != 0) {
-        return targetCompare;
-      }
-
-      final leftValue = _cardPipValue(leftCard);
-      final rightValue = _cardPipValue(rightCard);
-      final valueCompare = holdForFifty
-          ? rightValue.compareTo(leftValue)
-          : leftValue.compareTo(rightValue);
-      if (valueCompare != 0) {
-        return valueCompare;
-      }
-      return left.action.actionId.compareTo(right.action.actionId);
-    });
-    return discards.first.action;
-  }
-
-  HareegCard? _cardForAction(
-    CpuObservation observation,
-    _ExpertCpuLegalAction action,
-  ) {
-    final cardId = action.descriptor.cardId;
-    if (cardId == null) {
-      return null;
-    }
-    return _cardById(observation, cardId);
-  }
-
   HareegCard? _cardById(CpuObservation observation, String cardId) {
     for (final card in observation.ownHand) {
       if (card.id == cardId) {
@@ -548,15 +330,7 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
   }
 
   int _remainingPips(MeldPartition partition) {
-    return _handPipValue(partition.cardsRemaining);
-  }
-
-  int _handPipValue(List<HareegCard> cards) {
-    return cards.fold<int>(0, (total, card) => total + _cardPipValue(card));
-  }
-
-  static int _cardPipValue(HareegCard card) {
-    return card.effectiveIdentity?.rank.value ?? 25;
+    return handPipValue(partition.cardsRemaining);
   }
 
   String _partitionKey(MeldPartition partition) {
@@ -573,20 +347,52 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
           ..sort();
     return meldKeys.join('/');
   }
-
-  int _boolDesc(bool left, bool right) {
-    if (left == right) {
-      return 0;
-    }
-    return left ? -1 : 1;
-  }
 }
 
-class _ExpertDiscardCandidate {
-  const _ExpertDiscardCandidate({required this.action, required this.card});
+List<int>? _sequenceOrders(PlacedMeld meld) {
+  final identities = meld.cards
+      .map((card) => card.effectiveIdentity)
+      .whereType<CardIdentity>()
+      .toList(growable: false);
+  if (identities.length != meld.cards.length || identities.length < 3) {
+    return null;
+  }
+  final suit = identities.first.suit;
+  if (identities.any((identity) => identity.suit != suit)) {
+    return null;
+  }
 
-  final _ExpertCpuLegalAction action;
-  final HareegCard? card;
+  final lowOrders = identities.map((identity) => identity.rank.order).toList()
+    ..sort();
+  if (_isConsecutive(lowOrders)) {
+    return lowOrders;
+  }
+
+  final highOrders =
+      identities
+          .map((identity) => _rankOrder(identity.rank, highAce: true))
+          .toList()
+        ..sort();
+  if (_isConsecutive(highOrders)) {
+    return highOrders;
+  }
+  return null;
+}
+
+bool _isConsecutive(List<int> orders) {
+  for (var index = 1; index < orders.length; index += 1) {
+    if (orders[index] != orders[index - 1] + 1) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int _rankOrder(CardRank rank, {required bool highAce}) {
+  if (highAce && rank == CardRank.ace) {
+    return 14;
+  }
+  return rank.order;
 }
 
 class _OpponentThreatProfile {
@@ -728,7 +534,7 @@ class _OpponentThreatProfile {
 
     final orders = identities.map((identity) => identity.rank.order).toList()
       ..sort();
-    if (!_isConsecutive(orders)) {
+    if (!_isConsecutiveOrders(orders)) {
       return const [];
     }
 
@@ -744,7 +550,7 @@ class _OpponentThreatProfile {
     return threats;
   }
 
-  static bool _isConsecutive(List<int> orders) {
+  static bool _isConsecutiveOrders(List<int> orders) {
     for (var index = 1; index < orders.length; index += 1) {
       if (orders[index] != orders[index - 1] + 1) {
         return false;
