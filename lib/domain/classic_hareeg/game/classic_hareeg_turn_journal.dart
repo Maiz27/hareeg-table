@@ -160,6 +160,29 @@ class ClassicHareegTurnJournal {
     });
   }
 
+  /// Shifts recorded cover-play meld indices down by one for plays in
+  /// [targetSeat]'s lane whose meld sat after [removedIndex]. Call this right
+  /// after removing a table meld from `tableMelds[targetSeat]` so the journal
+  /// keeps matching cover plays to the same physical melds across the shift.
+  void rebaseCoverPlaysAfterMeldRemoval({
+    required PlayerSeat targetSeat,
+    required int removedIndex,
+  }) {
+    for (var i = 0; i < _coverPlays.length; i += 1) {
+      final play = _coverPlays[i];
+      if (play.targetSeat == targetSeat && play.meldIndex > removedIndex) {
+        _coverPlays[i] = ClassicHareegTurnCoverPlay(
+          targetSeat: play.targetSeat,
+          meldIndex: play.meldIndex - 1,
+          previousMeld: play.previousMeld,
+          coverMeld: play.coverMeld,
+          previousOpeningState: play.previousOpeningState,
+          consumedPendingDiscard: play.consumedPendingDiscard,
+        );
+      }
+    }
+  }
+
   /// Pops the staged opening meld at [stagedIndex]. Returns null when the
   /// index is out of bounds.
   PlacedMeld? removeStagedOpeningAt(int stagedIndex) {

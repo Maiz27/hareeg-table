@@ -1044,6 +1044,10 @@ class ClassicHareegGameController {
     }
 
     tableMelds.removeAt(target.meldIndex);
+    _turnJournal.rebaseCoverPlaysAfterMeldRemoval(
+      targetSeat: target.owner,
+      removedIndex: target.meldIndex,
+    );
     final hand = _handFor(_currentSeat);
     for (final card in play.meld.cards) {
       hand.add(card.isJoker ? card.withoutRepresentation() : card);
@@ -1081,6 +1085,10 @@ class ClassicHareegGameController {
 
     final staged = _turnJournal.removeStagedOpeningAt(stagedIndex)!;
     tableMelds.removeAt(target.meldIndex);
+    _turnJournal.rebaseCoverPlaysAfterMeldRemoval(
+      targetSeat: target.owner,
+      removedIndex: target.meldIndex,
+    );
     final hand = _handFor(_currentSeat);
     for (final card in staged.cards) {
       hand.add(card.isJoker ? card.withoutRepresentation() : card);
