@@ -424,8 +424,15 @@ abstract final class ClassicHareegActionIds {
     required PlayerSeat targetSeat,
     required int meldIndex,
     required Iterable<String> cardIds,
+    Map<String, CardIdentity> jokerIdentities = const {},
   }) {
-    return '$placeCoverPrefix${targetSeat.name}:$meldIndex:${cardIds.join(',')}';
+    final base =
+        '$placeCoverPrefix${targetSeat.name}:$meldIndex:${cardIds.join(',')}';
+    if (jokerIdentities.isEmpty) {
+      return base;
+    }
+    final encoded = _encodeIdentityMap(jokerIdentities);
+    return '$base:$encoded';
   }
 
   /// Parses a place-cover action id.
@@ -435,12 +442,18 @@ abstract final class ClassicHareegActionIds {
     }
     final payload = actionId.substring(placeCoverPrefix.length);
     final parts = payload.split(':');
-    if (parts.length != 3) {
+    if (parts.length != 3 && parts.length != 4) {
       return null;
     }
     final seat = PlayerSeat.fromName(parts[0]);
     final meldIndex = int.tryParse(parts[1]);
     if (seat == null || meldIndex == null) {
+      return null;
+    }
+    final jokerIdentities = parts.length == 4
+        ? _decodeIdentityMap(parts[3])
+        : const <String, CardIdentity>{};
+    if (jokerIdentities == null) {
       return null;
     }
     final cardIds = parts[2]
@@ -451,6 +464,7 @@ abstract final class ClassicHareegActionIds {
       targetSeat: seat,
       meldIndex: meldIndex,
       cardIds: cardIds,
+      jokerIdentities: jokerIdentities,
     );
   }
 
@@ -561,6 +575,7 @@ class CoverActionTarget {
     required this.targetSeat,
     required this.meldIndex,
     required this.cardIds,
+    this.jokerIdentities = const {},
   });
 
   /// Seat that owns the meld being extended.
@@ -571,6 +586,9 @@ class CoverActionTarget {
 
   /// Physical cover card ids to place.
   final List<String> cardIds;
+
+  /// Explicit identities for unresolved joker covers.
+  final Map<String, CardIdentity> jokerIdentities;
 }
 
 /// Parsed target for replacing a represented table joker.
@@ -615,4 +633,26 @@ CardIdentity? _identityFromKey(String key) {
     return null;
   }
   return CardIdentity(rank: rank, suit: suit);
+}
+
+String _encodeIdentityMap(Map<String, CardIdentity> identities) {
+  final entries = identities.entries.toList(growable: false)
+    ..sort((left, right) => left.key.compareTo(right.key));
+  return entries.map((entry) => '${entry.key}=${entry.value.key}').join(',');
+}
+
+Map<String, CardIdentity>? _decodeIdentityMap(String encoded) {
+  final result = <String, CardIdentity>{};
+  for (final assignment in encoded.split(',')) {
+    final pair = assignment.split('=');
+    if (pair.length != 2 || pair[0].isEmpty) {
+      return null;
+    }
+    final identity = _identityFromKey(pair[1]);
+    if (identity == null) {
+      return null;
+    }
+    result[pair[0]] = identity;
+  }
+  return Map.unmodifiable(result);
 }

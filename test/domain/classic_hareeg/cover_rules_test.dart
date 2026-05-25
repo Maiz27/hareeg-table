@@ -187,6 +187,29 @@ void main() {
       );
     });
 
+    test('unrepresented joker sequence cover exposes both sequence ends', () {
+      const joker = HareegCard.joker(deckIndex: 3, jokerIndex: 0);
+      final meld = [
+        card(CardRank.six, CardSuit.clubs),
+        card(CardRank.seven, CardSuit.clubs),
+        card(CardRank.eight, CardSuit.clubs),
+      ];
+
+      final options = ClassicHareegCoverRules.coverExtensions(
+        tableMeld: meld,
+        candidate: joker,
+      );
+
+      expect(options.map((option) => option.card.representedIdentity).toSet(), {
+        const CardIdentity(rank: CardRank.five, suit: CardSuit.clubs),
+        const CardIdentity(rank: CardRank.nine, suit: CardSuit.clubs),
+      });
+      expect(options.map((option) => option.placement).toSet(), {
+        CoverPlacement.lowEnd,
+        CoverPlacement.highEnd,
+      });
+    });
+
     test('allows chained covers when each placement unlocks the next', () {
       final meld = [
         card(CardRank.six, CardSuit.clubs),
