@@ -75,8 +75,9 @@ void main() {
         final previousPlatform = AudioplayersPlatformInterface.instance;
         final previousGlobalPlatform =
             GlobalAudioplayersPlatformInterface.instance;
-        final platform = _FakeAudioplayersPlatform();
-        final globalPlatform = _FakeGlobalAudioplayersPlatform();
+        final order = <String>[];
+        final platform = _FakeAudioplayersPlatform(order: order);
+        final globalPlatform = _FakeGlobalAudioplayersPlatform(order: order);
         AudioplayersPlatformInterface.instance = platform;
         GlobalAudioplayersPlatformInterface.instance = globalPlatform;
         final audio = TableAudio(enabled: true);
@@ -100,6 +101,23 @@ void main() {
             audioContexts.map((context) => context.android.contentType),
             everyElement(AndroidContentType.sonification),
           );
+          expect(
+            audioContexts.map((context) => context.android.usageType),
+            everyElement(AndroidUsageType.assistanceSonification),
+          );
+          final globalContexts = globalPlatform.calls
+              .where((call) => call.method == 'setGlobalAudioContext')
+              .map((call) => call.value as AudioContext)
+              .toList(growable: false);
+          expect(globalContexts, hasLength(1));
+          expect(
+            globalContexts.single.android.audioFocus,
+            AndroidAudioFocus.none,
+          );
+          expect(
+            order.indexOf('global.setAudioContext'),
+            lessThan(order.indexOf('player.create')),
+          );
         } finally {
           await audio.dispose();
           AudioplayersPlatformInterface.instance = previousPlatform;
@@ -120,11 +138,15 @@ class _FakeCall {
 }
 
 class _FakeAudioplayersPlatform extends AudioplayersPlatformInterface {
+  _FakeAudioplayersPlatform({this.order});
+
+  final List<String>? order;
   final calls = <_FakeCall>[];
   final _eventStreams = <String, StreamController<AudioEvent>>{};
 
   @override
   Future<void> create(String playerId) async {
+    order?.add('player.create');
     calls.add(_FakeCall(id: playerId, method: 'create'));
     _eventStreams[playerId] = StreamController<AudioEvent>.broadcast();
   }
@@ -258,6 +280,9 @@ class _FakeGlobalCall {
 
 class _FakeGlobalAudioplayersPlatform
     extends GlobalAudioplayersPlatformInterface {
+  _FakeGlobalAudioplayersPlatform({this.order});
+
+  final List<String>? order;
   final calls = <_FakeGlobalCall>[];
   final _eventStream = StreamController<GlobalAudioEvent>.broadcast();
 
@@ -286,11 +311,13 @@ class _FakeGlobalAudioplayersPlatform
 
   @override
   Future<void> init() async {
+    order?.add('global.init');
     calls.add(const _FakeGlobalCall(method: 'init'));
   }
 
   @override
   Future<void> setGlobalAudioContext(AudioContext ctx) async {
+    order?.add('global.setAudioContext');
     calls.add(_FakeGlobalCall(method: 'setGlobalAudioContext', value: ctx));
   }
 

@@ -13,7 +13,7 @@ export 'table_sound_event.dart';
 final AudioContext _tableSoundEffectAudioContext = AudioContext(
   android: const AudioContextAndroid(
     contentType: AndroidContentType.sonification,
-    usageType: AndroidUsageType.game,
+    usageType: AndroidUsageType.assistanceSonification,
     audioFocus: AndroidAudioFocus.none,
   ),
   iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
@@ -72,7 +72,11 @@ class TableAudio {
     if (cue == null) {
       // Unmapped event — log once and skip rather than crash a sound that
       // can never play anyway.
-      _logAudioFailure(event.name, StateError('no audio cue'), StackTrace.empty);
+      _logAudioFailure(
+        event.name,
+        StateError('no audio cue'),
+        StackTrace.empty,
+      );
       return;
     }
     final asset = _rotation.pickAsset(event, cue);
@@ -163,6 +167,11 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
   static const _warmupStepGap = Duration(milliseconds: 60);
 
   Future<void> _initAllPlayers() async {
+    // Set the plugin default before any native player is created. Android's
+    // audioplayers wrapper copies the current global context into each new
+    // WrappedPlayer; if players are born under the plugin default focus
+    // context, switching them to `none` later still churns AudioManager focus.
+    await AudioPlayer.global.setAudioContext(_tableSoundEffectAudioContext);
     final uniquePaths = AudioCueRegistry.allAssetPaths();
     // Create the AudioPlayer instances synchronously so [playAsset] can find
     // them in the map immediately. This is one platform-channel `create` call
@@ -235,8 +244,8 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
   }
 
   Future<void> _configureBasic(AudioPlayer player) async {
-    await player.setPlayerMode(PlayerMode.lowLatency);
     await player.setAudioContext(_tableSoundEffectAudioContext);
+    await player.setPlayerMode(PlayerMode.lowLatency);
     await player.setReleaseMode(ReleaseMode.stop);
   }
 
@@ -301,10 +310,9 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
     // to completion; the try/catch absorbs the aggregated rejection so the
     // finally always reaches the map clears.
     try {
-      await Future.wait(
-        [for (final player in _players.values) player.dispose()],
-        eagerError: false,
-      );
+      await Future.wait([
+        for (final player in _players.values) player.dispose(),
+      ], eagerError: false);
     } catch (error, stackTrace) {
       debugPrint('Audio: one or more players failed to dispose: $error');
       debugPrintStack(stackTrace: stackTrace);
