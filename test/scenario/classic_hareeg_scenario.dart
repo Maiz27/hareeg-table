@@ -118,7 +118,7 @@ class ClassicHareegScenario {
       discardPile: List<HareegCard>.of(discardPile ?? base.discardPile),
       tableMelds: tableMelds ?? const {},
       starter: starter ?? base.starter,
-      currentSeat: currentSeat ?? base.starter,
+      currentSeat: currentSeat ?? starter ?? base.starter,
       turnPhase: turnPhase,
       pendingDiscard: pendingDiscard,
       openingState: openingState,

@@ -194,7 +194,7 @@ class ClassicHareegMatchDriver {
     this.roundLimit = 60,
     DateTime? clockStart,
     Duration clockStep = const Duration(seconds: 1),
-  }) : _clock = clockStart ?? DateTime.utc(2026, 1, 1),
+  }) : _initialClock = clockStart ?? DateTime.utc(2026, 1, 1),
        _clockStep = clockStep;
 
   /// CPU strategy used for every seat.
@@ -207,7 +207,12 @@ class ClassicHareegMatchDriver {
   final int roundLimit;
 
   final Duration _clockStep;
-  DateTime _clock;
+
+  /// Clock the constructor was configured with; [run] resets [_clock] to this
+  /// before each match so the same driver instance replays identically when
+  /// reused across runs (rather than carrying the previous run's advanced time).
+  final DateTime _initialClock;
+  late DateTime _clock;
 
   /// Returns the current clock *without* advancing it. The clock is stable
   /// within a single decision step so the legal surface and the applied action
@@ -227,6 +232,8 @@ class ClassicHareegMatchDriver {
     MatchStepObserver? onStep,
     MatchRoundObserver? onRoundEnd,
   }) {
+    // Reset the clock so a reused driver instance replays identically.
+    _clock = _initialClock;
     var controller = ClassicHareegScenario.deal(
       setup: setup,
       seed: seed,
@@ -347,8 +354,15 @@ class ClassicHareegMatchDriver {
           difficulty: controller.setup.cpuDifficulty,
         ),
       );
-    } on StateError {
-      return null;
+    } on StateError catch (error) {
+      // Only the planner's "no choice" decline (a hopeless claim-fifty being
+      // the lone option) is treated as a decline; any other StateError — e.g. a
+      // planner misuse like "requires a CpuObservation" — is a real bug and
+      // must surface rather than be silently absorbed as a Fifty decline.
+      if (error.message.contains('at least one legal action')) {
+        return null;
+      }
+      rethrow;
     }
   }
 
