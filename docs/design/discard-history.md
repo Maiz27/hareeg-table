@@ -129,9 +129,9 @@ boundary:
 
 - `ClassicHareegGameController.fromRound` (line 76) constructs a fresh
   `DiscardHistory()` in its initializer list — empty.
-- `ClassicHareegGameController._fromRestoredMatch` (line 122) either
-  constructs a fresh empty `DiscardHistory()` (if not persisting; see §5) or
-  rehydrates from snapshot fields.
+- `ClassicHareegGameController._fromRestoredMatch` (line 122) rehydrates the
+  history by replaying the snapshot's `discardHistoryEvents` (see §5); an older
+  save with no events restores an empty history.
 - `nextRoundSnapshot()` (line 379) returns a `ClassicHareegMatchSnapshot` for
   a brand-new dealt round with an empty `discardPile`. When the host re-enters
   the engine via `fromSnapshot`, the new controller constructs a fresh
@@ -144,26 +144,21 @@ but is unused by production flow.
 
 ## 5. Persistence Stance
 
-**Recommendation: do NOT persist `DiscardHistory` in
-`ClassicHareegMatchSnapshot`.** Resume-with-fresh-memory is acceptable because:
+**Shipped: `DiscardHistory` IS persisted in `ClassicHareegMatchSnapshot`.**
+Resumed matches keep full CPU discard memory:
 
-- The snapshot already carries `discardPile` as an ordered list; on resume,
-  the visible-cards baseline (`cardSeenAt`, `discardsCount`) could be
-  re-derived from `discardPile` alone, since every card in the pile was at
-  some point discarded.
-- Per-seat attribution (`lastDiscardsBy`, `lastPickupsBy`) is **CPU memory**,
-  not rule-relevant state. Losing it on resume affects only Skilled-tier
-  decision quality for a few subsequent turns until the log re-fills, and
-  does not affect legality, scoring, or game outcome.
-- Snapshot v1 stays untouched; no schema version bump needed.
-
-Tradeoff to flag: a player resuming mid-round against Skilled CPU will see
-slightly weaker opponents for the first ~5-10 turns post-resume. This is
-acceptable for v1; revisit if user testing reveals a noticeable regression.
-
-Optional follow-up: on `fromSnapshot`, seed `_countsByRank` and the
-`cardSeenAt` set from `snapshot.discardPile` so the rank/identity-membership
-queries are accurate immediately on resume. Per-seat lists start empty.
+- The snapshot carries the chronological event stream in the
+  `discardHistoryEvents` field (a `List<DiscardEvent>`). On restore each event
+  replays through the live `recordDiscard` / `recordPickup` paths, rebuilding
+  every derived index — per-seat attribution (`lastDiscardsBy`,
+  `lastPickupsBy`), rank counts, and the `cardSeenAt` set — so the wire format
+  doesn't duplicate the derived structures.
+- Per-seat attribution is **CPU memory**, not rule-relevant state, but it is
+  cheap to carry, so persisting it keeps Skilled/Expert opponents at full
+  strength immediately on resume rather than rebuilding memory for a few turns.
+- The wire format stays at v1: `discardHistoryEvents` is an additive optional
+  field that defaults to an empty list, so older saves still resume (they just
+  replay as if memory reset for the round, the pre-persistence behaviour).
 
 ## 6. Test Surface
 
