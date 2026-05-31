@@ -510,16 +510,41 @@ class ClassicHareegGameController {
     // same surface and the planner picks the same id again — burning the
     // safety cap on consecutive penalties. The same shape exists for any
     // future mistake-class id we add.
+    var ids = plan.actionIds;
+    var reason = plan.reason;
+
     if (!setup.tableStrictness.cpuMistakesAllowed) {
       final filtered = [
-        for (final id in plan.actionIds)
+        for (final id in ids)
           if (!ClassicHareegActionIds.describe(id).isMistake) id,
       ];
-      if (filtered.length != plan.actionIds.length) {
-        return finish('${plan.reason}+nomistake', filtered);
+      if (filtered.length != ids.length) {
+        ids = filtered;
+        reason = '$reason+nomistake';
       }
     }
-    return finish(plan.reason, plan.actionIds);
+
+    // A CPU must never be offered a Fifty claim it cannot validly finish. On
+    // mistake-allowing tiers (Strict/Table) the claim is advertised so a human
+    // can opt into a paid wrong-claim, but for the CPU it is a guaranteed
+    // self-penalty — and on Table tier a self-removal. `claim-fifty` is not a
+    // static mistake-class id (its mistake-ness depends on the hand), so the
+    // filter above cannot catch it; resolve the actual claim and strip it
+    // unless it backs a real finish.
+    if (ids.contains(ClassicHareegActionIds.claimFifty) &&
+        _fiftyClaimPlanFor(
+              seat,
+              purpose: ClassicHareegFiftyClaimPurpose.apply,
+            ).finishPlan ==
+            null) {
+      ids = [
+        for (final id in ids)
+          if (id != ClassicHareegActionIds.claimFifty) id,
+      ];
+      reason = '$reason+nofiftymistake';
+    }
+
+    return finish(reason, ids);
   }
 
   /// Returns only the cheap table-control actions needed by the human UI.
@@ -1501,7 +1526,23 @@ class ClassicHareegGameController {
     }
 
     final plan = _drawDecisionPlanFor(_currentSeat);
-    if (!plan.shouldEndRoundAsDraw) {
+    var shouldDraw = plan.shouldEndRoundAsDraw;
+    if (!shouldDraw && plan.stockIsEmpty) {
+      // A hopeless (invalid) Fifty claim is advertised for the human's optional
+      // paid-mistake flow, which keeps `shouldEndRoundAsDraw` false. It has no
+      // strategic value, so once stock is exhausted and neither a valid Fifty
+      // finish nor a pickup finish remains, the round is a draw — otherwise a
+      // CPU claimant would be stranded (no stock to draw, only a self-penalty
+      // claim on offer).
+      final hasValidFiftyFinish = _fiftyClaimPlanFor(
+            _currentSeat,
+            purpose: ClassicHareegFiftyClaimPurpose.apply,
+          ).finishPlan !=
+          null;
+      final pickupFinish = plan.canTakePreviousDiscard && plan.pickupWouldFinish;
+      shouldDraw = !hasValidFiftyFinish && !pickupFinish;
+    }
+    if (!shouldDraw) {
       return;
     }
 
