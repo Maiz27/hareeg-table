@@ -74,6 +74,7 @@ class ClassicHareegMatchFlow {
       rules: rules,
       activeSeats: progress.activeSeats,
       starterOverride: progress.nextStarter,
+      seed: _nextRoundSeed(progress),
     );
     return ClassicHareegMatchSnapshot(
       setup: setup,
@@ -93,5 +94,35 @@ class ClassicHareegMatchFlow {
       removedSeats: const [],
       savedAt: savedAt ?? DateTime.now().toUtc(),
     );
+  }
+
+  /// Derives a deterministic seed for the next round's deal.
+  ///
+  /// Previously the next round was dealt with an unseeded `Random()`, which made
+  /// any match longer than one round non-reproducible: replaying the same
+  /// `(seed, setup)` diverged from round 2 onward because each reshuffle drew
+  /// fresh entropy. The seed here is a pure function of the completed round's
+  /// deterministic outcome (round number, the rotated next starter, and the
+  /// post-round scores + active seats in a stable order). Two runs that reach
+  /// the identical match state therefore reshuffle identically, so a full match
+  /// replays byte-for-byte — the property committed golden transcripts rely on.
+  int _nextRoundSeed(MatchProgressState progress) {
+    // Build the seed from stable integers only (enum indices and int scores) so
+    // it is reproducible both within and across processes — String/default
+    // hashCodes are per-process-randomised in Dart and must not feed the seed.
+    var hash = 0x811c9dc5; // FNV-1a 32-bit offset basis.
+    void mix(int value) {
+      hash = (hash ^ (value & 0xFFFFFFFF)) & 0xFFFFFFFF;
+      hash = (hash * 0x01000193) & 0xFFFFFFFF; // FNV prime.
+    }
+
+    mix(roundNumber + 1);
+    mix(progress.nextStarter.index);
+    for (final seat in PlayerSeat.values) {
+      mix(seat.index);
+      mix(progress.scores[seat] ?? 0);
+      mix(progress.activeSeats.contains(seat) ? 1 : 0);
+    }
+    return hash;
   }
 }
