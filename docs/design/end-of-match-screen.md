@@ -1,19 +1,21 @@
 # End-of-Match Screen Design
 
-Status: Proposed. Phase D of `synthesis.md`. Independent of Phases A-C.
+Status: Shipped (implemented in `lib/ui/features/match_over/views/match_over_screen.dart`).
+The dead `RoundSummaryScreen` and its `/round-summary` route were deleted in the
+same change; the `lib/ui/features/round_summary/` directory no longer exists.
 
 Reads:
 - `direction.md` — Warm Sudanese Lounge visual language.
 - `table-strictness.md` — `TableStrictness` axis referenced in §7.
-- `lib/ui/features/round_summary/views/round_summary_screen.dart` — the dead screen.
+- `lib/ui/features/match_over/views/match_over_screen.dart` — the shipped end-of-match screen (replaced the dead `round_summary` screen).
 - `lib/ui/features/game_table/views/game_table_screen.dart` — `_RoundResultOverlay`, `_MatchWinnerLine`, `_persistAndMaybeFinish`, `_showRoundResultOverlay`.
 - `lib/ui/features/game_table/table_persistence_planner.dart` — `abandonActiveMatch` path on match end.
 - `lib/domain/classic_hareeg/rules/match_progression_rules.dart` — `MatchProgressState.matchWinner`.
-- `lib/app/hareeg_table_app.dart` — `/table` and `/round-summary` routes.
+- `lib/app/hareeg_table_app.dart` — `/table` and `/match-over` routes.
 
 ## 1. Promote vs new screen
 
-**Decision: build a new `MatchOverScreen`. Delete `RoundSummaryScreen` and its route in the same PR.**
+**Decision (executed): built a new `MatchOverScreen`; deleted `RoundSummaryScreen` and its route in the same change.**
 
 `RoundSummaryScreen` was designed as a hybrid — its `_NextStepLine` toggles between "Match winner" and "Next starter" headers, and its action area swaps between *Continue* and *Return to menu*. That hybrid only made sense when both round-end *and* match-end were going to land on a full-screen route. Today the live table renders round-end inline via `_RoundResultOverlay`, and the user has explicitly preferred that for round-end (no pull-out, no orientation change, fast turnover). The round-summary route is dead and is not coming back; keeping its co-tenancy with match-end forces both surfaces to compromise.
 
