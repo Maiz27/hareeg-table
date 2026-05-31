@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
@@ -114,6 +115,63 @@ void main() {
       await tester.tap(find.text('Resume table').last);
       await tester.pumpAndSettle();
       expect(find.byType(PauseOverlay), findsNothing);
+    });
+
+    testWidgets('turning off table sounds keeps card-tap haptics active', (
+      tester,
+    ) async {
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            calls.add(call);
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          hapticsEnabled: true,
+          soundEnabled: true,
+        );
+
+      await _openTable(
+        tester,
+        southHand: [_card(CardRank.four, CardSuit.clubs, 123)],
+        preferencesRepository: preferences,
+      );
+      await tester.tap(find.byTooltip('Pause'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Table sounds'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Switch), findsNWidgets(4));
+      // Target the Table-sounds switch by its label rather than by position:
+      // the toggle is a Row pairing the title Text with its sibling Switch.
+      final soundSwitch = find.descendant(
+        of: find
+            .ancestor(of: find.text('Table sounds'), matching: find.byType(Row))
+            .first,
+        matching: find.byType(Switch),
+      );
+      await tester.tap(soundSwitch);
+      await tester.pumpAndSettle();
+
+      expect(preferences.preferences.soundEnabled, isFalse);
+      expect(preferences.preferences.hapticsEnabled, isTrue);
+
+      await tester.tap(find.text('Resume table').last);
+      await tester.pumpAndSettle();
+      calls.clear();
+
+      await tester.tap(find.bySemanticsLabel('Four of Clubs').first);
+      await tester.pump();
+
+      expect(
+        calls.where((call) => call.method.startsWith('HapticFeedback.')),
+        isNotEmpty,
+      );
     });
 
     testWidgets('south hand renders card views and tapping selects', (

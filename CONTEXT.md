@@ -16,11 +16,14 @@ Primary reference: [ADR 0001](docs/adr/0001-rules-engine-boundary.md).
 
 ## Current Design Spine
 
-The current deepening plan is split across phases in
-[synthesis.md](docs/design/synthesis.md) and [tickets.md](docs/design/tickets.md).
-Phase A collapses table assistance settings into `TableStrictness`. Phase B
-deepens CPU observation and planning. Phase C adds the strictness-specific joker
-memory mechanic. Phase D adds the end-of-match screen.
+The deepening plan shipped in phases, each recorded in its own design doc.
+Phase A collapsed table assistance settings into `TableStrictness`
+([table-strictness.md](docs/design/table-strictness.md)). Phase B deepened CPU
+observation and planning ([cpu-observation.md](docs/design/cpu-observation.md),
+[meld-partition-enumerator.md](docs/design/meld-partition-enumerator.md),
+[opponents-ladder.md](docs/design/opponents-ladder.md)). Phase C added the
+strictness-specific joker memory mechanic. Phase D added the end-of-match screen
+([end-of-match-screen.md](docs/design/end-of-match-screen.md)).
 
 ## Domain Vocabulary
 
@@ -37,7 +40,6 @@ rules layer stays Flutter-free.
 
 References:
 - [table-strictness.md](docs/design/table-strictness.md)
-- [synthesis.md](docs/design/synthesis.md)
 
 ### `CpuObservation`
 
@@ -58,8 +60,9 @@ mutates it along the same paths that mutate the discard pile. External callers
 receive a narrow read interface for CPU memory queries such as recent discards,
 recent pickups, card sightings, rank counts, and joker discard counts.
 
-This is not persisted in match snapshots; resumed matches accept slightly weaker
-CPU memory until the round history refills.
+It is persisted in match snapshots via the `discardHistoryEvents` field on
+`ClassicHareegMatchSnapshot`; on resume the events replay through the live
+record paths, so resumed matches retain full CPU discard memory.
 
 Reference: [discard-history.md](docs/design/discard-history.md).
 

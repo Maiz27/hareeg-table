@@ -1,0 +1,150 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
+
+import 'classic_hareeg_scenario.dart';
+
+/// Regression for the CPU Fifty-claim mistake leak found by the full-match
+/// invariant sweep.
+///
+/// On mistake-allowing tiers (Strict/Table) the rules engine advertises
+/// `claim-fifty` even for a hopeless claim, so a human can opt into a paid
+/// wrong-claim. `claim-fifty` is not a static mistake-class id, so the CPU
+/// mistake filter could not strip it — and the strategic planners' optimistic
+/// `finishingPartition()` made the CPU *take* the wrong claim, charging itself a
+/// penalty and (on Table tier) removing itself from the round. The priority
+/// planner instead returned no choice, crashing the strategy.
+///
+/// Fix: `cpuActionIdsFor` strips a `claim-fifty` that is not a real finish for
+/// the seat, and `_evaluateRoundEnd` draws the round on stock exhaustion when
+/// only a hopeless claim remains, so a CPU claimant is never stranded.
+void main() {
+  final fixedClock = DateTime.utc(2026, 1, 1, 12, 0, 0);
+  DateTime now() => fixedClock;
+
+  // South cannot finish with the top discard (2 of spades): no meld uses it and
+  // the hand cannot partition into melds + one final discard.
+  final unwinnableTopDiscard =
+      ScenarioCards.card(CardRank.two, CardSuit.spades, deckIndex: 3);
+  final southStuckHand = <HareegCard>[
+    ScenarioCards.card(CardRank.four, CardSuit.hearts, deckIndex: 3),
+    ScenarioCards.card(CardRank.seven, CardSuit.clubs, deckIndex: 3),
+    ScenarioCards.card(CardRank.nine, CardSuit.diamonds, deckIndex: 3),
+    ScenarioCards.card(CardRank.jack, CardSuit.spades, deckIndex: 3),
+    ScenarioCards.card(CardRank.queen, CardSuit.hearts, deckIndex: 3),
+  ];
+
+  // South finishes with the top discard (3 of clubs): {3C,3D,3H}+{KS,KD,KH},
+  // final discard 9S.
+  final winningTopDiscard =
+      ScenarioCards.card(CardRank.three, CardSuit.clubs, deckIndex: 1);
+  final southWinningHand = <HareegCard>[
+    ScenarioCards.card(CardRank.three, CardSuit.diamonds, deckIndex: 1),
+    ScenarioCards.card(CardRank.three, CardSuit.hearts, deckIndex: 1),
+    ScenarioCards.card(CardRank.king, CardSuit.spades, deckIndex: 1),
+    ScenarioCards.card(CardRank.king, CardSuit.diamonds, deckIndex: 1),
+    ScenarioCards.card(CardRank.king, CardSuit.hearts, deckIndex: 1),
+    ScenarioCards.card(CardRank.nine, CardSuit.spades, deckIndex: 1),
+  ];
+
+  ClassicHareegScenario dealClaim({
+    required List<HareegCard> southHand,
+    required HareegCard topDiscard,
+    required TableStrictness strictness,
+    List<HareegCard>? stock,
+  }) {
+    return ClassicHareegScenario.deal(
+      setup: ClassicHareegSetup.defaults().copyWith(
+        tableStrictness: strictness,
+      ),
+      southHand: southHand,
+      discardPile: [topDiscard],
+      stock: stock,
+      currentSeat: PlayerSeat.south,
+      turnPhase: TurnPhase.draw,
+      openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      roundNumber: 2,
+      fiftyWindowOpenedAt: fixedClock,
+      now: now,
+    );
+  }
+
+  group('CPU Fifty mistake leak (Table tier)', () {
+    test(
+      'a hopeless Fifty claim is offered to the human but never to the CPU',
+      () {
+        final s = dealClaim(
+          southHand: southStuckHand,
+          topDiscard: unwinnableTopDiscard,
+          strictness: TableStrictness.table,
+        );
+        final c = s.controller;
+        expect(c.fiftyClaimant, PlayerSeat.south);
+
+        // Human surface still advertises the claim (opt-in paid mistake).
+        expect(
+          c.legalActionIdsFor(PlayerSeat.south),
+          contains(ClassicHareegActionIds.claimFifty),
+          reason: 'the human may still attempt a paid wrong claim',
+        );
+
+        // CPU surface must NOT — claiming would be a guaranteed self-penalty
+        // (and on Table tier, self-removal).
+        final cpuActions = c.cpuActionIdsFor(PlayerSeat.south);
+        expect(
+          cpuActions,
+          isNot(contains(ClassicHareegActionIds.claimFifty)),
+          reason: 'the CPU must never be offered a wrong Fifty claim',
+        );
+        // It still has a real move available (stock is non-empty here).
+        expect(cpuActions, contains(ClassicHareegActionIds.drawStock));
+      },
+    );
+
+    test(
+      'a valid Fifty finish IS offered to the CPU (it should claim to win)',
+      () {
+        final s = dealClaim(
+          southHand: southWinningHand,
+          topDiscard: winningTopDiscard,
+          strictness: TableStrictness.table,
+        );
+        final c = s.controller;
+        expect(c.fiftyClaimant, PlayerSeat.south);
+        expect(
+          c.cpuActionIdsFor(PlayerSeat.south),
+          contains(ClassicHareegActionIds.claimFifty),
+          reason: 'a genuine winning Fifty must remain on the CPU surface',
+        );
+      },
+    );
+
+    test(
+      'stock-exhausted hopeless Fifty draws the round instead of stranding the '
+      'CPU',
+      () {
+        // Stock empty + south cannot finish + no pickup finish: the only thing
+        // the engine would otherwise advertise is the hopeless claim. The round
+        // must resolve as a draw so the CPU is never left with no legal move.
+        final s = dealClaim(
+          southHand: southStuckHand,
+          topDiscard: unwinnableTopDiscard,
+          strictness: TableStrictness.table,
+          stock: const [],
+        );
+        final c = s.controller;
+
+        expect(
+          c.isRoundOver,
+          isTrue,
+          reason: 'stock-exhausted hopeless Fifty state must end the round',
+        );
+        expect(c.roundOutcome, RoundOutcomeType.draw);
+      },
+    );
+  });
+}

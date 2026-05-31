@@ -212,13 +212,17 @@ Scores may go negative.
 - Round winner starts the next round and receives 15 cards.
 - If a round draws, the same starter starts again.
 
-## Mistake Presets
+## Mistake Handling (`TableStrictness`)
 
-The product names are not final. Current engineering concepts:
+How the table enforces rules is governed by `TableStrictness`, a single
+four-tier ladder. Lower tiers teach by blocking; higher tiers allow mistakes
+and price them with a score penalty.
 
-- Assisted: illegal actions are blocked.
-- Table Penalties: selected mistakes are allowed and penalized +3.
-- Hard Table 17: selected mistakes are allowed and penalized +17.
+- Coaching: illegal actions are blocked (no penalty). Proactive hints shown.
+- Standard: illegal actions are blocked (no penalty). No proactive hints.
+- Strict: selected mistakes are allowed and penalized +3, with no removal.
+- Table: selected mistakes are allowed and penalized +17, and the offender is
+  removed from the round.
 
 Mistake types:
 
@@ -229,7 +233,7 @@ Mistake types:
 
 Joker normal discard is always blocked.
 
-Hard Table 17:
+Table tier:
 
 - Mistake gives +17.
 - Player is immediately out of the current round.

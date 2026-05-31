@@ -1,6 +1,8 @@
 # CpuObservation Design
 
-Status: Proposed. Scope: deepen the CPU/rules seam for Classic Hareeg so tier-specific
+Status: Shipped (implemented in `lib/cpu/classic_hareeg/cpu_observation.dart`,
+`cpu_strategy.dart`, and the Priority / Skilled / Expert move planners).
+Scope: deepen the CPU/rules seam for Classic Hareeg so tier-specific
 strategies (Beginner / Casual / Skilled / Expert) can reason about the table, not
 just the legal action ids. Replaces the shallow `CpuTurnSnapshot` in
 `lib/cpu/classic_hareeg/cpu_strategy.dart`.

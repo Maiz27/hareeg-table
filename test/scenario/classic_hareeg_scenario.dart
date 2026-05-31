@@ -1,3 +1,4 @@
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_discard_history.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
@@ -55,7 +56,11 @@ class ClassicHareegScenario {
   /// The DSL leans on the snapshot factory (rather than [ClassicHareegRound]
   /// directly) so callers can also start mid-round — set [currentSeat],
   /// [turnPhase], [pendingDiscard], [openingState], [discardPile], or [stock]
-  /// to position the controller exactly where the regression starts.
+  /// to position the controller exactly where the regression starts. For
+  /// states that the natural deal cannot reach, also set [starter] (a custom
+  /// round starter / next-round rotation), [removedSeats] (seats already out of
+  /// the round via a Table-tier mistake), or [discardHistoryEvents] (CPU
+  /// discard memory pre-populated for memory-driven decisions).
   factory ClassicHareegScenario.deal({
     ClassicHareegSetup? setup,
     int seed = 7,
@@ -70,8 +75,11 @@ class ClassicHareegScenario {
     Map<PlayerSeat, List<PlacedMeld>>? tableMelds,
     OpeningState? openingState,
     PlayerSeat? currentSeat,
+    PlayerSeat? starter,
     TurnPhase turnPhase = TurnPhase.action,
     List<PlayerSeat>? activeSeats,
+    List<PlayerSeat>? removedSeats,
+    List<DiscardEvent>? discardHistoryEvents,
     Map<PlayerSeat, int>? scores,
     int roundNumber = 1,
     DateTime? savedAt,
@@ -109,8 +117,8 @@ class ClassicHareegScenario {
       stock: List<HareegCard>.of(stock ?? base.stock),
       discardPile: List<HareegCard>.of(discardPile ?? base.discardPile),
       tableMelds: tableMelds ?? const {},
-      starter: base.starter,
-      currentSeat: currentSeat ?? base.starter,
+      starter: starter ?? base.starter,
+      currentSeat: currentSeat ?? starter ?? base.starter,
       turnPhase: turnPhase,
       pendingDiscard: pendingDiscard,
       openingState: openingState,
@@ -121,9 +129,11 @@ class ClassicHareegScenario {
         PlayerSeat.north,
         PlayerSeat.west,
       ],
+      removedSeats: removedSeats ?? const [],
       roundNumber: roundNumber,
       fiftyWindowOpenedAt: fiftyWindowOpenedAt,
       savedAt: savedAt ?? DateTime.utc(2026, 5, 24),
+      discardHistoryEvents: discardHistoryEvents ?? const [],
     );
 
     return ClassicHareegScenario._(

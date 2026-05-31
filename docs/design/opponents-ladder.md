@@ -1,6 +1,9 @@
 # Opponents tier ladder — full behavior contract
 
-Status: Proposed. This is the complete contract for what each `CpuDifficulty`
+Status: Shipped (Skilled/Expert planners implemented in
+`lib/cpu/classic_hareeg/skilled_cpu_move_planner.dart` and
+`expert_cpu_move_planner.dart`; Beginner/Casual columns in
+`priority_cpu_move_planner.dart`). This is the complete contract for what each `CpuDifficulty`
 tier (Beginner / Casual / Skilled / Expert) means at runtime. Rows 1-9 are from
 the Hareeg CPU research pass; rows 10-11 (Fifty offensive posture, Score-aware
 risk) were added after the user flagged the missing Fifty-as-offense dimension.
@@ -46,11 +49,10 @@ CpuObservation test surface design.
 ## Implementation slotting
 
 Rows 1-9: split across `PriorityCpuMovePlanner` (Beginner/Casual columns) and
-`SkilledCpuMovePlanner` / `ExpertCpuMovePlanner` (right two columns). Lands
-in synthesis Phases B5 and B6.
+`SkilledCpuMovePlanner` / `ExpertCpuMovePlanner` (right two columns).
 
-Rows 10-11: land in B5 (Skilled column) and B6 (Expert column). No new
-infrastructure needed beyond what `CpuObservation` already exposes.
+Rows 10-11: implemented in the Skilled and Expert planners. No new
+infrastructure was needed beyond what `CpuObservation` already exposes.
 
-Row 12: lands in synthesis Phase A2 alongside the rest of `TableStrictness`
-consumer migration.
+Row 12: enforced through `TableStrictness` (`cpuMistakesAllowed` on
+`StrictnessRuleProfile`), not the difficulty tier.

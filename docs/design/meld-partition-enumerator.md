@@ -1,6 +1,6 @@
 # Meld Partition Enumerator
 
-Status: Draft (design only — no code yet)
+Status: Shipped (implemented in `lib/domain/classic_hareeg/rules/meld_partition.dart` and `meld_partition_enumerator.dart`)
 Scope: Classic Hareeg rules layer (`lib/domain/classic_hareeg/rules/`)
 Related: ADR 0001 (rules-engine boundary), `meld_candidate_search.dart`, `meld_validator.dart`, `joker_rules.dart`, `opening_rules.dart`, `classic_hareeg_table_play_planner.dart`
 
