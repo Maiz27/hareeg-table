@@ -40,8 +40,45 @@ test alongside the fix rather than a one-off.
 | L0 — cue / animation queue | `test/ui/features/game_table/joker_cue_queue_test.dart` and any sibling queue tests | A single queue / scheduler in isolation, driven by `fake_async` | Cue dwell, queue clear, overlap semantics. The joker-cue rush class. |
 | L1 — controller scenarios | `test/scenario/` via `ClassicHareegScenario` DSL | The live `ClassicHareegGameController` driven by `applyAction`; assertions read controller getters | Any rules / state / turn-flow regression that can be expressed without widgets. Most bugs land here. |
 | L2 — thin widget scenarios | `test/ui/features/game_table/*_test.dart` (file-per-scenario) | A real `GameTableScreen` over a controller; assertions read widget tree | Render-only gaps the controller can't see: a widget hidden when state is correct, a seat hand still visible after removal, the meld picker not rendering. |
+| L3 — whole-match scenarios | `test/scenario/` driven by `ClassicHareegMatchDriver` (plays a full match to completion with every seat on the real CPU strategy) | An entire match: every action and round across the config matrix | Cross-cutting regressions only a full game exposes: card conservation, turn/elimination integrity, score deltas, determinism, and full-flow rule stories. See the three families below. |
 | Lint — orphan widgets | `test/lint/no_orphan_widgets_test.dart` | Static scan of `lib/ui/features/game_table/widgets/` | Refactors that strand a widget file (every public widget must be referenced from outside its own file). |
 | Asset consistency | `test/ui/core/cards/card_face_asset_consistency_test.dart` | Every (rank, suit) under every registered theme | Asset mislabel: filename and identity must agree. |
+
+### L3 whole-match families
+
+`ClassicHareegMatchDriver` plays a full Classic Hareeg match through the live
+controller — the same `applyAction` seam the UI uses — and reports every step
+and round. Three test families build on it:
+
+- **Family A — invariant sweep** (`full_game_invariant_sweep_test.dart` +
+  `MatchInvariantChecker` in `test/scenario/invariants/`). Plays matches across
+  the strictness × difficulty × joker-count matrix and asserts universal
+  invariants after every action and every round: card conservation (multiset
+  preserved round-over, count preserved per step), turn / removed-seat
+  integrity, scores moving only at round boundaries with the documented
+  normal/Fifty/draw deltas, and the elimination threshold. It guards structure,
+  not specific values, so it holds for any seed or config.
+- **Family B — determinism + goldens.** `match_determinism_test.dart` asserts
+  the same `(seed, setup)` replays byte-identically. `golden_match_test.dart`
+  pins a canonical transcript (every action, round result, and running scores)
+  for a few curated tuples against committed files in `test/scenario/golden/*.txt`;
+  regenerate after an intentional behaviour change with
+  `UPDATE_GOLDENS=1 flutter test test/scenario/golden_match_test.dart`.
+- **Family C — narrative scenarios.** Each test tells one deterministic
+  start-to-finish story exercising a single documented rule area end to end
+  through the real controller: `fifty_scoring_scenario_test.dart` (exact Fifty
+  finish and wrong-claim score deltas), `cpu_fifty_no_mistake_scenario_test.dart`
+  (the CPU never takes a hopeless `claim-fifty` on mistake-allowing tiers), and
+  `rule_narrative_scenario_test.dart` (opening benchmark, normal finish + scoring,
+  and other rule areas played out to their outcome).
+
+**Reproducibility.** Matches now replay identically from a `(seed, setup)` both
+within and across processes. The next-round deal is deterministically seeded in
+`classic_hareeg_match_flow.dart` (`_nextRoundSeed`, a pure function of the
+completed round's stable integer state — no per-process hashCodes), so every
+round of a match reproduces, not just the first deal. This is what makes the
+committed Family B goldens viable and lets a reported game be replayed from its
+seed; `match_determinism_test.dart` guards the property.
 
 **Rule of thumb when fixing a regression:** find the layer that *would* have
 caught it; add the case there before (or as part of) the fix. If no layer

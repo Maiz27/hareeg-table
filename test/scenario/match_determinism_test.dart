@@ -6,18 +6,19 @@ import 'classic_hareeg_match_driver.dart';
 
 /// Family B — match determinism guard.
 ///
-/// True cross-run golden transcripts are not yet viable: CPU move selection is
-/// reproducible *within* a process but varies *across* processes, because some
-/// collection in the meld/joker resolution path iterates in Dart's
-/// per-process-randomised identity-hashCode order. (Tracked as a follow-up:
-/// making the engine fully reproducible would unlock committed goldens and let a
-/// player replay a reported game from its seed.)
+/// Matches now replay identically from a `(seed, setup)` both within AND across
+/// processes: the whole game is deterministic, including the next-round deal
+/// (seeded by `_nextRoundSeed` in `classic_hareeg_match_flow.dart` from the
+/// completed round's stable integer state, never per-process hashCodes). That
+/// cross-process reproducibility is what makes the committed transcripts in
+/// `golden_match_test.dart` viable and lets a player replay a reported game from
+/// its seed.
 ///
-/// In the meantime this guard asserts the property we *can* hold today: running
-/// the same `(seed, setup)` twice in one process produces a byte-identical
-/// transcript. That catches a regression that introduces non-determinism from
-/// leaked mutable/static state — the most damaging kind, because it makes every
-/// other test flaky — without committing a brittle cross-run golden.
+/// This guard asserts the in-process half of that property — running the same
+/// `(seed, setup)` twice in one process produces a byte-identical transcript —
+/// which catches a regression that reintroduces non-determinism from leaked
+/// mutable/static state, the most damaging kind because it makes every other
+/// test flaky. The golden transcripts guard the cross-process half.
 void main() {
   final cases = <({String name, ClassicHareegSetup setup, int seed})>[
     (
