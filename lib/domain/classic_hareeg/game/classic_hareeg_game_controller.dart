@@ -413,7 +413,14 @@ class ClassicHareegGameController {
       turnPhase: _phase,
       pendingDiscard: resumeState.pendingDiscard,
       openingState: resumeState.openingState,
-      scores: Map<PlayerSeat, int>.of(_scores),
+      // Persist the *displayed* scores (the round-result overlay folded in),
+      // not the raw pre-round baseline. At round-over `_scores` still holds the
+      // baseline and the round delta lives only in the `roundProgress` overlay;
+      // saving the baseline would drop the just-scored round — e.g. a Fifty
+      // bonus/penalty — on restore. `nextRoundSnapshot` already folds the same
+      // progressed scores, so this keeps the two persistence paths in agreement.
+      // Mid-round (no round result) `scoreView.currentScores` equals `_scores`.
+      scores: Map<PlayerSeat, int>.of(scoreView.currentScores),
       activeSeats: List<PlayerSeat>.of(_activeSeats),
       roundNumber: _roundNumber,
       removedSeats: _removedSeats.toList(growable: false),
