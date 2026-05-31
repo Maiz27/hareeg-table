@@ -146,9 +146,16 @@ void main() {
 
       await tester.ensureVisible(find.text('Table sounds'));
       await tester.pumpAndSettle();
-      final switches = find.byType(Switch);
-      expect(switches, findsNWidgets(4));
-      await tester.tap(switches.at(3));
+      expect(find.byType(Switch), findsNWidgets(4));
+      // Target the Table-sounds switch by its label rather than by position:
+      // the toggle is a Row pairing the title Text with its sibling Switch.
+      final soundSwitch = find.descendant(
+        of: find
+            .ancestor(of: find.text('Table sounds'), matching: find.byType(Row))
+            .first,
+        matching: find.byType(Switch),
+      );
+      await tester.tap(soundSwitch);
       await tester.pumpAndSettle();
 
       expect(preferences.preferences.soundEnabled, isFalse);
