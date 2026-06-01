@@ -459,6 +459,14 @@ class _CardThemePainter extends CustomPainter {
         oldDelegate.request.faceDown != request.faceDown ||
         oldDelegate.request.jokerDisplay != request.jokerDisplay ||
         oldDelegate.request.badge != request.badge ||
-        oldDelegate.request.revealOpacity != request.revealOpacity;
+        oldDelegate.request.revealOpacity != request.revealOpacity ||
+        // The overlay can change without the visual state changing — a per-meld
+        // coach ring colour recolours the highlight while the state stays
+        // `coachHighlight`. Compare its fields (as _CardStateOverlayPainter does)
+        // so a ring-colour change repaints instead of leaving a stale ring.
+        oldDelegate.overlay.outline != overlay.outline ||
+        oldDelegate.overlay.outlineWidth != overlay.outlineWidth ||
+        oldDelegate.overlay.glow != overlay.glow ||
+        oldDelegate.overlay.tint != overlay.tint;
   }
 }

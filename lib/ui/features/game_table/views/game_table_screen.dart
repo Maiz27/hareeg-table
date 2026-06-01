@@ -890,11 +890,15 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   /// Memoized advisor call. Recomputes only when the cheap situation signature
-  /// (turn, turn phase, opened state, top discard, pending, hand ids, own meld
-  /// ids) changes, so the fifty ticker and card flights don't trigger
-  /// re-analysis. The turn phase is part of the key because a draw flips
+  /// (turn, turn phase, opened state, top discard, pending, Fifty claimant, hand
+  /// ids, own meld ids) changes, so the fifty ticker and card flights don't
+  /// trigger re-analysis. The turn phase is part of the key because a draw flips
   /// draw→action with the same seat: without it a draw that completes a meld
-  /// could reuse the pre-draw insight (the stale-discard playtest bug).
+  /// could reuse the pre-draw insight (the stale-discard playtest bug). The Fifty
+  /// claimant is included because the Fifty hint depends on whether a claim
+  /// window is open for this seat, and a window can open or expire without the
+  /// top discard changing (seconds-remaining is deliberately NOT in the key — the
+  /// advisor ignores the timing, and including it would re-analyse every tick).
   List<CoachingInsight> _coachInsightsFor(PlayerSeat seat) {
     final hand = _controller.handFor(seat);
     final ownMelds = _controller.tableMeldsFor(seat);
@@ -907,6 +911,8 @@ class _GameTableScreenState extends State<GameTableScreen>
       ..write(_controller.topDiscard?.id ?? '-')
       ..write('#')
       ..write(_controller.pendingDiscard?.id ?? '-')
+      ..write('#f:')
+      ..write(_controller.fiftyClaimant?.name ?? '-')
       ..write('#h:');
     for (final card in hand) {
       key
@@ -1956,6 +1962,11 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography = null;
     setState(() {
       _controller = ClassicHareegGameController.fromSnapshot(snapshot);
+      // The coach memo is tied to the previous controller instance; drop it so
+      // the new round computes fresh insights instead of risking a stale cache
+      // hit on a matching situation signature.
+      _coachInsightCacheKey = null;
+      _coachInsights = const [];
       _resetHandInteraction();
       _dealChoreography = _buildDealChoreography();
       _isCpuRunning = false;
