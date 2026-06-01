@@ -74,6 +74,11 @@ void main() {
     expect(find.text('Casual'), findsOneWidget);
     expect(find.text('First starter'), findsOneWidget);
     expect(find.text('You start'), findsOneWidget);
+
+    // The "House rules" footer is the last child of the setup ListView and
+    // sits below the fold on the 800x600 test surface, so it is not laid out
+    // until scrolled into view.
+    await tester.scrollUntilVisible(find.text('House rules'), 300);
     expect(find.text('House rules'), findsOneWidget);
   });
 
