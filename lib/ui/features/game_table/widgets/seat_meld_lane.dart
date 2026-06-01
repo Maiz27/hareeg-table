@@ -8,9 +8,11 @@ import '../../../../domain/classic_hareeg/rules/cover_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../coach/coach_highlighting.dart';
 import '../table_meld_drop_target.dart';
 
 /// Predicate that decides whether a dragged card may land on a specific table
@@ -54,6 +56,7 @@ class SeatMeldLane extends StatefulWidget {
     required this.onCardLongPress,
     required this.stackVertically,
     this.quarterTurns = 0,
+    this.coachHighlighting = CoachHighlighting.none,
   });
 
   /// Card theme used to render meld cards.
@@ -97,6 +100,10 @@ class SeatMeldLane extends StatefulWidget {
 
   /// Number of 90° clockwise turns to apply to each meld for side lanes.
   final int quarterTurns;
+
+  /// Coach-highlight projection; the lane rings any of its meld cards the
+  /// coach is pointing at (cover-target cards) in the teal keep hue.
+  final CoachHighlighting coachHighlighting;
 
   @override
   State<SeatMeldLane> createState() => _SeatMeldLaneState();
@@ -171,6 +178,7 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
                     onToggleExpanded: () => _toggleExpanded(index),
                     vertical: widget.stackVertically,
                     quarterTurns: widget.quarterTurns,
+                    coachHighlighting: widget.coachHighlighting,
                   ),
                 if (widget.melds.isEmpty &&
                     widget.owner == PlayerSeat.south &&
@@ -284,6 +292,7 @@ class _TableMeldStack extends StatefulWidget {
     this.onToggleExpanded,
     this.vertical = false,
     this.quarterTurns = 0,
+    this.coachHighlighting = CoachHighlighting.none,
   });
 
   final HareegCardTheme theme;
@@ -304,6 +313,9 @@ class _TableMeldStack extends StatefulWidget {
   /// that sit along the side edges of the table).
   final bool vertical;
   final int quarterTurns;
+
+  /// Coach-highlight projection; rings this meld's cover-target cards in teal.
+  final CoachHighlighting coachHighlighting;
 
   @override
   State<_TableMeldStack> createState() => _TableMeldStackState();
@@ -482,6 +494,11 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                         theme: theme,
                         card: cards[i],
                         size: effectiveCardSize,
+                        visualState: widget.coachHighlighting.highlights(
+                              cards[i].id,
+                            )
+                            ? CardVisualState.coachHighlight
+                            : CardVisualState.normal,
                       ),
                     ),
                   ),

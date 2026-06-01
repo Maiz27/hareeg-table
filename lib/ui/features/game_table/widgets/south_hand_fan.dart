@@ -7,6 +7,7 @@ import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../coach/coach_highlighting.dart';
 
 /// South player's hand, rendered as a flex-gap fan across the bottom of the
 /// table. Each card is a `DragTarget` so the player can reorder by dragging
@@ -26,6 +27,7 @@ class SouthHandFan extends StatelessWidget {
     required this.onLongPress,
     required this.onReorder,
     this.flashCardId,
+    this.coachHighlighting = CoachHighlighting.none,
   });
 
   /// Card theme used to render hand cards.
@@ -60,6 +62,11 @@ class SouthHandFan extends StatelessWidget {
   /// Card id to flash as invalid — used to highlight a card that just got
   /// the Strict-tier +3 reject. Cleared on a timer by the orchestrator.
   final String? flashCardId;
+
+  /// Coach-highlight projection for the active hint. Resolves which hand cards
+  /// ring and in which hue (teal keep / per-meld palette / warm discard);
+  /// rendered when a card is not in a higher-priority state.
+  final CoachHighlighting coachHighlighting;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +121,15 @@ class SouthHandFan extends StatelessWidget {
                           selected: selectedIds.contains(cards[i].id),
                           pending: pendingId == cards[i].id,
                           flashInvalid: flashCardId == cards[i].id,
+                          coachHighlight: coachHighlighting.highlights(
+                            cards[i].id,
+                          ),
+                          // Warm discard hue, else a meld-group hue, else null
+                          // for the default teal coach overlay — the precedence
+                          // lives in CoachHighlighting.ringColorFor.
+                          coachRingColor: coachHighlighting.ringColorFor(
+                            cards[i].id,
+                          ),
                           insertGapBefore: candidates.isNotEmpty,
                           size: cardSize,
                           draggable: draggable,
@@ -160,6 +176,8 @@ class _DraggableHandCard extends StatelessWidget {
     required this.onLongPress,
     this.insertGapBefore = false,
     this.flashInvalid = false,
+    this.coachHighlight = false,
+    this.coachRingColor,
   });
 
   final HareegCardTheme theme;
@@ -170,6 +188,14 @@ class _DraggableHandCard extends StatelessWidget {
   final bool draggable;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+
+  /// True when the coaching tier is pointing at this card. Lower priority than
+  /// invalid / pending / selected so a card the player is actively working
+  /// with keeps its own state.
+  final bool coachHighlight;
+
+  /// Per-meld coach ring colour, or null for the default teal.
+  final Color? coachRingColor;
 
   /// True when another card is being dragged over this position; the card
   /// shifts right slightly so the player can see where the dropped card
@@ -188,6 +214,8 @@ class _DraggableHandCard extends StatelessWidget {
         ? CardVisualState.pending
         : selected
         ? CardVisualState.selected
+        : coachHighlight
+        ? CardVisualState.coachHighlight
         : CardVisualState.normal;
     final dx = insertGapBefore ? size.width * 0.35 : 0.0;
     final dy = selected ? -8.0 : 0.0;
@@ -204,6 +232,7 @@ class _DraggableHandCard extends StatelessWidget {
           card: card,
           size: size,
           visualState: state,
+          coachRingColor: coachRingColor,
         ),
       ),
     );
@@ -225,6 +254,7 @@ class _DraggableHandCard extends StatelessWidget {
             card: card,
             size: size,
             visualState: state,
+            coachRingColor: coachRingColor,
           ),
         ),
       ),

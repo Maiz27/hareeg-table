@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../cpu/classic_hareeg/classic_hareeg_cpu_turn_runner.dart';
+import '../../../../cpu/classic_hareeg/coaching/classic_hareeg_coaching_advisor.dart';
+import '../../../../cpu/classic_hareeg/coaching/coaching_insight.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
 import '../../../../data/persistence/match_repository.dart';
 import '../../../../data/persistence/preferences_repository.dart';
@@ -28,6 +30,8 @@ import '../../../core/scopes/app_scopes.dart';
 import '../../../core/strictness/strictness_ui_profile.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
+import '../coach/coach_highlighting.dart';
+import '../coach/coach_hint.dart';
 import '../cue/table_cue_choreographer.dart';
 import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
@@ -38,6 +42,7 @@ import '../table_hand_interaction_state.dart';
 import '../table_interaction_adapter.dart';
 import '../table_persistence_planner.dart';
 import '../table_session_flow_planner.dart';
+import '../widgets/coach_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
@@ -136,6 +141,13 @@ class _GameTableScreenState extends State<GameTableScreen>
   ClassicHareegRoundResultPresentation? _roundResultPresentation;
   final Map<PlayerSeat, int> _matchEliminatedRoundBySeat = {};
   int _flightSerial = 0;
+
+  // Coaching-tier advisor memoization. Re-running the partition enumerator on
+  // every cue/flight tick would be wasteful, so the insight list is cached
+  // against a cheap signature of the human's situation and only recomputed
+  // when that signature changes.
+  String? _coachInsightCacheKey;
+  List<CoachingInsight> _coachInsights = const [];
 
   @override
   void initState() {
@@ -519,6 +531,25 @@ class _GameTableScreenState extends State<GameTableScreen>
         ? meldValidation?.value
         : null;
 
+    // Coaching tier: surface one prioritized hint when the player is on turn,
+    // the toggle is on, and nothing is mid-animation or covering the table.
+    final coachActive =
+        strictness.showsProactiveHints &&
+        widget.preferences.coachingTipsEnabled &&
+        isHumanTurn &&
+        !_pauseOpen &&
+        !_scoreOpen &&
+        _inspectedCard == null &&
+        _roundResultPresentation == null &&
+        _dealChoreography == null &&
+        _activeFlights.isEmpty &&
+        _meldFlight.activeFlights.isEmpty &&
+        // While a selection is producing meld suggestions, that rack is the
+        // active guidance; stepping aside avoids two stacked bottom callouts.
+        meldSuggestions.isEmpty;
+    final coachHint = _buildCoachHint(strings, humanSeat, gate: coachActive);
+    final coachHighlighting = CoachHighlighting.fromHint(coachHint);
+
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
       child: JokerDisplayScope(
@@ -607,6 +638,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               currentSeat: _controller.currentSeat,
               activeSeats: _controller.roundActiveSeats.toSet(),
               southFlashCardId: _cues.revertFlashCardId,
+              coachHighlighting: coachHighlighting,
             ),
             if (_dealChoreography != null)
               Positioned.fill(
@@ -713,6 +745,12 @@ class _GameTableScreenState extends State<GameTableScreen>
                 );
               },
             ),
+            if (coachHint != null)
+              CoachOverlay(
+                key: const ValueKey('coach-overlay'),
+                hint: coachHint,
+                highContrast: widget.preferences.highContrastCards,
+              ),
             for (final flight in _activeFlights)
               Positioned.fill(
                 key: ValueKey('flight-${flight.serial}'),
@@ -780,6 +818,11 @@ class _GameTableScreenState extends State<GameTableScreen>
                 onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
                   widget.preferences.copyWith(highContrastCards: v),
                 ),
+                showCoachingTips: strictness.showsProactiveHints,
+                coachingTipsEnabled: widget.preferences.coachingTipsEnabled,
+                onCoachingTipsChanged: (v) => widget.onPreferencesChanged(
+                  widget.preferences.copyWith(coachingTipsEnabled: v),
+                ),
                 onResume: () => setState(() => _pauseOpen = false),
                 onLeave: _returnToMainMenu,
               ),
@@ -818,6 +861,96 @@ class _GameTableScreenState extends State<GameTableScreen>
         ),
       ),
     );
+  }
+
+  /// Builds the coaching hint to surface this frame, or null when none should
+  /// show. [gate] folds in the strictness tier, the player's toggle, turn
+  /// ownership, and the absence of any blocking overlay or in-flight motion.
+  CoachHint? _buildCoachHint(
+    AppStrings strings,
+    PlayerSeat seat, {
+    required bool gate,
+  }) {
+    // Always recompute (cheap — memoized by the situation signature) so the
+    // cached insights track every controller-state change. The [gate] only
+    // hides the *display* while something is mid-animation; it must NOT freeze
+    // the *data*, or a hint computed before a draw/cover landed survives stale
+    // once the gate reopens (the playtest "discard the card you just melded"
+    // bug). Compute first, then gate the display.
+    final insights = _coachInsightsFor(seat);
+    if (!gate || insights.isEmpty) {
+      return null;
+    }
+    return CoachHintPresenter.present(
+      insight: insights.first,
+      strings: strings,
+      identityForCardId: _identityForCardId,
+      topDiscardIdentity: _controller.topDiscard?.effectiveIdentity,
+    );
+  }
+
+  /// Memoized advisor call. Recomputes only when the cheap situation signature
+  /// (turn, turn phase, opened state, top discard, pending, hand ids, own meld
+  /// ids) changes, so the fifty ticker and card flights don't trigger
+  /// re-analysis. The turn phase is part of the key because a draw flips
+  /// draw→action with the same seat: without it a draw that completes a meld
+  /// could reuse the pre-draw insight (the stale-discard playtest bug).
+  List<CoachingInsight> _coachInsightsFor(PlayerSeat seat) {
+    final hand = _controller.handFor(seat);
+    final ownMelds = _controller.tableMeldsFor(seat);
+    final key = StringBuffer()
+      ..write(_controller.currentSeat.name)
+      ..write('#')
+      ..write(_controller.turnPhase.name)
+      ..write(_controller.openingState.hasOpened(seat) ? '#1' : '#0')
+      ..write('#')
+      ..write(_controller.topDiscard?.id ?? '-')
+      ..write('#')
+      ..write(_controller.pendingDiscard?.id ?? '-')
+      ..write('#h:');
+    for (final card in hand) {
+      key
+        ..write(card.id)
+        ..write(',');
+    }
+    key.write('#m:');
+    for (final meld in ownMelds) {
+      for (final card in meld.cards) {
+        key
+          ..write(card.id)
+          ..write(',');
+      }
+      key.write('|');
+    }
+    final keyStr = key.toString();
+    if (keyStr != _coachInsightCacheKey) {
+      _coachInsightCacheKey = keyStr;
+      _coachInsights = ClassicHareegCoachingAdvisor.adviseFor(_controller, seat);
+    }
+    return _coachInsights;
+  }
+
+  /// Resolves a card id referenced by a coaching insight to its identity for
+  /// hint copy. Insights only point at the human hand, the top discard, or the
+  /// human's own table melds.
+  CardIdentity? _identityForCardId(String cardId) {
+    for (final card in _controller.handFor(PlayerSeat.south)) {
+      if (card.id == cardId) {
+        return card.effectiveIdentity;
+      }
+    }
+    final top = _controller.topDiscard;
+    if (top != null && top.id == cardId) {
+      return top.effectiveIdentity;
+    }
+    for (final meld in _controller.tableMeldsFor(PlayerSeat.south)) {
+      for (final card in meld.cards) {
+        if (card.id == cardId) {
+          return card.effectiveIdentity;
+        }
+      }
+    }
+    return null;
   }
 
   /// Returns reconciled hand ordering and selected-card state.

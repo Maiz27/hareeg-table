@@ -237,6 +237,194 @@ class AppStrings {
   String get licenseNotDeclared =>
       isRtl ? 'لم يعلن الترخيص.' : 'License not declared.';
 
+  // -- Coaching tier hints --------------------------------------------------
+  // Copy for the proactive coaching layer. Cover and joker advice is framed
+  // as a positive "keep" hint; only the defensive-discard insight is framed
+  // as something to avoid (it is a legal move). EN reviewed; AR drafted and
+  // pending owner review (issue #54, label 🙋 hitl).
+
+  /// Eyebrow label shown on every coach callout.
+  String get coachLabel => isRtl ? 'المدرب' : 'Coach';
+
+  /// "Coaching tips" toggle title (pause overlay + settings).
+  String get coachingTips => isRtl ? 'تلميحات التدريب' : 'Coaching tips';
+
+  /// "Coaching tips" toggle subtitle.
+  String get coachingTipsDescription => isRtl
+      ? 'أظهر تلميحات حسب الموقف وأبرِز الأوراق التي تشير إليها (وضع التدريب فقط).'
+      : 'Show contextual hints and ring the cards they point to (coaching tier only).';
+
+  /// Generic noun used when a referenced card has no resolved identity.
+  String get coachThisCard => isRtl ? 'هذه الورقة' : 'this card';
+
+  String get coachFinishTitle => isRtl ? 'يمكنك الفوز' : 'You can win';
+
+  String get coachFinishBody => isRtl
+      ? 'أفرِغ يدك هذا الدور لتفوز بالجولة.'
+      : 'Empty your hand this turn to win the round.';
+
+  String get coachFiftyTitle => isRtl ? 'خمسين!' : 'Khamsin!';
+
+  String coachFiftyBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'طالِب بالخمسين على $name.'
+        : 'Claim the Fifty on the $name.';
+  }
+
+  String get coachOpenNowTitle => isRtl ? 'يمكنك الافتتاح الآن' : 'You can open now';
+
+  String get coachOpenNowBody => isRtl
+      ? 'هذه الأوراق تحقق قيمة الافتتاح. انزِلها على الطاولة.'
+      : 'These cards meet the opening value. Lay them on the table.';
+
+  String get coachOpeningProgressTitle =>
+      isRtl ? 'تتقدّم نحو الافتتاح' : 'Building toward opening';
+
+  String coachOpeningProgressBody({
+    required int requirement,
+    required int best,
+    required int shortfall,
+  }) {
+    return isRtl
+        ? 'أفضل مجموعة لديك بقيمة $best. تحتاج $requirement للافتتاح، باقٍ $shortfall.'
+        : 'Your best meld is worth $best. You need $requirement to open, $shortfall more to go.';
+  }
+
+  String coachOpeningProgressNoMeldBody(int requirement) {
+    return isRtl
+        ? 'تحتاج $requirement للافتتاح. ابدأ بتجميع مجموعة بهذه القيمة.'
+        : 'You need $requirement to open. Start gathering a meld worth that much.';
+  }
+
+  /// Appended to the opening-progress hint when a discard is also recommended,
+  /// so one hint says both what to keep and what to throw.
+  String coachDiscardToBuildSuffix(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'ارمِ $name لمواصلة البناء.'
+        : 'Discard the $name to keep building.';
+  }
+
+  String get coachPlayMeldTitle =>
+      isRtl ? 'يمكنك إنزال مجموعة' : 'You can lay down a meld';
+
+  String get coachPlayMeldBody => isRtl
+      ? 'هذه الأوراق تكوّن مجموعة قانونية. أنزلها الآن، أو احتفظ بها لتكبيرها أو للتحضير لخمسين.'
+      : 'These cards form a legal meld. Lay them down now, or hold them to build '
+            'a bigger meld or set up a Fifty.';
+
+  /// Appended to the play-meld hint when a loose card can ALSO be laid off as a
+  /// cover this turn, so one hint shows both plays.
+  String coachPlayMeldAlsoCoverSuffix(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'ويمكنك أيضًا لعب $name كتغطية على المجموعة المميّزة.'
+        : 'You can also lay the $name onto the highlighted meld.';
+  }
+
+  String get coachPickupTitle => isRtl ? 'خذ ورقة الرمي' : 'Take the discard';
+
+  String coachPickupBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'أخذ $name يكمل إحدى مجموعاتك.'
+        : 'Taking the $name completes one of your melds.';
+  }
+
+  String get coachCoverKeepTitle => isRtl ? 'تستحق الاحتفاظ' : 'Worth keeping';
+
+  String coachCoverKeepBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    // A KEEP hint (not an act-now hint): it extends a meld you already own, so
+    // hold it rather than discard it. Playing it off is the separate "Lay it
+    // off" (playCover) hint.
+    return isRtl
+        ? 'احتفظ بـ $name؛ فهي تمدّد مجموعتك المميّزة على الطاولة.'
+        : 'Keep the $name — it extends your highlighted meld on the table.';
+  }
+
+  String get coachDiscardTitle => isRtl ? 'أنهِ دورك' : 'End your turn';
+
+  String coachDiscardBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? '$name هي أقل ورقة فائدة لك، ارمِها لإنهاء دورك.'
+        : 'The $name is your least useful card, so discard it to end your turn.';
+  }
+
+  String get coachDrawTitle => isRtl ? 'اسحب ورقة' : 'Draw a card';
+
+  String get coachDrawBody => isRtl
+      ? 'لا توجد حركة أفضل الآن. اسحب من مجموعة السحب وواصل.'
+      : 'No stronger move right now. Draw from the stock and carry on.';
+
+  /// Draw hint for an unopened seat: the draw instruction with the opening
+  /// progress folded in so the shortfall is not lost behind the draw advice.
+  String coachDrawBodyWithProgress({required int best, required int shortfall}) {
+    return isRtl
+        ? 'اسحب من مجموعة السحب لتقترب من الافتتاح. أفضل مجموعة لديك بقيمة $best، باقٍ $shortfall.'
+        : 'Draw from the stock to build toward opening. Your best meld is worth $best, $shortfall to go.';
+  }
+
+  String get coachPlayCoverTitle => isRtl ? 'العب التغطية' : 'Lay it off';
+
+  String coachPlayCoverBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'العب $name على المجموعة المميّزة على الطاولة، ثم أنهِ دورك برمي ورقة.'
+        : 'Play the $name onto the highlighted meld, then discard to end your '
+              'turn.';
+  }
+
+  /// Finish-by-cover: covering every highlighted card empties the hand and wins
+  /// the round. Reuses [coachFinishTitle] ("You can win").
+  String get coachCoverFinishBody => isRtl
+      ? 'غطِّ هذه الأوراق على المجموعات المميّزة لتفرِغ يدك وتفوز.'
+      : 'Cover these onto the highlighted melds to empty your hand and win.';
+
+  /// Several independent covers are available; the player can lay one off and
+  /// still play or discard the other(s).
+  String get coachCoverChoiceBody => isRtl
+      ? 'أيّ منها يصلح: غطِّ بإحداها، والعب أو ارمِ الأخرى.'
+      : 'Either works — cover with one, and play or discard the other.';
+
+  String get coachJokerTitle => isRtl ? 'استعِد الجوكر' : 'Reclaim your joker';
+
+  String coachJokerBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    // Action hint, not a keep hint: it tells the player to make the swap now,
+    // and the ring on the hand card + table meld points at where.
+    return isRtl
+        ? 'استخدم $name لاستبدال الجوكر في المجموعة المميّزة على الطاولة.'
+        : 'Use your $name to swap in for the joker in the highlighted meld.';
+  }
+
+  String get coachDefensiveTitle => isRtl ? 'احتفظ بها الآن' : 'Hold this back';
+
+  String coachDefensiveBody({
+    required CardIdentity? card,
+    required PlayerSeat opponent,
+    CardRank? rank,
+    CardSuit? suit,
+  }) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    final who = seatLabel(opponent);
+    final String target;
+    if (rank != null && suit != null) {
+      target = isRtl
+          ? '${rankWord(rank)} و${suitWord(suit)}'
+          : 'the ${rankWord(rank)} and ${suitWord(suit)}';
+    } else if (rank != null) {
+      target = isRtl ? rankWord(rank) : 'the ${rankWord(rank)}';
+    } else {
+      target = suitWord(suit!);
+    }
+    return isRtl
+        ? 'تجنّب رمي $name. $who يجمع $target.'
+        : 'Avoid discarding the $name. $who is collecting $target.';
+  }
+
   String decksValue(int value) => isRtl ? '$value رزم' : '$value decks';
 
   String fiftySecondsValue(int value) => isRtl ? '$value ثوان' : '${value}s';
@@ -274,7 +462,7 @@ class AppStrings {
     if (isRtl) {
       return switch (tier) {
         TableStrictness.coaching =>
-          'يمنع الحركات غير القانونية ويظهر تلميحات كاملة.',
+          'يمنع الحركات غير القانونية ويعرض تلميحات استباقية حسب الموقف.',
         TableStrictness.standard =>
           'يمنع الحركات غير القانونية، بدون تلميحات استباقية.',
         TableStrictness.strict => 'يسمح بأخطاء محددة مع +3، بدون تلميحات.',
@@ -284,7 +472,7 @@ class AppStrings {
     }
     return switch (tier) {
       TableStrictness.coaching =>
-        'Blocks illegal moves and surfaces full hints.',
+        'Blocks illegal moves and shows proactive contextual hints.',
       TableStrictness.standard => 'Blocks illegal moves, no proactive hints.',
       TableStrictness.strict =>
         'Allows selected mistakes with +3 penalty, no hints.',

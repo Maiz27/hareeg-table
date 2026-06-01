@@ -25,6 +25,12 @@ enum CardVisualState {
   /// Drag-target highlight when the card is a legal joker replacement.
   jokerReplaceTarget,
 
+  /// Coaching-tier hint highlight: the coach is pointing at this card as the
+  /// reference of the current insight. Drawn as a reserved teal outline + glow
+  /// ring (never a face tint) so it reads distinctly from every other state
+  /// and stays legible across all card themes.
+  coachHighlight,
+
   /// Illegal action attempted on or with this card (transient).
   invalid,
 
@@ -99,6 +105,14 @@ abstract final class DefaultCardStateOverlays {
       tint: Color(0x22EF5A24),
       outlineWidth: 2.5,
     ),
+    // Coach highlight: teal outline + soft glow, no face tint. The glow makes
+    // the ring read as "look here" without recolouring the card itself, so it
+    // stays legible over every deck art and table surface.
+    CardVisualState.coachHighlight: CardStateOverlayStyle(
+      outline: LoungeTokens.coachHighlight,
+      outlineWidth: 3,
+      glow: LoungeTokens.coachGlow,
+    ),
     CardVisualState.invalid: CardStateOverlayStyle(
       outline: LoungeTokens.invalidAction,
       outlineWidth: 3,
@@ -143,6 +157,11 @@ abstract final class HighContrastCardStateOverlays {
       outline: Color(0xFFFFD400),
       outlineWidth: 3.5,
       tint: Color(0x44FFD400),
+    ),
+    CardVisualState.coachHighlight: CardStateOverlayStyle(
+      outline: Color(0xFF36F0DC),
+      outlineWidth: 4,
+      glow: Color(0xCC2FB4A6),
     ),
     CardVisualState.invalid: CardStateOverlayStyle(
       outline: Color(0xFFFF2F2F),

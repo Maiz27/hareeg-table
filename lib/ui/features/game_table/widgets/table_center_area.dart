@@ -19,6 +19,7 @@ class TableStockPile extends StatelessWidget {
     required this.compact,
     required this.canDraw,
     required this.onDraw,
+    this.coachHighlight = false,
   });
 
   /// Card theme used for placeholder backs.
@@ -38,6 +39,9 @@ class TableStockPile extends StatelessWidget {
 
   /// Callback fired when the player taps to draw.
   final VoidCallback onDraw;
+
+  /// True when the coaching tier is pointing at the stock (draw hint).
+  final bool coachHighlight;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +70,9 @@ class TableStockPile extends StatelessWidget {
                       card: _backSeed(i + 10),
                       faceDown: true,
                       size: cardSize,
-                      visualState: canDraw
+                      visualState: coachHighlight && i == 0
+                          ? CardVisualState.coachHighlight
+                          : canDraw
                           ? CardVisualState.coverTarget
                           : CardVisualState.normal,
                     ),
@@ -111,6 +117,7 @@ class TableDiscardPile extends StatelessWidget {
     required this.onAcceptDiscard,
     required this.onCardLongPress,
     required this.compact,
+    this.coachHighlightTop = false,
   });
 
   /// Card theme used for face-up rendering.
@@ -151,6 +158,10 @@ class TableDiscardPile extends StatelessWidget {
 
   /// Whether the table is rendering in compact mode.
   final bool compact;
+
+  /// True when the coaching tier is pointing at the top discard (pickup
+  /// hint). The teal coach ring takes precedence over the takeable gold tint.
+  final bool coachHighlightTop;
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +267,8 @@ class TableDiscardPile extends StatelessWidget {
                               size: cardSize,
                               visualState: pendingDiscard != null
                                   ? CardVisualState.pending
+                                  : coachHighlightTop
+                                  ? CardVisualState.coachHighlight
                                   : canTake
                                   ? CardVisualState.coverTarget
                                   : CardVisualState.normal,
