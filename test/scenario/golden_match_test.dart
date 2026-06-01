@@ -87,6 +87,10 @@ void main() {
     return '${lines.join('\n')}\n';
   }
 
+  String normalizeTranscriptLineEndings(String transcript) {
+    return transcript.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  }
+
   group('Golden match transcripts', () {
     for (final c in cases) {
       test(c.name, () {
@@ -104,13 +108,15 @@ void main() {
         expect(
           file.existsSync(),
           isTrue,
-          reason: 'missing golden ${file.path}; regenerate with '
+          reason:
+              'missing golden ${file.path}; regenerate with '
               'UPDATE_GOLDENS=1 flutter test test/scenario/golden_match_test.dart',
         );
         expect(
           actual,
-          file.readAsStringSync(),
-          reason: 'game flow changed for ${c.name}. If this change is '
+          normalizeTranscriptLineEndings(file.readAsStringSync()),
+          reason:
+              'game flow changed for ${c.name}. If this change is '
               'intentional, regenerate with UPDATE_GOLDENS=1.',
         );
       });
