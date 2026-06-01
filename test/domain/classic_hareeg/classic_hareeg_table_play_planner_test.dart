@@ -238,6 +238,37 @@ void main() {
         const CardIdentity(rank: CardRank.nine, suit: CardSuit.clubs),
       );
     });
+
+    test('unambiguous single-end cover accepts regardless of hovered end', () {
+      // Playtest regression: an 8 of clubs only extends the high end of a
+      // 5-6-7 club run, but the pointer hovered the low-end zone. The cover
+      // must still be accepted (drop anywhere on an unambiguous cover) instead
+      // of being rejected for a placement mismatch.
+      final cover = _card(CardRank.eight, CardSuit.clubs, 20);
+      final planner = _planner(
+        southHand: [cover, _card(CardRank.two, CardSuit.spades, 20)],
+        openingState: _opened(PlayerSeat.south),
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards([
+              _card(CardRank.five, CardSuit.clubs, 20),
+              _card(CardRank.six, CardSuit.clubs, 20),
+              _card(CardRank.seven, CardSuit.clubs, 20),
+            ]),
+          ],
+        },
+      );
+
+      final actionId = planner.coverActionIdForMeldTarget(
+        seat: PlayerSeat.south,
+        cardIds: [cover.id],
+        targetSeat: PlayerSeat.south,
+        meldIndex: 0,
+        coverPlacement: CoverPlacement.lowEnd,
+      );
+
+      expect(actionId, isNotNull);
+    });
   });
 }
 

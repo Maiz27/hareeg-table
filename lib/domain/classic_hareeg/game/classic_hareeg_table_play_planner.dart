@@ -1049,8 +1049,20 @@ _ResolvedCoverCards? _coverCardsForPlacement({
     tableMeld: tableMeld,
     candidate: card,
   );
+  if (options.isEmpty) {
+    return null;
+  }
+  // Only honour the requested edge when the cover is genuinely ambiguous — the
+  // card attaches at more than one distinct placement (a run open at both ends,
+  // or a joker). For an unambiguous cover (a set, or a run that extends at only
+  // one end) accept regardless of which sub-area of the meld the pointer was
+  // over, so the drop lands anywhere on the set instead of a narrow zone.
+  final distinctPlacements = <CoverPlacement>{
+    for (final option in options) option.placement,
+  };
+  final unambiguous = distinctPlacements.length <= 1;
   for (final option in options) {
-    if (option.placement != placement) {
+    if (!unambiguous && option.placement != placement) {
       continue;
     }
     final represented = option.card.representedIdentity;
