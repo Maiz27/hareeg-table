@@ -193,16 +193,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                   expanded: _openSection == SettingsSection.assistance,
                   onToggle: () => _toggle(SettingsSection.assistance),
-                  child: _StrictnessPicker(
-                    value: _preferences.setup.tableStrictness,
-                    locked: widget.isMatchActive,
-                    onChanged: (value) => _save(
-                      _preferences.copyWith(
-                        setup: _preferences.setup.copyWith(
-                          tableStrictness: value,
+                  child: Column(
+                    children: [
+                      _StrictnessPicker(
+                        value: _preferences.setup.tableStrictness,
+                        locked: widget.isMatchActive,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(
+                            setup: _preferences.setup.copyWith(
+                              tableStrictness: value,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.assistant_direction_outlined,
+                        title: strings.coachingTips,
+                        subtitle: strings.coachingTipsDescription,
+                        value: _preferences.coachingTipsEnabled,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(coachingTipsEnabled: value),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 _AccordionSection(

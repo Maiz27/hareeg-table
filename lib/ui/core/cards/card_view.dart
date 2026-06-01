@@ -27,6 +27,7 @@ class HareegCardView extends StatefulWidget {
     this.faceDown = false,
     this.size = const Size(64, 92),
     this.semanticsLabel,
+    this.coachRingColor,
   });
 
   /// Active theme.
@@ -55,6 +56,11 @@ class HareegCardView extends StatefulWidget {
 
   /// Optional accessibility label override.
   final String? semanticsLabel;
+
+  /// Overrides the coach-highlight ring colour (used to distinguish meld
+  /// groups). Only applies when [visualState] is
+  /// [CardVisualState.coachHighlight]; null keeps the default teal.
+  final Color? coachRingColor;
 
   @override
   State<HareegCardView> createState() => _HareegCardViewState();
@@ -176,9 +182,21 @@ class _HareegCardViewState extends State<HareegCardView>
   Widget build(BuildContext context) {
     final motion = MotionScope.of(context);
     final baseOverlay = widget.theme.overlayFor(widget.visualState);
-    final overlay = CardContrastScope.enabledOf(context)
+    final resolvedOverlay = CardContrastScope.enabledOf(context)
         ? HighContrastCardStateOverlays.resolve(widget.visualState, baseOverlay)
         : baseOverlay;
+    // A per-meld coach ring colour recolours the highlight without touching
+    // the theme's overlay map, so grouped opening/finish hints can ring each
+    // meld distinctly while every other state stays as the theme defines it.
+    final ringColor = widget.coachRingColor;
+    final overlay =
+        widget.visualState == CardVisualState.coachHighlight && ringColor != null
+        ? CardStateOverlayStyle(
+            outline: ringColor,
+            outlineWidth: resolvedOverlay.outlineWidth,
+            glow: ringColor.withValues(alpha: 0.5),
+          )
+        : resolvedOverlay;
     final scopedJokerDisplay =
         widget.jokerDisplay ?? JokerDisplayScope.of(context);
     final effectiveJokerDisplay = _shouldMemoryReveal && _memoryRevealQuieted
@@ -441,6 +459,14 @@ class _CardThemePainter extends CustomPainter {
         oldDelegate.request.faceDown != request.faceDown ||
         oldDelegate.request.jokerDisplay != request.jokerDisplay ||
         oldDelegate.request.badge != request.badge ||
-        oldDelegate.request.revealOpacity != request.revealOpacity;
+        oldDelegate.request.revealOpacity != request.revealOpacity ||
+        // The overlay can change without the visual state changing — a per-meld
+        // coach ring colour recolours the highlight while the state stays
+        // `coachHighlight`. Compare its fields (as _CardStateOverlayPainter does)
+        // so a ring-colour change repaints instead of leaving a stale ring.
+        oldDelegate.overlay.outline != overlay.outline ||
+        oldDelegate.overlay.outlineWidth != overlay.outlineWidth ||
+        oldDelegate.overlay.glow != overlay.glow ||
+        oldDelegate.overlay.tint != overlay.tint;
   }
 }

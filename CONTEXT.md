@@ -53,6 +53,27 @@ state or bypass rule validation.
 
 Reference: [cpu-observation.md](docs/design/cpu-observation.md).
 
+### Coaching advisor
+
+`ClassicHareegCoachingAdvisor.adviseFor(controller, seat)` is a pure function
+(no mutation, IO, or time) that classifies the human player's situation into
+priority-ranked, localization-free `CoachingInsight`s for the `coaching` tier;
+the UI stage maps each to EN/AR copy. It reuses the same analysis brain as the
+CPU (`CpuObservation`, the meld-partition enumerator, the shared discard
+keep-score model).
+
+Load-bearing decision: the advisor **always observes at `CpuDifficulty.expert`**,
+independent of the table's CPU difficulty, so it teaches expert-grade moves
+(discards, covers, lay-offs) regardless of who the player is sitting against.
+Do not "simplify" it to read the table difficulty.
+
+Insight priority is a single descending ladder declared on
+`CoachingInsightCategory` (not scattered band constants); the relative order is
+load-bearing and pinned by a test. "Keep vs. shed" decisions (the discard
+keep-score and the cover-gate's "isolated card") both derive from one disjoint
+best-grouping model (`handKeepScores` / `cardsCanMeldTogether` in
+`cpu_move_plan_pipeline.dart`), shared with the Expert CPU.
+
 ### `DiscardHistory`
 
 Passive, per-round, per-seat discard and pickup log. The controller owns and

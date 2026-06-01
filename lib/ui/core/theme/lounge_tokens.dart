@@ -62,6 +62,35 @@ abstract final class LoungeTokens {
   /// Invalid action red, tuned for ring/border use.
   static const invalidAction = Color(0xFFE07466);
 
+  /// Coach highlight ring — a reserved cool teal used only by the coaching
+  /// tier's proactive hints. Deliberately distinct from selection/cover
+  /// (gold), pending (amber), invalid (red), and Fifty (flame) so a coached
+  /// card never reads as any other state. Drawn as an outline + glow ring
+  /// (never a face tint) so it stays legible across every card theme.
+  static const coachHighlight = Color(0xFF2FB4A6);
+
+  /// Soft outer glow for the coach highlight ring.
+  static const coachGlow = Color(0x662FB4A6);
+
+  /// Secondary coach ring hues, used to tell apart the distinct melds a single
+  /// opening / finish hint points at. All cool and clearly separable from
+  /// gold / amber / red / flame, so each meld group reads as its own ring.
+  static const coachHighlightB = Color(0xFF4FA8E0);
+  static const coachHighlightC = Color(0xFFB07BE6);
+
+  /// Coach ring palette indexed by meld-group. Group 0 is the reserved teal.
+  static const coachRingPalette = [
+    coachHighlight,
+    coachHighlightB,
+    coachHighlightC,
+  ];
+
+  /// Coach "let this go" ring — a warm rose used only to mark the single card a
+  /// proactive hint recommends discarding, so it reads as the opposite of the
+  /// cool teal/blue/violet "keep these" rings sharing the same hint. Distinct
+  /// from gold (selection), amber (pending), red (invalid), and flame (Fifty).
+  static const coachDiscard = Color(0xFFDC6FA0);
+
   /// Eliminated seat overlay tint.
   static const eliminatedDim = Color(0xAA0B0A08);
 

@@ -2075,6 +2075,49 @@ void main() {
       expect(next?.scores[PlayerSeat.south], 14);
     });
 
+    test('Fifty finish places the finishing melds on the table (conserves cards)',
+        () {
+      // Regression: a Fifty claim must place the finishing melds on the table,
+      // not just empty the hand — otherwise the claimed discard + meld cards
+      // vanish from the table state (a card-conservation violation the full-game
+      // invariant sweep caught on a Fifty finish).
+      final now = DateTime.utc(2026, 5, 19, 12);
+      final discarded = _card(CardRank.nine, CardSuit.clubs, 132);
+      final eastFinishCards = [
+        _card(CardRank.seven, CardSuit.clubs, 132),
+        _card(CardRank.eight, CardSuit.clubs, 132),
+        _card(CardRank.two, CardSuit.hearts, 132),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.east: eastFinishCards,
+          },
+          discardPile: [discarded],
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          roundNumber: 2,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+
+      final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.handFor(PlayerSeat.east), isEmpty);
+      // The 7-8-9 of clubs run (using the claimed 9♣) is now on East's table.
+      final tableCardIds = [
+        for (final meld in controller.tableMeldsFor(PlayerSeat.east))
+          for (final card in meld.cards) card.id,
+      ];
+      expect(tableCardIds, contains(discarded.id));
+      expect(tableCardIds, contains(eastFinishCards[0].id));
+      expect(tableCardIds, contains(eastFinishCards[1].id));
+    });
+
     test('hard table mistakes add +17 and remove the player from round', () {
       final meldCards = [
         _card(CardRank.five, CardSuit.clubs, 33),

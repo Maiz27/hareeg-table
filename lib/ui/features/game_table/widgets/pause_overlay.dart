@@ -28,6 +28,9 @@ class PauseOverlay extends StatelessWidget {
     required this.onHighContrastCardsChanged,
     required this.onResume,
     required this.onLeave,
+    this.showCoachingTips = false,
+    this.coachingTipsEnabled = false,
+    this.onCoachingTipsChanged,
   });
 
   /// Current motion speed.
@@ -53,6 +56,16 @@ class PauseOverlay extends StatelessWidget {
   final ValueChanged<bool> onHighContrastCardsChanged;
   final VoidCallback onResume;
   final VoidCallback onLeave;
+
+  /// Whether to show the "Coaching tips" toggle. True only on the coaching
+  /// tier, where proactive hints are available.
+  final bool showCoachingTips;
+
+  /// Current state of the coaching-tips preference.
+  final bool coachingTipsEnabled;
+
+  /// Called when the coaching-tips toggle changes. Null when not shown.
+  final ValueChanged<bool>? onCoachingTipsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +123,19 @@ class PauseOverlay extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
+                                    if (showCoachingTips &&
+                                        onCoachingTipsChanged != null) ...[
+                                      _OverlayToggle(
+                                        icon: Icons
+                                            .assistant_direction_outlined,
+                                        title: strings.coachingTips,
+                                        subtitle:
+                                            strings.coachingTipsDescription,
+                                        value: coachingTipsEnabled,
+                                        onChanged: onCoachingTipsChanged!,
+                                      ),
+                                      const _PanelDivider(),
+                                    ],
                                     _OverlaySection(
                                       icon: Icons.timer_outlined,
                                       title: strings.motionSpeedLabel,

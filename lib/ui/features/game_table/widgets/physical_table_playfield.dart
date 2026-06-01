@@ -7,6 +7,7 @@ import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../core/cards/card_theme.dart';
+import '../coach/coach_highlighting.dart';
 import 'opponent_seat_rails.dart';
 import 'seat_meld_lane.dart';
 import 'south_hand_fan.dart';
@@ -86,6 +87,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
     required this.currentSeat,
     required this.activeSeats,
     this.southFlashCardId,
+    this.coachHighlighting = CoachHighlighting.none,
   });
 
   /// Active card theme.
@@ -237,6 +239,11 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// Card id in the south hand that should briefly render as invalid — a
   /// visual cue tied to the Strict +3 mistake toast.
   final String? southFlashCardId;
+
+  /// Coach-highlight projection for the active hint. Drives the rings on the
+  /// south hand, the top discard (pickup), the stock (draw), and the table
+  /// melds (cover). Defaults to [CoachHighlighting.none] (nothing rings).
+  final CoachHighlighting coachHighlighting;
 
   @override
   Widget build(BuildContext context) {
@@ -420,6 +427,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 compact: compact,
                 canDraw: isHumanTurn && canDrawStock,
                 onDraw: onDrawStock,
+                coachHighlight: coachHighlighting.highlightStock,
               ),
             ),
             Positioned(
@@ -439,6 +447,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 canAcceptDiscard: canDiscardCard,
                 onAcceptDiscard: onDiscardCard,
                 compact: compact,
+                coachHighlightTop:
+                    topDiscard != null &&
+                    coachHighlighting.highlights(topDiscard!.id),
               ),
             ),
             Positioned(
@@ -460,6 +471,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onRetractMeld: onRetractMeld,
                 onCardLongPress: onCardLongPress,
                 stackVertically: false,
+                coachHighlighting: coachHighlighting,
               ),
             ),
             Positioned(
@@ -484,6 +496,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   onCardLongPress: onCardLongPress,
                   stackVertically: false,
                   quarterTurns: 1,
+                  coachHighlighting: coachHighlighting,
                 ),
               ),
             ),
@@ -509,6 +522,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   onCardLongPress: onCardLongPress,
                   stackVertically: false,
                   quarterTurns: 3,
+                  coachHighlighting: coachHighlighting,
                 ),
               ),
             ),
@@ -533,6 +547,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onRetractMeld: onRetractMeld,
                 onCardLongPress: onCardLongPress,
                 stackVertically: false,
+                coachHighlighting: coachHighlighting,
               ),
             ),
             if (activeFiftySeconds != null)
@@ -596,6 +611,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onTap: onCardTap,
                 onLongPress: onCardLongPress,
                 onReorder: onReorderHand,
+                coachHighlighting: coachHighlighting,
               ),
             ),
           ],

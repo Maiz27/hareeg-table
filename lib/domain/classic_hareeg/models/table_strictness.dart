@@ -11,9 +11,10 @@
 /// UI-relevant derivations live on `StrictnessUiProfile`
 /// (`lib/ui/core/strictness/strictness_ui_profile.dart`).
 enum TableStrictness {
-  /// Blocks illegal moves; shows proactive hints, full inspect detail.
-  /// Persistent joker identity badge.
-  coaching('Coaching', 'Blocks illegal moves and surfaces full hints.'),
+  /// Blocks illegal moves; shows proactive contextual hints (the coaching
+  /// advisor surfaces the best move and rings the cards it points to) and full
+  /// inspect detail. Persistent joker identity badge.
+  coaching('Coaching', 'Blocks illegal moves and shows proactive hints.'),
 
   /// Blocks illegal moves; no proactive hints. Persistent joker identity
   /// badge.

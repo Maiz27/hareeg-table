@@ -50,6 +50,7 @@ class GamePreferences {
     required this.cardThemeId,
     required this.highContrastCards,
     required this.tableSurfaceTheme,
+    required this.coachingTipsEnabled,
   });
 
   /// Default first-run preferences.
@@ -65,6 +66,7 @@ class GamePreferences {
       cardThemeId: CardThemeRegistry.defaultThemeId,
       highContrastCards: false,
       tableSurfaceTheme: TableSurfaceTheme.sandline,
+      coachingTipsEnabled: true,
     );
   }
 
@@ -105,6 +107,9 @@ class GamePreferences {
       tableSurfaceTheme: TableSurfaceTheme.fromName(
         asJsonString(json['tableSurfaceTheme']),
       ),
+      coachingTipsEnabled:
+          asJsonBool(json['coachingTipsEnabled']) ??
+          defaults.coachingTipsEnabled,
     );
   }
 
@@ -143,6 +148,12 @@ class GamePreferences {
   /// Selected table surface theme.
   final TableSurfaceTheme tableSurfaceTheme;
 
+  /// Whether the coaching tier surfaces proactive hint callouts and the coach
+  /// highlight ring. Only consulted on [TableStrictness.coaching]; other tiers
+  /// never show hints regardless. Defaults to on so players who pick the
+  /// coaching tier get help without an extra step.
+  final bool coachingTipsEnabled;
+
   /// Derived reduced-motion bool, kept as a getter so callers reading the
   /// older API keep working without storing a redundant field.
   bool get reducedMotion => motionSpeed == MotionSpeed.reduced;
@@ -159,6 +170,7 @@ class GamePreferences {
     String? cardThemeId,
     bool? highContrastCards,
     TableSurfaceTheme? tableSurfaceTheme,
+    bool? coachingTipsEnabled,
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
@@ -171,6 +183,7 @@ class GamePreferences {
       cardThemeId: cardThemeId ?? this.cardThemeId,
       highContrastCards: highContrastCards ?? this.highContrastCards,
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
+      coachingTipsEnabled: coachingTipsEnabled ?? this.coachingTipsEnabled,
     );
   }
 
@@ -188,6 +201,7 @@ class GamePreferences {
       'cardThemeId': cardThemeId,
       'highContrastCards': highContrastCards,
       'tableSurfaceTheme': tableSurfaceTheme.name,
+      'coachingTipsEnabled': coachingTipsEnabled,
     };
   }
 }

@@ -52,6 +52,8 @@ class ClassicHareegMatchSnapshot {
     this.roundNumber = 1,
     this.removedSeats = const [],
     this.fiftyWindowOpenedAt,
+    this.fiftyWindowDiscarder,
+    this.fiftyWindowIsFirstDealtRound,
     this.discardHistoryEvents = const [],
   });
 
@@ -112,6 +114,20 @@ class ClassicHareegMatchSnapshot {
 
   /// Time the current Fifty claim window opened, if a window is active.
   final DateTime? fiftyWindowOpenedAt;
+
+  /// True discarder of the open Fifty window's card, persisted verbatim.
+  ///
+  /// Restore prefers this over geometrically guessing the discarder from
+  /// seating order, which mis-attributes the Fifty penalty once seats have
+  /// been removed from the round. Older saves without this field fall back
+  /// to the legacy geometric guess for backward compatibility.
+  final PlayerSeat? fiftyWindowDiscarder;
+
+  /// Whether the open Fifty window belongs to the first dealt round, persisted
+  /// verbatim so the -1 (vs -3) scoring exception survives a save/restore
+  /// instead of being re-derived from [roundNumber]. Older saves without this
+  /// field fall back to the legacy `roundNumber == 1` derivation.
+  final bool? fiftyWindowIsFirstDealtRound;
 
   /// Time the snapshot was saved.
   final DateTime savedAt;

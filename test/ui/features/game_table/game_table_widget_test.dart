@@ -16,6 +16,7 @@ import 'package:hareeg_table/ui/core/cards/card_theme.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme_registry.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
+import 'package:hareeg_table/ui/features/game_table/widgets/coach_overlay.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/fifty_ring.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/pause_overlay.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
@@ -146,7 +147,9 @@ void main() {
 
       await tester.ensureVisible(find.text('Table sounds'));
       await tester.pumpAndSettle();
-      expect(find.byType(Switch), findsNWidgets(4));
+      // Coaching tier adds the "Coaching tips" toggle alongside the four
+      // ergonomic toggles (fast CPU, contrast, haptics, sound).
+      expect(find.byType(Switch), findsNWidgets(5));
       // Target the Table-sounds switch by its label rather than by position:
       // the toggle is a Row pairing the title Text with its sibling Switch.
       final soundSwitch = find.descendant(
@@ -1428,6 +1431,119 @@ void main() {
         expect(find.byType(MatchOverScreen), findsOneWidget);
       },
     );
+
+    testWidgets('coaching tier surfaces a hint callout and coach ring', (
+      tester,
+    ) async {
+      final seven = _card(CardRank.seven, CardSuit.clubs, 310);
+      final eight = _card(CardRank.eight, CardSuit.clubs, 310);
+      final nine = _card(CardRank.nine, CardSuit.clubs, 310);
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          // A finished run plus a last card: the advisor's top insight is the
+          // (priority 1000) finish.
+          southHand: [seven, eight, nine, _card(CardRank.two, CardSuit.spades, 310)],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      expect(find.byType(CoachOverlay), findsOneWidget);
+      expect(find.text('You can win'), findsOneWidget);
+      // The finishing meld cards wear the reserved coach highlight ring.
+      expect(
+        find.byKey(
+          ValueKey(
+            '${CardThemeRegistry.defaultThemeId}-${seven.id}-'
+            '${CardVisualState.coachHighlight}-${JokerDisplay.assisted}',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('standard tier shows no coaching hint', (tester) async {
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        tableStrictness: TableStrictness.standard,
+      );
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          setup: setup,
+          southHand: [
+            _card(CardRank.seven, CardSuit.clubs, 311),
+            _card(CardRank.eight, CardSuit.clubs, 311),
+            _card(CardRank.nine, CardSuit.clubs, 311),
+            _card(CardRank.two, CardSuit.spades, 311),
+          ],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      expect(find.byType(CoachOverlay), findsNothing);
+    });
+
+    testWidgets('coaching hint is suppressed when the tips toggle is off', (
+      tester,
+    ) async {
+      final preferences = MemoryPreferencesRepository()
+        ..preferences = GamePreferences.defaults().copyWith(
+          coachingTipsEnabled: false,
+        );
+      await _openTable(
+        tester,
+        preferencesRepository: preferences,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            _card(CardRank.seven, CardSuit.clubs, 312),
+            _card(CardRank.eight, CardSuit.clubs, 312),
+            _card(CardRank.nine, CardSuit.clubs, 312),
+            _card(CardRank.two, CardSuit.spades, 312),
+          ],
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+
+      expect(find.byType(CoachOverlay), findsNothing);
+    });
+
+    testWidgets('coach overlay never intercepts a table tap', (tester) async {
+      // A showing coach hint must stay pointer-transparent so the player can
+      // still tap the table underneath it.
+      final pending = _card(CardRank.nine, CardSuit.clubs, 313);
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            pending,
+            _card(CardRank.three, CardSuit.hearts, 313),
+            _card(CardRank.four, CardSuit.hearts, 313),
+            _card(CardRank.five, CardSuit.hearts, 313),
+          ],
+          discardPile: [_card(CardRank.ace, CardSuit.spades, 313)],
+          pendingDiscard: pending,
+        ),
+      );
+
+      expect(find.byType(CoachOverlay), findsOneWidget);
+      // Returning the pending discard is a centre-of-table tap; it must land
+      // even with the coach callout on screen.
+      await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(ValueKey('south-hand-drag-${pending.id}')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('coaching tips toggle is available in the pause overlay', (
+      tester,
+    ) async {
+      await _openTable(tester);
+      await tester.tap(find.byTooltip('Pause'));
+      await tester.pumpAndSettle();
+      expect(find.text('Coaching tips'), findsOneWidget);
+    });
   });
 }
 
