@@ -110,19 +110,20 @@ void main() {
       );
     });
 
-    test('uses deeper discard attribution than Skilled hot-list memory', () {
+    test('uses deeper pickup attribution than Skilled hot-list memory', () {
+      // The "collecting" signal is what an opponent PICKED UP, not what they
+      // discarded. West picked up a 9 several turns back (older than Skilled's
+      // 3-deep pickup window but inside Expert's deep memory). Expert still
+      // treats rank 9 as hot and refuses to feed it, discarding the 4 instead;
+      // Skilled has forgotten the old pickup and falls back to its own posture.
       final nineHearts = card(CardRank.nine, CardSuit.hearts);
       final fourClubs = card(CardRank.four, CardSuit.clubs);
       final history = DiscardHistory()
-        ..recordDiscard(PlayerSeat.west, card(CardRank.nine, CardSuit.diamonds))
-        ..recordDiscard(PlayerSeat.west, card(CardRank.two, CardSuit.diamonds))
-        ..recordDiscard(
-          PlayerSeat.west,
-          card(CardRank.three, CardSuit.diamonds),
-        )
-        ..recordDiscard(PlayerSeat.west, card(CardRank.five, CardSuit.spades))
-        ..recordDiscard(PlayerSeat.west, card(CardRank.six, CardSuit.spades))
-        ..recordDiscard(PlayerSeat.west, card(CardRank.seven, CardSuit.spades));
+        // Oldest pickup carries the 9 — beyond Skilled's 3-deep window.
+        ..recordPickup(PlayerSeat.west, card(CardRank.nine, CardSuit.diamonds))
+        ..recordPickup(PlayerSeat.west, card(CardRank.two, CardSuit.diamonds))
+        ..recordPickup(PlayerSeat.west, card(CardRank.three, CardSuit.diamonds))
+        ..recordPickup(PlayerSeat.west, card(CardRank.five, CardSuit.spades));
       final observation = _FakeCpuObservation(
         legalActionIds: [discardAction(nineHearts), discardAction(fourClubs)],
         ownHand: [nineHearts, fourClubs],
@@ -130,15 +131,77 @@ void main() {
         discardHistory: history,
       );
 
-      expect(
-        _choose(CpuDifficulty.skilled, observation),
-        discardAction(nineHearts),
-      );
+      // Expert keeps the 9 (West is collecting 9s) and sheds the 4.
       expect(
         _choose(CpuDifficulty.expert, observation),
         discardAction(fourClubs),
       );
+      // Skilled no longer remembers the old 9 pickup, so it does not avoid the
+      // 9 on that basis (its default posture differs from Expert here).
+      expect(
+        _choose(CpuDifficulty.skilled, observation),
+        isNot(discardAction(fourClubs)),
+      );
     });
+
+    test(
+      'an opponent DISCARDING a suit does not make the seat hoard that suit',
+      () {
+        // Playtest regression: West discarded a heart and a spade (cards it does
+        // NOT want). That must not flip the seat into keeping its dead low cards
+        // and shedding a genuinely useful high card. With two dead 3s (one a
+        // duplicate) and a developing 8♦, the Expert must discard a low 3, never
+        // the 8 — a discard by an opponent is a SAFE signal, not a hot one.
+        final threeHeartsA = card(CardRank.three, CardSuit.hearts);
+        // Second physical 3♥ (distinct id) — the exact duplicate the seat holds.
+        final threeHeartsB = HareegCard.standard(
+          rank: CardRank.three,
+          suit: CardSuit.hearts,
+          deckIndex: 2,
+        );
+        final threeSpades = card(CardRank.three, CardSuit.spades);
+        final eightDiamonds = card(CardRank.eight, CardSuit.diamonds);
+        final eightHearts = card(CardRank.eight, CardSuit.hearts);
+        final history = DiscardHistory()
+          ..recordDiscard(PlayerSeat.west, card(CardRank.king, CardSuit.hearts))
+          ..recordDiscard(PlayerSeat.west, card(CardRank.two, CardSuit.spades));
+        final observation = _FakeCpuObservation(
+          legalActionIds: [
+            discardAction(threeHeartsA),
+            discardAction(threeHeartsB),
+            discardAction(threeSpades),
+            discardAction(eightDiamonds),
+            discardAction(eightHearts),
+          ],
+          ownHand: [
+            threeHeartsA,
+            threeHeartsB,
+            threeSpades,
+            eightDiamonds,
+            eightHearts,
+          ],
+          openingState: opened(),
+          discardHistory: history,
+        );
+
+        final chosen = _choose(CpuDifficulty.expert, observation);
+        expect(
+          chosen,
+          isNot(anyOf(
+            discardAction(eightDiamonds),
+            discardAction(eightHearts),
+          )),
+        );
+        expect(
+          chosen,
+          anyOf(
+            discardAction(threeHeartsA),
+            discardAction(threeHeartsB),
+            discardAction(threeSpades),
+          ),
+        );
+      },
+    );
 
     test('takes a thin-stock discard defensively even without a meld', () {
       final kingSpades = card(CardRank.king, CardSuit.spades);
@@ -286,6 +349,142 @@ void main() {
 
       expect(_choose(CpuDifficulty.skilled, observation), edgeAction);
       expect(_choose(CpuDifficulty.expert, observation), interiorAction);
+    });
+  });
+
+  group('Expert cover posture (endgame Fifty-hold)', () {
+    final westRun = [
+      card(CardRank.seven, CardSuit.spades),
+      card(CardRank.eight, CardSuit.spades),
+      card(CardRank.nine, CardSuit.spades),
+    ];
+
+    test('never burns a joker on a non-finishing cover', () {
+      // A held joker is the strongest finish/Fifty asset, so Expert holds it
+      // rather than laying it onto a cover. Skilled (no Fifty-hold posture)
+      // still burns it — the tier difference the playtest exposed.
+      final joker = HareegCard.joker(deckIndex: 90, jokerIndex: 0);
+      final fiveClubs = card(CardRank.five, CardSuit.clubs);
+      final nineDiamonds = card(CardRank.nine, CardSuit.diamonds);
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.west,
+        meldIndex: 0,
+        cardIds: [joker.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [
+          coverAction,
+          discardAction(fiveClubs),
+          discardAction(nineDiamonds),
+        ],
+        ownHand: [joker, fiveClubs, nineDiamonds],
+        stockCount: 20,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.west: [PlacedMeld.fromCards(westRun)],
+        },
+      );
+
+      expect(_choose(CpuDifficulty.skilled, observation), coverAction);
+      final expert = _choose(CpuDifficulty.expert, observation);
+      expect(expert, isNot(coverAction));
+      expect(expert.startsWith(ClassicHareegActionIds.discardPrefix), isTrue);
+    });
+
+    test('always plays a cover that empties the hand (a win)', () {
+      // A finishing cover wins outright; the Fifty-hold posture must never
+      // suppress it even with a tiny hand and deep stock.
+      final fiveSpades = card(CardRank.five, CardSuit.spades);
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        cardIds: [fiveSpades.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [coverAction, discardAction(fiveSpades)],
+        ownHand: [fiveSpades],
+        stockCount: 20,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.east: [
+            PlacedMeld.fromCards([
+              card(CardRank.two, CardSuit.spades),
+              card(CardRank.three, CardSuit.spades),
+              card(CardRank.four, CardSuit.spades),
+            ]),
+          ],
+        },
+      );
+
+      expect(_choose(CpuDifficulty.expert, observation), coverAction);
+    });
+
+    test('holds a non-finishing cover for a Fifty while the hand develops', () {
+      // Issue C: opened, few cards, deep stock, a developing pair. The cover
+      // extends the seat's OWN set (not a run end, so only the new Fifty-hold
+      // posture — never the legacy own-run-end hold — can cause the hold).
+      // Covering sheds an extra card and kills the Fifty; Expert instead holds
+      // the cover and discards the loose 5, keeping the 9-pair to draw a Fifty.
+      final fiveSpades = card(CardRank.five, CardSuit.spades);
+      final nineHearts = card(CardRank.nine, CardSuit.hearts);
+      final nineDiamonds = card(CardRank.nine, CardSuit.diamonds);
+      final ownFiveSet = [
+        card(CardRank.five, CardSuit.hearts),
+        card(CardRank.five, CardSuit.clubs),
+        card(CardRank.five, CardSuit.diamonds),
+      ];
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        cardIds: [fiveSpades.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [
+          coverAction,
+          discardAction(fiveSpades),
+          discardAction(nineHearts),
+          discardAction(nineDiamonds),
+        ],
+        ownHand: [fiveSpades, nineHearts, nineDiamonds],
+        stockCount: 40,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.east: [PlacedMeld.fromCards(ownFiveSet)],
+        },
+      );
+
+      // Holds the cover (does not play it) and sheds the loose 5, not a 9.
+      expect(
+        _choose(CpuDifficulty.expert, observation),
+        discardAction(fiveSpades),
+      );
+    });
+
+    test('plays a non-finishing cover when the hand is not developing', () {
+      // The Fifty-hold gate is real: with no developing pair/run left, holding
+      // buys nothing, so Expert lays the loose card off as a cover.
+      final tenSpades = card(CardRank.ten, CardSuit.spades);
+      final fourHearts = card(CardRank.four, CardSuit.hearts);
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.west,
+        meldIndex: 0,
+        cardIds: [tenSpades.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [
+          coverAction,
+          discardAction(tenSpades),
+          discardAction(fourHearts),
+        ],
+        ownHand: [tenSpades, fourHearts],
+        stockCount: 40,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.west: [PlacedMeld.fromCards(westRun)],
+        },
+      );
+
+      expect(_choose(CpuDifficulty.expert, observation), coverAction);
     });
   });
 }

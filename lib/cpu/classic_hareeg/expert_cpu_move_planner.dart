@@ -18,6 +18,10 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
   static const _partitionLimit = 256;
   static const _fiftyHoldStockFloor = 8;
   static const _fiftyHoldHandValueFloor = 25;
+  // Endgame Fifty-hold cover posture: an opened seat with at most this many
+  // cards is close enough to a finish that shedding a developing card into a
+  // cover throws away its Fifty chances. (Owner's "few cards" ~ <= 4-5.)
+  static const _fiftyHoldCoverHandMax = 5;
   static const _highRiskScoreFloor = 25;
   static const _eliminationTargetScoreFloor = 28;
   static const _thinStockCount = 8;
@@ -169,16 +173,52 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
 
   @override
   bool shouldHoldCover(CpuObservation observation, CpuLegalAction cover) {
+    final cardIds = cover.descriptor.cardIds;
+    if (cardIds.length != 1) {
+      // Multi-card covers are not reasoned about here; preserve the prior
+      // behaviour of always playing them.
+      return false;
+    }
+    final card = _cardById(observation, cardIds.single);
+    if (card == null) {
+      return false;
+    }
+
+    // A cover that empties the hand wins the round outright — never hold a
+    // finish, for a Fifty or anything else.
+    if (observation.ownHand.length == cardIds.length) {
+      return false;
+    }
+
+    // Never burn a joker on a non-finishing cover. A held joker is the single
+    // strongest finish/Fifty asset (it fits almost any incomplete meld later),
+    // so playing it onto a cover is almost always a mistake — the playtest
+    // "joker pushed onto a cover" bug.
+    if (card.isJoker) {
+      return true;
+    }
+
+    // Endgame Fifty-hold posture (opened seats only). Hold a non-finishing
+    // cover when the seat is down to a few cards, the stock is not near-empty
+    // (deep stock only HELPS — more draws means more Fifty chances, so there is
+    // no upper stock bound), and the remaining hand is still developing toward a
+    // meld (or holds a joker). In that shape, shedding cards into covers throws
+    // the Fifty away instead of building it.
+    if (observation.ownHasOpened() &&
+        observation.ownHand.length <=
+            ExpertCpuMovePlanner._fiftyHoldCoverHandMax &&
+        observation.stockCount >= ExpertCpuMovePlanner._fiftyHoldStockFloor &&
+        _remainingHandDevelops(observation.ownHand, card.id)) {
+      return true;
+    }
+
+    // Existing posture: hold a cover that extends the seat's OWN run at an end,
+    // to keep developing the run rather than burning the card early.
     final target = cover.descriptor.coverTarget;
     if (target == null || target.targetSeat != observation.seat) {
       return false;
     }
-    final cardIds = cover.descriptor.cardIds;
-    if (cardIds.length != 1) {
-      return false;
-    }
-    final card = _cardById(observation, cardIds.single);
-    final identity = card?.effectiveIdentity;
+    final identity = card.effectiveIdentity;
     if (identity == null) {
       return false;
     }
@@ -194,6 +234,38 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     return order == orders.first - 1 || order == orders.last + 1;
   }
 
+  // True when the hand minus [excludeCardId] still has a developing meld — two
+  // cards that can combine into a set or run (via the shared
+  // [cardsCanMeldTogether] signal), or a joker. Used by the Fifty-hold cover
+  // posture to decide whether holding builds toward a finish.
+  bool _remainingHandDevelops(List<HareegCard> hand, String excludeCardId) {
+    final rest = [
+      for (final card in hand)
+        if (card.id != excludeCardId) card,
+    ];
+    for (final card in rest) {
+      if (card.isJoker) {
+        return true;
+      }
+    }
+    for (var i = 0; i < rest.length; i += 1) {
+      final a = rest[i].effectiveIdentity;
+      if (a == null) {
+        continue;
+      }
+      for (var j = i + 1; j < rest.length; j += 1) {
+        final b = rest[j].effectiveIdentity;
+        if (b == null) {
+          continue;
+        }
+        if (cardsCanMeldTogether(a, b)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   @override
   Comparator<CpuDiscardCandidate> discardComparator(
     CpuObservation observation,
@@ -205,6 +277,17 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     // posture-only check here to preserve behaviour exactly.
     final profile = _OpponentThreatProfile.fromObservation(observation);
     final holdForFifty = shouldHoldNormalFinishForFifty(observation);
+    final hand = observation.ownHand;
+    // Keep scores come from the shared disjoint best-grouping model
+    // ([handKeepScores]): every card is scored by the value of the single meld /
+    // group it lands in. A card committed to a meld scores that meld's value (so
+    // it cannot inflate a loose neighbour — an A♥ locked in the aces set is not
+    // borrowed as a heart-run partner for a loose 2♥/3♥), and a redundant
+    // duplicate falls to a 0 solo. Because the grouping is disjoint this holds
+    // for opened and unopened hands alike, replacing the old unopened-only
+    // keep-partition exclusion with one root model.
+    final keepScores = handKeepScores(hand);
+    int keepScore(HareegCard card) => keepScores[card.id] ?? 0;
 
     return (left, right) {
       final leftCard = left.card;
@@ -214,6 +297,14 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
       final dangerCompare = leftDanger.compareTo(rightDanger);
       if (dangerCompare != 0) {
         return dangerCompare;
+      }
+
+      // Potential-weighted: among equally (un)dangerous cards, shed the one
+      // building the least. Keeps a developing high pair over a low complete
+      // set and protects run/set anchors, instead of blindly dumping low pips.
+      final keepCompare = keepScore(leftCard).compareTo(keepScore(rightCard));
+      if (keepCompare != 0) {
+        return keepCompare;
       }
 
       final leftTarget = profile.fiftySetupScore(leftCard);
@@ -431,10 +522,13 @@ class _OpponentThreatProfile {
       final nearScore = score >= ExpertCpuMovePlanner._highRiskScoreFloor;
       final eliminationTarget =
           score >= ExpertCpuMovePlanner._eliminationTargetScoreFloor;
-      final cards = [
-        ...observation.discardHistory.lastDiscardsBy(opponent, 99),
-        ...observation.discardHistory.lastPickupsBy(opponent, 99),
-      ];
+      // "Collecting" = what the opponent deliberately PICKED UP. A card they
+      // DISCARDED is one they did not want, so it is safe (often safest) to
+      // throw — counting discards here inverts the signal and makes the seat
+      // hoard the very cards opponents already rejected while shedding its
+      // genuinely useful high cards (the playtest "discard the 8, keep the
+      // dead 3s" bug). Run-end cover threats below still come from table melds.
+      final cards = observation.discardHistory.lastPickupsBy(opponent, 99);
       for (final card in cards) {
         final identity = card.effectiveIdentity;
         if (identity == null) {
