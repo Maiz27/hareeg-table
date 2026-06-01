@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.0-alpha.8](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.7...v1.0.0-alpha.8) (2026-06-01)
+
+
+### Features
+
+* **coaching:** add the coaching advisor analysis engine ([b69c298](https://github.com/Maiz27/hareeg-table/commit/b69c298392230187dd6876a7fde8dfe3f6b0ca79))
+* **coaching:** proactive on-table coach for the coaching tier ([16fe564](https://github.com/Maiz27/hareeg-table/commit/16fe5648a8b7e82603027c80e23df49fac7fdc6a))
+* **cpu:** potential-weighted discard scoring and endgame Fifty-hold cover posture ([da01c3e](https://github.com/Maiz27/hareeg-table/commit/da01c3e7cb60419e0ed6d50da31f1cf8e82c06a7))
+* proactive coaching for the coaching tier (HT-40) ([0e21697](https://github.com/Maiz27/hareeg-table/commit/0e2169779ad3822da71f0cec2507abae90899341))
+
+
+### Bug Fixes
+
+* **audio:** stabilize Android sound-effect focus and keep haptics on sound-off ([d7b25bd](https://github.com/Maiz27/hareeg-table/commit/d7b25bd47f6a290240e19a4f499d945330638b6e))
+* **coaching:** repaint coach rings on colour change and refresh insights on Fifty-window or round changes ([7d9b2d9](https://github.com/Maiz27/hareeg-table/commit/7d9b2d909af83552b667e84a90efd10578c1ee74))
+* **engine:** correct Fifty scoring on restore and conserve cards at round end ([bb2188a](https://github.com/Maiz27/hareeg-table/commit/bb2188aecaa668fa1b2a5422441d14fa3a4d2cb7))
+* **game:** never offer CPUs an invalid Fifty claim and draw on hopeless claims ([3f68dd2](https://github.com/Maiz27/hareeg-table/commit/3f68dd2a152d5cb3ede4349471775101bed7c9ff))
+* **game:** persist round-result scores in snapshots so Fifty deltas survive save ([7a47c73](https://github.com/Maiz27/hareeg-table/commit/7a47c7371ca43b8e7f1c0baeb7659900330310cb))
+* **game:** seed each new round's deal so matches are reproducible ([1ac5a71](https://github.com/Maiz27/hareeg-table/commit/1ac5a711a7b60c843d0c8d2baa79b2672c22dfab))
+* **table:** accept an unambiguous cover dropped anywhere over the meld ([afbe4fa](https://github.com/Maiz27/hareeg-table/commit/afbe4fab1d20e23c223932083aa238394de669cf))
+
 ## [1.0.0-alpha.7](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-05-25)
 
 
