@@ -43,7 +43,25 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   final fiftyWindowOpenedAt = fiftyWindowOpenedAtRaw == null
       ? null
       : DateTime.tryParse(fiftyWindowOpenedAtRaw);
-  final roundNumber = asJsonInt(json['roundNumber']) ?? 1;
+  // Open Fifty window provenance, persisted verbatim. Both are v1-additive:
+  // absent in older saves, where restore falls back to the legacy geometric
+  // discarder guess / `roundNumber == 1` derivation.
+  final fiftyWindowDiscarder = PlayerSeat.fromName(
+    asJsonString(json['fiftyWindowDiscarder']),
+  );
+  final fiftyWindowIsFirstDealtRound = asJsonBool(
+    json['fiftyWindowIsFirstDealtRound'],
+  );
+  // roundNumber is hard-required: a missing or unparseable value used to
+  // collapse to round 1 (`?? 1`), silently turning a later-round Fifty into
+  // the first-dealt-round -1 scoring exception (and persisting the wrong
+  // delta into the next round). Fail loud instead of guessing the round.
+  final roundNumber = asJsonInt(json['roundNumber']);
+  if (roundNumber == null || roundNumber <= 0) {
+    throw const FormatException(
+      'Saved match is missing a valid roundNumber.',
+    );
+  }
 
   if (setupJson == null ||
       handsJson == null ||
@@ -93,12 +111,14 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
       activeSeatsJson,
       fallback: PlayerSeat.values,
     ),
-    roundNumber: roundNumber <= 0 ? 1 : roundNumber,
+    roundNumber: roundNumber,
     removedSeats: _seatListFromJson(
       removedSeatsJson,
       fallback: const <PlayerSeat>[],
     ),
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+    fiftyWindowDiscarder: fiftyWindowDiscarder,
+    fiftyWindowIsFirstDealtRound: fiftyWindowIsFirstDealtRound,
     savedAt: savedAt,
     discardHistoryEvents: discardHistoryEvents,
   );
@@ -131,6 +151,8 @@ Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) 
     'roundNumber': snapshot.roundNumber,
     'removedSeats': snapshot.removedSeats.map((seat) => seat.name).toList(),
     'fiftyWindowOpenedAt': snapshot.fiftyWindowOpenedAt?.toIso8601String(),
+    'fiftyWindowDiscarder': snapshot.fiftyWindowDiscarder?.name,
+    'fiftyWindowIsFirstDealtRound': snapshot.fiftyWindowIsFirstDealtRound,
     'savedAt': snapshot.savedAt.toIso8601String(),
     'discardHistory': {
       'events': [

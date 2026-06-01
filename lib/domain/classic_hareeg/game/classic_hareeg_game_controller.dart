@@ -425,6 +425,12 @@ class ClassicHareegGameController {
       roundNumber: _roundNumber,
       removedSeats: _removedSeats.toList(growable: false),
       fiftyWindowOpenedAt: _fiftyWindowOpenedAt,
+      // Persist the open Fifty window's provenance verbatim so restore does
+      // not have to geometrically guess the discarder (wrong once seats are
+      // removed) or re-derive the first-dealt-round -1/-3 exception from the
+      // round number (lost when roundNumber is absent on an old/partial save).
+      fiftyWindowDiscarder: _fiftyWindow?.discarder,
+      fiftyWindowIsFirstDealtRound: _fiftyWindow?.isFirstDealtRound,
       savedAt: effectiveSavedAt,
       discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
@@ -1717,6 +1723,16 @@ class ClassicHareegGameController {
   void _completeRound(RoundProgressResult result) {
     _roundOutcome = result.type;
     _roundResult = result;
+    // The round is over: the winning turn's plays are permanently committed, so
+    // there is no in-progress turn to resume. Clear the reversible turn journal
+    // so a round-over `toSnapshot` reflects the true final state instead of
+    // reverting the winner's finishing plays back into their hand. Without this,
+    // a card placed and then replaced this turn (e.g. a joker covered onto a meld
+    // then swapped out for a real card and discarded) is re-materialised by the
+    // stale revert and duplicated. Every caller reads the journal (finish
+    // validation, remaining-card counts) before reaching here, and no action is
+    // legal once the round has ended, so clearing now is safe.
+    _turnJournal.resetForNewTurn();
     final progress = _matchFlow.progressFor(result);
     if (progress == null) {
       return;
@@ -1786,6 +1802,14 @@ class ClassicHareegGameController {
       return const ApplyActionResult.failure('No active Fifty discard.');
     }
     _discardPile.removeLast();
+    // Place the finishing melds on the table before clearing the hand. The melds
+    // consume the claimed discard plus every hand card except the final discard;
+    // without placing them those cards vanish from the table state (a card-
+    // conservation violation the full-game invariant sweep catches on a Fifty
+    // finish). Mirrors the normal meld-commit path.
+    _tableMelds
+        .putIfAbsent(_currentSeat, () => <PlacedMeld>[])
+        .addAll(finishPlan.melds);
     _hands[_currentSeat] = const <HareegCard>[];
     _discardPile.add(finishPlan.finalDiscard);
     _pendingDiscard = null;

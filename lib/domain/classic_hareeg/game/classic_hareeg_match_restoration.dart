@@ -20,9 +20,14 @@ abstract final class ClassicHareegMatchRestoration {
     ClassicHareegRules? rules,
   }) {
     final activeRules = rules ?? ClassicHareegRules.defaults();
+    // Prefer the discarder the snapshot recorded verbatim. Older saves
+    // (field absent) fall back to the legacy geometric guess, which can
+    // mis-attribute the Fifty penalty once a seat has been removed from the
+    // round.
     final previousDiscardSeat = snapshot.discardPile.isEmpty
         ? null
-        : snapshot.currentSeat.previousAntiClockwise;
+        : snapshot.fiftyWindowDiscarder ??
+              snapshot.currentSeat.previousAntiClockwise;
     final shouldRestoreFiftyWindow =
         snapshot.discardPile.isNotEmpty && snapshot.turnPhase == TurnPhase.draw;
 
@@ -69,7 +74,11 @@ abstract final class ClassicHareegMatchRestoration {
               claimant: snapshot.currentSeat,
               discardedCard: snapshot.discardPile.last,
               durationSeconds: snapshot.setup.fiftyTimerSeconds,
-              isFirstDealtRound: snapshot.roundNumber == 1,
+              // Prefer the verbatim flag; older saves (field absent) fall
+              // back to the legacy `roundNumber == 1` derivation.
+              isFirstDealtRound:
+                  snapshot.fiftyWindowIsFirstDealtRound ??
+                  (snapshot.roundNumber == 1),
             )
           : null,
       fiftyWindowOpenedAt: shouldRestoreFiftyWindow

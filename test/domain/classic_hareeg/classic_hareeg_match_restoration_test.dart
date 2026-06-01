@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_restoration.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot_v1.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
@@ -98,6 +99,88 @@ void main() {
       },
     );
   });
+
+  group('ClassicHareegMatchRestoration JSON round-trip (Issue D)', () {
+    test(
+      'round >= 2 Fifty window survives encode/decode with -3 scoring '
+      'and the true discarder',
+      () {
+        // A real save: round 5, an OPEN Fifty window (draw phase, non-empty
+        // discard). South is claiming; the geometric guess for the discarder
+        // is south.previousAntiClockwise == west. We make WEST a removed seat
+        // and record the TRUE discarder as east, so the geometric guess is
+        // demonstrably wrong.
+        final discarded = _card(CardRank.queen, CardSuit.hearts, 71);
+        final snapshot = _snapshot(
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          discardPile: [discarded],
+          roundNumber: 5,
+          removedSeats: const [PlayerSeat.west],
+          activeSeats: const [
+            PlayerSeat.south,
+            PlayerSeat.east,
+            PlayerSeat.north,
+          ],
+          fiftyWindowDiscarder: PlayerSeat.east,
+          fiftyWindowIsFirstDealtRound: false,
+        );
+
+        // Full JSON round-trip — exactly the path a real save takes.
+        final json = encodeMatchSnapshotV1(snapshot);
+        final decoded = decodeMatchSnapshotV1(json);
+
+        // Round number must survive verbatim, never collapse to 1.
+        expect(decoded.roundNumber, 5);
+
+        final restored = ClassicHareegMatchRestoration.fromSnapshot(decoded);
+
+        expect(restored.fiftyWindow, isNotNull);
+        // (a) -3 scoring: a round-5 Fifty is NOT the first-dealt-round
+        // exception, so the winner delta must be -3, which means
+        // isFirstDealtRound must be false.
+        expect(
+          restored.fiftyWindow!.isFirstDealtRound,
+          isFalse,
+          reason: 'Round 5 Fifty must use -3, not the first-round -1 exception.',
+        );
+        // (b) the penalty must land on the TRUE discarder (east), not the
+        // geometric guess (west, which is removed anyway).
+        expect(
+          restored.fiftyWindow!.discarder,
+          PlayerSeat.east,
+          reason: 'Fifty penalty must charge the recorded discarder, '
+              'not the geometric previousAntiClockwise guess.',
+        );
+      },
+    );
+
+    test(
+      'roundNumber missing from JSON would silently collapse a round >= 2 '
+      'Fifty into the first-round -1 exception',
+      () {
+        // Reproduces the persisted -1 symptom: a save whose roundNumber is
+        // absent/unparseable. With the old `?? 1` fallback this decodes as
+        // round 1 and (pre-fix) the restored Fifty window would claim the
+        // first-dealt-round -1 exception even though it was really round 5.
+        final discarded = _card(CardRank.queen, CardSuit.hearts, 71);
+        final snapshot = _snapshot(
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          discardPile: [discarded],
+          roundNumber: 5,
+        );
+        final json = encodeMatchSnapshotV1(snapshot);
+        json.remove('roundNumber');
+
+        // After the fix this fails loud rather than silently scoring -1.
+        expect(
+          () => decodeMatchSnapshotV1(json),
+          throwsA(isA<FormatException>()),
+        );
+      },
+    );
+  });
 }
 
 ClassicHareegMatchSnapshot _snapshot({
@@ -111,8 +194,11 @@ ClassicHareegMatchSnapshot _snapshot({
   TurnPhase turnPhase = TurnPhase.action,
   HareegCard? pendingDiscard,
   int roundNumber = 2,
+  List<PlayerSeat>? removedSeats,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
+  PlayerSeat? fiftyWindowDiscarder,
+  bool? fiftyWindowIsFirstDealtRound,
 }) {
   return ClassicHareegMatchSnapshot(
     setup: ClassicHareegSetup.defaults(),
@@ -128,7 +214,10 @@ ClassicHareegMatchSnapshot _snapshot({
     scores: scores ?? const {},
     activeSeats: activeSeats ?? PlayerSeat.values,
     roundNumber: roundNumber,
+    removedSeats: removedSeats ?? const [],
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+    fiftyWindowDiscarder: fiftyWindowDiscarder,
+    fiftyWindowIsFirstDealtRound: fiftyWindowIsFirstDealtRound,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 21),
   );
 }
