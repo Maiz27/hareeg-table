@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 
@@ -26,9 +28,25 @@ import 'invariants/match_invariants.dart';
 // sweep bounded even though casual matches rarely converge.
 const fullGameInvariantActionBudget = 600;
 
-const casualSweepSeeds = [1, 2, 3, 5, 7];
+/// Tiered seed coverage. The full seed matrix is expensive, so PRs run a
+/// reduced seed set for fast feedback while every other axis (strictness tier,
+/// joker count, CPU difficulty) is preserved. Push-to-`main` and the nightly
+/// schedule set `HAREEG_FULL_SWEEP=1` so the complete seed matrix still lands on
+/// `main` within a day — see `.github/workflows/flutter-ci.yml`. Set the env var
+/// locally to reproduce the full run.
+final bool fullSweepSeeds = Platform.environment['HAREEG_FULL_SWEEP'] == '1';
+
+const _casualSeedsFull = [1, 2, 3, 5, 7];
+const _casualSeedsPr = [1, 3];
+const _strategicSeedsFull = [1, 2, 3];
+const _strategicSeedsPr = [1];
+
+List<int> get casualSweepSeeds =>
+    fullSweepSeeds ? _casualSeedsFull : _casualSeedsPr;
+List<int> get strategicSweepSeeds =>
+    fullSweepSeeds ? _strategicSeedsFull : _strategicSeedsPr;
+
 const casualSweepJokerCounts = [0, 2, 4];
-const strategicSweepSeeds = [1, 2, 3];
 
 const casualSweepTimeout = Timeout(Duration(minutes: 3));
 const strategicSweepTimeout = Timeout(Duration(minutes: 5));

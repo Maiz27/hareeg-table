@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Nightly full-seed invariant sweep at 03:00 UTC. PRs run a reduced seed set
+    # for fast feedback; this (and every push to main) runs the complete matrix.
+    - cron: "0 3 * * *"
 
 jobs:
   analyze-and-test:
@@ -31,4 +35,10 @@ jobs:
         # a 4-vCPU runner), which leaves half the cores idle and serialises the
         # heavy invariant sweep. Pin it to the full vCPU count so the per-file
         # sweep suites actually spread across every core.
+        #
+        # HAREEG_FULL_SWEEP runs the complete invariant-sweep seed matrix on
+        # push-to-main and the nightly schedule; pull requests leave it unset and
+        # run a reduced seed set (all other axes preserved) for fast feedback.
+        env:
+          HAREEG_FULL_SWEEP: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && '1' || '' }}
         run: flutter test --concurrency=$(nproc)
