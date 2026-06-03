@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/app_routes.dart';
 import '../../../../app/app_orientation.dart';
-import '../../../../cpu/classic_hareeg/classic_hareeg_cpu_turn_runner.dart';
 import '../../../../cpu/classic_hareeg/coaching/classic_hareeg_coaching_advisor.dart';
 import '../../../../cpu/classic_hareeg/coaching/coaching_insight.dart';
 import '../../../../cpu/classic_hareeg/cpu_strategy.dart';
@@ -36,6 +35,7 @@ import '../cue/table_cue_choreographer.dart';
 import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
 import '../table_card_flight_planner.dart';
+import '../table_cpu_turn_presenter.dart';
 import '../table_flight_anchors.dart';
 import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
@@ -1609,24 +1609,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _meldFlight.clear();
     });
     try {
-      // Hookless runner — no flight pacing, no audio, no UI rebuilds between
-      // CPU actions. Allow plenty of headroom in the action cap since we
-      // intentionally play out an entire round in one rip.
-      const fastForwardActionLimit = 4096;
-      while (mounted && !_controller.isRoundOver) {
-        final runner = ClassicHareegCpuTurnRunner(
-          controller: _controller,
-          strategy: widget.cpuStrategy,
-          actionLimit: fastForwardActionLimit,
-        );
-        final result = await runner.run();
-        if (!result.didApplyAction && !_controller.isRoundOver) {
-          // The runner stopped without applying anything and the round is
-          // still live (e.g. the planner returned an action the controller
-          // rejected). Bail to avoid spinning forever.
-          break;
-        }
-      }
+      await _cpuTurnPresenter().fastForwardUntilRoundOver();
     } finally {
       if (mounted) {
         setState(() {
@@ -1640,6 +1623,38 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
     if (!mounted) return;
     await _persistAndMaybeFinish();
+  }
+
+  ClassicHareegTableCpuTurnPresenter _cpuTurnPresenter() {
+    return ClassicHareegTableCpuTurnPresenter(
+      controller: _controller,
+      strategy: widget.cpuStrategy,
+      actionLimit: _cpuActionLimit,
+      readPause: _cpuReadPause,
+      hooks: ClassicHareegTableCpuTurnPresenterHooks(
+        isMounted: () => mounted,
+        hasRoundResultPresentation: () => _roundResultPresentation != null,
+        log: _debugTableLog,
+        playFlightForCpuAction: _playFlightForCpuAction,
+        capturePlacedJokersForAction: _capturePlacedJokersForAction,
+        emitJokerFeedback: () =>
+            _emitFeedbackForFirstNewJoker(needsSetState: true),
+        clearPlacedJokerSnapshot: () {
+          _placedJokerSnapshot = null;
+        },
+        dropPendingSettledFor: _meldFlight.dropPendingSettledFor,
+        ensureFiftyTicker: _ensureFiftyTicker,
+        persistAndMaybeFinish: _persistAndMaybeFinish,
+        postActionDwell: _postActionDwell,
+      ),
+    );
+  }
+
+  void _capturePlacedJokersForAction(String actionId) {
+    final descriptor = ClassicHareegActionIds.describe(actionId);
+    _placedJokerSnapshot = descriptor.canPlaceJoker
+        ? _capturePlacedJokerIds()
+        : null;
   }
 
   Future<bool> _runCpuTurns() async {
@@ -1665,92 +1680,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _isCpuRunning = true;
     });
     try {
-      final runner = ClassicHareegCpuTurnRunner(
-        controller: _controller,
-        strategy: widget.cpuStrategy,
-        actionLimit: _cpuActionLimit,
-        hooks: ClassicHareegCpuTurnHooks(
-          beforeDecision: (step) async {
-            _debugTableLog(
-              'cpu step ${step.index} start seat=${step.seat.name} '
-              'phase=${step.phase} pending=${step.pendingDiscard?.label} '
-              'stock=${step.stockCount} discard=${step.discardCount}',
-            );
-            if (_cpuReadPause > Duration.zero) {
-              await Future<void>.delayed(_cpuReadPause);
-            }
-            return mounted;
-          },
-          onLegalActions: (step, legal) {
-            _debugTableLog(
-              'cpu step ${step.index} legal seat=${step.seat.name} '
-              'count=${legal.length} actions=${_debugActionSummary(legal)}',
-            );
-            if (legal.isEmpty) {
-              _debugTableLog('cpu step ${step.index} break no legal actions');
-            }
-          },
-          onActionChosen: (decision) {
-            _debugTableLog(
-              'cpu step ${decision.step.index} chose '
-              'action=${decision.actionId}',
-            );
-          },
-          beforeApply: (decision) async {
-            final flightWatch = Stopwatch()..start();
-            await _playFlightForCpuAction(decision.seat, decision.actionId);
-            flightWatch.stop();
-            _debugTableLog(
-              'cpu step ${decision.step.index} flight '
-              'action=${decision.actionId} '
-              'elapsed=${flightWatch.elapsedMilliseconds}ms',
-            );
-            final descriptor = ClassicHareegActionIds.describe(
-              decision.actionId,
-            );
-            _placedJokerSnapshot = descriptor.canPlaceJoker
-                ? _capturePlacedJokerIds()
-                : null;
-            return mounted;
-          },
-          afterApply: (decision, result) async {
-            _debugTableLog(
-              'cpu step ${decision.step.index} applied '
-              'action=${decision.actionId} success=${result.isSuccess} '
-              'current=${_controller.currentSeat.name} '
-              'phase=${_controller.turnPhase}',
-            );
-            if (result.isSuccess) {
-              _emitFeedbackForFirstNewJoker(needsSetState: true);
-            } else {
-              _placedJokerSnapshot = null;
-            }
-            // Controller has the real melds now; drop UI-only ghosts from
-            // the per-set flight.
-            _meldFlight.dropPendingSettledFor(decision.seat);
-            _ensureFiftyTicker();
-            final persistWatch = Stopwatch()..start();
-            await _persistAndMaybeFinish();
-            persistWatch.stop();
-            _debugTableLog(
-              'cpu step ${decision.step.index} persist returned '
-              'elapsed=${persistWatch.elapsedMilliseconds}ms '
-              'roundOver=${_controller.isRoundOver}',
-            );
-            if (!mounted) return false;
-            return !_controller.isRoundOver && _roundResultPresentation == null;
-          },
-          beforeNextAction: (previous) async {
-            final dwell = _postActionDwell(previous.actionId);
-            if (dwell > Duration.zero) {
-              await Future<void>.delayed(dwell);
-            }
-            return mounted;
-          },
-        ),
-      );
-
-      final result = await runner.run();
+      final result = await _cpuTurnPresenter().runVisible();
       if (!mounted) {
         return result.didApplyAction;
       }
@@ -3020,19 +2950,6 @@ String _debugSeatCounts(ClassicHareegGameController controller) {
   return PlayerSeat.values
       .map((seat) => '${seat.name}:${controller.cardCountFor(seat)}')
       .join(',');
-}
-
-String _debugActionSummary(Iterable<String> actionIds) {
-  final ids = actionIds.toList(growable: false);
-  if (ids.isEmpty) {
-    return '[]';
-  }
-  const maxShown = 5;
-  final shown = ids.take(maxShown).join(', ');
-  if (ids.length <= maxShown) {
-    return '[$shown]';
-  }
-  return '[$shown, +${ids.length - maxShown} more]';
 }
 
 String _inspectTitle(
