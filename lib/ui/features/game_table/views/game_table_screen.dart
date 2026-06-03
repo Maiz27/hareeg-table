@@ -124,12 +124,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   // without spinning up Flutter.
   late final TableCueChoreographer _cues = TableCueChoreographer(
     jokerDwellFor: (_) => _scaledDelay(_activeJokerChipDuration),
-    onJokerCueStart: (cue) => _onJokerCueStart(
-      cue as ({PlayerSeat seat, CardIdentity identity}),
-    ),
-    onJokerCueEnd: (cue) => _onJokerCueEnd(
-      cue as ({PlayerSeat seat, CardIdentity identity}),
-    ),
+    onJokerCueStart: (cue) =>
+        _onJokerCueStart(cue as ({PlayerSeat seat, CardIdentity identity})),
+    onJokerCueEnd: (cue) =>
+        _onJokerCueEnd(cue as ({PlayerSeat seat, CardIdentity identity})),
     isMounted: () => mounted,
   );
   final List<_CardFlight> _activeFlights = [];
@@ -931,7 +929,10 @@ class _GameTableScreenState extends State<GameTableScreen>
     final keyStr = key.toString();
     if (keyStr != _coachInsightCacheKey) {
       _coachInsightCacheKey = keyStr;
-      _coachInsights = ClassicHareegCoachingAdvisor.adviseFor(_controller, seat);
+      _coachInsights = ClassicHareegCoachingAdvisor.adviseFor(
+        _controller,
+        seat,
+      );
     }
     return _coachInsights;
   }
@@ -1137,7 +1138,9 @@ class _GameTableScreenState extends State<GameTableScreen>
         : TableFeedbackMessage(text: nextText, isError: isError);
     final duration = next == null
         ? Duration.zero
-        : _scaledDelay(isError ? _errorFeedbackDuration : _successFeedbackDuration);
+        : _scaledDelay(
+            isError ? _errorFeedbackDuration : _successFeedbackDuration,
+          );
     _cues.replaceFeedback(next, autoDismissAfter: duration);
   }
 
@@ -1218,9 +1221,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Withdraw this cue's message only if it still owns the feedback line;
     // the next cue's start callback (if any) fires immediately after this
     // and will publish its own message via setFeedbackUnmanaged.
-    _cues.withdrawFeedbackIf(
-      TableFeedbackMessage(text: text, isError: false),
-    );
+    _cues.withdrawFeedbackIf(TableFeedbackMessage(text: text, isError: false));
   }
 
   /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
@@ -1834,28 +1835,37 @@ class _GameTableScreenState extends State<GameTableScreen>
       _inspectedCard = null;
       _roundResultPresentation = presentation;
     });
-    final nextSnapshot = presentation.nextSnapshot;
-    // Short-circuit straight to match-over when the human (south) was
-    // eliminated by score this round. Letting the CPUs play out the rest of
-    // the match offers nothing to a spectating player, so we skip ahead to
-    // the final standings even though, mechanically, the match isn't over
-    // yet (other CPU seats are still match-active).
-    final humanEliminated = _controller.isHumanEliminated;
-    if (nextSnapshot == null || humanEliminated) {
-      _cues.scheduleRoundAdvance(_scaledDelay(_matchEndOverlayDwell), () {
-        if (!mounted) return;
-        _openMatchOver(presentation);
-      });
-      return;
-    }
-    _cues.scheduleRoundAdvance(_roundResultDisplayDuration, () {
-      if (!mounted) return;
-      _advanceToNextRound(nextSnapshot);
-    });
+    final advancePlan = ClassicHareegRoundAdvancePlanner.afterRoundResultShown(
+      presentation: presentation,
+      isHumanEliminated: _controller.isHumanEliminated,
+      nextRoundDelay: _roundResultDisplayDuration,
+      matchEndDelay: _scaledDelay(_matchEndOverlayDwell),
+    );
+    _scheduleRoundAdvance(advancePlan, presentation);
   }
 
   void _rememberEliminatedRoundsFromController() {
     _matchEliminatedRoundBySeat.addAll(_controller.seatEliminatedRound);
+  }
+
+  void _scheduleRoundAdvance(
+    ClassicHareegRoundAdvancePlan plan,
+    ClassicHareegRoundResultPresentation presentation,
+  ) {
+    if (!plan.shouldSchedule) {
+      return;
+    }
+    _cues.scheduleRoundAdvance(plan.delay, () {
+      if (!mounted) return;
+      switch (plan.action) {
+        case ClassicHareegRoundAdvanceAction.none:
+          return;
+        case ClassicHareegRoundAdvanceAction.openMatchOver:
+          _openMatchOver(presentation);
+        case ClassicHareegRoundAdvanceAction.advanceToNextRound:
+          _advanceToNextRound(plan.nextSnapshot!);
+      }
+    });
   }
 
   void _openMatchOver(ClassicHareegRoundResultPresentation presentation) {
