@@ -1,5 +1,6 @@
 import '../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
-import '../../../domain/classic_hareeg/game/classic_hareeg_round.dart' show TurnPhase;
+import '../../../domain/classic_hareeg/game/classic_hareeg_round.dart'
+    show TurnPhase;
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../domain/classic_hareeg/rules/cover_rules.dart';
@@ -11,6 +12,14 @@ import '../cpu_move_plan_pipeline.dart'
 import '../cpu_observation.dart';
 import '../expert_cpu_move_planner.dart';
 import 'coaching_insight.dart';
+
+typedef _LegalCover = ({
+  String actionId,
+  String cardId,
+  PlayerSeat owner,
+  int meldIndex,
+  List<String> meldCardIds,
+});
 
 /// Pure, structured coaching advisor for Classic Hareeg.
 ///
@@ -41,7 +50,11 @@ abstract final class ClassicHareegCoachingAdvisor {
     // keep-scores, and the Expert plan are each derived at most once (lazily)
     // and reused by every builder, instead of each builder re-enumerating the
     // same partition lattice.
-    final analysis = _CoachingAnalysis(observation, controller.handFor(seat));
+    final analysis = _CoachingAnalysis(
+      controller: controller,
+      seat: seat,
+      observation: observation,
+    );
     final insights = <CoachingInsight>[];
 
     _addFinish(controller, seat, observation, insights);
@@ -54,7 +67,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     // plan surfaced a cover instead.
     _addCover(controller, seat, analysis, insights);
     _addJokerAdvice(controller, seat, insights);
-    _addDefensiveDiscard(controller, seat, insights);
+    _addDefensiveDiscard(analysis, insights);
     _addDiscardSuggestion(controller, seat, observation, analysis, insights);
     _addDrawStock(seat, observation, insights);
 
@@ -118,9 +131,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (finishing == null) {
       return;
     }
-    final highlight = [
-      for (final card in finishing.cardsUsed) card.id,
-    ];
+    final highlight = [for (final card in finishing.cardsUsed) card.id];
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.finishAvailable,
@@ -211,7 +222,12 @@ abstract final class ClassicHareegCoachingAdvisor {
           openingShortfall: shortfall > 0 ? shortfall : 0,
           openingBestValue: stagedValue,
           openingRequirement: requirement,
-          discardCardId: _buildingDiscardId(controller, seat, analysis, const {}),
+          discardCardId: _buildingDiscardId(
+            controller,
+            seat,
+            analysis,
+            const {},
+          ),
         ),
       );
       return;
@@ -414,7 +430,8 @@ abstract final class ClassicHareegCoachingAdvisor {
     PlayerSeat owner,
     int meldIndex,
     List<String> meldCardIds,
-  })? _isolatedCoverFor(
+  })?
+  _isolatedCoverFor(
     ClassicHareegGameController controller,
     PlayerSeat seat,
     Set<String> exclude,
@@ -443,7 +460,9 @@ abstract final class ClassicHareegCoachingAdvisor {
             cardId: card.id,
             owner: owner,
             meldIndex: index,
-            meldCardIds: [for (final meldCard in melds[index].cards) meldCard.id],
+            meldCardIds: [
+              for (final meldCard in melds[index].cards) meldCard.id,
+            ],
           );
         }
       }
@@ -532,7 +551,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (!analysis.expertCovers) {
       return;
     }
-    final covers = _legalCovers(controller, seat);
+    final covers = analysis.legalCovers;
     if (covers.isEmpty) {
       return;
     }
@@ -544,9 +563,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     // see every cover at once. _addFinish handles meld-based finishes; this is
     // the cover-only endgame its enumerator misses — the blackout the bespoke
     // detector hit (covers on an opponent meld, no safe discard, it bailed).
-    final hasSafeDiscard = controller
-        .legalActionIdsFor(seat)
-        .any((id) => ClassicHareegActionIds.describe(id).isSafeDiscard);
+    final hasSafeDiscard = analysis.legalSafeDiscardIds.isNotEmpty;
     if (!hasSafeDiscard) {
       final groups = [
         for (final cover in covers) [cover.cardId, ...cover.meldCardIds],
@@ -596,26 +613,11 @@ abstract final class ClassicHareegCoachingAdvisor {
   // All legal single-card place-cover actions for [seat], decoded to the cover
   // card id, the target meld's owner/index, and the meld's card ids (so the hint
   // can ring both ends of each lay-off).
-  static List<
-    ({
-      String actionId,
-      String cardId,
-      PlayerSeat owner,
-      int meldIndex,
-      List<String> meldCardIds,
-    })
-  >
-  _legalCovers(ClassicHareegGameController controller, PlayerSeat seat) {
-    final covers =
-        <
-          ({
-            String actionId,
-            String cardId,
-            PlayerSeat owner,
-            int meldIndex,
-            List<String> meldCardIds,
-          })
-        >[];
+  static List<_LegalCover> _legalCovers(
+    ClassicHareegGameController controller,
+    PlayerSeat seat,
+  ) {
+    final covers = <_LegalCover>[];
     for (final id in controller.legalActionIdsFor(seat)) {
       final action = ClassicHareegActionIds.describe(id);
       if (action.kind != ClassicHareegActionKind.placeCover) {
@@ -634,7 +636,9 @@ abstract final class ClassicHareegCoachingAdvisor {
         cardId: action.cardIds.single,
         owner: target.targetSeat,
         meldIndex: target.meldIndex,
-        meldCardIds: [for (final card in melds[target.meldIndex].cards) card.id],
+        meldCardIds: [
+          for (final card in melds[target.meldIndex].cards) card.id,
+        ],
       ));
     }
     return covers;
@@ -690,12 +694,11 @@ abstract final class ClassicHareegCoachingAdvisor {
   // human learner, so we diverge from the Expert profile here and require a
   // real pickup. Framing it as "avoid" is correct because the discard is legal.
   static void _addDefensiveDiscard(
-    ClassicHareegGameController controller,
-    PlayerSeat seat,
+    _CoachingAnalysis analysis,
     List<CoachingInsight> out,
   ) {
-    final history = controller.discardHistory;
-    final opponents = _opponentsOf(controller, seat);
+    final history = analysis.discardHistory;
+    final opponents = analysis.opponents;
     if (opponents.isEmpty) {
       return;
     }
@@ -722,16 +725,12 @@ abstract final class ClassicHareegCoachingAdvisor {
     }
 
     // Only advise on cards that are actually legal plain discards right now.
-    final legalDiscardIds = <String>{
-      for (final id in controller.legalActionIdsFor(seat))
-        if (ClassicHareegActionIds.describe(id).isSafeDiscard)
-          ClassicHareegActionIds.describe(id).cardId!,
-    };
+    final legalDiscardIds = analysis.legalSafeDiscardIds.toSet();
     if (legalDiscardIds.isEmpty) {
       return;
     }
 
-    for (final card in controller.handFor(seat)) {
+    for (final card in analysis.hand) {
       if (!legalDiscardIds.contains(card.id)) {
         continue;
       }
@@ -832,7 +831,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (_containsCategory(out, CoachingInsightCategory.playCover)) {
       return;
     }
-    final legalDiscardIds = _legalSafeDiscardIds(observation);
+    final legalDiscardIds = analysis.legalSafeDiscardIds;
     if (legalDiscardIds.isEmpty) {
       return;
     }
@@ -937,12 +936,38 @@ class _HotSet {
 /// unopened seat never needs the Expert discard). It stays a pure function of the
 /// hand and observation, preserving the advisor's no-mutation/IO/time contract.
 class _CoachingAnalysis {
-  _CoachingAnalysis(this._observation, this.hand);
+  _CoachingAnalysis({
+    required this.controller,
+    required this.seat,
+    required CpuObservation observation,
+  }) : _observation = observation,
+       hand = controller.handFor(seat);
+
+  /// Live controller read surface for facts not exposed by [CpuObservation].
+  final ClassicHareegGameController controller;
+
+  /// Seat receiving coaching.
+  final PlayerSeat seat;
 
   final CpuObservation _observation;
 
   /// The seat's current hand.
   final List<HareegCard> hand;
+
+  /// Round-scoped discard memory.
+  late final discardHistory = controller.discardHistory;
+
+  /// Active opponents in turn order.
+  late final List<PlayerSeat> opponents =
+      ClassicHareegCoachingAdvisor._opponentsOf(controller, seat);
+
+  /// Legal safe discard card ids for this advice pass.
+  late final List<String> legalSafeDiscardIds =
+      ClassicHareegCoachingAdvisor._legalSafeDiscardIds(_observation);
+
+  /// Legal single-card cover actions for this advice pass.
+  late final List<_LegalCover> legalCovers =
+      ClassicHareegCoachingAdvisor._legalCovers(controller, seat);
 
   /// The single highest-value meld partition over [hand] — the cards worth
   /// keeping, used for opening / play-meld highlighting. Null when the hand
@@ -975,8 +1000,7 @@ class _CoachingAnalysis {
 
   /// The cover action id the Expert brain chose, or null when it is not
   /// covering — lets the coach present the brain's exact cover.
-  String? get expertCoverActionId =>
-      expertCovers ? _expertPlan.actionId : null;
+  String? get expertCoverActionId => expertCovers ? _expertPlan.actionId : null;
 
   MeldPartition? _computeBestPartition() {
     final best = MeldPartitionEnumerator.topPartitions(

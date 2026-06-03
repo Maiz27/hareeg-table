@@ -1,4 +1,4 @@
-import '../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
+import '../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
@@ -61,6 +61,103 @@ abstract interface class TableInteractionActionReader {
     required PlayerSeat targetSeat,
     required int meldIndex,
   });
+}
+
+/// Adapter from a live controller to the table interaction action reader.
+class ClassicHareegControllerTableInteractionReader
+    implements TableInteractionActionReader {
+  /// Creates a reader backed by [controller].
+  const ClassicHareegControllerTableInteractionReader(this.controller);
+
+  /// Live game controller.
+  final ClassicHareegGameController controller;
+
+  @override
+  PlayerSeat get currentSeat => controller.currentSeat;
+
+  @override
+  HareegCard? get pendingDiscard => controller.pendingDiscard;
+
+  @override
+  List<String> controlActionIdsFor(PlayerSeat seat) {
+    return controller.controlActionIdsFor(seat);
+  }
+
+  @override
+  String? selectedMeldActionIdFor(PlayerSeat seat, List<String> cardIds) {
+    return controller.selectedMeldActionIdFor(seat, cardIds);
+  }
+
+  @override
+  List<CardIdentity> jokerRepresentationOptionsFor(
+    PlayerSeat seat,
+    List<String> cardIds,
+  ) {
+    return controller.jokerRepresentationOptionsFor(seat, cardIds);
+  }
+
+  @override
+  List<JokerMeldActionChoice> jokerMeldChoicesFor(
+    PlayerSeat seat,
+    List<String> cardIds,
+  ) {
+    return controller.jokerMeldChoicesFor(seat, cardIds);
+  }
+
+  @override
+  List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
+    PlayerSeat seat,
+    List<String> selectedCardIds, {
+    int limit = 5,
+  }) {
+    return controller.meldSuggestionsForSelection(
+      seat,
+      selectedCardIds,
+      limit: limit,
+    );
+  }
+
+  @override
+  String? coverActionIdFor(PlayerSeat seat, List<String> cardIds) {
+    return controller.coverActionIdFor(seat, cardIds);
+  }
+
+  @override
+  String? coverActionIdForMeldTarget({
+    required PlayerSeat seat,
+    required List<String> cardIds,
+    required PlayerSeat targetSeat,
+    required int meldIndex,
+    CoverPlacement? coverPlacement,
+  }) {
+    return controller.coverActionIdForMeldTarget(
+      seat: seat,
+      cardIds: cardIds,
+      targetSeat: targetSeat,
+      meldIndex: meldIndex,
+      coverPlacement: coverPlacement,
+    );
+  }
+
+  @override
+  String? jokerReplacementActionIdFor(PlayerSeat seat, List<String> cardIds) {
+    return controller.jokerReplacementActionIdFor(seat, cardIds);
+  }
+
+  @override
+  String? jokerReplacementActionIdForMeldTarget({
+    required PlayerSeat seat,
+    required List<String> cardIds,
+    required PlayerSeat targetSeat,
+    required int meldIndex,
+  }) {
+    return controller.jokerReplacementActionIdForMeldTarget(
+      seat: seat,
+      cardIds: cardIds,
+      targetSeat: targetSeat,
+      meldIndex: meldIndex,
+    );
+  }
 }
 
 /// Table gesture scenario identified by the interaction planner.

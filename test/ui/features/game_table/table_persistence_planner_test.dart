@@ -118,6 +118,52 @@ void main() {
       );
     });
   });
+
+  group('ClassicHareegRoundAdvancePlanner', () {
+    const nextRoundDelay = Duration(milliseconds: 2400);
+    const matchEndDelay = Duration(milliseconds: 1400);
+
+    test('advances to the next round when a next snapshot exists', () {
+      final next = _snapshot(seed: 4, roundNumber: 2);
+      final plan = ClassicHareegRoundAdvancePlanner.afterRoundResultShown(
+        presentation: _presentation(nextSnapshot: next),
+        isHumanEliminated: false,
+        nextRoundDelay: nextRoundDelay,
+        matchEndDelay: matchEndDelay,
+      );
+
+      expect(plan.action, ClassicHareegRoundAdvanceAction.advanceToNextRound);
+      expect(plan.delay, nextRoundDelay);
+      expect(plan.nextSnapshot, same(next));
+      expect(plan.shouldSchedule, isTrue);
+    });
+
+    test('opens match over when the match has no next snapshot', () {
+      final plan = ClassicHareegRoundAdvancePlanner.afterRoundResultShown(
+        presentation: _presentation(nextSnapshot: null),
+        isHumanEliminated: false,
+        nextRoundDelay: nextRoundDelay,
+        matchEndDelay: matchEndDelay,
+      );
+
+      expect(plan.action, ClassicHareegRoundAdvanceAction.openMatchOver);
+      expect(plan.delay, matchEndDelay);
+      expect(plan.nextSnapshot, isNull);
+    });
+
+    test('opens match over when the human is eliminated mid-match', () {
+      final plan = ClassicHareegRoundAdvancePlanner.afterRoundResultShown(
+        presentation: _presentation(nextSnapshot: _snapshot(seed: 5)),
+        isHumanEliminated: true,
+        nextRoundDelay: nextRoundDelay,
+        matchEndDelay: matchEndDelay,
+      );
+
+      expect(plan.action, ClassicHareegRoundAdvanceAction.openMatchOver);
+      expect(plan.delay, matchEndDelay);
+      expect(plan.nextSnapshot, isNull);
+    });
+  });
 }
 
 ClassicHareegMatchSnapshot _snapshot({required int seed, int roundNumber = 1}) {
@@ -182,5 +228,18 @@ ClassicHareegScoreView _scoreView({
     currentScores:
         progress?.scores ?? ClassicHareegScoreLedger.normalize(previousScores),
     progress: progress,
+  );
+}
+
+ClassicHareegRoundResultPresentation _presentation({
+  required ClassicHareegMatchSnapshot? nextSnapshot,
+}) {
+  return ClassicHareegRoundResultPresentation(
+    result: _normalResult(),
+    progress: _progress(
+      matchWinner: nextSnapshot == null ? PlayerSeat.south : null,
+    ),
+    previousScores: const {PlayerSeat.south: 10},
+    nextSnapshot: nextSnapshot,
   );
 }

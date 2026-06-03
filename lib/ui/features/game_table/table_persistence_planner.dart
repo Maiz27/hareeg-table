@@ -30,6 +30,18 @@ enum ClassicHareegTablePersistenceScenario {
   roundCompleteMissingPresentation,
 }
 
+/// Table action after a persisted round result has been presented.
+enum ClassicHareegRoundAdvanceAction {
+  /// No round-advance work should run.
+  none,
+
+  /// Navigate to the match-over screen.
+  openMatchOver,
+
+  /// Swap in the saved next-round snapshot.
+  advanceToNextRound,
+}
+
 /// Round result payload needed by the table overlay.
 class ClassicHareegRoundResultPresentation {
   /// Creates a round result presentation payload.
@@ -51,6 +63,35 @@ class ClassicHareegRoundResultPresentation {
 
   /// Snapshot to continue with, or null when the match is complete.
   final ClassicHareegMatchSnapshot? nextSnapshot;
+}
+
+/// Planned delayed action after the round-result overlay is shown.
+class ClassicHareegRoundAdvancePlan {
+  /// Creates a round-advance plan.
+  const ClassicHareegRoundAdvancePlan({
+    required this.action,
+    required this.delay,
+    this.nextSnapshot,
+  });
+
+  /// No-op round-advance plan.
+  const ClassicHareegRoundAdvancePlan.none()
+    : action = ClassicHareegRoundAdvanceAction.none,
+      delay = Duration.zero,
+      nextSnapshot = null;
+
+  /// Action to run after [delay].
+  final ClassicHareegRoundAdvanceAction action;
+
+  /// Dwell before [action] runs.
+  final Duration delay;
+
+  /// Snapshot to continue with when [action] is
+  /// [ClassicHareegRoundAdvanceAction.advanceToNextRound].
+  final ClassicHareegMatchSnapshot? nextSnapshot;
+
+  /// Whether this plan schedules any follow-up work.
+  bool get shouldSchedule => action != ClassicHareegRoundAdvanceAction.none;
 }
 
 /// Planned persistence and optional presentation for the table state.
@@ -85,6 +126,31 @@ class ClassicHareegTablePersistencePlan {
       ClassicHareegTablePersistenceAction.saveNextRound => 'next-round',
       ClassicHareegTablePersistenceAction.abandonActiveMatch => 'abandon',
     };
+  }
+}
+
+/// Plans post-overlay round advancement for Classic Hareeg.
+abstract final class ClassicHareegRoundAdvancePlanner {
+  /// Evaluates the delayed action to schedule after showing [presentation].
+  static ClassicHareegRoundAdvancePlan afterRoundResultShown({
+    required ClassicHareegRoundResultPresentation presentation,
+    required bool isHumanEliminated,
+    required Duration nextRoundDelay,
+    required Duration matchEndDelay,
+  }) {
+    final nextSnapshot = presentation.nextSnapshot;
+    if (nextSnapshot == null || isHumanEliminated) {
+      return ClassicHareegRoundAdvancePlan(
+        action: ClassicHareegRoundAdvanceAction.openMatchOver,
+        delay: matchEndDelay,
+      );
+    }
+
+    return ClassicHareegRoundAdvancePlan(
+      action: ClassicHareegRoundAdvanceAction.advanceToNextRound,
+      delay: nextRoundDelay,
+      nextSnapshot: nextSnapshot,
+    );
   }
 }
 

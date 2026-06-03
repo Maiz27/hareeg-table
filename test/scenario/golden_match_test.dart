@@ -87,8 +87,8 @@ void main() {
     return '${lines.join('\n')}\n';
   }
 
-  String normalizeTranscriptLineEndings(String transcript) {
-    return transcript.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  String normalizeLineEndings(String value) {
+    return value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   }
 
   group('Golden match transcripts', () {
@@ -113,8 +113,8 @@ void main() {
               'UPDATE_GOLDENS=1 flutter test test/scenario/golden_match_test.dart',
         );
         expect(
-          actual,
-          normalizeTranscriptLineEndings(file.readAsStringSync()),
+          normalizeLineEndings(actual),
+          normalizeLineEndings(file.readAsStringSync()),
           reason:
               'game flow changed for ${c.name}. If this change is '
               'intentional, regenerate with UPDATE_GOLDENS=1.',

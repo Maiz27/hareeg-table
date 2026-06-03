@@ -39,6 +39,8 @@ import 'physical_card_match.dart';
 
 export 'classic_hareeg_action.dart';
 
+part 'classic_hareeg_action_application.dart';
+
 typedef _TurnMeldPlay = ClassicHareegTurnMeldPlay;
 typedef _TurnCoverPlay = ClassicHareegTurnCoverPlay;
 
@@ -571,83 +573,7 @@ class ClassicHareegGameController {
   /// Returns [ApplyActionResult.failure] when the action id is unknown or the
   /// action is illegal under the current rule state.
   ApplyActionResult applyAction(String actionId) {
-    if (_roundOutcome != null) {
-      return const ApplyActionResult.failure('Round has ended.');
-    }
-
-    final action = ClassicHareegActionIds.describe(actionId);
-    final route = ClassicHareegActionSurfacePlanner.applyRouteFor(action.kind);
-    if (route == ClassicHareegActionApplyRoute.directValidation) {
-      switch (action.kind) {
-        case ClassicHareegActionKind.playMeldWithJoker:
-          final jokerChoice = action.jokerMeldChoice!;
-          return _applyPlayMeld(
-            jokerChoice.cardIds,
-            jokerIdentities: {
-              for (final assignment in jokerChoice.assignments)
-                assignment.jokerId: assignment.identity,
-            },
-          );
-        case ClassicHareegActionKind.playMeld:
-          return _applyPlayMeld(action.cardIds);
-        case ClassicHareegActionKind.replaceJoker:
-          return _applyReplaceJoker(action.jokerReplacementTarget!);
-        case ClassicHareegActionKind.placeCover:
-          return _applyPlaceCover(action.coverTarget!);
-        case ClassicHareegActionKind.returnTablePlay:
-          return _applyReturnTablePlay(action.returnTablePlayTarget!);
-        case ClassicHareegActionKind.drawStock:
-        case ClassicHareegActionKind.takeDiscard:
-        case ClassicHareegActionKind.usePendingDiscard:
-        case ClassicHareegActionKind.returnPendingDiscard:
-        case ClassicHareegActionKind.returnOpeningMelds:
-        case ClassicHareegActionKind.claimFifty:
-        case ClassicHareegActionKind.discard:
-        case ClassicHareegActionKind.discardBlockedCover:
-        case ClassicHareegActionKind.discardJoker:
-        case ClassicHareegActionKind.unknown:
-          break;
-      }
-    }
-
-    if (!_actionSurfacePlanFor(
-      _currentSeat,
-      ClassicHareegActionSurfacePurpose.control,
-    ).allows(actionId)) {
-      return ApplyActionResult.failure(
-        'Action "$actionId" is not legal right now.',
-      );
-    }
-
-    if (route == ClassicHareegActionApplyRoute.controlSurface) {
-      switch (action.kind) {
-        case ClassicHareegActionKind.drawStock:
-          return _applyDrawStock();
-        case ClassicHareegActionKind.takeDiscard:
-          return _applyTakePreviousDiscard();
-        case ClassicHareegActionKind.usePendingDiscard:
-          return _applyUsePendingDiscard();
-        case ClassicHareegActionKind.returnPendingDiscard:
-          return _applyReturnPendingDiscard();
-        case ClassicHareegActionKind.returnOpeningMelds:
-          return _applyReturnOpeningMelds();
-        case ClassicHareegActionKind.claimFifty:
-          return _applyClaimFifty();
-        case ClassicHareegActionKind.discard:
-        case ClassicHareegActionKind.discardBlockedCover:
-        case ClassicHareegActionKind.discardJoker:
-          return _applyDiscard(action.cardId!);
-        case ClassicHareegActionKind.playMeld:
-        case ClassicHareegActionKind.playMeldWithJoker:
-        case ClassicHareegActionKind.placeCover:
-        case ClassicHareegActionKind.replaceJoker:
-        case ClassicHareegActionKind.returnTablePlay:
-        case ClassicHareegActionKind.unknown:
-          break;
-      }
-    }
-
-    return ApplyActionResult.failure('Unknown action "$actionId".');
+    return _ClassicHareegActionApplication(this).apply(actionId);
   }
 
   /// Plays [cardIds] from [seat]'s hand as one validated table meld.
@@ -1540,12 +1466,14 @@ class ClassicHareegGameController {
       // finish nor a pickup finish remains, the round is a draw — otherwise a
       // CPU claimant would be stranded (no stock to draw, only a self-penalty
       // claim on offer).
-      final hasValidFiftyFinish = _fiftyClaimPlanFor(
+      final hasValidFiftyFinish =
+          _fiftyClaimPlanFor(
             _currentSeat,
             purpose: ClassicHareegFiftyClaimPurpose.apply,
           ).finishPlan !=
           null;
-      final pickupFinish = plan.canTakePreviousDiscard && plan.pickupWouldFinish;
+      final pickupFinish =
+          plan.canTakePreviousDiscard && plan.pickupWouldFinish;
       shouldDraw = !hasValidFiftyFinish && !pickupFinish;
     }
     if (!shouldDraw) {
