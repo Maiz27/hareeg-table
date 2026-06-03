@@ -190,14 +190,15 @@ class ClassicHareegTableCpuTurnPresenter {
     hooks.dropPendingSettledFor(decision.seat);
     hooks.ensureFiftyTicker();
     final persistWatch = Stopwatch()..start();
-    await hooks.persistAndMaybeFinish();
+    final didPersist = await hooks.persistAndMaybeFinish();
     persistWatch.stop();
     hooks.log(
       'cpu step ${decision.step.index} persist returned '
       'elapsed=${persistWatch.elapsedMilliseconds}ms '
       'roundOver=${controller.isRoundOver}',
     );
-    return hooks.isMounted() &&
+    return didPersist &&
+        hooks.isMounted() &&
         !controller.isRoundOver &&
         !hooks.hasRoundResultPresentation();
   }

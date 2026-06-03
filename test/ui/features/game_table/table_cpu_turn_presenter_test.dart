@@ -43,6 +43,33 @@ void main() {
       },
     );
 
+    test('visible run stops when persistence declines continuation', () async {
+      final controller = _controllerForCpuDrawTurn();
+      final events = <String>[];
+
+      final result = await ClassicHareegTableCpuTurnPresenter(
+        controller: controller,
+        strategy: const _FirstLegalCpuStrategy(),
+        actionLimit: 4,
+        hooks: _hooks(
+          events: events,
+          persistAndMaybeFinish: () async {
+            events.add('persist');
+            return false;
+          },
+          postActionDwell: (actionId) {
+            events.add('dwell:$actionId');
+            return Duration.zero;
+          },
+        ),
+      ).runVisible();
+
+      expect(result.didApplyAction, isTrue);
+      expect(result.appliedActionCount, 1);
+      expect(events.where((event) => event == 'persist'), hasLength(1));
+      expect(events, isNot(contains(startsWith('dwell:'))));
+    });
+
     test('fast forward stops when the runner makes no progress', () async {
       final controller = _controllerForHumanTurn();
       final events = <String>[];
