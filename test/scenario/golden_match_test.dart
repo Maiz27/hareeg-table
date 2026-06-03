@@ -108,13 +108,15 @@ void main() {
         expect(
           file.existsSync(),
           isTrue,
-          reason: 'missing golden ${file.path}; regenerate with '
+          reason:
+              'missing golden ${file.path}; regenerate with '
               'UPDATE_GOLDENS=1 flutter test test/scenario/golden_match_test.dart',
         );
         expect(
           normalizeLineEndings(actual),
           normalizeLineEndings(file.readAsStringSync()),
-          reason: 'game flow changed for ${c.name}. If this change is '
+          reason:
+              'game flow changed for ${c.name}. If this change is '
               'intentional, regenerate with UPDATE_GOLDENS=1.',
         );
       });
