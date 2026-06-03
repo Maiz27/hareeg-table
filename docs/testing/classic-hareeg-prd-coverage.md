@@ -50,14 +50,18 @@ test alongside the fix rather than a one-off.
 controller — the same `applyAction` seam the UI uses — and reports every step
 and round. Three test families build on it:
 
-- **Family A — invariant sweep** (`full_game_invariant_sweep_test.dart` +
+- **Family A — invariant sweep** (`full_game_invariant_sweep_*_test.dart`, eight
+  per-slice suites sharing `full_game_invariant_sweep.dart`, +
   `MatchInvariantChecker` in `test/scenario/invariants/`). Plays matches across
   the strictness × difficulty × joker-count matrix and asserts universal
   invariants after every action and every round: card conservation (multiset
   preserved round-over, count preserved per step), turn / removed-seat
   integrity, scores moving only at round boundaries with the documented
   normal/Fifty/draw deltas, and the elimination threshold. It guards structure,
-  not specific values, so it holds for any seed or config.
+  not specific values, so it holds for any seed or config. The sweep is split
+  across files so CI can parallelize it, and its **seed** axis is tiered: pull
+  requests run a reduced seed set while push-to-`main` and a nightly run cover
+  the full matrix — see [CI test runs](../workflows/ci-tests.md).
 - **Family B — determinism + goldens.** `match_determinism_test.dart` asserts
   the same `(seed, setup)` replays byte-identically. `golden_match_test.dart`
   pins a canonical transcript (every action, round result, and running scores)
