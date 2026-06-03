@@ -8,10 +8,10 @@ import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
-import 'package:hareeg_table/ui/features/game_table/table_interaction_adapter.dart';
+import 'package:hareeg_table/ui/features/game_table/table_interaction_planner.dart';
 
 void main() {
-  group('ClassicHareegTableInteractionAdapter', () {
+  group('ClassicHareegTableInteractionPlanner controller reader', () {
     test('resolves a pending discard drop as return-pending-discard', () {
       final pending = _card(CardRank.nine, CardSuit.clubs, 91);
       final controller = _controller(
@@ -24,12 +24,12 @@ void main() {
         discardPile: [_card(CardRank.ace, CardSuit.spades, 91)],
         pendingDiscard: pending,
       );
-      final adapter = _controllerAdapter(controller);
+      final planner = _controllerPlanner(controller);
 
-      final result = adapter.resolveDiscard(pending);
+      final result = planner.resolveDiscard(pending);
 
       expect(result.actionId, ClassicHareegActionIds.returnPendingDiscard);
-      expect(adapter.canDropCardToDiscard(pending), isTrue);
+      expect(planner.canDropCardToDiscard(pending), isTrue);
     });
 
     test('uses selected cards as a group before the dragged single card', () {
@@ -46,14 +46,14 @@ void main() {
           _key([first.id, second.id, third.id]): groupAction,
         },
       );
-      final adapter = ClassicHareegTableInteractionAdapter(
+      final planner = ClassicHareegTableInteractionPlanner(
         reader: reader,
         seat: PlayerSeat.south,
         selectedCardIds: [first.id, second.id, third.id],
         handCards: [first, second, third],
       );
 
-      final result = adapter.resolveTableDrop(second);
+      final result = planner.resolveTableDrop(second);
 
       expect(result.actionId, groupAction);
     });
@@ -83,7 +83,7 @@ void main() {
         [...diamondRun, ...jackSet].map((card) => card.id),
       );
 
-      final suggestions = _controllerAdapter(
+      final suggestions = _controllerPlanner(
         controller,
         selectedCardIds: diamondRun.map((card) => card.id),
       ).meldSuggestions();
@@ -112,7 +112,7 @@ void main() {
       );
       final cardIds = [aceHearts.id, aceSpades.id, joker.id];
 
-      final choices = _controllerAdapter(
+      final choices = _controllerPlanner(
         controller,
         selectedCardIds: cardIds,
       ).jokerChoicesForCardIds(cardIds);
@@ -147,7 +147,7 @@ void main() {
         openingState: _opened(PlayerSeat.south),
       );
 
-      final suggestions = _controllerAdapter(
+      final suggestions = _controllerPlanner(
         controller,
         selectedCardIds: [jackClubs.id, tenClubs.id, joker.id],
       ).meldSuggestions();
@@ -193,7 +193,7 @@ void main() {
         openingState: _opened(PlayerSeat.south),
       );
 
-      final suggestions = _controllerAdapter(
+      final suggestions = _controllerPlanner(
         controller,
         selectedCardIds: [
           twoClubs.id,
@@ -231,7 +231,7 @@ void main() {
       final card = _card(CardRank.two, CardSuit.clubs, 80);
       final controller = _controller(southHand: [card]);
 
-      final result = _controllerAdapter(controller).resolveTableDrop(card);
+      final result = _controllerPlanner(controller).resolveTableDrop(card);
 
       expect(result.isAction, isFalse);
       expect(
@@ -259,9 +259,9 @@ void main() {
         },
         openingState: _opened(PlayerSeat.south),
       );
-      final adapter = _controllerAdapter(controller);
+      final planner = _controllerPlanner(controller);
 
-      final blocked = adapter.resolveMeldDrop(
+      final blocked = planner.resolveMeldDrop(
         duplicateHeart,
         PlayerSeat.east,
         0,
@@ -270,7 +270,7 @@ void main() {
       expect(blocked.isAction, isFalse);
       expect(blocked.failureMessage, 'That card does not fit this meld.');
       expect(
-        adapter.canDropCardToMeld(missingDiamond, PlayerSeat.east, 0),
+        planner.canDropCardToMeld(missingDiamond, PlayerSeat.east, 0),
         isTrue,
       );
     });
@@ -295,11 +295,11 @@ ClassicHareegGameController _controller({
   );
 }
 
-ClassicHareegTableInteractionAdapter _controllerAdapter(
+ClassicHareegTableInteractionPlanner _controllerPlanner(
   ClassicHareegGameController controller, {
   Iterable<String> selectedCardIds = const [],
 }) {
-  return ClassicHareegTableInteractionAdapter(
+  return ClassicHareegTableInteractionPlanner(
     reader: ClassicHareegControllerTableInteractionReader(controller),
     seat: PlayerSeat.south,
     selectedCardIds: selectedCardIds,

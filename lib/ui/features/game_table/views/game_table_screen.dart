@@ -39,7 +39,7 @@ import '../table_card_flight_planner.dart';
 import '../table_flight_anchors.dart';
 import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
-import '../table_interaction_adapter.dart';
+import '../table_interaction_planner.dart';
 import '../table_persistence_planner.dart';
 import '../table_session_flow_planner.dart';
 import '../widgets/coach_overlay.dart';
@@ -974,11 +974,11 @@ class _GameTableScreenState extends State<GameTableScreen>
     setState(() {});
   }
 
-  ClassicHareegTableInteractionAdapter _tableInteraction([
+  ClassicHareegTableInteractionPlanner _tableInteraction([
     TableHandInteractionSnapshot? southHand,
   ]) {
     final hand = southHand ?? _southHandInteraction();
-    return ClassicHareegTableInteractionAdapter(
+    return ClassicHareegTableInteractionPlanner(
       reader: ClassicHareegControllerTableInteractionReader(_controller),
       seat: PlayerSeat.south,
       selectedCardIds: hand.selectedCardIds,
@@ -1093,7 +1093,7 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   List<TableMeldSuggestion> _meldSuggestions(
-    ClassicHareegTableInteractionAdapter tableInteraction,
+    ClassicHareegTableInteractionPlanner tableInteraction,
   ) {
     return [
       for (final suggestion in tableInteraction.meldSuggestions())
