@@ -63,13 +63,17 @@ class ClassicHareegCpuStrategy implements CpuStrategy {
     CpuObservation? observation,
   }) {
     final plan = switch (snapshot.difficulty) {
-      // Route Casual/Beginner through `.plan(observation)` when available so
-      // they inherit the same filters as Skilled/Expert (e.g. don't pick
-      // claim-fifty without a finishing partition). Fall back to the legacy
-      // legal-id-only evaluate when no observation is supplied (tests).
-      CpuDifficulty.beginner || CpuDifficulty.casual =>
+      // Route low tiers through `.plan(observation)` when available so they
+      // inherit the same claim-fifty safety filter as Skilled/Expert. Fall
+      // back to the legacy legal-id-only evaluate when no observation is
+      // supplied by older tests.
+      CpuDifficulty.beginner =>
         observation != null
             ? const PriorityCpuMovePlanner().plan(observation)
+            : PriorityCpuMovePlanner.evaluate(snapshot.legalActionIds),
+      CpuDifficulty.casual =>
+        observation != null
+            ? const CasualCpuMovePlanner().plan(observation)
             : PriorityCpuMovePlanner.evaluate(snapshot.legalActionIds),
       CpuDifficulty.skilled => _skilledPlan(observation),
       CpuDifficulty.expert => _expertPlan(observation),

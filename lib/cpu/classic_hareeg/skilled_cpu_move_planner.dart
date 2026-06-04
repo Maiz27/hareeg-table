@@ -46,7 +46,7 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
 
   @override
   bool shouldClaimFifty(CpuObservation observation) {
-    return canSuccessfullyClaimFiftyFor(observation);
+    return shouldAttemptFiftyClaimFor(observation);
   }
 
   @override
@@ -132,8 +132,7 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
   @override
   bool shouldHoldNormalFinishForFifty(CpuObservation observation) {
     if (_nearElimination(observation) ||
-        observation.stockCount <
-            SkilledCpuMovePlanner._fiftyHoldStockFloor ||
+        observation.stockCount < SkilledCpuMovePlanner._fiftyHoldStockFloor ||
         handPipValue(observation.ownHand) <=
             SkilledCpuMovePlanner._fiftyHoldHandValueFloor ||
         observation.finishingPartition() == null) {
@@ -142,10 +141,7 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
 
     for (final opponent in observation.opponents) {
       if (observation.discardHistory
-          .lastDiscardsBy(
-            opponent,
-            SkilledCpuMovePlanner._discardHistoryDepth,
-          )
+          .lastDiscardsBy(opponent, SkilledCpuMovePlanner._discardHistoryDepth)
           .isNotEmpty) {
         return true;
       }
@@ -292,9 +288,9 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
   }
 
   bool _nearElimination(CpuObservation observation) {
-    final thresholdWindow =
-        observation.eliminationThreshold - 6;
-    final scoreFloor = thresholdWindow > SkilledCpuMovePlanner._nearEliminationScore
+    final thresholdWindow = observation.eliminationThreshold - 6;
+    final scoreFloor =
+        thresholdWindow > SkilledCpuMovePlanner._nearEliminationScore
         ? thresholdWindow
         : SkilledCpuMovePlanner._nearEliminationScore;
     return observation.ownScore >= scoreFloor;

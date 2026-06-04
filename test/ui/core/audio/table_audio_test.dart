@@ -70,7 +70,7 @@ void main() {
     );
 
     test(
-      'configures pooled players as non-focus-stealing sound effects',
+      'configures pooled players as non-focus-stealing game audio',
       () async {
         final previousPlatform = AudioplayersPlatformInterface.instance;
         final previousGlobalPlatform =
@@ -91,7 +91,8 @@ void main() {
               .toList(growable: false);
           // Pool size is implementation detail (one player per unique cue
           // asset); the load-bearing assertion is that every player is set up
-          // as a non-focus-stealing sound effect.
+          // as game audio, not platform UI sonification, while still avoiding
+          // audio focus theft.
           expect(audioContexts, isNotEmpty);
           expect(
             audioContexts.map((context) => context.android.audioFocus),
@@ -103,7 +104,7 @@ void main() {
           );
           expect(
             audioContexts.map((context) => context.android.usageType),
-            everyElement(AndroidUsageType.assistanceSonification),
+            everyElement(AndroidUsageType.game),
           );
           final globalContexts = globalPlatform.calls
               .where((call) => call.method == 'setGlobalAudioContext')
@@ -113,6 +114,10 @@ void main() {
           expect(
             globalContexts.single.android.audioFocus,
             AndroidAudioFocus.none,
+          );
+          expect(
+            globalContexts.single.android.usageType,
+            AndroidUsageType.game,
           );
           expect(
             order.indexOf('global.setAudioContext'),

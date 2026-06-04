@@ -1,5 +1,6 @@
 import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'cpu_move_plan.dart';
+import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
 
 class _ClassicHareegCpuPriority {
@@ -55,9 +56,7 @@ class PriorityCpuMovePlanner implements CpuMovePlanner {
     // upside in attempting one — it loops the priority pick until the
     // Fifty timer expires — so strip it from the legal set when there's
     // no finishing partition to back it.
-    final canClaim =
-        observation.ownIsFiftyClaimant &&
-        observation.finishingPartition() != null;
+    final canClaim = shouldAttemptFiftyClaimFor(observation);
     if (canClaim) {
       return evaluate(observation.legalActionIds);
     }

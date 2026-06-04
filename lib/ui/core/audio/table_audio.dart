@@ -13,7 +13,7 @@ export 'table_sound_event.dart';
 final AudioContext _tableSoundEffectAudioContext = AudioContext(
   android: const AudioContextAndroid(
     contentType: AndroidContentType.sonification,
-    usageType: AndroidUsageType.assistanceSonification,
+    usageType: AndroidUsageType.game,
     audioFocus: AndroidAudioFocus.none,
   ),
   iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),

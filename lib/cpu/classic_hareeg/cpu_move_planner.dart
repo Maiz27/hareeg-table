@@ -2,6 +2,7 @@ import 'cpu_move_plan.dart';
 import 'priority_cpu_move_planner.dart';
 
 export 'cpu_move_plan.dart';
+export 'casual_cpu_move_planner.dart';
 export 'expert_cpu_move_planner.dart';
 export 'priority_cpu_move_planner.dart';
 export 'skilled_cpu_move_planner.dart';

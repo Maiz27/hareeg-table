@@ -1,6 +1,8 @@
 import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
+import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
+import 'cpu_difficulty_profile.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_observation.dart';
 
@@ -210,7 +212,10 @@ class CpuMovePlanPipeline {
       );
     }
 
-    final cover = firstActionOfKind(actions, ClassicHareegActionKind.placeCover);
+    final cover = firstActionOfKind(
+      actions,
+      ClassicHareegActionKind.placeCover,
+    );
     if (cover != null && !policy.shouldHoldCover(observation, cover)) {
       return ClassicHareegCpuMovePlan(
         scenario: ClassicHareegCpuMoveScenario.cover,
@@ -406,7 +411,78 @@ class CpuMovePlanPipeline {
 /// take that branch.
 bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
   if (!observation.ownIsFiftyClaimant) return false;
+  final discarded = observation.topDiscard;
+  if (discarded != null) {
+    return ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
+          hand: observation.ownHand,
+          discarded: discarded,
+          playerOpened: observation.ownHasOpened(),
+        ) !=
+        null;
+  }
   return observation.finishingPartition() != null;
+}
+
+/// True when the CPU should actually take a valid Fifty claim.
+///
+/// Validity and miss chance are intentionally separated: the rules engine still
+/// decides whether a claim can finish, while the difficulty profile controls
+/// whether this CPU notices the opportunity in time.
+bool shouldAttemptFiftyClaimFor(
+  CpuObservation observation, {
+  CpuDifficultyProfile? profile,
+}) {
+  if (!canSuccessfullyClaimFiftyFor(observation)) {
+    return false;
+  }
+  return !shouldMissFiftyClaimFor(observation, profile: profile);
+}
+
+/// Deterministic miss check for a valid Fifty opportunity.
+///
+/// The bucket is derived from visible, stable decision facts instead of random
+/// process state, so replayed seeds and tests stay reproducible while the
+/// difficulty profile still creates a miss distribution over many positions.
+bool shouldMissFiftyClaimFor(
+  CpuObservation observation, {
+  CpuDifficultyProfile? profile,
+}) {
+  final activeProfile = profile ?? observation.difficultyProfile;
+  final missChance = activeProfile.fiftyMissChance;
+  if (missChance <= 0) {
+    return false;
+  }
+  if (missChance >= 1) {
+    return true;
+  }
+
+  final bucket = _stableFiftyDecisionBucket(observation);
+  final threshold = (missChance * 10000).round();
+  return bucket < threshold;
+}
+
+int _stableFiftyDecisionBucket(CpuObservation observation) {
+  final handIds = observation.ownHand.map((card) => card.id).toList()..sort();
+  final parts = [
+    observation.difficulty.name,
+    observation.seat.name,
+    observation.topDiscard?.id ?? '-',
+    observation.topDiscard?.effectiveIdentity?.key ?? '-',
+    '${observation.stockCount}',
+    '${observation.discardCount}',
+    '${observation.currentOpeningRequirement}',
+    handIds.join(','),
+  ];
+  return _stableBucket(parts.join('|'), modulo: 10000);
+}
+
+int _stableBucket(String value, {required int modulo}) {
+  var hash = 0x811c9dc5;
+  for (final codeUnit in value.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return hash % modulo;
 }
 
 /// Pure predicate: should the CPU take the top discard during the draw phase?

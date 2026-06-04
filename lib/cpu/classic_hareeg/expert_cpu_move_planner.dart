@@ -59,7 +59,7 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
 
   @override
   bool shouldClaimFifty(CpuObservation observation) {
-    return canSuccessfullyClaimFiftyFor(observation);
+    return shouldAttemptFiftyClaimFor(observation);
   }
 
   @override
@@ -348,7 +348,8 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
           (left.totalValue - ExpertCpuMovePlanner._benchmarkTarget)
               .abs()
               .compareTo(
-                (right.totalValue - ExpertCpuMovePlanner._benchmarkTarget).abs(),
+                (right.totalValue - ExpertCpuMovePlanner._benchmarkTarget)
+                    .abs(),
               );
       if (targetCompare != 0) {
         return targetCompare;
