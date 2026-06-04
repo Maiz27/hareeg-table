@@ -31,9 +31,9 @@ void main() {
     test('normal joker discards stay hard-blocked and hidden', () {
       const joker = HareegCard.joker(deckIndex: 10, jokerIndex: 0);
 
-      for (final preset in TableStrictness.values) {
+      for (final tier in TableStrictness.values) {
         final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
-          strictness: preset,
+          strictness: tier,
           tableMelds: const [],
           card: joker,
           isFinalDiscard: false,
@@ -51,7 +51,7 @@ void main() {
       }
     });
 
-    test('assisted cover discards are blocked and hidden', () {
+    test('blocking tiers hide blocked cover discards', () {
       final cover = card(CardRank.eight, CardSuit.clubs, 2);
 
       final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
@@ -78,7 +78,7 @@ void main() {
       expect(result.message, contains('cover'));
     });
 
-    test('table penalties allow joker-replacement discards as mistakes', () {
+    test('strict tier allows joker-replacement discards as mistakes', () {
       final replacement = card(CardRank.queen, CardSuit.diamonds, 3);
 
       final result = ClassicHareegDiscardEligibilityPlanner.evaluate(
@@ -103,7 +103,7 @@ void main() {
     });
 
     test(
-      'hard table identifies cards that are both covers and replacements',
+      'table tier identifies cards that are both covers and replacements',
       () {
         final blocked = card(CardRank.eight, CardSuit.clubs, 4);
 

@@ -46,23 +46,13 @@ class AppStrings {
 
   String get appTitle => _v('appTitle');
   String get homeTitle => _v('homeTitle');
-  String get homeSubtitle => _v('homeSubtitle');
   String get newGame => _v('newGame');
   String get continueGame => _v('continueGame');
   String get settings => _v('settings');
   String get rulesHelp => _v('rulesHelp');
   String get noSavedMatch => _v('noSavedMatch');
   String get checkingSavedMatch => _v('checkingSavedMatch');
-  String get resumeSavedMatch => _v('resumeSavedMatch');
   String get abandonSavedMatch => _v('abandonSavedMatch');
-  String get seatsLabel => _v('seatsLabel');
-  String get openingLabel => _v('openingLabel');
-  String get fiftyLabel => _v('fiftyLabel');
-  String get plannedModes => _v('plannedModes');
-  String get hareeg14 => _v('hareeg14');
-  String get fifties => _v('fifties');
-  String get comingSoon => _v('comingSoon');
-  String get classicModeTitle => _v('classicModeTitle');
   String get classicModeDescription => _v('classicModeDescription');
   String get setupTitle => _v('setupTitle');
   String get startTable => _v('startTable');
@@ -100,9 +90,6 @@ class AppStrings {
   String get helpPauseResumeBody => _v('helpPauseResumeBody');
   String get helpPlannedModesTitle => _v('helpPlannedModesTitle');
   String get helpPlannedModesBody => _v('helpPlannedModesBody');
-  String get rulesReady => _v('rulesReady');
-  String get cpuReady => _v('cpuReady');
-  String get persistenceReady => _v('persistenceReady');
   String get splashTagline => _v('splashTagline');
   String get splashTapToContinue => _v('splashTapToContinue');
   String get scores => _v('scores');
@@ -120,8 +107,6 @@ class AppStrings {
   String get hapticsHelp => _v('hapticsHelp');
   String get soundLabel => _v('soundLabel');
   String get soundHelp => _v('soundHelp');
-  String get cardThemeLabel => _v('cardThemeLabel');
-  String get cardThemeHelp => _v('cardThemeHelp');
   String get highContrastCards => _v('highContrastCards');
   String get highContrastCardsDescription => _v('highContrastCardsDescription');
   String get aboutLicenses => _v('aboutLicenses');
@@ -133,8 +118,6 @@ class AppStrings {
   String get kenneyCasinoAudioAttribution => _v('kenneyCasinoAudioAttribution');
   String get kenneyCasinoAudioUrl => _v('kenneyCasinoAudioUrl');
   String get licensesFooter => _v('licensesFooter');
-  String get openScoresButton => _v('openScoresButton');
-  String get openPauseButton => _v('openPauseButton');
   String get playMeld => _v('playMeld');
   String get placeCover => _v('placeCover');
   String get replaceJoker => _v('replaceJoker');
@@ -272,7 +255,8 @@ class AppStrings {
         : 'Claim the Fifty on the $name.';
   }
 
-  String get coachOpenNowTitle => isRtl ? 'يمكنك الافتتاح الآن' : 'You can open now';
+  String get coachOpenNowTitle =>
+      isRtl ? 'يمكنك الافتتاح الآن' : 'You can open now';
 
   String get coachOpenNowBody => isRtl
       ? 'هذه الأوراق تحقق قيمة الافتتاح. انزِلها على الطاولة.'
@@ -361,7 +345,10 @@ class AppStrings {
 
   /// Draw hint for an unopened seat: the draw instruction with the opening
   /// progress folded in so the shortfall is not lost behind the draw advice.
-  String coachDrawBodyWithProgress({required int best, required int shortfall}) {
+  String coachDrawBodyWithProgress({
+    required int best,
+    required int shortfall,
+  }) {
     return isRtl
         ? 'اسحب من مجموعة السحب لتقترب من الافتتاح. أفضل مجموعة لديك بقيمة $best، باقٍ $shortfall.'
         : 'Draw from the stock to build toward opening. Your best meld is worth $best, $shortfall to go.';
@@ -597,9 +584,7 @@ class AppStrings {
 
   String youDeclaredJoker(CardIdentity identity) {
     final name = cardName(identity);
-    return isRtl
-        ? 'أعلنت الجوكر كـ $name.'
-        : 'You declared joker as $name.';
+    return isRtl ? 'أعلنت الجوكر كـ $name.' : 'You declared joker as $name.';
   }
 
   String playerFinished(PlayerSeat seat) {
@@ -781,11 +766,11 @@ class AppStrings {
       'Valid high-ace sequence.' => 'سلسلة آس مرتفع صحيحة.',
       'Jokers cannot be discarded during normal play.' =>
         'لا يمكن رمي الجوكر أثناء اللعب العادي.',
-      'Assisted mode blocks this illegal action.' =>
-        'وضع المساعدة يمنع هذه الحركة غير القانونية.',
-      'Table penalty: +3.' => 'عقوبة الطاولة: +3.',
-      'Hard table mistake: +17 and out of this round.' =>
-        'خطأ الطاولة الصعبة: +17 وخروج من هذه الجولة.',
+      'This strictness blocks that illegal action.' =>
+        'مستوى الصرامة هذا يمنع هذه الحركة غير القانونية.',
+      'Strict penalty: +3.' => 'عقوبة الوضع الصارم: +3.',
+      'Table mistake: +17 and out of this round.' =>
+        'خطأ وضع الطاولة: +17 وخروج من هذه الجولة.',
       'This player has already opened.' => 'هذا اللاعب فتح بالفعل.',
       'Covers cannot satisfy opening.' => 'التكميلات لا تحقق الافتتاح.',
       'Opening needs at least one meld.' =>
@@ -833,23 +818,13 @@ extension AppStringsBuildContext on BuildContext {
 const _englishValues = {
   'appTitle': 'Hareeg Table',
   'homeTitle': 'Hareeg Table',
-  'homeSubtitle': 'Offline Classic Hareeg',
   'newGame': 'New Game',
   'continueGame': 'Continue',
   'settings': 'Settings',
   'rulesHelp': 'Rules / Help',
   'noSavedMatch': 'No saved match yet',
   'checkingSavedMatch': 'Checking saved match...',
-  'resumeSavedMatch': 'Resume saved Classic Hareeg table',
   'abandonSavedMatch': 'Abandon saved match',
-  'seatsLabel': 'Seats',
-  'openingLabel': 'Opening',
-  'fiftyLabel': 'Fifty',
-  'plannedModes': 'Planned modes',
-  'hareeg14': 'Hareeg 14',
-  'fifties': 'Fifties',
-  'comingSoon': 'Coming soon',
-  'classicModeTitle': 'Classic Hareeg',
   'classicModeDescription':
       'Four seats, anti-clockwise turns, 51 opening, covers, jokers, and Fifty.',
   'setupTitle': 'Classic Hareeg setup',
@@ -886,22 +861,19 @@ const _englishValues = {
       'Jokers represent a chosen card identity when placed in a meld or cover. If several identities are legal, the human player must choose; CPU players choose deterministically. Opened players may replace a table joker with the represented card and take the joker. Normal joker discard is always blocked, but a joker may be the final discard.',
   'helpFiftyTitle': 'Fifty / Khamsin',
   'helpFiftyBody':
-      'After a discard, only the immediate next player can claim Fifty, and only before the timer expires. The discarded card must be part of a legal finish, including hand melds, table covers, or chained covers. In Assisted mode, the Fifty action appears only when valid. If the timer is missed, the player may still take the discard normally when legal, but the finish scores as normal instead of Fifty.',
+      'After a discard, only the immediate next player can claim Fifty, and only before the timer expires. The discarded card must be part of a legal finish, including hand melds, table covers, or chained covers. Coaching and Standard show the Fifty action only when the finish is proven; Strict and Table allow wrong claims as penalized mistakes. If the timer is missed, the player may still take the discard normally when legal, but the finish scores as normal instead of Fifty.',
   'helpScoringTitle': 'Scoring',
   'helpScoringBody':
       'Normal winners score -1. In Fifty, the winner scores -3, except the first dealt round uses -1, and the discarder adds remaining cards plus 3. Other active players add remaining card count. Drawn rounds do not change scores. Players at 31 or more are eliminated, and the last remaining player wins.',
-  'helpMistakePresetsTitle': 'Mistake presets',
+  'helpMistakePresetsTitle': 'Mistake handling',
   'helpMistakePresetsBody':
-      'Assisted blocks illegal actions. Table penalties allow selected mistakes with +3. Hard table 17 allows selected mistakes with +17 and removes that player from the current round. Normal joker discard stays blocked in every preset.',
+      'Coaching and Standard block illegal actions. Strict allows selected mistakes with +3 and keeps the player in the round. Table allows selected mistakes with +17 and removes that player from the current round. Normal joker discard stays blocked at every strictness.',
   'helpPauseResumeTitle': 'Pause and resume',
   'helpPauseResumeBody':
       'The app saves active Classic Hareeg table state locally at safe table changes. Continue resumes the saved hands, stock, discard pile, turn phase, pending discard, and setup. Abandon saved match clears the local save.',
   'helpPlannedModesTitle': 'Planned modes',
   'helpPlannedModesBody':
       'Hareeg 14 and a dedicated Fifties mode are planned future modes. The first release focuses on Classic Hareeg.',
-  'rulesReady': 'Pure Dart rules core',
-  'cpuReady': 'CPU strategy boundary',
-  'persistenceReady': 'Local preferences boundary',
   'splashTagline': 'Offline Classic Hareeg',
   'splashTapToContinue': 'Tap to continue',
   'scores': 'Scores',
@@ -920,8 +892,6 @@ const _englishValues = {
   'hapticsHelp': 'Light vibrations on taps, drops, and Fifty.',
   'soundLabel': 'Table sounds',
   'soundHelp': 'Play card movement and table feedback sounds.',
-  'cardThemeLabel': 'Card theme',
-  'cardThemeHelp': 'Themes can only be changed outside an active match.',
   'highContrastCards': 'High-contrast cues',
   'highContrastCardsDescription':
       'Strengthen card highlights and table pop-ups without changing the selected deck art.',
@@ -937,8 +907,6 @@ const _englishValues = {
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
-  'openScoresButton': 'Scores',
-  'openPauseButton': 'Pause',
   'playMeld': 'Play meld',
   'placeCover': 'Place cover',
   'replaceJoker': 'Replace joker',
@@ -1026,23 +994,13 @@ const _englishValues = {
 const _arabicValues = {
   'appTitle': 'طاولة حريق',
   'homeTitle': 'طاولة حريق',
-  'homeSubtitle': 'حريق كلاسيكي دون اتصال',
   'newGame': 'لعبة جديدة',
   'continueGame': 'متابعة',
   'settings': 'الإعدادات',
   'rulesHelp': 'القواعد / المساعدة',
   'noSavedMatch': 'لا توجد مباراة محفوظة بعد',
   'checkingSavedMatch': 'جار فحص المباراة المحفوظة...',
-  'resumeSavedMatch': 'استئناف طاولة حريق الكلاسيكية المحفوظة',
   'abandonSavedMatch': 'حذف المباراة المحفوظة',
-  'seatsLabel': 'المقاعد',
-  'openingLabel': 'الافتتاح',
-  'fiftyLabel': 'الخمسين',
-  'plannedModes': 'أطوار مخططة',
-  'hareeg14': 'حريق 14',
-  'fifties': 'الخمسينات',
-  'comingSoon': 'قريبا',
-  'classicModeTitle': 'حريق الكلاسيكي',
   'classicModeDescription':
       'أربعة مقاعد، دوران عكس عقارب الساعة، افتتاح 51، تكميلات، جوكر، وخمسين.',
   'setupTitle': 'إعداد حريق الكلاسيكي',
@@ -1079,22 +1037,19 @@ const _arabicValues = {
       'يمثل الجوكر هوية ورقة مختارة عند وضعه في مجموعة أو تكميلة. إذا وجدت عدة هويات قانونية يجب على اللاعب البشري الاختيار، بينما يختار اللاعب الآلي بطريقة ثابتة. اللاعب الذي افتتح يمكنه استبدال جوكر على الطاولة بالورقة التي يمثلها وأخذ الجوكر. رمي الجوكر العادي ممنوع دائما، لكن يمكن أن يكون الرمية الأخيرة.',
   'helpFiftyTitle': 'الخمسين',
   'helpFiftyBody':
-      'بعد الرمي، اللاعب التالي مباشرة فقط يستطيع إعلان الخمسين، وذلك قبل انتهاء المؤقت. يجب أن تكون الورقة المرمية جزءا من إنهاء قانوني، سواء عبر مجموعات اليد أو تكميلات الطاولة أو التكميلات المتتابعة. في وضع المساعدة يظهر إجراء الخمسين فقط عندما يكون صحيحا. إذا انتهى المؤقت يمكن للاعب أخذ الرمية بشكل عادي عند قانونيتها، لكن الإنهاء يسجل كإنهاء عادي وليس خمسين.',
+      'بعد الرمي، اللاعب التالي مباشرة فقط يستطيع إعلان الخمسين، وذلك قبل انتهاء المؤقت. يجب أن تكون الورقة المرمية جزءا من إنهاء قانوني، سواء عبر مجموعات اليد أو تكميلات الطاولة أو التكميلات المتتابعة. وضعا التدريب والقياسي يظهران إجراء الخمسين فقط عندما يكون الإنهاء مثبتا، بينما يسمح الوضعان الصارم والطاولة بإعلانات خاطئة كأخطاء مع عقوبة. إذا انتهى المؤقت يمكن للاعب أخذ الرمية بشكل عادي عند قانونيتها، لكن الإنهاء يسجل كإنهاء عادي وليس خمسين.',
   'helpScoringTitle': 'التسجيل',
   'helpScoringBody':
       'الفائز العادي يسجل -1. في الخمسين يسجل الفائز -3، ما عدا الجولة الأولى الموزعة فتستخدم -1، ويضيف الرامي الأوراق المتبقية لديه زائد 3. بقية اللاعبين النشطين يضيفون عدد أوراقهم المتبقية. الجولات المسحوبة لا تغير النقاط. اللاعب الذي يصل إلى 31 أو أكثر يخرج، وآخر لاعب باق يفوز.',
-  'helpMistakePresetsTitle': 'إعدادات الأخطاء',
+  'helpMistakePresetsTitle': 'معالجة الأخطاء',
   'helpMistakePresetsBody':
-      'وضع المساعدة يمنع الإجراءات غير القانونية. عقوبات الطاولة تسمح بأخطاء محددة مع +3. طاولة 17 الصعبة تسمح بأخطاء محددة مع +17 وتخرج ذلك اللاعب من الجولة الحالية. رمي الجوكر العادي يبقى ممنوعا في كل الإعدادات.',
+      'وضعا التدريب والقياسي يمنعان الحركات غير القانونية. الوضع الصارم يسمح بأخطاء محددة مع +3 ويبقي اللاعب في الجولة. وضع الطاولة يسمح بأخطاء محددة مع +17 ويخرج ذلك اللاعب من الجولة الحالية. رمي الجوكر العادي يبقى ممنوعا في كل مستويات الصرامة.',
   'helpPauseResumeTitle': 'الإيقاف والاستئناف',
   'helpPauseResumeBody':
       'يحفظ التطبيق حالة طاولة حريق الكلاسيكية محليا عند تغييرات الطاولة الآمنة. المتابعة تستعيد الأيدي، كومة السحب، كومة الرمي، مرحلة الدور، الرمية المعلقة، والإعدادات. حذف المباراة المحفوظة يمسح الحفظ المحلي.',
   'helpPlannedModesTitle': 'أطوار مخططة',
   'helpPlannedModesBody':
       'حريق 14 وطور مخصص للخمسينات مخططان لاحقا. الإصدار الأول يركز على حريق الكلاسيكي.',
-  'rulesReady': 'نواة قواعد Dart صافية',
-  'cpuReady': 'حدود استراتيجية اللاعب الآلي',
-  'persistenceReady': 'حدود تفضيلات محلية',
   'splashTagline': 'حريق كلاسيكي دون اتصال',
   'splashTapToContinue': 'اضغط للمتابعة',
   'scores': 'النقاط',
@@ -1106,12 +1061,13 @@ const _arabicValues = {
   'leaveTable': 'مغادرة الطاولة',
   'pauseInMatchControls': 'إعدادات أثناء المباراة',
   'motionSpeedLabel': 'سرعة الحركة',
+  'fastCpuTurns': 'أدوار آلية سريعة',
+  'fastCpuTurnsDescription':
+      'اختصر توقفات اللاعب الآلي وحركة الأوراق لتسريع أدوار الخصوم.',
   'hapticsLabel': 'اهتزازات الطاولة',
   'hapticsHelp': 'اهتزازات خفيفة عند الضغط، الإفلات، والخمسين.',
   'soundLabel': 'أصوات الطاولة',
   'soundHelp': 'شغّل أصوات حركة الأوراق وتنبيهات الطاولة.',
-  'cardThemeLabel': 'سمة الأوراق',
-  'cardThemeHelp': 'يمكن تغيير السمات خارج المباراة النشطة فقط.',
   'highContrastCards': 'إشارات عالية التباين',
   'highContrastCardsDescription':
       'قوّ إبرازات الأوراق والنوافذ دون تغيير رسومات السمة المختارة.',
@@ -1127,8 +1083,6 @@ const _arabicValues = {
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
   'licensesFooter':
       'الأصول المضمنة تحتفظ بتراخيص CC0 / الملكية العامة الأصلية.',
-  'openScoresButton': 'النقاط',
-  'openPauseButton': 'إيقاف',
   'playMeld': 'العب مجموعة',
   'placeCover': 'ضع تكملة',
   'replaceJoker': 'استبدل الجوكر',

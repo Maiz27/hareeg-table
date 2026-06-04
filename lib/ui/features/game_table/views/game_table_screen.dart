@@ -74,7 +74,7 @@ class GameTableScreen extends StatefulWidget {
   /// Active match persistence.
   final MatchRepository matchRepository;
 
-  /// Player preferences (motion, haptics, aids, theme).
+  /// Player preferences (motion, haptics, coaching tips, theme).
   final GamePreferences preferences;
 
   /// Called by the pause overlay when a preference is toggled mid-match.

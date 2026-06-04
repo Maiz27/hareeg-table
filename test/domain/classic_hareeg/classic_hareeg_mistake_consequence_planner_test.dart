@@ -9,7 +9,7 @@ import 'package:hareeg_table/domain/classic_hareeg/rules/mistake_preset_rules.da
 void main() {
   group('ClassicHareegMistakeConsequencePlanner', () {
     test(
-      'assisted preset blocks mistakes without score or removal changes',
+      'blocking strictness blocks mistakes without score or removal changes',
       () {
         final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
           strictness: TableStrictness.coaching,
@@ -19,10 +19,7 @@ void main() {
           activeSeats: PlayerSeat.values,
           removedSeats: const {},
           hasPendingDiscard: true,
-          remainingCardCounts: const {
-            PlayerSeat.south: 8,
-            PlayerSeat.east: 9,
-          },
+          remainingCardCounts: const {PlayerSeat.south: 8, PlayerSeat.east: 9},
         );
 
         expect(plan.scenario, ClassicHareegMistakeConsequenceScenario.blocked);
@@ -34,7 +31,7 @@ void main() {
       },
     );
 
-    test('table penalties apply score only and keep turn state alive', () {
+    test('strict tier applies score only and keeps turn state alive', () {
       final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
         strictness: TableStrictness.strict,
         mistake: MistakeType.wrongFiftyClaim,
@@ -43,10 +40,7 @@ void main() {
         activeSeats: PlayerSeat.values,
         removedSeats: const {},
         hasPendingDiscard: false,
-        remainingCardCounts: const {
-          PlayerSeat.south: 7,
-          PlayerSeat.east: 8,
-        },
+        remainingCardCounts: const {PlayerSeat.south: 7, PlayerSeat.east: 8},
       );
 
       expect(
@@ -62,7 +56,7 @@ void main() {
     });
 
     test(
-      'hard table removal applies score and advances to next active seat',
+      'table tier removal applies score and advances to next active seat',
       () {
         final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
           strictness: TableStrictness.table,
@@ -97,7 +91,7 @@ void main() {
       },
     );
 
-    test('hard table removal returns round result when one seat remains', () {
+    test('table tier removal returns round result when one seat remains', () {
       final plan = ClassicHareegMistakeConsequencePlanner.evaluate(
         strictness: TableStrictness.table,
         mistake: MistakeType.wrongFiftyClaim,

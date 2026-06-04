@@ -83,5 +83,29 @@ void main() {
         isTrue,
       );
     });
+
+    test('player-facing messages use current strictness names', () {
+      expect(
+        ClassicHareegMistakePresetRules.resolve(
+          strictness: TableStrictness.coaching,
+          mistake: MistakeType.illegalCoverDiscard,
+        ).message,
+        'This strictness blocks that illegal action.',
+      );
+      expect(
+        ClassicHareegMistakePresetRules.resolve(
+          strictness: TableStrictness.strict,
+          mistake: MistakeType.wrongFiftyClaim,
+        ).message,
+        'Strict penalty: +3.',
+      );
+      expect(
+        ClassicHareegMistakePresetRules.resolve(
+          strictness: TableStrictness.table,
+          mistake: MistakeType.wrongJokerReplacement,
+        ).message,
+        'Table mistake: +17 and out of this round.',
+      );
+    });
   });
 }

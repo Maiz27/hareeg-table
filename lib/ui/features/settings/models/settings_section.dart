@@ -9,7 +9,7 @@ enum SettingsSection {
   /// Initial sort mode applied to the human hand at the start of each round.
   handSort,
 
-  /// Player aids and hand assistance toggles.
+  /// Strictness and coaching-tip controls.
   assistance,
 
   /// Visual identity: card theme and table surface.

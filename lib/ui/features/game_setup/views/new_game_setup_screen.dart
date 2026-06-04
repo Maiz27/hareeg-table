@@ -12,8 +12,8 @@ import '../../settings/models/settings_section.dart';
 /// Classic Hareeg pre-game setup flow.
 ///
 /// Shows only the rules a player tends to re-decide each game: CPU difficulty,
-/// who starts, rule preset, opening requirement, and joker count. Deck count,
-/// fifty timer, aids, and visuals live on the Settings screen and are
+/// who starts, table strictness, opening requirement, and joker count. Deck
+/// count, fifty timer, and visuals live on the Settings screen and are
 /// summarised in the "House rules" footer.
 class NewGameSetupScreen extends StatefulWidget {
   /// Creates the setup screen.
@@ -114,7 +114,9 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                   value: _setup.tableStrictness,
                   onChanged: (value) =>
                       _update(_setup.copyWith(tableStrictness: value)),
-                  note: strings.tableStrictnessDescription(_setup.tableStrictness),
+                  note: strings.tableStrictnessDescription(
+                    _setup.tableStrictness,
+                  ),
                 ),
                 const SizedBox(height: LoungeTokens.space5),
                 _StartChoice<int>(
@@ -195,7 +197,6 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
       _setup = preferences.setup;
     });
   }
-
 }
 
 class _SetupBackdrop extends StatelessWidget {

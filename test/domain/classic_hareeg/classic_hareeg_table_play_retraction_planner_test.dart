@@ -10,7 +10,7 @@ import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   group('ClassicHareegTablePlayRetractionPlanner', () {
-    test('staged opening melds can be returned in hard table mode', () {
+    test('staged opening melds can be returned in table tier', () {
       final tenSet = meld([
         card(CardRank.ten, CardSuit.clubs),
         card(CardRank.ten, CardSuit.diamonds),
@@ -36,7 +36,7 @@ void main() {
       expect(plan.message, 'Opening melds returned to your hand.');
     });
 
-    test('hard table blocks current-turn meld and cover retraction', () {
+    test('table tier blocks current-turn meld and cover retraction', () {
       final turnMeld = meld([
         card(CardRank.five, CardSuit.clubs),
         card(CardRank.six, CardSuit.clubs),
@@ -98,10 +98,7 @@ void main() {
         ClassicHareegTablePlayRetractionScenario.blockedByStrictness,
       );
       expect(targetCoverPlan.isAllowed, isFalse);
-      expect(
-        targetCoverPlan.message,
-        contains('does not allow taking back'),
-      );
+      expect(targetCoverPlan.message, contains('does not allow taking back'));
     });
 
     test('bulk plan distinguishes mixed current-turn table plays', () {

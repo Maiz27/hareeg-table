@@ -154,13 +154,13 @@ Fifty is a timed claim by the immediate next player after a discard.
 - Default timer: 4 seconds.
 - Custom timer range: 2-6 seconds.
 
-Assisted mode:
+Coaching and Standard:
 
 - The Fifty action appears only when a valid Fifty exists.
 - The player must still claim it before the timer expires.
 - The app does not auto-claim.
 
-Mistake-enabled modes:
+Strict and Table:
 
 - The Fifty action may appear during every claim window.
 - Wrong Fifty claims receive the active mistake penalty.

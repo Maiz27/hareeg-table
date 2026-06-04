@@ -73,8 +73,8 @@ abstract final class ClassicHareegFiftyRules {
     );
   }
 
-  /// Whether assisted/default UI should show the Fifty action.
-  static bool shouldShowAssistedAction({
+  /// Whether blocking-tier UI should show the Fifty action.
+  static bool shouldShowBlockingTierAction({
     required FiftyClaimWindow window,
     required PlayerSeat viewer,
     required int elapsedSeconds,

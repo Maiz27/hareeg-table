@@ -314,7 +314,7 @@ void main() {
             ClassicHareegMistakePresetRules.cpuMistakesAllowed(tier),
             tier.cpuMistakesAllowed,
             reason:
-                'mistake-preset must agree with strictness profile for $tier',
+                'mistake handling must agree with strictness profile for $tier',
           );
         });
       }
@@ -497,10 +497,7 @@ ClassicHareegMatchSnapshot _snapshotWithSouthHand({
   final base = ClassicHareegRound.deal(setup: effectiveSetup, seed: 5);
   return ClassicHareegMatchSnapshot(
     setup: effectiveSetup,
-    hands: {
-      ...base.hands,
-      PlayerSeat.south: southHand,
-    },
+    hands: {...base.hands, PlayerSeat.south: southHand},
     stock: base.stock,
     discardPile: base.discardPile,
     starter: base.starter,

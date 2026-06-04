@@ -1,7 +1,7 @@
 import '../models/table_strictness.dart';
 import 'strictness_rule_profile.dart';
 
-/// Mistake types recognized by Classic Hareeg presets.
+/// Mistake types recognized by Classic Hareeg strictness tiers.
 enum MistakeType {
   /// Attempt to discard a cover during normal play.
   illegalCoverDiscard,
@@ -19,7 +19,7 @@ enum MistakeType {
   normalJokerDiscard,
 }
 
-/// Result of applying a mistake preset.
+/// Result of applying mistake handling for a strictness tier.
 class MistakeResolution {
   /// Creates a mistake resolution.
   const MistakeResolution({
@@ -98,11 +98,10 @@ abstract final class ClassicHareegMistakePresetRules {
 
   static String _messageFor(TableStrictness strictness) {
     return switch (strictness) {
-      TableStrictness.coaching || TableStrictness.standard =>
-        'This illegal action is blocked at this strictness.',
-      TableStrictness.strict => 'Table penalty: +3.',
-      TableStrictness.table =>
-        'Hard table mistake: +17 and out of this round.',
+      TableStrictness.coaching ||
+      TableStrictness.standard => 'This strictness blocks that illegal action.',
+      TableStrictness.strict => 'Strict penalty: +3.',
+      TableStrictness.table => 'Table mistake: +17 and out of this round.',
     };
   }
 

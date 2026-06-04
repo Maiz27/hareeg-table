@@ -42,7 +42,7 @@ enum ClassicHareegActionKind {
   /// Discard a plain legal card.
   discard,
 
-  /// Discard a cover/replacement card under a penalty-capable preset.
+  /// Discard a cover/replacement card under a penalty-capable strictness tier.
   discardBlockedCover,
 
   /// Discard a joker under a final-discard exception.
@@ -207,11 +207,12 @@ abstract final class ClassicHareegActionIds {
   static const discardPrefix = 'discard:';
 
   /// Discard action id prefix for cards that are covers (only legal as final
-  /// discard, or under presets that allow cover discards with a penalty).
+  /// discard, or under strictness tiers that allow cover discards with a
+  /// penalty).
   static const discardBlockedCoverPrefix = 'discard-blocked-cover:';
 
   /// Discard action id prefix for jokers (only legal as final discard, or under
-  /// presets that allow joker discards with a penalty).
+  /// strictness tiers that allow joker discards with a penalty).
   static const discardJokerPrefix = 'discard-joker:';
 
   /// Returns a parsed descriptor for [actionId].

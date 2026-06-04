@@ -909,7 +909,7 @@ void main() {
     });
 
     testWidgets(
-      'FiftyRing still shows the human claim window in assisted mode',
+      'FiftyRing still shows the human claim window in blocking tiers',
       (tester) async {
         final now = DateTime.now().toUtc();
         await _openTable(
@@ -932,7 +932,7 @@ void main() {
           find.byType(FiftyRing),
           findsOneWidget,
           reason:
-              'The timer is the visual claim window even when Assisted mode '
+              'The timer is the visual claim window even when the strictness '
               'does not expose an invalid claim action.',
         );
       },
@@ -1443,7 +1443,12 @@ void main() {
         savedSnapshot: _savedSnapshot(
           // A finished run plus a last card: the advisor's top insight is the
           // (priority 1000) finish.
-          southHand: [seven, eight, nine, _card(CardRank.two, CardSuit.spades, 310)],
+          southHand: [
+            seven,
+            eight,
+            nine,
+            _card(CardRank.two, CardSuit.spades, 310),
+          ],
           openingState: _opened(PlayerSeat.south),
         ),
       );

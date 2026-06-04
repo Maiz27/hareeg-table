@@ -4,7 +4,7 @@ import 'classic_hareeg_table_play_planner.dart';
 
 /// Exact-cover helper for proving whether a hand can finish.
 ///
-/// Finish checks are a hot path for Assisted-mode Fifty prompts and
+/// Finish checks are a hot path for blocking-tier Fifty prompts and
 /// empty-stock draw decisions. The controller asks the same card set "what if
 /// this card is the final discard?" up to fourteen times; this planner builds
 /// valid meld candidates once, then reuses subset memoization across those
