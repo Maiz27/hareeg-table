@@ -13,7 +13,7 @@ enum ClassicHareegDiscardScenario {
   /// Final discard that may use otherwise blocked cards.
   finalDiscard,
 
-  /// Normal joker discard, blocked in every preset.
+  /// Normal joker discard, blocked in every strictness tier.
   normalJoker,
 
   /// Card is a cover for at least one table meld.
@@ -68,7 +68,7 @@ class ClassicHareegDiscardEligibility {
   /// Preset-specific mistake behavior, if this is a mistake scenario.
   final MistakeResolution? mistakeResolution;
 
-  /// Whether the discard proceeds only after applying a mistake preset.
+  /// Whether the discard proceeds only after applying a mistake penalty.
   bool get appliesMistake => mistakeResolution?.isAllowed ?? false;
 
   /// Full action id for this card and scenario.

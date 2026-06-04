@@ -26,16 +26,16 @@ enum ClassicHareegFiftyClaimScenario {
   /// The top discard no longer matches the active Fifty window.
   missingDiscard,
 
-  /// Non-assisted presets may advertise the claim before proving the finish.
+  /// Penalty tiers may advertise the claim before proving the finish.
   claimWindowOpen,
 
   /// The discarded card completes a valid Fifty finish.
   validClaim,
 
-  /// The claim is not a finish and the preset blocks it.
+  /// The claim is not a finish and the active strictness blocks it.
   blockedWrongClaim,
 
-  /// The claim is not a finish and the preset converts it into a penalty.
+  /// The claim is not a finish and the active strictness penalizes it.
   penalizedWrongClaim,
 }
 
@@ -94,7 +94,7 @@ class ClassicHareegFiftyClaimPlan {
   /// Pure Fifty validation result, when a finish plan was available.
   final FiftyClaimResult? claimResult;
 
-  /// Mistake behavior when a wrong claim is allowed by the active preset.
+  /// Mistake behavior when a wrong claim is allowed by the active strictness.
   final MistakeResolution? mistakeResolution;
 
   /// Whether this claim proceeds as a mistake penalty instead of a finish.

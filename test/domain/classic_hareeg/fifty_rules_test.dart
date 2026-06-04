@@ -46,7 +46,7 @@ void main() {
       expect(wrongPlayer.isValid, isFalse);
     });
 
-    test('assisted action appears only when valid Fifty exists', () {
+    test('blocking-tier action appears only when valid Fifty exists', () {
       final discarded = card(CardRank.nine, CardSuit.clubs);
       final window = ClassicHareegFiftyRules.openWindow(
         discarder: PlayerSeat.south,
@@ -55,7 +55,7 @@ void main() {
       );
 
       expect(
-        ClassicHareegFiftyRules.shouldShowAssistedAction(
+        ClassicHareegFiftyRules.shouldShowBlockingTierAction(
           window: window,
           viewer: PlayerSeat.east,
           elapsedSeconds: 1,
@@ -71,7 +71,7 @@ void main() {
         isTrue,
       );
       expect(
-        ClassicHareegFiftyRules.shouldShowAssistedAction(
+        ClassicHareegFiftyRules.shouldShowBlockingTierAction(
           window: window,
           viewer: PlayerSeat.east,
           elapsedSeconds: 1,

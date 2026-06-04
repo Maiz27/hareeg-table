@@ -8,7 +8,7 @@ import 'package:hareeg_table/domain/classic_hareeg/rules/fifty_rules.dart';
 
 void main() {
   group('ClassicHareegFiftyClaimPlanner', () {
-    test('assisted mode advertises only a proven valid Fifty', () {
+    test('blocking tiers advertise only a proven valid Fifty', () {
       final discarded = card(CardRank.nine, CardSuit.clubs);
       final hand = [
         card(CardRank.seven, CardSuit.clubs),
@@ -40,7 +40,7 @@ void main() {
       expect(result.finishPlan?.finalDiscard.label, '2H');
     });
 
-    test('non-assisted advertisement does not need finish proof', () {
+    test('penalty-tier advertisement does not need finish proof', () {
       var resolverCalled = false;
       final discarded = card(CardRank.nine, CardSuit.clubs, 2);
 
@@ -64,7 +64,7 @@ void main() {
       expect(resolverCalled, isFalse);
     });
 
-    test('table penalties convert wrong Fifty claims into +3 mistakes', () {
+    test('strict tier converts wrong Fifty claims into +3 mistakes', () {
       final discarded = card(CardRank.nine, CardSuit.clubs, 3);
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
@@ -88,7 +88,7 @@ void main() {
       expect(result.mistakeResolution?.removeFromRound, isFalse);
     });
 
-    test('hard table converts wrong Fifty claims into removal mistakes', () {
+    test('table tier converts wrong Fifty claims into removal mistakes', () {
       final discarded = card(CardRank.nine, CardSuit.clubs, 4);
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
@@ -111,7 +111,7 @@ void main() {
       expect(result.mistakeResolution?.removeFromRound, isTrue);
     });
 
-    test('assisted mode blocks wrong Fifty claims without a penalty', () {
+    test('blocking tiers block wrong Fifty claims without a penalty', () {
       final discarded = card(CardRank.nine, CardSuit.clubs, 5);
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(

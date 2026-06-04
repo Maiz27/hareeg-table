@@ -8,7 +8,7 @@ import 'classic_hareeg_turn_exit_planner.dart';
 
 /// Complete consequence class for a resolved mistake.
 enum ClassicHareegMistakeConsequenceScenario {
-  /// The active preset blocks the mistake before state changes.
+  /// The active strictness blocks the mistake before state changes.
   blocked,
 
   /// The player receives a score penalty and stays in the round.

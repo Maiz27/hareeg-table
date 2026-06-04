@@ -201,7 +201,7 @@ abstract final class ClassicHareegJokerRules {
     );
   }
 
-  /// Normal joker discard is blocked in every rules preset.
+  /// Normal joker discard is blocked in every strictness tier.
   static bool canDiscard(HareegCard card, {required bool isFinalDiscard}) {
     if (!card.isJoker) {
       return true;

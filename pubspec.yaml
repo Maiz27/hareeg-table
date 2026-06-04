@@ -35,8 +35,8 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  audioplayers: ^6.6.0
+  cupertino_icons: ^1.0.9
+  audioplayers: ^6.7.0
 
 dev_dependencies:
   flutter_test:
@@ -56,7 +56,7 @@ dev_dependencies:
   # Native splash screen generator (build-time tool). Configured under
   # `flutter_native_splash:` below and applied by running
   # `dart run flutter_native_splash:create`.
-  flutter_native_splash: ^2.4.6
+  flutter_native_splash: ^2.4.7
   flutter_launcher_icons: ^0.14.4
 
 # Native splash configuration applied by `dart run flutter_native_splash:create`.

@@ -11,7 +11,7 @@ import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   group('ClassicHareegGameController legal action enforcement', () {
-    test('rejects normal joker discards under any preset', () {
+    test('rejects normal joker discards under any strictness', () {
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
           handsBuilder: (defaults) => {
@@ -38,7 +38,7 @@ void main() {
             '${ClassicHareegActionIds.discardJokerPrefix}deck-0-joker-0',
           ),
         ),
-        reason: 'Normal joker discards are hard-blocked in every preset.',
+        reason: 'Normal joker discards are hard-blocked in every strictness.',
       );
 
       final joker = controller
@@ -1273,7 +1273,7 @@ void main() {
       expect(controller.canReturnTablePlayFromMeld(PlayerSeat.west, 0), isTrue);
     });
 
-    test('turn cover cannot be returned in hard table mode', () {
+    test('turn cover cannot be returned in table tier', () {
       final eastMeld = [
         _card(CardRank.three, CardSuit.clubs, 133),
         _card(CardRank.four, CardSuit.clubs, 133),
@@ -1573,7 +1573,7 @@ void main() {
     );
 
     test(
-      'assisted mode blocks discarding a card that can replace a table joker',
+      'blocking tiers block discarding a card that can replace a table joker',
       () {
         const represented = CardIdentity(
           rank: CardRank.two,
@@ -1625,7 +1625,7 @@ void main() {
     );
 
     test(
-      'assisted mode allows discarding duplicate visual cards already in a represented-joker set',
+      'blocking tiers allow discarding duplicate visual cards already in a represented-joker set',
       () {
         const represented = CardIdentity(
           rank: CardRank.jack,
@@ -1886,8 +1886,8 @@ void main() {
     );
   });
 
-  group('ClassicHareegGameController Fifty and mistake presets', () {
-    test('wrong Fifty claims in table penalty mode add +3', () {
+  group('ClassicHareegGameController Fifty and mistake handling', () {
+    test('wrong Fifty claims in strict tier add +3', () {
       final now = DateTime.utc(2026, 5, 19, 12);
       final discarded = _card(CardRank.nine, CardSuit.clubs, 31);
       final setup = ClassicHareegSetup.defaults().copyWith(
@@ -1926,7 +1926,7 @@ void main() {
       expect(controller.currentSeat, PlayerSeat.east);
     });
 
-    test('hard table wrong Fifty claims add +17 and can end the round', () {
+    test('table tier wrong Fifty claims add +17 and can end the round', () {
       final now = DateTime.utc(2026, 5, 19, 12);
       final discarded = _card(CardRank.nine, CardSuit.clubs, 231);
       final setup = ClassicHareegSetup.defaults().copyWith(
@@ -2075,50 +2075,54 @@ void main() {
       expect(next?.scores[PlayerSeat.south], 14);
     });
 
-    test('Fifty finish places the finishing melds on the table (conserves cards)',
-        () {
-      // Regression: a Fifty claim must place the finishing melds on the table,
-      // not just empty the hand — otherwise the claimed discard + meld cards
-      // vanish from the table state (a card-conservation violation the full-game
-      // invariant sweep caught on a Fifty finish).
-      final now = DateTime.utc(2026, 5, 19, 12);
-      final discarded = _card(CardRank.nine, CardSuit.clubs, 132);
-      final eastFinishCards = [
-        _card(CardRank.seven, CardSuit.clubs, 132),
-        _card(CardRank.eight, CardSuit.clubs, 132),
-        _card(CardRank.two, CardSuit.hearts, 132),
-      ];
-      final controller = ClassicHareegGameController.fromSnapshot(
-        _snapshot(
-          handsBuilder: (defaults) => {
-            ...defaults,
-            PlayerSeat.east: eastFinishCards,
-          },
-          discardPile: [discarded],
-          currentSeat: PlayerSeat.east,
-          turnPhase: TurnPhase.draw,
-          roundNumber: 2,
-          savedAt: now,
-          fiftyWindowOpenedAt: now,
-        ),
-        now: () => now,
-      );
+    test(
+      'Fifty finish places the finishing melds on the table (conserves cards)',
+      () {
+        // Regression: a Fifty claim must place the finishing melds on the table,
+        // not just empty the hand — otherwise the claimed discard + meld cards
+        // vanish from the table state (a card-conservation violation the full-game
+        // invariant sweep caught on a Fifty finish).
+        final now = DateTime.utc(2026, 5, 19, 12);
+        final discarded = _card(CardRank.nine, CardSuit.clubs, 132);
+        final eastFinishCards = [
+          _card(CardRank.seven, CardSuit.clubs, 132),
+          _card(CardRank.eight, CardSuit.clubs, 132),
+          _card(CardRank.two, CardSuit.hearts, 132),
+        ];
+        final controller = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.east: eastFinishCards,
+            },
+            discardPile: [discarded],
+            currentSeat: PlayerSeat.east,
+            turnPhase: TurnPhase.draw,
+            roundNumber: 2,
+            savedAt: now,
+            fiftyWindowOpenedAt: now,
+          ),
+          now: () => now,
+        );
 
-      final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+        final result = controller.applyAction(
+          ClassicHareegActionIds.claimFifty,
+        );
 
-      expect(result.isSuccess, isTrue);
-      expect(controller.handFor(PlayerSeat.east), isEmpty);
-      // The 7-8-9 of clubs run (using the claimed 9♣) is now on East's table.
-      final tableCardIds = [
-        for (final meld in controller.tableMeldsFor(PlayerSeat.east))
-          for (final card in meld.cards) card.id,
-      ];
-      expect(tableCardIds, contains(discarded.id));
-      expect(tableCardIds, contains(eastFinishCards[0].id));
-      expect(tableCardIds, contains(eastFinishCards[1].id));
-    });
+        expect(result.isSuccess, isTrue);
+        expect(controller.handFor(PlayerSeat.east), isEmpty);
+        // The 7-8-9 of clubs run (using the claimed 9♣) is now on East's table.
+        final tableCardIds = [
+          for (final meld in controller.tableMeldsFor(PlayerSeat.east))
+            for (final card in meld.cards) card.id,
+        ];
+        expect(tableCardIds, contains(discarded.id));
+        expect(tableCardIds, contains(eastFinishCards[0].id));
+        expect(tableCardIds, contains(eastFinishCards[1].id));
+      },
+    );
 
-    test('hard table mistakes add +17 and remove the player from round', () {
+    test('table tier mistakes add +17 and remove the player from round', () {
       final meldCards = [
         _card(CardRank.five, CardSuit.clubs, 33),
         _card(CardRank.six, CardSuit.clubs, 33),
