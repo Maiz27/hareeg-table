@@ -85,12 +85,21 @@ void main() {
     });
 
     test('player-facing messages use current strictness names', () {
+      const blockingMessage = 'This strictness blocks that illegal action.';
+
       expect(
         ClassicHareegMistakePresetRules.resolve(
           strictness: TableStrictness.coaching,
           mistake: MistakeType.illegalCoverDiscard,
         ).message,
-        'This strictness blocks that illegal action.',
+        blockingMessage,
+      );
+      expect(
+        ClassicHareegMistakePresetRules.resolve(
+          strictness: TableStrictness.standard,
+          mistake: MistakeType.illegalCoverDiscard,
+        ).message,
+        blockingMessage,
       );
       expect(
         ClassicHareegMistakePresetRules.resolve(
