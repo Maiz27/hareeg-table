@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 
 import '../test/scenario/classic_hareeg_match_driver.dart';
 
@@ -90,8 +91,7 @@ final class _AuditConfig {
       String readValue() {
         if (index + 1 >= args.length) {
           stderr.writeln('Missing value for $arg');
-          exitCode = 64;
-          return '';
+          exit(64);
         }
         index += 1;
         return args[index];
@@ -201,15 +201,15 @@ final class _RunMetrics {
     if (winner != null) {
       winners.update(winner, (value) => value + 1, ifAbsent: () => 1);
     }
-    switch (result.type.name) {
-      case 'draw':
+    switch (result.type) {
+      case RoundOutcomeType.draw:
         drawRounds += 1;
-      case 'fifty':
+      case RoundOutcomeType.fiftyFinish:
         fiftyRounds += 1;
         if (winner != null) {
           fiftyClaimants.add(winner);
         }
-      default:
+      case RoundOutcomeType.normalFinish:
         normalRounds += 1;
     }
   }
