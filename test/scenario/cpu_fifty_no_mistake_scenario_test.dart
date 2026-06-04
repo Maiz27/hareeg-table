@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/cpu_observation.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/cpu_strategy.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -28,8 +30,11 @@ void main() {
 
   // South cannot finish with the top discard (2 of spades): no meld uses it and
   // the hand cannot partition into melds + one final discard.
-  final unwinnableTopDiscard =
-      ScenarioCards.card(CardRank.two, CardSuit.spades, deckIndex: 3);
+  final unwinnableTopDiscard = ScenarioCards.card(
+    CardRank.two,
+    CardSuit.spades,
+    deckIndex: 3,
+  );
   final southStuckHand = <HareegCard>[
     ScenarioCards.card(CardRank.four, CardSuit.hearts, deckIndex: 3),
     ScenarioCards.card(CardRank.seven, CardSuit.clubs, deckIndex: 3),
@@ -38,27 +43,33 @@ void main() {
     ScenarioCards.card(CardRank.queen, CardSuit.hearts, deckIndex: 3),
   ];
 
-  // South finishes with the top discard (3 of clubs): {3C,3D,3H}+{KS,KD,KH},
-  // final discard 9S.
-  final winningTopDiscard =
-      ScenarioCards.card(CardRank.three, CardSuit.clubs, deckIndex: 1);
+  // South finishes with the top discard (AC): {AC,AD,AH}+{2S,2D,2H},
+  // final discard 5C. This fixture is also noticed by every configured CPU
+  // difficulty's deterministic Fifty miss gate.
+  final winningTopDiscard = ScenarioCards.card(
+    CardRank.ace,
+    CardSuit.clubs,
+    deckIndex: 0,
+  );
   final southWinningHand = <HareegCard>[
-    ScenarioCards.card(CardRank.three, CardSuit.diamonds, deckIndex: 1),
-    ScenarioCards.card(CardRank.three, CardSuit.hearts, deckIndex: 1),
-    ScenarioCards.card(CardRank.king, CardSuit.spades, deckIndex: 1),
-    ScenarioCards.card(CardRank.king, CardSuit.diamonds, deckIndex: 1),
-    ScenarioCards.card(CardRank.king, CardSuit.hearts, deckIndex: 1),
-    ScenarioCards.card(CardRank.nine, CardSuit.spades, deckIndex: 1),
+    ScenarioCards.card(CardRank.ace, CardSuit.diamonds),
+    ScenarioCards.card(CardRank.ace, CardSuit.hearts),
+    ScenarioCards.card(CardRank.two, CardSuit.spades),
+    ScenarioCards.card(CardRank.two, CardSuit.diamonds),
+    ScenarioCards.card(CardRank.two, CardSuit.hearts),
+    ScenarioCards.card(CardRank.five, CardSuit.clubs),
   ];
 
   ClassicHareegScenario dealClaim({
     required List<HareegCard> southHand,
     required HareegCard topDiscard,
     required TableStrictness strictness,
+    CpuDifficulty difficulty = CpuDifficulty.casual,
     List<HareegCard>? stock,
   }) {
     return ClassicHareegScenario.deal(
       setup: ClassicHareegSetup.defaults().copyWith(
+        cpuDifficulty: difficulty,
         tableStrictness: strictness,
       ),
       southHand: southHand,
@@ -122,6 +133,43 @@ void main() {
         );
       },
     );
+
+    for (final difficulty in CpuDifficulty.values) {
+      test(
+        '$difficulty CPU strategy claims and completes a valid Fifty finish',
+        () {
+          final s = dealClaim(
+            southHand: southWinningHand,
+            topDiscard: winningTopDiscard,
+            strictness: TableStrictness.table,
+            difficulty: difficulty,
+          );
+          final c = s.controller;
+          final legal = c.cpuActionIdsFor(PlayerSeat.south);
+          const strategy = ClassicHareegCpuStrategy();
+
+          final intent = strategy.chooseMove(
+            CpuTurnSnapshot(
+              seat: PlayerSeat.south,
+              legalActionIds: legal,
+              difficulty: c.setup.cpuDifficulty,
+            ),
+            observation: LiveCpuObservation(
+              controller: c,
+              seat: PlayerSeat.south,
+              legalActionIds: legal,
+              difficulty: c.setup.cpuDifficulty,
+            ),
+          );
+
+          expect(intent.actionId, ClassicHareegActionIds.claimFifty);
+          final result = c.applyAction(intent.actionId);
+          expect(result.isSuccess, isTrue, reason: result.message);
+          expect(c.isRoundOver, isTrue);
+          expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
+        },
+      );
+    }
 
     test(
       'stock-exhausted hopeless Fifty draws the round instead of stranding the '

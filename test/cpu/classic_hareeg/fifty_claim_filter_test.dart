@@ -108,13 +108,15 @@ void main() {
       'all three planners still return claim-fifty when a finish exists',
       () {
         final discarded = _card(CardRank.nine, CardSuit.clubs);
-        final finish = _partition([
+        final sevenClubs = _card(CardRank.seven, CardSuit.clubs);
+        final eightClubs = _card(CardRank.eight, CardSuit.clubs);
+        final finalDiscard = _card(CardRank.two, CardSuit.hearts);
+        final finish = _partition(
           [
-            _card(CardRank.seven, CardSuit.clubs),
-            _card(CardRank.eight, CardSuit.clubs),
-            discarded,
+            [sevenClubs, eightClubs, discarded],
           ],
-        ], remaining: [_card(CardRank.two, CardSuit.hearts)]);
+          remaining: [finalDiscard],
+        );
         final observation = _FakeCpuObservation(
           legalActionIds: const [
             ClassicHareegActionIds.claimFifty,
@@ -122,8 +124,14 @@ void main() {
           ],
           ownIsFiftyClaimant: true,
           topDiscard: discarded,
+          ownHand: [sevenClubs, eightClubs, finalDiscard],
           turnPhase: TurnPhase.draw,
           finishingPartition: finish,
+          difficultyProfile: const CpuDifficultyProfile(
+            difficulty: CpuDifficulty.skilled,
+            fiftyReactionMillis: 0,
+            fiftyMissChance: 0,
+          ),
         );
 
         expect(
@@ -224,9 +232,13 @@ final class _FakeCpuObservation implements CpuObservation {
     Iterable<String> legalActionIds = const [],
     this.turnPhase = TurnPhase.action,
     this.topDiscard,
+    Iterable<HareegCard> ownHand = const [],
     MeldPartition? finishingPartition,
+    CpuDifficultyProfile? difficultyProfile,
     this.ownIsFiftyClaimant = false,
   }) : legalActionIds = List.unmodifiable(legalActionIds),
+       ownHand = List.unmodifiable(ownHand),
+       _difficultyProfile = difficultyProfile,
        _finishingPartition = finishingPartition;
 
   @override
@@ -242,7 +254,7 @@ final class _FakeCpuObservation implements CpuObservation {
   HareegCard? get pendingDiscard => null;
 
   @override
-  List<HareegCard> get ownHand => const [];
+  final List<HareegCard> ownHand;
 
   @override
   int get stockCount => 20;
@@ -264,6 +276,7 @@ final class _FakeCpuObservation implements CpuObservation {
   MeldPartitionView get partitions => const EmptyMeldPartitionView();
 
   final MeldPartition? _finishingPartition;
+  final CpuDifficultyProfile? _difficultyProfile;
 
   @override
   int get ownScore => 0;
@@ -362,6 +375,6 @@ final class _FakeCpuObservation implements CpuObservation {
 
   @override
   CpuDifficultyProfile get difficultyProfile {
-    return CpuDifficultyProfile.forDifficulty(difficulty);
+    return _difficultyProfile ?? CpuDifficultyProfile.forDifficulty(difficulty);
   }
 }
