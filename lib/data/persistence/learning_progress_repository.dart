@@ -34,16 +34,19 @@ enum PracticeLessonStatus {
 /// ship without forcing preference schema churn.
 class LearningProgress {
   /// Creates learning progress state.
-  const LearningProgress({
+  ///
+  /// The lesson map is copied into an unmodifiable view so later mutation of
+  /// the caller's map can never leak into this instance.
+  LearningProgress({
     required this.onboardingCompleted,
     required Map<String, PracticeLessonStatus> lessonStatuses,
-  }) : _lessonStatuses = lessonStatuses;
+  }) : _lessonStatuses = Map.unmodifiable(lessonStatuses);
 
   /// First-run defaults: onboarding pending, every lesson not started.
   factory LearningProgress.defaults() {
-    return const LearningProgress(
+    return LearningProgress(
       onboardingCompleted: false,
-      lessonStatuses: {},
+      lessonStatuses: const {},
     );
   }
 
