@@ -1,5 +1,6 @@
 import '../../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
+import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
@@ -24,6 +25,12 @@ abstract final class PracticeScripts {
       'cover-discard-block' => coverDiscardBlock(),
       'joker-identity' => jokerIdentity(),
       'joker-replacement' => jokerReplacement(),
+      'final-discard' => finalDiscard(),
+      'normal-finish' => normalFinish(),
+      'fifty-claim' => fiftyClaim(),
+      'fifty-scoring' => fiftyScoring(),
+      // 'strictness-tiers' is an explainer panel, not a scripted hand; the
+      // checklist routes it to the tier explainer screen directly.
       _ => null,
     };
   }
@@ -491,6 +498,138 @@ abstract final class PracticeScripts {
           kinds: const {ClassicHareegActionKind.discard},
         ),
       ],
+    );
+  }
+
+  /// The final discard: a finish always keeps one card to throw.
+  static PracticeLessonScript finalDiscard() {
+    return PracticeLessonScript(
+      lessonId: 'final-discard',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          PracticeBoard.card(CardRank.nine, CardSuit.clubs),
+          PracticeBoard.card(CardRank.nine, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+          PracticeBoard.card(CardRank.five, CardSuit.spades),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        turnPhase: TurnPhase.action,
+      ),
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFinalDiscardStep1,
+          hint: (s) => s.practiceFinalDiscardStep1Hint,
+          successNote: (s) => s.practiceFinalDiscardStep1Done,
+          kinds: const {ClassicHareegActionKind.playMeld},
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFinalDiscardStep2,
+          kinds: const {ClassicHareegActionKind.discard},
+        ),
+      ],
+      completionNote: (s, _) => s.practiceFinalDiscardCompletion,
+    );
+  }
+
+  /// A clean normal finish, with the score outcome on the completion panel.
+  static PracticeLessonScript normalFinish() {
+    return PracticeLessonScript(
+      lessonId: 'normal-finish',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          PracticeBoard.card(CardRank.queen, CardSuit.clubs),
+          PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.queen, CardSuit.hearts),
+          PracticeBoard.card(CardRank.three, CardSuit.clubs),
+          PracticeBoard.card(CardRank.three, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.three, CardSuit.hearts),
+          PracticeBoard.card(CardRank.seven, CardSuit.spades),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        turnPhase: TurnPhase.action,
+      ),
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceNormalFinishStep1,
+          kinds: const {ClassicHareegActionKind.playMeld},
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceNormalFinishStep2,
+          kinds: const {ClassicHareegActionKind.playMeld},
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceNormalFinishStep3,
+          kinds: const {ClassicHareegActionKind.discard},
+        ),
+      ],
+      completionNote: (s, _) => s.practiceNormalFinishCompletion,
+    );
+  }
+
+  /// Fifty timing: claim the previous discard before the window closes.
+  ///
+  /// [clock] feeds the window-open timestamp (tests inject a fake clock and
+  /// pair it with the session's `now` to walk the window deterministically;
+  /// the app uses real time).
+  static PracticeLessonScript fiftyClaim({DateTime Function()? clock}) {
+    final now = clock ?? DateTime.now;
+    return PracticeLessonScript(
+      lessonId: 'fifty-claim',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          PracticeBoard.card(CardRank.eight, CardSuit.clubs),
+          PracticeBoard.card(CardRank.eight, CardSuit.hearts),
+          PracticeBoard.card(CardRank.queen, CardSuit.spades),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        setup: ClassicHareegSetup.defaults().copyWith(fiftyTimerSeconds: 8),
+        roundNumber: 2,
+        fiftyWindowOpenedAt: now(),
+        fiftyWindowDiscarder: PlayerSeat.west,
+      ),
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyClaimStep1,
+          hint: (s) => s.practiceFiftyClaimStep1Hint,
+          kinds: const {ClassicHareegActionKind.claimFifty},
+        ),
+      ],
+      completionNote: (s, _) => s.practiceFiftyClaimCompletion,
+    );
+  }
+
+  /// Fifty scoring: the same claim, watched through the score sheet.
+  static PracticeLessonScript fiftyScoring({DateTime Function()? clock}) {
+    final now = clock ?? DateTime.now;
+    return PracticeLessonScript(
+      lessonId: 'fifty-scoring',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          PracticeBoard.card(CardRank.five, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.five, CardSuit.spades),
+          PracticeBoard.card(CardRank.king, CardSuit.clubs),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.five, CardSuit.hearts),
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        setup: ClassicHareegSetup.defaults().copyWith(fiftyTimerSeconds: 8),
+        roundNumber: 2,
+        fiftyWindowOpenedAt: now(),
+        fiftyWindowDiscarder: PlayerSeat.west,
+      ),
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyScoringStep1,
+          kinds: const {ClassicHareegActionKind.claimFifty},
+        ),
+      ],
+      completionNote: (s, controller) {
+        final south = controller.scores[PlayerSeat.south] ?? 0;
+        final west = controller.scores[PlayerSeat.west] ?? 0;
+        return s.practiceFiftyScoringCompletion(south, west);
+      },
     );
   }
 }
