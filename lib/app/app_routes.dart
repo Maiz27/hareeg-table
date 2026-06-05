@@ -33,4 +33,7 @@ abstract final class AppRoutes {
 
   /// One guided practice lesson (arguments: catalog lesson id string).
   static const practiceLesson = '/practice-lesson';
+
+  /// Strictness tier explainer reached from the practice checklist.
+  static const strictnessExplainer = '/practice-tiers';
 }
