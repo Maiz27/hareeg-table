@@ -42,6 +42,10 @@ class PracticeChecklistScreen extends StatefulWidget {
 class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   LearningProgress _progress = LearningProgress.defaults();
 
+  /// Serializes progress writes so rapid skip/unskip taps cannot land their
+  /// repository saves out of order.
+  Future<void> _pendingSave = Future<void>.value();
+
   @override
   void initState() {
     super.initState();
@@ -68,8 +72,14 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   ) async {
     final next = _progress.withLessonStatus(lesson.id, status);
     setState(() => _progress = next);
+    // Chain onto the previous write (absorbing its already-logged failure)
+    // so saves land in tap order.
+    final save = _pendingSave
+        .catchError((Object _) {})
+        .then((_) => widget.learningRepository.saveProgress(next));
+    _pendingSave = save;
     try {
-      await widget.learningRepository.saveProgress(next);
+      await save;
     } catch (error, stackTrace) {
       debugPrint('Failed to save practice progress: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -85,11 +95,16 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
         ..showSnackBar(SnackBar(content: Text(strings.practiceComingSoon)));
       return;
     }
-    await launcher(context, lesson);
-    if (!mounted) {
-      return;
+    try {
+      await launcher(context, lesson);
+    } catch (error, stackTrace) {
+      debugPrint('Practice lesson launch failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      if (mounted) {
+        await _loadProgress();
+      }
     }
-    await _loadProgress();
   }
 
   void _replayIntro() {
