@@ -296,6 +296,29 @@ class AppStrings {
   String get practiceTurnRhythmStep2 => _v('practiceTurnRhythmStep2');
   String get practiceTurnRhythmStep2Hint =>
       _v('practiceTurnRhythmStep2Hint');
+
+  // Pending discard lesson.
+  String get practicePendingStep1 => _v('practicePendingStep1');
+  String get practicePendingStep1Done => _v('practicePendingStep1Done');
+  String get practicePendingStep2 => _v('practicePendingStep2');
+  String get practicePendingStep2Hint => _v('practicePendingStep2Hint');
+  String get practicePendingStep2Done => _v('practicePendingStep2Done');
+  String get practicePendingStep3 => _v('practicePendingStep3');
+
+  // Meld picker lesson.
+  String get practiceMeldStep1 => _v('practiceMeldStep1');
+  String get practiceMeldStep1Hint => _v('practiceMeldStep1Hint');
+  String get practiceMeldStep1Done => _v('practiceMeldStep1Done');
+  String get practiceMeldStep2 => _v('practiceMeldStep2');
+
+  // Opening to 51 lesson.
+  String get practiceOpeningStep1 => _v('practiceOpeningStep1');
+  String get practiceOpeningStep1Hint => _v('practiceOpeningStep1Hint');
+  String get practiceOpeningStep1Done => _v('practiceOpeningStep1Done');
+  String get practiceOpeningStep2 => _v('practiceOpeningStep2');
+  String get practiceOpeningStep2Done => _v('practiceOpeningStep2Done');
+  String get practiceOpeningStep3 => _v('practiceOpeningStep3');
+
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1181,8 +1204,33 @@ const _englishValues = {
       'Your turn starts with a card: draw one from the stock.',
   'practiceTurnRhythmStep1Done': 'Card drawn — it joined your hand.',
   'practiceTurnRhythmStep2':
-      'Now end your turn: pick a card you do not need and discard it.',
+      'You could play melds now if you had any. Every turn ends the same way: pick a card you do not need and discard it.',
   'practiceTurnRhythmStep2Hint': 'Tap a card to select it, then tap Discard.',
+  'practicePendingStep1':
+      'The last discard is the 8 of diamonds — and you hold two more eights. Take it instead of drawing.',
+  'practicePendingStep1Done':
+      'The eight is now pending: it must be used this turn or returned.',
+  'practicePendingStep2':
+      'A taken discard must earn its place. Play it in a meld now — or return it and draw from stock instead.',
+  'practicePendingStep2Hint':
+      'Select all three eights, then Play Meld. Changed your mind? Return + Draw.',
+  'practicePendingStep2Done': 'Pending discard resolved.',
+  'practicePendingStep3':
+      'End your turn with a discard. (If you returned the eight, draw from stock first.)',
+  'practiceMeldStep1':
+      'Three or more cards make a meld when they share a rank or run in one suit. Play the 5-6-7 of spades.',
+  'practiceMeldStep1Hint':
+      'Select exactly those three cards — extras break the meld.',
+  'practiceMeldStep1Done': 'A clean run. Sets of one rank work the same way.',
+  'practiceMeldStep2': 'Finish the turn: discard a card you do not need.',
+  'practiceOpeningStep1':
+      'Opening needs new melds worth 51 in one turn. Start with your kings — notice 30 is not enough on its own.',
+  'practiceOpeningStep1Hint': 'Select the three kings, then Play Meld.',
+  'practiceOpeningStep1Done':
+      'Staged at 30. The table holds your melds until you reach 51.',
+  'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
+  'practiceOpeningStep2Done': 'Opened at 60! The table is yours now.',
+  'practiceOpeningStep3': 'Seal the opening: end your turn with a discard.',
 };
 
 const _arabicValues = {
@@ -1442,6 +1490,32 @@ const _arabicValues = {
   'practiceTurnRhythmStep1': 'دورك يبدأ بورقة: اسحب واحدة من الكومة.',
   'practiceTurnRhythmStep1Done': 'سحبت ورقة — انضمت إلى يدك.',
   'practiceTurnRhythmStep2':
-      'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
+      'كان بإمكانك لعب مجموعات الآن لو كانت لديك. كل دور ينتهي بنفس الطريقة: اختر ورقة لا تحتاجها وارمها.',
   'practiceTurnRhythmStep2Hint': 'اضغط على ورقة لتحديدها، ثم اضغط ارم.',
+  'practicePendingStep1':
+      'آخر رمية هي 8 الديناري — وأنت تحمل ثمانيتين أخريين. خذها بدلا من السحب.',
+  'practicePendingStep1Done':
+      'الثمانية الآن معلقة: يجب استخدامها هذا الدور أو إرجاعها.',
+  'practicePendingStep2':
+      'الرمية المأخوذة يجب أن تستحق مكانها. العبها في مجموعة الآن — أو أرجعها واسحب من الكومة.',
+  'practicePendingStep2Hint':
+      'حدد الثمانيات الثلاث ثم العب المجموعة. غيرت رأيك؟ أرجع + اسحب.',
+  'practicePendingStep2Done': 'حسمت الرمية المعلقة.',
+  'practicePendingStep3':
+      'أنهِ دورك برمي ورقة. (إن أرجعت الثمانية، اسحب من الكومة أولا.)',
+  'practiceMeldStep1':
+      'ثلاث أوراق أو أكثر تصنع مجموعة عندما تتشارك الرتبة أو تتسلسل بشكل واحد. العب 5-6-7 البستوني.',
+  'practiceMeldStep1Hint':
+      'حدد هذه الأوراق الثلاث بالضبط — الزيادة تفسد المجموعة.',
+  'practiceMeldStep1Done':
+      'تسلسل نظيف. مجموعات الرتبة الواحدة تعمل بنفس الطريقة.',
+  'practiceMeldStep2': 'أنهِ الدور: ارم ورقة لا تحتاجها.',
+  'practiceOpeningStep1':
+      'الافتتاح يحتاج مجموعات جديدة بقيمة 51 في دور واحد. ابدأ بملوكك — لاحظ أن 30 لا تكفي وحدها.',
+  'practiceOpeningStep1Hint': 'حدد الملوك الثلاثة ثم العب المجموعة.',
+  'practiceOpeningStep1Done':
+      'مرحلية عند 30. الطاولة تحفظ مجموعاتك حتى تبلغ 51.',
+  'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
+  'practiceOpeningStep2Done': 'افتتحت بـ 60! الطاولة لك الآن.',
+  'practiceOpeningStep3': 'أكمل الافتتاح: أنهِ دورك برمي ورقة.',
 };
