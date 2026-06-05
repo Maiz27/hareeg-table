@@ -138,6 +138,13 @@ void main() {
 
   testWidgets('pending-discard lesson walks take, meld, and discard on the '
       'surface', (tester) async {
+    // Tall surface: once the meld lands, the melds lane lengthens the lesson
+    // column past the default 600px test viewport.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(_practiceApp(learning: learning));
     await tester.pumpAndSettle();
@@ -180,6 +187,61 @@ void main() {
     expect(find.text('Lesson complete!'), findsOneWidget);
     expect(
       learning.progress.statusFor('pending-discard'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('sequence-cover lesson shows the melds lane and places the '
+      'cover', (tester) async {
+    // Tall surface so the mid-list tile is on-screen without scrolling.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('practice-lesson-tile-sequence-cover'),
+        ),
+        matching: find.text('Start'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // East's 5-6-7♦ run renders on the compact melds lane.
+    expect(find.text('Meld area'), findsOneWidget);
+    expect(find.text('CPU East'), findsOneWidget);
+
+    final eightId = HareegCard.standard(
+      rank: CardRank.eight,
+      suit: CardSuit.diamonds,
+      deckIndex: 0,
+    ).id;
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) => w is HareegCardView && w.card.id == eightId,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Place cover'));
+    await tester.pumpAndSettle();
+
+    // The covered run now shows four cards in east's meld.
+    expect(find.text('Step 2 of 2'), findsOneWidget);
+
+    await tester.tap(find.byType(HareegCardView).last);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('sequence-cover'),
       PracticeLessonStatus.completed,
     );
   });

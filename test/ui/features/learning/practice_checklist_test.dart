@@ -92,11 +92,11 @@ void main() {
     await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
     await tester.pumpAndSettle();
 
-    // Benchmark-pressure has no script until HT-47.
+    // Final-discard has no script until HT-48.
     await tester.tap(
       find.descendant(
         of: find.byKey(
-          const ValueKey('practice-lesson-tile-benchmark-pressure'),
+          const ValueKey('practice-lesson-tile-final-discard'),
         ),
         matching: find.text('Start'),
       ),
