@@ -77,6 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         onRulesHelp: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.rulesHelp),
+                        onPractice: () => Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.practice),
                       ),
                       if (shortViewport) ...[
                         const SizedBox(height: LoungeTokens.space6),
@@ -183,10 +186,15 @@ class _MenuBackdrop extends StatelessWidget {
 }
 
 class _BrandHeader extends StatelessWidget {
-  const _BrandHeader({required this.onSettings, required this.onRulesHelp});
+  const _BrandHeader({
+    required this.onSettings,
+    required this.onRulesHelp,
+    required this.onPractice,
+  });
 
   final VoidCallback onSettings;
   final VoidCallback onRulesHelp;
+  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +213,11 @@ class _BrandHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: LoungeTokens.space2),
+            _ChromeIconButton(
+              icon: Icons.school_outlined,
+              tooltip: strings.practiceTitle,
+              onPressed: onPractice,
+            ),
             _ChromeIconButton(
               icon: Icons.menu_book_outlined,
               tooltip: strings.rulesHelp,

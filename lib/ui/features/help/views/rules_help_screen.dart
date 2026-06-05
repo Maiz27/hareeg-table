@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
+import '../../../../app/app_routes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/brand/app_brand_mark.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
@@ -96,6 +97,8 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
               children: [
                 const _HelpIntro(),
                 const SizedBox(height: LoungeTokens.space5),
+                const _LearningEntryCard(),
+                const SizedBox(height: LoungeTokens.space5),
                 for (var i = 0; i < sections.length; i++) ...[
                   _HelpSection(section: sections[i]),
                   if (i < sections.length - 1)
@@ -176,6 +179,77 @@ class _HelpIntro extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Entry points back into the teaching layer: guided practice and the
+/// first-run onboarding intro.
+class _LearningEntryCard extends StatelessWidget {
+  const _LearningEntryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Container(
+      padding: const EdgeInsets.all(LoungeTokens.space4),
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        border: Border.all(
+          color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.school_outlined,
+                color: LoungeTokens.goldAccent,
+                size: 20,
+              ),
+              const SizedBox(width: LoungeTokens.space3),
+              Text(strings.helpLearningTitle, style: LoungeTokens.heading),
+            ],
+          ),
+          const SizedBox(height: LoungeTokens.space2),
+          Text(strings.helpLearningBody, style: LoungeTokens.bodyMuted),
+          const SizedBox(height: LoungeTokens.space3),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.practice),
+                icon: const Icon(Icons.play_arrow_outlined, size: 18),
+                label: Text(strings.practiceTitle),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LoungeTokens.goldAccent,
+                  side: BorderSide(
+                    color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  // The theme minimum is full-width; shrink to row content.
+                  minimumSize: const Size(0, 40),
+                ),
+              ),
+              const SizedBox(width: LoungeTokens.space3),
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.onboarding),
+                style: TextButton.styleFrom(
+                  foregroundColor: LoungeTokens.mutedText,
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 40),
+                ),
+                child: Text(strings.practiceReplayIntro),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

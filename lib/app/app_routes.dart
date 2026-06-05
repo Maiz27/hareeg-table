@@ -23,4 +23,11 @@ abstract final class AppRoutes {
 
   /// Player-facing rules and help reference.
   static const rulesHelp = '/rules-help';
+
+  /// First-launch onboarding flow; also reachable later from Home, Rules/Help,
+  /// and the practice hub.
+  static const onboarding = '/onboarding';
+
+  /// Guided practice checklist hub.
+  static const practice = '/practice';
 }
