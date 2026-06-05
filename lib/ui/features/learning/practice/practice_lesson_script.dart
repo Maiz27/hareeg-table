@@ -61,6 +61,7 @@ class PracticeStep {
     required this.prompt,
     this.successNote,
     this.hint,
+    this.extraActionIds,
     bool Function(ClassicHareegActionDescriptor action)? allows,
     bool Function(PracticeStepContext context)? isSatisfied,
   }) : _allows = allows,
@@ -73,6 +74,7 @@ class PracticeStep {
     required Set<ClassicHareegActionKind> kinds,
     this.successNote,
     this.hint,
+    this.extraActionIds,
     bool Function(PracticeStepContext context)? isSatisfied,
   }) : _allows = ((action) => kinds.contains(action.kind)),
        _isSatisfied = isSatisfied;
@@ -86,6 +88,16 @@ class PracticeStep {
   /// Optional localized nudge shown under the prompt (e.g. which cards to
   /// look at).
   final String Function(AppStrings strings)? hint;
+
+  /// Optional engine-valid action ids to offer beyond the advertised surface.
+  ///
+  /// The advertised surface canonicalizes some choices (e.g. it lists one
+  /// representative joker identity); the real table UI composes the explicit
+  /// alternatives through its pickers. Lessons that teach such a choice list
+  /// the alternatives here — `applyAction` still validates every one of
+  /// them, so the surface never offers a move the rules would not accept.
+  final List<String> Function(ClassicHareegGameController controller)?
+  extraActionIds;
 
   final bool Function(ClassicHareegActionDescriptor action)? _allows;
   final bool Function(PracticeStepContext context)? _isSatisfied;

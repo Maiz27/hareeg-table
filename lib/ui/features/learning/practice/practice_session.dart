@@ -86,8 +86,12 @@ class PracticeSession {
     if (step == null) {
       return const [];
     }
+    final ids = <String>{
+      ...controller.legalActionIdsFor(seat),
+      ...?step.extraActionIds?.call(controller),
+    };
     return [
-      for (final id in controller.legalActionIdsFor(seat))
+      for (final id in ids)
         if (step.allows(ClassicHareegActionIds.describe(id)))
           ClassicHareegActionIds.describe(id),
     ];
