@@ -246,6 +246,89 @@ void main() {
     );
   });
 
+  testWidgets('fifty-claim lesson shows the countdown and claims on the '
+      'surface', (tester) async {
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('practice-lesson-tile-fifty-claim')),
+        matching: find.text('Start'),
+      ),
+    );
+    // The live claim ticker keeps the tree animating, so settle with fixed
+    // pumps instead of pumpAndSettle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('Claim Fifty ·'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Claim Fifty'));
+    await tester.pump();
+    // The claim closes the window, the ticker cancels, and settling is safe.
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      find.text(
+        'Claimed in time: the finish played itself out and the round is '
+        'yours.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      learning.progress.statusFor('fifty-claim'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('strictness explainer completes from the checklist', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('practice-lesson-tile-strictness-tiers'),
+        ),
+        matching: find.text('Start'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Four ways to run a table — same rules, different mercy.'),
+      findsOneWidget,
+    );
+    for (final tier in ['Coaching', 'Standard', 'Strict', 'Table']) {
+      expect(find.text(tier), findsWidgets, reason: '$tier card visible');
+    }
+
+    await tester.tap(find.text('Got it'));
+    await tester.pumpAndSettle();
+
+    expect(
+      learning.progress.statusFor('strictness-tiers'),
+      PracticeLessonStatus.completed,
+    );
+    expect(find.text('1 of 15 completed'), findsOneWidget);
+  });
+
   testWidgets('lesson surface fits a compact portrait phone', (tester) async {
     tester.view.physicalSize = const Size(1080, 2070);
     tester.view.devicePixelRatio = 3.0;
