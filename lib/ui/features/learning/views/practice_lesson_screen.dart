@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../data/persistence/learning_progress_repository.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
+import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
@@ -165,6 +166,10 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
           ),
           const SizedBox(height: LoungeTokens.space5),
           _TableStrip(session: _session),
+          if (_session.controller.tableMeldCount > 0) ...[
+            const SizedBox(height: LoungeTokens.space4),
+            _MeldsLane(session: _session),
+          ],
           const SizedBox(height: LoungeTokens.space5),
           _HandArea(
             hand: hand,
@@ -332,6 +337,92 @@ class _TableStrip extends StatelessWidget {
 }
 
 const _cardSize = Size(56, 80);
+const _meldCardSize = Size(40, 57);
+
+/// Compact table-melds lane: every placed meld as a small bordered card run,
+/// labeled with its owner. Only rendered when the lesson board has melds.
+class _MeldsLane extends StatelessWidget {
+  const _MeldsLane({required this.session});
+
+  final PracticeSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final theme = CardThemeScope.of(context);
+    final melds = session.controller.tableMelds;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.meldZone,
+          style: LoungeTokens.bodyMuted.copyWith(
+            fontSize: 12,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: LoungeTokens.space2),
+        Wrap(
+          spacing: LoungeTokens.space3,
+          runSpacing: LoungeTokens.space2,
+          children: [
+            for (final entry in melds.entries)
+              for (final meld in entry.value)
+                Container(
+                  padding: const EdgeInsets.all(LoungeTokens.space2),
+                  decoration: BoxDecoration(
+                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: entry.key == session.seat
+                          ? LoungeTokens.goldAccent.withValues(alpha: 0.4)
+                          : LoungeTokens.sandLine.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final card in meld.cards)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 2,
+                              ),
+                              child: HareegCardView(
+                                theme: theme,
+                                card: card,
+                                size: _meldCardSize,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _ownerLabel(strings, entry.key),
+                        style: LoungeTokens.bodyMuted.copyWith(fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _ownerLabel(AppStrings strings, PlayerSeat seat) {
+    return switch (seat) {
+      PlayerSeat.south => strings.humanSeat,
+      PlayerSeat.east => strings.cpuEast,
+      PlayerSeat.north => strings.cpuNorth,
+      PlayerSeat.west => strings.cpuWest,
+    };
+  }
+}
 
 class _LabeledPile extends StatelessWidget {
   const _LabeledPile({required this.label, required this.child});
@@ -510,8 +601,14 @@ class _ActionRow extends StatelessWidget {
       ClassicHareegActionKind.discard ||
       ClassicHareegActionKind.discardBlockedCover ||
       ClassicHareegActionKind.discardJoker => strings.discardCard,
-      ClassicHareegActionKind.playMeld ||
-      ClassicHareegActionKind.playMeldWithJoker => strings.playMeld,
+      ClassicHareegActionKind.playMeld => strings.playMeld,
+      // Disambiguate identity choices: one button per declared joker meaning.
+      ClassicHareegActionKind.playMeldWithJoker => switch (
+        candidate.action.jokerMeldChoice?.identity.label
+      ) {
+        null => strings.playMeld,
+        final identity => '${strings.playMeld} ($identity)',
+      },
       ClassicHareegActionKind.placeCover => strings.placeCover,
       ClassicHareegActionKind.replaceJoker => strings.replaceJoker,
       ClassicHareegActionKind.returnTablePlay ||
