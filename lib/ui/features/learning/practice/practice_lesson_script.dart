@@ -18,6 +18,7 @@ class PracticeLessonScript {
     required this.buildSnapshot,
     required this.steps,
     this.seat = PlayerSeat.south,
+    this.completionNote,
   });
 
   /// Stable catalog lesson id this script teaches (see `PracticeCatalog`).
@@ -32,6 +33,15 @@ class PracticeLessonScript {
   /// Seat the player controls. Practice lessons drive only this seat; no CPU
   /// turns run on the teaching surface.
   final PlayerSeat seat;
+
+  /// Optional localized outcome note for the completion panel. Receives the
+  /// finished controller so finish/Fifty lessons can cite the real score
+  /// impact the engine just applied.
+  final String Function(
+    AppStrings strings,
+    ClassicHareegGameController controller,
+  )?
+  completionNote;
 }
 
 /// Everything a step predicate can inspect after a successful action.

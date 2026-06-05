@@ -47,9 +47,13 @@ class PracticeSubmitResult {
 /// demonstrated.
 class PracticeSession {
   /// Starts (or restarts) a lesson run.
-  PracticeSession({required this.script})
+  ///
+  /// [now] overrides the controller clock; Fifty lessons inject it in tests
+  /// to walk the claim window deterministically.
+  PracticeSession({required this.script, DateTime Function()? now})
     : controller = ClassicHareegGameController.fromSnapshot(
         script.buildSnapshot(),
+        now: now,
       );
 
   /// Script being taught.

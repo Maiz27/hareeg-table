@@ -31,6 +31,10 @@ abstract final class PracticeBoard {
     OpeningState? openingState,
     TurnPhase turnPhase = TurnPhase.draw,
     ClassicHareegSetup? setup,
+    Map<PlayerSeat, int> scores = const {},
+    int roundNumber = 1,
+    DateTime? fiftyWindowOpenedAt,
+    PlayerSeat? fiftyWindowDiscarder,
     int seed = 404,
   }) {
     final effectiveSetup = setup ?? ClassicHareegSetup.defaults();
@@ -99,6 +103,13 @@ abstract final class PracticeBoard {
       currentSeat: PlayerSeat.south,
       turnPhase: turnPhase,
       openingState: openingState,
+      scores: scores,
+      roundNumber: roundNumber,
+      // Restoration falls back to savedAt (deliberately ancient) when no
+      // window time is given, so boards without an explicit Fifty window
+      // never restore a live claim.
+      fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+      fiftyWindowDiscarder: fiftyWindowDiscarder,
       savedAt: _savedAt,
     );
   }
