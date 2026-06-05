@@ -356,6 +356,47 @@ class AppStrings {
   String get practiceJokerReplaceStep2Hint =>
       _v('practiceJokerReplaceStep2Hint');
 
+  // Final discard lesson.
+  String get practiceFinalDiscardStep1 => _v('practiceFinalDiscardStep1');
+  String get practiceFinalDiscardStep1Hint =>
+      _v('practiceFinalDiscardStep1Hint');
+  String get practiceFinalDiscardStep1Done =>
+      _v('practiceFinalDiscardStep1Done');
+  String get practiceFinalDiscardStep2 => _v('practiceFinalDiscardStep2');
+  String get practiceFinalDiscardCompletion =>
+      _v('practiceFinalDiscardCompletion');
+
+  // Normal finish lesson.
+  String get practiceNormalFinishStep1 => _v('practiceNormalFinishStep1');
+  String get practiceNormalFinishStep2 => _v('practiceNormalFinishStep2');
+  String get practiceNormalFinishStep3 => _v('practiceNormalFinishStep3');
+  String get practiceNormalFinishCompletion =>
+      _v('practiceNormalFinishCompletion');
+
+  // Fifty lessons.
+  String get practiceFiftyClaimStep1 => _v('practiceFiftyClaimStep1');
+  String get practiceFiftyClaimStep1Hint =>
+      _v('practiceFiftyClaimStep1Hint');
+  String get practiceFiftyClaimCompletion =>
+      _v('practiceFiftyClaimCompletion');
+  String get practiceFiftyScoringStep1 => _v('practiceFiftyScoringStep1');
+  String get practiceFiftyMissed => _v('practiceFiftyMissed');
+  String get practiceRestartLesson => _v('practiceRestartLesson');
+
+  /// Fifty score-impact note with the engine's real totals appended.
+  String practiceFiftyScoringCompletion(int southScore, int westScore) =>
+      _v('practiceFiftyScoringCompletion')
+          .replaceFirst('{south}', '$southScore')
+          .replaceFirst('{west}', '$westScore');
+
+  // Strictness tier explainer.
+  String get practiceTiersIntro => _v('practiceTiersIntro');
+  String get practiceTiersGotIt => _v('practiceTiersGotIt');
+  String get practiceTierCoachingBody => _v('practiceTierCoachingBody');
+  String get practiceTierStandardBody => _v('practiceTierStandardBody');
+  String get practiceTierStrictBody => _v('practiceTierStrictBody');
+  String get practiceTierTableBody => _v('practiceTierTableBody');
+
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1314,6 +1355,45 @@ const _englishValues = {
       'End your turn with a discard. Not the joker, though — normal joker discards are always blocked.',
   'practiceJokerReplaceStep2Hint':
       'Select the joker and look: no Discard button. Throw a plain card.',
+  'practiceFinalDiscardStep1':
+      'You are one play from the end — but no one wins by simply laying every card. Play your three nines.',
+  'practiceFinalDiscardStep1Hint': 'Select the nines, then Play meld.',
+  'practiceFinalDiscardStep1Done':
+      'One card left — exactly what a finish needs.',
+  'practiceFinalDiscardStep2':
+      'Finishing always ends with a throw: discard the 5 of spades to go out.',
+  'practiceFinalDiscardCompletion':
+      'Round won — the last card always leaves your hand as a discard, never a play. The winner scores -1.',
+  'practiceNormalFinishStep1':
+      'Two melds and a spare card: this hand can finish cleanly. Play the queens.',
+  'practiceNormalFinishStep2': 'Now the threes.',
+  'practiceNormalFinishStep3':
+      'Go out: discard the 7 of spades and end the round.',
+  'practiceNormalFinishCompletion':
+      'Winner scores -1; every other seat adds the cards still in its hand. Going out early is defense for you and damage for them.',
+  'practiceFiftyClaimStep1':
+      'West just threw the 8 of diamonds — and your hand can finish around it right now. That discard is claimable: call Fifty before the timer runs out.',
+  'practiceFiftyClaimStep1Hint':
+      'Only the very next player can claim, and only while the timer runs.',
+  'practiceFiftyClaimCompletion':
+      'Claimed in time: the finish played itself out and the round is yours.',
+  'practiceFiftyScoringStep1':
+      'Same claim, new lens: watch what Fifty does to the score sheet. Claim West\'s 5 of hearts before the timer dies.',
+  'practiceFiftyScoringCompletion':
+      'Fifty pays double-edged: you score -3, and West — who threw the card — adds their leftover cards plus 3. (First dealt round is the exception: the winner takes -1 there.)\nThis round: You {south} · West {west}.',
+  'practiceFiftyMissed':
+      'The window closed — Fifty waits for no one. Restart and claim faster.',
+  'practiceRestartLesson': 'Restart lesson',
+  'practiceTiersIntro': 'Four ways to run a table — same rules, different mercy.',
+  'practiceTiersGotIt': 'Got it',
+  'practiceTierCoachingBody':
+      'Illegal moves are blocked and the live coach offers hints. Learn here.',
+  'practiceTierStandardBody':
+      'Illegal moves are blocked, no hints. The quiet default.',
+  'practiceTierStrictBody':
+      'Selected mistakes go through and cost +3 — you stay in the round, and memory rules apply.',
+  'practiceTierTableBody':
+      'House rules: mistakes cost +17 and you sit out the rest of the round.',
 };
 
 const _arabicValues = {
@@ -1646,4 +1726,43 @@ const _arabicValues = {
       'أنهِ دورك برمي ورقة. ليس الجوكر — رمي الجوكر العادي ممنوع دائما.',
   'practiceJokerReplaceStep2Hint':
       'حدد الجوكر ولاحظ: لا زر رمي. ارم ورقة عادية.',
+  'practiceFinalDiscardStep1':
+      'أنت على بعد لعبة من النهاية — لكن لا أحد يفوز بمجرد وضع كل أوراقه. العب تساعياتك الثلاث.',
+  'practiceFinalDiscardStep1Hint': 'حدد التساعيات ثم العب المجموعة.',
+  'practiceFinalDiscardStep1Done':
+      'بقيت ورقة واحدة — تماما ما يحتاجه الإنهاء.',
+  'practiceFinalDiscardStep2':
+      'الإنهاء ينتهي دائما برمية: ارم 5 البستوني لتخرج.',
+  'practiceFinalDiscardCompletion':
+      'فزت بالجولة — الورقة الأخيرة تغادر يدك رمية دائما، لا لعبة. الفائز يسجل -1.',
+  'practiceNormalFinishStep1':
+      'مجموعتان وورقة فائضة: هذه اليد تنهي بنظافة. العب الملكات.',
+  'practiceNormalFinishStep2': 'الآن الثلاثات.',
+  'practiceNormalFinishStep3': 'اخرج: ارم 7 البستوني وأنهِ الجولة.',
+  'practiceNormalFinishCompletion':
+      'الفائز يسجل -1؛ وكل مقعد آخر يضيف ما بقي في يده. الخروج المبكر دفاع لك وضرر عليهم.',
+  'practiceFiftyClaimStep1':
+      'الغرب رمى للتو 8 الديناري — ويدك تنهي حولها الآن. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
+  'practiceFiftyClaimStep1Hint':
+      'اللاعب التالي مباشرة فقط يطالب، وما دام المؤقت يعمل.',
+  'practiceFiftyClaimCompletion':
+      'طالبت في الوقت: الإنهاء لعب نفسه والجولة لك.',
+  'practiceFiftyScoringStep1':
+      'نفس المطالبة بعدسة جديدة: راقب ما يفعله الخمسين بورقة النتائج. طالب بـ 5 الكُبّة من الغرب قبل موت المؤقت.',
+  'practiceFiftyScoringCompletion':
+      'الخمسين سلاح ذو حدين: تسجل -3، والغرب — من رمى الورقة — يضيف ما بقي في يده زائد 3. (الجولة الأولى الموزعة استثناء: الفائز يأخذ -1 فيها.)\nهذه الجولة: أنت {south} · الغرب {west}.',
+  'practiceFiftyMissed':
+      'أُغلقت النافذة — الخمسين لا ينتظر أحدا. أعد الدرس وطالب أسرع.',
+  'practiceRestartLesson': 'إعادة الدرس',
+  'practiceTiersIntro':
+      'أربع طرق لإدارة الطاولة — نفس القواعد، رحمة مختلفة.',
+  'practiceTiersGotIt': 'فهمت',
+  'practiceTierCoachingBody':
+      'الحركات غير القانونية محجوبة والمدرب المباشر يلمّح. تعلم هنا.',
+  'practiceTierStandardBody':
+      'الحركات غير القانونية محجوبة، دون تلميحات. الافتراضي الهادئ.',
+  'practiceTierStrictBody':
+      'أخطاء مختارة تمر وتكلف +3 — تبقى في الجولة، وقواعد الذاكرة تنطبق.',
+  'practiceTierTableBody':
+      'قواعد البيت: الأخطاء تكلف +17 وتجلس خارج بقية الجولة.',
 };
