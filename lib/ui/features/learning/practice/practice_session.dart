@@ -95,9 +95,8 @@ class PracticeSession {
       ...?step.extraActionIds?.call(controller),
     };
     return [
-      for (final id in ids)
-        if (step.allows(ClassicHareegActionIds.describe(id)))
-          ClassicHareegActionIds.describe(id),
+      for (final action in ids.map(ClassicHareegActionIds.describe))
+        if (step.allows(action)) action,
     ];
   }
 

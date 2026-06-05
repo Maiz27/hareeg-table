@@ -19,7 +19,7 @@ class PracticeLessonScript {
     required this.steps,
     this.seat = PlayerSeat.south,
     this.completionNote,
-  });
+  }) : assert(steps.length > 0, 'A lesson script needs at least one step.');
 
   /// Stable catalog lesson id this script teaches (see `PracticeCatalog`).
   final String lessonId;
