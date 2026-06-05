@@ -1,3 +1,4 @@
+import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
@@ -16,6 +17,22 @@ class MemoryPreferencesRepository implements PreferencesRepository {
   @override
   Future<void> savePreferences(GamePreferences preferences) async {
     this.preferences = preferences;
+  }
+}
+
+/// In-memory learning progress repository.
+class MemoryLearningProgressRepository implements LearningProgressRepository {
+  MemoryLearningProgressRepository({LearningProgress? progress})
+    : progress = progress ?? LearningProgress.defaults();
+
+  LearningProgress progress;
+
+  @override
+  Future<LearningProgress> loadProgress() async => progress;
+
+  @override
+  Future<void> saveProgress(LearningProgress progress) async {
+    this.progress = progress;
   }
 }
 
