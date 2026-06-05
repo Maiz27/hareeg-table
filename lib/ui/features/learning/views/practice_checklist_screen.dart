@@ -7,12 +7,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_catalog.dart';
-
-/// Signature for launching one practice lesson from the checklist.
-///
-/// Returns when the lesson route closes so the hub can refresh progress.
-typedef PracticeLessonLauncher =
-    Future<void> Function(BuildContext context, PracticeLesson lesson);
+import '../practice/practice_scripts.dart';
 
 /// Guided practice checklist hub.
 ///
@@ -23,16 +18,11 @@ class PracticeChecklistScreen extends StatefulWidget {
   /// Creates the practice hub.
   const PracticeChecklistScreen({
     required this.learningRepository,
-    this.lessonLauncher,
     super.key,
   });
 
   /// Onboarding and practice progress persistence.
   final LearningProgressRepository learningRepository;
-
-  /// Opens a playable practice lesson. While null (practice surface not yet
-  /// shipped), starting a lesson shows a coming-soon notice instead.
-  final PracticeLessonLauncher? lessonLauncher;
 
   @override
   State<PracticeChecklistScreen> createState() =>
@@ -87,8 +77,8 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   }
 
   Future<void> _startLesson(PracticeLesson lesson) async {
-    final launcher = widget.lessonLauncher;
-    if (launcher == null) {
+    if (PracticeScripts.byId(lesson.id) == null) {
+      // The lesson's practice pack has not shipped yet.
       final strings = context.strings;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -96,10 +86,10 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
       return;
     }
     try {
-      await launcher(context, lesson);
-    } catch (error, stackTrace) {
-      debugPrint('Practice lesson launch failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      await Navigator.of(context).pushNamed(
+        AppRoutes.practiceLesson,
+        arguments: lesson.id,
+      );
     } finally {
       if (mounted) {
         await _loadProgress();
@@ -320,14 +310,16 @@ class _LessonTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                _statusLabel(strings),
-                style: LoungeTokens.bodyMuted.copyWith(
-                  fontSize: 12,
-                  letterSpacing: 0.3,
+              Expanded(
+                child: Text(
+                  _statusLabel(strings),
+                  overflow: TextOverflow.ellipsis,
+                  style: LoungeTokens.bodyMuted.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (status == PracticeLessonStatus.skipped)
                 TextButton(
                   onPressed: onUnskip,
