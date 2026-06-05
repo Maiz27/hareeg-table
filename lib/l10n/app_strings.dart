@@ -274,6 +274,28 @@ class AppStrings {
   // Rules/Help learning entry points.
   String get helpLearningTitle => _v('helpLearningTitle');
   String get helpLearningBody => _v('helpLearningBody');
+
+  // Practice lesson surface.
+  String get practiceSelectHint => _v('practiceSelectHint');
+  String get practiceYourHand => _v('practiceYourHand');
+  String get practiceUseDiscard => _v('practiceUseDiscard');
+  String get practiceLessonCompleteTitle => _v('practiceLessonCompleteTitle');
+  String get practiceLessonCompleteBody => _v('practiceLessonCompleteBody');
+  String get practiceBackToList => _v('practiceBackToList');
+  String get practiceReplayLesson => _v('practiceReplayLesson');
+
+  /// Step position label, e.g. "Step 1 of 2".
+  String practiceStepLabel(int step, int total) => _v('practiceStepLabel')
+      .replaceFirst('{step}', '$step')
+      .replaceFirst('{total}', '$total');
+
+  // Turn rhythm lesson.
+  String get practiceTurnRhythmStep1 => _v('practiceTurnRhythmStep1');
+  String get practiceTurnRhythmStep1Done =>
+      _v('practiceTurnRhythmStep1Done');
+  String get practiceTurnRhythmStep2 => _v('practiceTurnRhythmStep2');
+  String get practiceTurnRhythmStep2Hint =>
+      _v('practiceTurnRhythmStep2Hint');
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1146,6 +1168,21 @@ const _englishValues = {
   'helpLearningTitle': 'New to Hareeg?',
   'helpLearningBody':
       'Step through short guided practice hands, or replay the first-run intro.',
+  'practiceSelectHint': 'Tap cards in your hand to select them.',
+  'practiceYourHand': 'Your hand',
+  'practiceUseDiscard': 'Use Discard',
+  'practiceLessonCompleteTitle': 'Lesson complete!',
+  'practiceLessonCompleteBody':
+      'Nice — you showed the move. Replay it any time from the practice list.',
+  'practiceBackToList': 'Back to practice',
+  'practiceReplayLesson': 'Replay lesson',
+  'practiceStepLabel': 'Step {step} of {total}',
+  'practiceTurnRhythmStep1':
+      'Your turn starts with a card: draw one from the stock.',
+  'practiceTurnRhythmStep1Done': 'Card drawn — it joined your hand.',
+  'practiceTurnRhythmStep2':
+      'Now end your turn: pick a card you do not need and discard it.',
+  'practiceTurnRhythmStep2Hint': 'Tap a card to select it, then tap Discard.',
 };
 
 const _arabicValues = {
@@ -1393,4 +1430,18 @@ const _arabicValues = {
   'helpLearningTitle': 'جديد على حريق؟',
   'helpLearningBody':
       'تدرّب عبر أيادٍ موجهة قصيرة، أو أعد مقدمة التشغيل الأول.',
+  'practiceSelectHint': 'اضغط على أوراق يدك لتحديدها.',
+  'practiceYourHand': 'يدك',
+  'practiceUseDiscard': 'استخدم الرمية',
+  'practiceLessonCompleteTitle': 'اكتمل الدرس!',
+  'practiceLessonCompleteBody':
+      'أحسنت — أتقنت الحركة. يمكنك إعادتها في أي وقت من قائمة التدريب.',
+  'practiceBackToList': 'العودة للتدريب',
+  'practiceReplayLesson': 'إعادة الدرس',
+  'practiceStepLabel': 'الخطوة {step} من {total}',
+  'practiceTurnRhythmStep1': 'دورك يبدأ بورقة: اسحب واحدة من الكومة.',
+  'practiceTurnRhythmStep1Done': 'سحبت ورقة — انضمت إلى يدك.',
+  'practiceTurnRhythmStep2':
+      'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
+  'practiceTurnRhythmStep2Hint': 'اضغط على ورقة لتحديدها، ثم اضغط ارم.',
 };
