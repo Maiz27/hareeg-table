@@ -319,6 +319,43 @@ class AppStrings {
   String get practiceOpeningStep2Done => _v('practiceOpeningStep2Done');
   String get practiceOpeningStep3 => _v('practiceOpeningStep3');
 
+  // Benchmark pressure lesson.
+  String get practiceBenchmarkStep1 => _v('practiceBenchmarkStep1');
+  String get practiceBenchmarkStep1Hint => _v('practiceBenchmarkStep1Hint');
+  String get practiceBenchmarkStep1Done => _v('practiceBenchmarkStep1Done');
+  String get practiceBenchmarkStep2 => _v('practiceBenchmarkStep2');
+  String get practiceBenchmarkStep2Done => _v('practiceBenchmarkStep2Done');
+  String get practiceBenchmarkStep3 => _v('practiceBenchmarkStep3');
+  String get practiceBenchmarkStep3Done => _v('practiceBenchmarkStep3Done');
+  String get practiceBenchmarkStep4 => _v('practiceBenchmarkStep4');
+
+  // Cover lessons.
+  String get practiceSeqCoverStep1 => _v('practiceSeqCoverStep1');
+  String get practiceSeqCoverStep1Hint => _v('practiceSeqCoverStep1Hint');
+  String get practiceSeqCoverStep1Done => _v('practiceSeqCoverStep1Done');
+  String get practiceSetCoverStep1 => _v('practiceSetCoverStep1');
+  String get practiceSetCoverStep1Hint => _v('practiceSetCoverStep1Hint');
+  String get practiceSetCoverStep1Done => _v('practiceSetCoverStep1Done');
+  String get practiceCoverFinishStep => _v('practiceCoverFinishStep');
+  String get practiceCoverBlockStep1 => _v('practiceCoverBlockStep1');
+  String get practiceCoverBlockStep1Hint =>
+      _v('practiceCoverBlockStep1Hint');
+
+  // Joker lessons.
+  String get practiceJokerIdentityStep1 => _v('practiceJokerIdentityStep1');
+  String get practiceJokerIdentityStep1Hint =>
+      _v('practiceJokerIdentityStep1Hint');
+  String get practiceJokerIdentityStep1Done =>
+      _v('practiceJokerIdentityStep1Done');
+  String get practiceJokerReplaceStep1 => _v('practiceJokerReplaceStep1');
+  String get practiceJokerReplaceStep1Hint =>
+      _v('practiceJokerReplaceStep1Hint');
+  String get practiceJokerReplaceStep1Done =>
+      _v('practiceJokerReplaceStep1Done');
+  String get practiceJokerReplaceStep2 => _v('practiceJokerReplaceStep2');
+  String get practiceJokerReplaceStep2Hint =>
+      _v('practiceJokerReplaceStep2Hint');
+
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1231,6 +1268,52 @@ const _englishValues = {
   'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
   'practiceOpeningStep2Done': 'Opened at 60! The table is yours now.',
   'practiceOpeningStep3': 'Seal the opening: end your turn with a discard.',
+  'practiceBenchmarkStep1':
+      'East opened with 75 points, so the table now demands 75 — not 51. Start staging: play your kings.',
+  'practiceBenchmarkStep1Hint': 'Select the three kings, then Play meld.',
+  'practiceBenchmarkStep1Done': 'Kings staged: 30.',
+  'practiceBenchmarkStep2':
+      'Add the sevens. Watch the total — 51 would have opened yesterday.',
+  'practiceBenchmarkStep2Done':
+      '51 staged — enough against the base rule, not against East\'s raised bar.',
+  'practiceBenchmarkStep3':
+      'You need 75. Add the queens to climb over East\'s benchmark.',
+  'practiceBenchmarkStep3Done':
+      '81 — over the bar. Once a second player opens, the benchmark locks for the round.',
+  'practiceBenchmarkStep4': 'End your turn with a discard.',
+  'practiceSeqCoverStep1':
+      'East\'s run ends at the 7 of diamonds. Your 8 of diamonds is its direct neighbor — select it and place the cover.',
+  'practiceSeqCoverStep1Hint':
+      'Sequence covers must touch an end of the run: 4♦ or 8♦ here, nothing else.',
+  'practiceSeqCoverStep1Done':
+      'Covered. After a card lands, new neighbors (like the 9♦) become legal in turn.',
+  'practiceSetCoverStep1':
+      'East\'s set holds three kings — clubs, diamonds, hearts. Your king of spades is the missing suit. Select it and place the cover.',
+  'practiceSetCoverStep1Hint':
+      'A set cover adds the same rank in a suit the set does not have yet.',
+  'practiceSetCoverStep1Done':
+      'Covered. A four-suit set is full — nothing more can land on it.',
+  'practiceCoverFinishStep': 'End your turn with a discard.',
+  'practiceCoverBlockStep1':
+      'Try to throw the 8 of diamonds — there is no discard for it. It extends East\'s run, so the table blocks it: covers are not free defense. Throw the 2 of clubs instead.',
+  'practiceCoverBlockStep1Hint':
+      'Select the 8♦ and look — no Discard button appears. Only the final discard of a finish may be a cover.',
+  'practiceJokerIdentityStep1':
+      'A joker is whatever you declare — once. Select both sevens and the joker, then choose what the joker stands for.',
+  'practiceJokerIdentityStep1Hint':
+      'Two declarations are legal here: 7 of diamonds or 7 of spades. Pick either.',
+  'practiceJokerIdentityStep1Done':
+      'Declared. The joker now is that card until someone reclaims it.',
+  'practiceJokerReplaceStep1':
+      'East\'s set uses a joker standing in for the 7 of diamonds — and you hold the real one. Select your 7♦ and replace the joker.',
+  'practiceJokerReplaceStep1Hint':
+      'Only opened players may reclaim table jokers, and only with the exact represented card.',
+  'practiceJokerReplaceStep1Done':
+      'The joker is yours — free to declare again in a future play.',
+  'practiceJokerReplaceStep2':
+      'End your turn with a discard. Not the joker, though — normal joker discards are always blocked.',
+  'practiceJokerReplaceStep2Hint':
+      'Select the joker and look: no Discard button. Throw a plain card.',
 };
 
 const _arabicValues = {
@@ -1518,4 +1601,49 @@ const _arabicValues = {
   'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
   'practiceOpeningStep2Done': 'افتتحت بـ 60! الطاولة لك الآن.',
   'practiceOpeningStep3': 'أكمل الافتتاح: أنهِ دورك برمي ورقة.',
+  'practiceBenchmarkStep1':
+      'افتتح الشرق بـ 75 نقطة، فأصبحت الطاولة تطلب 75 — لا 51. ابدأ التجهيز: العب ملوكك.',
+  'practiceBenchmarkStep1Hint': 'حدد الملوك الثلاثة ثم العب المجموعة.',
+  'practiceBenchmarkStep1Done': 'الملوك مرحلية: 30.',
+  'practiceBenchmarkStep2':
+      'أضف السبعات. راقب المجموع — 51 كانت كافية بالأمس.',
+  'practiceBenchmarkStep2Done':
+      '51 مرحلية — تكفي وفق القاعدة الأساسية، لا وفق معيار الشرق المرتفع.',
+  'practiceBenchmarkStep3': 'تحتاج 75. أضف الملكات لتتجاوز معيار الشرق.',
+  'practiceBenchmarkStep3Done':
+      '81 — فوق المعيار. حين يفتتح لاعب ثانٍ، يُقفل المعيار لبقية الجولة.',
+  'practiceBenchmarkStep4': 'أنهِ دورك برمي ورقة.',
+  'practiceSeqCoverStep1':
+      'تسلسل الشرق ينتهي عند 7 الديناري. ورقتك 8 الديناري جارتها المباشرة — حددها وضع التكميلة.',
+  'practiceSeqCoverStep1Hint':
+      'تكميلات التسلسل تلامس طرف التسلسل فقط: 4♦ أو 8♦ هنا، لا غير.',
+  'practiceSeqCoverStep1Done':
+      'تم التكميل. بعد نزول الورقة، يصبح الجيران الجدد (مثل 9♦) قانونيين بدورهم.',
+  'practiceSetCoverStep1':
+      'مجموعة الشرق فيها ثلاثة ملوك — سنيك وديناري وكُبّة. ملكك البستوني هو الشكل الناقص. حدده وضع التكميلة.',
+  'practiceSetCoverStep1Hint':
+      'تكميلة المجموعة تضيف نفس الرتبة بشكل لا تملكه المجموعة بعد.',
+  'practiceSetCoverStep1Done':
+      'تم التكميل. مجموعة الأشكال الأربعة مكتملة — لا شيء يضاف إليها.',
+  'practiceCoverFinishStep': 'أنهِ دورك برمي ورقة.',
+  'practiceCoverBlockStep1':
+      'حاول رمي 8 الديناري — لا يوجد زر رمي لها. إنها تكمل تسلسل الشرق، فالطاولة تمنعها: التكميلات ليست دفاعا مجانيا. ارم 2 السنيك بدلا منها.',
+  'practiceCoverBlockStep1Hint':
+      'حدد 8♦ ولاحظ — لا يظهر زر الرمي. فقط الرمية الأخيرة للإنهاء يجوز أن تكون تكميلة.',
+  'practiceJokerIdentityStep1':
+      'الجوكر هو ما تعلنه — مرة واحدة. حدد السبعتين والجوكر، ثم اختر ما يمثله الجوكر.',
+  'practiceJokerIdentityStep1Hint':
+      'إعلانان قانونيان هنا: 7 الديناري أو 7 البستوني. اختر أيهما.',
+  'practiceJokerIdentityStep1Done':
+      'أُعلن. الجوكر الآن هو تلك الورقة حتى يسترجعه أحد.',
+  'practiceJokerReplaceStep1':
+      'مجموعة الشرق تستخدم جوكر ينوب عن 7 الديناري — وأنت تحمل الأصلية. حدد 7♦ واستبدل الجوكر.',
+  'practiceJokerReplaceStep1Hint':
+      'فقط اللاعبون المفتتحون يسترجعون جوكر الطاولة، وبالورقة الممثلة بالضبط.',
+  'practiceJokerReplaceStep1Done':
+      'الجوكر لك — حر لإعلان جديد في لعبة قادمة.',
+  'practiceJokerReplaceStep2':
+      'أنهِ دورك برمي ورقة. ليس الجوكر — رمي الجوكر العادي ممنوع دائما.',
+  'practiceJokerReplaceStep2Hint':
+      'حدد الجوكر ولاحظ: لا زر رمي. ارم ورقة عادية.',
 };
