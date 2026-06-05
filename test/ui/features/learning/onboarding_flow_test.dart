@@ -5,6 +5,7 @@ import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/learning/views/onboarding_screen.dart';
+import 'package:hareeg_table/ui/features/splash/views/splash_screen.dart';
 
 import '../../../support/test_fixtures.dart';
 
@@ -21,7 +22,7 @@ void main() {
     await tester.pump();
 
     // Tap-to-skip the splash dwell.
-    await tester.tapAt(const Offset(200, 300));
+    await tester.tap(find.byType(SplashScreen));
     await tester.pumpAndSettle();
 
     expect(find.byType(OnboardingScreen), findsOneWidget);
@@ -41,7 +42,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tapAt(const Offset(200, 300));
+    await tester.tap(find.byType(SplashScreen));
     await tester.pumpAndSettle();
 
     expect(find.byType(OnboardingScreen), findsNothing);
@@ -55,7 +56,7 @@ void main() {
       _testApp(learning: learning, initialRoute: AppRoutes.splash),
     );
     await tester.pump();
-    await tester.tapAt(const Offset(200, 300));
+    await tester.tap(find.byType(SplashScreen));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Skip intro'));
@@ -78,7 +79,7 @@ void main() {
       _testApp(learning: learning, initialRoute: AppRoutes.splash),
     );
     await tester.pump();
-    await tester.tapAt(const Offset(200, 300));
+    await tester.tap(find.byType(SplashScreen));
     await tester.pumpAndSettle();
 
     for (var page = 0; page < 3; page++) {
@@ -102,7 +103,7 @@ void main() {
       _testApp(learning: learning, initialRoute: AppRoutes.splash),
     );
     await tester.pump();
-    await tester.tapAt(const Offset(200, 300));
+    await tester.tap(find.byType(SplashScreen));
     await tester.pumpAndSettle();
 
     for (var page = 0; page < 3; page++) {
