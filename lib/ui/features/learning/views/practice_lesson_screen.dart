@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -45,11 +47,37 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
   String? _errorMessage;
   String Function(AppStrings)? _stepNote;
 
+  /// Ticks once per second while a Fifty claim window is live so the visible
+  /// countdown stays current and the surface notices the window expiring.
+  Timer? _fiftyTicker;
+
   @override
   void initState() {
     super.initState();
     AppOrientation.usePortrait();
     _session = PracticeSession(script: widget.script);
+  }
+
+  @override
+  void dispose() {
+    _fiftyTicker?.cancel();
+    super.dispose();
+  }
+
+  void _syncFiftyTicker() {
+    final windowLive =
+        !_session.isComplete &&
+        _session.controller.fiftySecondsRemaining != null;
+    if (windowLive && _fiftyTicker == null) {
+      _fiftyTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    } else if (!windowLive && _fiftyTicker != null) {
+      _fiftyTicker?.cancel();
+      _fiftyTicker = null;
+    }
   }
 
   void _restart() {
@@ -114,6 +142,7 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
     final strings = context.strings;
     final lesson = PracticeCatalog.byId(widget.script.lessonId);
     final title = lesson?.title(strings) ?? strings.practiceTitle;
+    _syncFiftyTicker();
 
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
@@ -121,6 +150,10 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
       body: SafeArea(
         child: _session.isComplete
             ? _CompletionPanel(
+                note: widget.script.completionNote?.call(
+                  strings,
+                  _session.controller,
+                ),
                 onReplay: _restart,
                 onBack: () => Navigator.of(context).pop(),
               )
@@ -132,14 +165,19 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
   Widget _buildLesson(BuildContext context) {
     final strings = context.strings;
     final step = _session.currentStep!;
+    final allowedActions = _session.allowedActions;
     final candidates = practiceActionCandidates(
-      allowed: _session.allowedActions,
+      allowed: allowedActions,
       selectedCardIds: _selectedCardIds,
     );
     final hand = _session.controller.handFor(_session.seat);
-    final selectionMatters = _session.allowedActions.any(
+    final selectionMatters = allowedActions.any(
       (action) => PracticeActionCandidate(action: action).usesSelection,
     );
+    final fiftyRemaining = _session.controller.fiftySecondsRemaining;
+    // No allowed action left and nothing to select: the taught moment has
+    // passed (e.g. an expired Fifty window). Offer a restart.
+    final deadEnd = allowedActions.isEmpty;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -164,6 +202,10 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
                 ? null
                 : strings.gameMessage(_errorMessage!),
           ),
+          if (fiftyRemaining != null) ...[
+            const SizedBox(height: LoungeTokens.space3),
+            _FiftyTimerChip(secondsRemaining: fiftyRemaining),
+          ],
           const SizedBox(height: LoungeTokens.space5),
           _TableStrip(session: _session),
           if (_session.controller.tableMeldCount > 0) ...[
@@ -178,14 +220,91 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
             onTapCard: _toggleCard,
           ),
           const SizedBox(height: LoungeTokens.space5),
-          _ActionRow(
-            candidates: candidates,
-            selectionMatters: selectionMatters,
-            hasSelection: _selectedCardIds.isNotEmpty,
-            onSubmit: _submit,
-          ),
+          if (deadEnd)
+            _DeadEndCard(onRestart: _restart)
+          else
+            _ActionRow(
+              candidates: candidates,
+              selectionMatters: selectionMatters,
+              hasSelection: _selectedCardIds.isNotEmpty,
+              onSubmit: _submit,
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// Live Fifty claim countdown.
+class _FiftyTimerChip extends StatelessWidget {
+  const _FiftyTimerChip({required this.secondsRemaining});
+
+  final int secondsRemaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space3,
+          vertical: LoungeTokens.space2,
+        ),
+        decoration: BoxDecoration(
+          color: LoungeTokens.fiftyFlame.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: LoungeTokens.fiftyFlame.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.local_fire_department_outlined,
+              size: 16,
+              color: LoungeTokens.fiftyFlame,
+            ),
+            const SizedBox(width: LoungeTokens.space2),
+            Text(
+              '${strings.claimFifty} · ${secondsRemaining}s',
+              style: LoungeTokens.body.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the taught moment has passed (e.g. an expired Fifty window).
+class _DeadEndCard extends StatelessWidget {
+  const _DeadEndCard({required this.onRestart});
+
+  final VoidCallback onRestart;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          strings.practiceFiftyMissed,
+          textAlign: TextAlign.center,
+          style: LoungeTokens.bodyMuted,
+        ),
+        const SizedBox(height: LoungeTokens.space3),
+        FilledButton.icon(
+          onPressed: onRestart,
+          icon: const Icon(Icons.replay_outlined),
+          label: Text(strings.practiceRestartLesson),
+        ),
+      ],
     );
   }
 }
@@ -618,10 +737,17 @@ class _ActionRow extends StatelessWidget {
 }
 
 class _CompletionPanel extends StatelessWidget {
-  const _CompletionPanel({required this.onReplay, required this.onBack});
+  const _CompletionPanel({
+    required this.onReplay,
+    required this.onBack,
+    this.note,
+  });
 
   final VoidCallback onReplay;
   final VoidCallback onBack;
+
+  /// Optional lesson outcome note (e.g. the real score impact).
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -652,6 +778,26 @@ class _CompletionPanel extends StatelessWidget {
               textAlign: TextAlign.center,
               style: LoungeTokens.bodyMuted,
             ),
+            if (note != null) ...[
+              const SizedBox(height: LoungeTokens.space4),
+              Container(
+                padding: const EdgeInsets.all(LoungeTokens.space4),
+                decoration: BoxDecoration(
+                  color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(
+                    LoungeTokens.radiusButton,
+                  ),
+                  border: Border.all(
+                    color: LoungeTokens.goldAccent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  note!,
+                  textAlign: TextAlign.center,
+                  style: LoungeTokens.body.copyWith(height: 1.45),
+                ),
+              ),
+            ],
             const SizedBox(height: LoungeTokens.space6),
             FilledButton.icon(
               onPressed: onBack,
