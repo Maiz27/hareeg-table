@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/learning/views/practice_lesson_screen.dart';
@@ -132,6 +133,54 @@ void main() {
     expect(
       find.text('Tap cards in your hand to select them.'),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('pending-discard lesson walks take, meld, and discard on the '
+      'surface', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+
+    // Second lesson: Taking the discard.
+    await tester.tap(find.text('Start').at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 1 of 3'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Take Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Step 2 of 3'), findsOneWidget);
+
+    // Select the three eights; the pending eight renders in both the table
+    // strip and the hand, so tap the hand copy.
+    for (final suit in [CardSuit.clubs, CardSuit.hearts, CardSuit.diamonds]) {
+      final id = HareegCard.standard(
+        rank: CardRank.eight,
+        suit: suit,
+        deckIndex: 0,
+      ).id;
+      await tester.tap(
+        find
+            .byWidgetPredicate(
+              (w) => w is HareegCardView && w.card.id == id,
+            )
+            .last,
+      );
+      await tester.pump();
+    }
+    await tester.tap(find.widgetWithText(FilledButton, 'Play meld'));
+    await tester.pumpAndSettle();
+    expect(find.text('Step 3 of 3'), findsOneWidget);
+
+    await tester.tap(find.byType(HareegCardView).last);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('pending-discard'),
+      PracticeLessonStatus.completed,
     );
   });
 

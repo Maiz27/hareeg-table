@@ -83,11 +83,24 @@ void main() {
   testWidgets('starting a lesson whose pack has not shipped shows the notice', (
     tester,
   ) async {
+    // Tall surface so the unscripted tile is on-screen without scrolling.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
     await tester.pumpAndSettle();
 
-    // Second lesson (pending-discard) has no script until HT-46.
-    await tester.tap(find.text('Start').at(1));
+    // Benchmark-pressure has no script until HT-47.
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('practice-lesson-tile-benchmark-pressure'),
+        ),
+        matching: find.text('Start'),
+      ),
+    );
     await tester.pump();
 
     expect(
