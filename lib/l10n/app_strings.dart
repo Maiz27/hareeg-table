@@ -197,6 +197,83 @@ class AppStrings {
   String get joker => _v('joker');
   String get unassignedJoker => _v('unassignedJoker');
   String get unassignedJokerGuided => _v('unassignedJokerGuided');
+
+  // First-run onboarding.
+  String get onboardingSkip => _v('onboardingSkip');
+  String get onboardingNext => _v('onboardingNext');
+  String get onboardingDone => _v('onboardingDone');
+  String get onboardingStartPractice => _v('onboardingStartPractice');
+  String get onboardingStartPlaying => _v('onboardingStartPlaying');
+  String get onboardingWelcomeTitle => _v('onboardingWelcomeTitle');
+  String get onboardingWelcomeBody => _v('onboardingWelcomeBody');
+  String get onboardingTurnTitle => _v('onboardingTurnTitle');
+  String get onboardingTurnBody => _v('onboardingTurnBody');
+  String get onboardingLearnTitle => _v('onboardingLearnTitle');
+  String get onboardingLearnBody => _v('onboardingLearnBody');
+  String get onboardingReadyTitle => _v('onboardingReadyTitle');
+  String get onboardingReadyBody => _v('onboardingReadyBody');
+
+  // Guided practice checklist hub.
+  String get practiceTitle => _v('practiceTitle');
+  String get practiceIntro => _v('practiceIntro');
+  String get practiceReplayIntro => _v('practiceReplayIntro');
+  String get practiceStatusNotStarted => _v('practiceStatusNotStarted');
+  String get practiceStatusSkipped => _v('practiceStatusSkipped');
+  String get practiceStatusCompleted => _v('practiceStatusCompleted');
+  String get practiceStart => _v('practiceStart');
+  String get practiceReplay => _v('practiceReplay');
+  String get practiceSkip => _v('practiceSkip');
+  String get practiceUnskip => _v('practiceUnskip');
+  String get practiceComingSoon => _v('practiceComingSoon');
+  String get practicePackCoreTitle => _v('practicePackCoreTitle');
+  String get practicePackTableTitle => _v('practicePackTableTitle');
+  String get practicePackFinishTitle => _v('practicePackFinishTitle');
+
+  /// Checklist progress summary, e.g. "3 of 15 completed".
+  String practiceProgress(int completed, int total) => _v('practiceProgress')
+      .replaceFirst('{completed}', '$completed')
+      .replaceFirst('{total}', '$total');
+
+  // Guided practice lesson catalog.
+  String get practiceTurnRhythmTitle => _v('practiceTurnRhythmTitle');
+  String get practiceTurnRhythmSummary => _v('practiceTurnRhythmSummary');
+  String get practicePendingDiscardTitle => _v('practicePendingDiscardTitle');
+  String get practicePendingDiscardSummary =>
+      _v('practicePendingDiscardSummary');
+  String get practiceMeldPickerTitle => _v('practiceMeldPickerTitle');
+  String get practiceMeldPickerSummary => _v('practiceMeldPickerSummary');
+  String get practiceOpeningTitle => _v('practiceOpeningTitle');
+  String get practiceOpeningSummary => _v('practiceOpeningSummary');
+  String get practiceBenchmarkTitle => _v('practiceBenchmarkTitle');
+  String get practiceBenchmarkSummary => _v('practiceBenchmarkSummary');
+  String get practiceSequenceCoverTitle => _v('practiceSequenceCoverTitle');
+  String get practiceSequenceCoverSummary =>
+      _v('practiceSequenceCoverSummary');
+  String get practiceSetCoverTitle => _v('practiceSetCoverTitle');
+  String get practiceSetCoverSummary => _v('practiceSetCoverSummary');
+  String get practiceCoverDiscardTitle => _v('practiceCoverDiscardTitle');
+  String get practiceCoverDiscardSummary => _v('practiceCoverDiscardSummary');
+  String get practiceJokerIdentityTitle => _v('practiceJokerIdentityTitle');
+  String get practiceJokerIdentitySummary =>
+      _v('practiceJokerIdentitySummary');
+  String get practiceJokerReplacementTitle =>
+      _v('practiceJokerReplacementTitle');
+  String get practiceJokerReplacementSummary =>
+      _v('practiceJokerReplacementSummary');
+  String get practiceFinalDiscardTitle => _v('practiceFinalDiscardTitle');
+  String get practiceFinalDiscardSummary => _v('practiceFinalDiscardSummary');
+  String get practiceNormalFinishTitle => _v('practiceNormalFinishTitle');
+  String get practiceNormalFinishSummary => _v('practiceNormalFinishSummary');
+  String get practiceFiftyClaimTitle => _v('practiceFiftyClaimTitle');
+  String get practiceFiftyClaimSummary => _v('practiceFiftyClaimSummary');
+  String get practiceFiftyScoringTitle => _v('practiceFiftyScoringTitle');
+  String get practiceFiftyScoringSummary => _v('practiceFiftyScoringSummary');
+  String get practiceStrictnessTitle => _v('practiceStrictnessTitle');
+  String get practiceStrictnessSummary => _v('practiceStrictnessSummary');
+
+  // Rules/Help learning entry points.
+  String get helpLearningTitle => _v('helpLearningTitle');
+  String get helpLearningBody => _v('helpLearningBody');
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -989,6 +1066,86 @@ const _englishValues = {
   'unassignedJoker': 'Unassigned joker.',
   'unassignedJokerGuided':
       'Unassigned joker. Pick its identity when a legal meld needs it.',
+  'onboardingSkip': 'Skip intro',
+  'onboardingNext': 'Next',
+  'onboardingDone': 'Done',
+  'onboardingStartPractice': 'Try guided practice',
+  'onboardingStartPlaying': 'Start playing',
+  'onboardingWelcomeTitle': 'Welcome to the table',
+  'onboardingWelcomeBody':
+      'Classic Hareeg is a four-seat card game played anti-clockwise. Build melds, open to the table requirement, and be the first to go out — the last player under 31 points wins the match.',
+  'onboardingTurnTitle': 'A turn in three beats',
+  'onboardingTurnBody':
+      'Draw from stock or take the discard, play melds and covers when you can, then end your turn with a discard. Openings, covers, jokers, and Fifty add the pressure — each one has its own short practice hand.',
+  'onboardingLearnTitle': 'Learn your way',
+  'onboardingLearnBody':
+      'Guided practice teaches one mechanic at a time in short, repeatable mini hands — separate from real matches. The live coach is different: it gives compact hints during real play on the Coaching table tier.',
+  'onboardingReadyTitle': 'Ready when you are',
+  'onboardingReadyBody':
+      'Start with guided practice, or jump straight to a table. You can replay this intro any time from Rules / Help.',
+  'practiceTitle': 'Guided practice',
+  'practiceIntro':
+      'Short mini hands, one mechanic each, ending the moment you show the move. Skip what you know, replay what you forget — this list never blocks normal play.',
+  'practiceReplayIntro': 'Replay intro',
+  'practiceStatusNotStarted': 'Not started',
+  'practiceStatusSkipped': 'Skipped',
+  'practiceStatusCompleted': 'Completed',
+  'practiceStart': 'Start',
+  'practiceReplay': 'Replay',
+  'practiceSkip': 'Skip',
+  'practiceUnskip': 'Unskip',
+  'practiceComingSoon': 'This practice hand arrives in an upcoming update.',
+  'practicePackCoreTitle': 'Core turn basics',
+  'practicePackTableTitle': 'Table mechanics',
+  'practicePackFinishTitle': 'Finishing & Fifty',
+  'practiceProgress': '{completed} of {total} completed',
+  'practiceTurnRhythmTitle': 'Turn rhythm',
+  'practiceTurnRhythmSummary':
+      'Draw, play if you can, then discard to end your turn.',
+  'practicePendingDiscardTitle': 'Taking the discard',
+  'practicePendingDiscardSummary':
+      'A taken discard must be used in a play or returned before drawing.',
+  'practiceMeldPickerTitle': 'Choosing a legal meld',
+  'practiceMeldPickerSummary':
+      'Turn selected cards into one exact legal set or sequence.',
+  'practiceOpeningTitle': 'Opening to 51',
+  'practiceOpeningSummary':
+      'Place melds worth the opening requirement in one turn.',
+  'practiceBenchmarkTitle': 'Benchmark pressure',
+  'practiceBenchmarkSummary':
+      'A high first opening raises what everyone else must reach.',
+  'practiceSequenceCoverTitle': 'Sequence covers',
+  'practiceSequenceCoverSummary':
+      'Extend a table run with its direct neighbors.',
+  'practiceSetCoverTitle': 'Set covers',
+  'practiceSetCoverSummary': 'Extend a set with the missing suit.',
+  'practiceCoverDiscardTitle': 'Cover discard rules',
+  'practiceCoverDiscardSummary':
+      'Why a playable cover usually cannot be thrown away.',
+  'practiceJokerIdentityTitle': 'Joker identity',
+  'practiceJokerIdentitySummary':
+      'Choose exactly what a placed joker represents.',
+  'practiceJokerReplacementTitle': 'Joker replacement',
+  'practiceJokerReplacementSummary':
+      'Swap in the real card to reclaim a joker from the table.',
+  'practiceFinalDiscardTitle': 'The final discard',
+  'practiceFinalDiscardSummary':
+      'Finishing always keeps one last card to throw.',
+  'practiceNormalFinishTitle': 'Finishing a round',
+  'practiceNormalFinishSummary':
+      'Go out cleanly and see how the round is scored.',
+  'practiceFiftyClaimTitle': 'Fifty timing',
+  'practiceFiftyClaimSummary':
+      'Claim Khamsin from the discard before the window closes.',
+  'practiceFiftyScoringTitle': 'Fifty scoring',
+  'practiceFiftyScoringSummary':
+      'The reward for the winner and the penalty for the discarder.',
+  'practiceStrictnessTitle': 'Table strictness tiers',
+  'practiceStrictnessSummary':
+      'What Coaching, Standard, Strict, and Table expect from you.',
+  'helpLearningTitle': 'New to Hareeg?',
+  'helpLearningBody':
+      'Step through short guided practice hands, or replay the first-run intro.',
 };
 
 const _arabicValues = {
@@ -1165,4 +1322,75 @@ const _arabicValues = {
   'unassignedJoker': 'جوكر غير محدد.',
   'unassignedJokerGuided':
       'جوكر غير محدد. اختر هويته عندما تحتاجه مجموعة قانونية.',
+  'onboardingSkip': 'تخطي المقدمة',
+  'onboardingNext': 'التالي',
+  'onboardingDone': 'تم',
+  'onboardingStartPractice': 'جرب التدريب الموجه',
+  'onboardingStartPlaying': 'ابدأ اللعب',
+  'onboardingWelcomeTitle': 'أهلا بك على الطاولة',
+  'onboardingWelcomeBody':
+      'حريق الكلاسيكي لعبة ورق بأربعة مقاعد تدور عكس عقارب الساعة. كوّن المجموعات، افتتح بقيمة الطاولة المطلوبة، وكن أول من ينهي أوراقه — آخر لاعب تحت 31 نقطة يفوز بالمباراة.',
+  'onboardingTurnTitle': 'الدور في ثلاث خطوات',
+  'onboardingTurnBody':
+      'اسحب من الكومة أو خذ الرمية، العب مجموعات وتكميلات إن استطعت، ثم أنه دورك برمي ورقة. الافتتاح والتكميلات والجوكر والخمسين تضيف الضغط — ولكل منها تدريب قصير خاص.',
+  'onboardingLearnTitle': 'تعلم بطريقتك',
+  'onboardingLearnBody':
+      'التدريب الموجه يعلّم آلية واحدة في كل مرة عبر أيادي قصيرة قابلة للإعادة — منفصلة عن المباريات الحقيقية. المدرب المباشر مختلف: يقدم تلميحات مختصرة أثناء اللعب الفعلي في مستوى التدريب.',
+  'onboardingReadyTitle': 'جاهز متى ما كنت',
+  'onboardingReadyBody':
+      'ابدأ بالتدريب الموجه، أو انتقل مباشرة إلى الطاولة. يمكنك إعادة هذه المقدمة في أي وقت من القواعد / المساعدة.',
+  'practiceTitle': 'التدريب الموجه',
+  'practiceIntro':
+      'أيادٍ قصيرة، آلية واحدة لكل منها، وتنتهي لحظة إتقانك للحركة. تخطَّ ما تعرفه وأعد ما نسيته — هذه القائمة لا تعيق اللعب العادي أبدا.',
+  'practiceReplayIntro': 'إعادة المقدمة',
+  'practiceStatusNotStarted': 'لم يبدأ',
+  'practiceStatusSkipped': 'تم تخطيه',
+  'practiceStatusCompleted': 'مكتمل',
+  'practiceStart': 'ابدأ',
+  'practiceReplay': 'إعادة',
+  'practiceSkip': 'تخطي',
+  'practiceUnskip': 'إلغاء التخطي',
+  'practiceComingSoon': 'هذا التدريب سيتوفر في تحديث قادم.',
+  'practicePackCoreTitle': 'أساسيات الدور',
+  'practicePackTableTitle': 'آليات الطاولة',
+  'practicePackFinishTitle': 'الإنهاء والخمسين',
+  'practiceProgress': 'اكتمل {completed} من {total}',
+  'practiceTurnRhythmTitle': 'إيقاع الدور',
+  'practiceTurnRhythmSummary': 'اسحب، العب إن استطعت، ثم ارم لإنهاء دورك.',
+  'practicePendingDiscardTitle': 'أخذ الرمية',
+  'practicePendingDiscardSummary':
+      'الرمية المأخوذة يجب استخدامها في لعبة أو إرجاعها قبل السحب.',
+  'practiceMeldPickerTitle': 'اختيار مجموعة قانونية',
+  'practiceMeldPickerSummary':
+      'حوّل الأوراق المحددة إلى مجموعة أو تسلسل قانوني واحد بالضبط.',
+  'practiceOpeningTitle': 'الافتتاح بـ 51',
+  'practiceOpeningSummary': 'ضع مجموعات بقيمة شرط الافتتاح في دور واحد.',
+  'practiceBenchmarkTitle': 'ضغط المعيار',
+  'practiceBenchmarkSummary': 'الافتتاح الأول العالي يرفع ما يجب على الآخرين بلوغه.',
+  'practiceSequenceCoverTitle': 'تكميلات التسلسل',
+  'practiceSequenceCoverSummary': 'مدّد تسلسلا على الطاولة بجيرانه المباشرين.',
+  'practiceSetCoverTitle': 'تكميلات المجموعة',
+  'practiceSetCoverSummary': 'مدّد مجموعة متشابهة بالشكل الناقص.',
+  'practiceCoverDiscardTitle': 'قواعد رمي التكميلة',
+  'practiceCoverDiscardSummary':
+      'لماذا لا يمكن عادة رمي ورقة تصلح تكميلة.',
+  'practiceJokerIdentityTitle': 'هوية الجوكر',
+  'practiceJokerIdentitySummary': 'حدد بالضبط ما يمثله الجوكر الموضوع.',
+  'practiceJokerReplacementTitle': 'استبدال الجوكر',
+  'practiceJokerReplacementSummary':
+      'ضع الورقة الحقيقية لتسترجع الجوكر من الطاولة.',
+  'practiceFinalDiscardTitle': 'الرمية الأخيرة',
+  'practiceFinalDiscardSummary': 'الإنهاء يحتفظ دائما بورقة أخيرة للرمي.',
+  'practiceNormalFinishTitle': 'إنهاء الجولة',
+  'practiceNormalFinishSummary': 'أنهِ أوراقك وشاهد كيف تحسب الجولة.',
+  'practiceFiftyClaimTitle': 'توقيت الخمسين',
+  'practiceFiftyClaimSummary': 'اطلب الخمسين من الرمية قبل انتهاء المهلة.',
+  'practiceFiftyScoringTitle': 'حساب الخمسين',
+  'practiceFiftyScoringSummary': 'مكافأة الفائز وعقوبة من رمى الورقة.',
+  'practiceStrictnessTitle': 'مستويات صرامة الطاولة',
+  'practiceStrictnessSummary':
+      'ما تتوقعه منك مستويات التدريب والقياسي والصارم والطاولة.',
+  'helpLearningTitle': 'جديد على حريق؟',
+  'helpLearningBody':
+      'تدرّب عبر أيادٍ موجهة قصيرة، أو أعد مقدمة التشغيل الأول.',
 };
