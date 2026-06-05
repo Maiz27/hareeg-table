@@ -20,8 +20,10 @@ import '../ui/features/game_setup/views/new_game_setup_screen.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
+import '../ui/features/learning/practice/practice_scripts.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
+import '../ui/features/learning/views/practice_lesson_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
@@ -263,6 +265,23 @@ class _HareegTableAppState extends State<HareegTableApp> {
               matchRepository: _matches,
               preferences: _values,
               onPreferencesChanged: _updatePreferences,
+            ),
+            settings: settings,
+          );
+        }
+
+        if (settings.name == AppRoutes.practiceLesson) {
+          final lessonId = settings.arguments;
+          final script = lessonId is String
+              ? PracticeScripts.byId(lessonId)
+              : null;
+          if (script == null) {
+            return null;
+          }
+          return MaterialPageRoute<void>(
+            builder: (context) => PracticeLessonScreen(
+              script: script,
+              learningRepository: _learning,
             ),
             settings: settings,
           );

@@ -30,4 +30,7 @@ abstract final class AppRoutes {
 
   /// Guided practice checklist hub.
   static const practice = '/practice';
+
+  /// One guided practice lesson (arguments: catalog lesson id string).
+  static const practiceLesson = '/practice-lesson';
 }
