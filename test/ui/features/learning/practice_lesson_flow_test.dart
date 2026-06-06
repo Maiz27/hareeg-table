@@ -83,7 +83,9 @@ void main() {
     expect(find.text('Completed'), findsOneWidget);
   });
 
-  testWidgets('replay restarts the lesson on a fresh board', (tester) async {
+  testWidgets('replay restarts the lesson in place on a fresh board', (
+    tester,
+  ) async {
     final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(_practiceApp(learning: learning));
     await tester.pumpAndSettle();
@@ -94,9 +96,15 @@ void main() {
     await dragToDiscard(tester, 'Three of Clubs');
     expect(find.text('Lesson complete!'), findsOneWidget);
 
+    // The pack's next lesson is unscripted in this slice, so the overlay
+    // must not offer a continuation — only replay and the way back.
+    expect(find.text('Next lesson'), findsNothing);
+
     await tester.tap(find.text('Replay lesson'));
     await tester.pumpAndSettle();
 
+    // In-place restart: the same table route, fresh board, step 1 again.
+    expect(find.byType(GameTableScreen), findsOneWidget);
     expect(
       find.text('Your turn starts with a card: draw one from the stock.'),
       findsOneWidget,

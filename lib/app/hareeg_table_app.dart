@@ -316,8 +316,8 @@ class _HareegTableAppState extends State<HareegTableApp> {
               preferences: _values,
               onPreferencesChanged: _updatePreferences,
               practiceSession: session,
-              onPracticeFinished: () =>
-                  _persistPracticeCompletion(script.lessonId),
+              onPracticeFinished: _persistPracticeCompletion,
+              nextPracticeScript: PracticeScripts.nextScriptInPack,
             ),
             settings: settings,
           );

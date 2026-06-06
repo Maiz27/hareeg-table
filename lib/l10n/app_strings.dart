@@ -228,6 +228,9 @@ class AppStrings {
 
   /// Gentle nudge when a legal table action is off-script for the step.
   String get practiceFollowStep => _v('practiceFollowStep');
+
+  /// Completion overlay: continue into the pack's next lesson.
+  String get practiceNextLesson => _v('practiceNextLesson');
   String get practicePackCoreTitle => _v('practicePackCoreTitle');
   String get practicePackTableTitle => _v('practicePackTableTitle');
   String get practicePackFinishTitle => _v('practicePackFinishTitle');
@@ -1114,6 +1117,7 @@ const _englishValues = {
   'practiceUnskip': 'Unskip',
   'practiceComingSoon': 'This practice hand arrives in an upcoming update.',
   'practiceFollowStep': 'Good instinct — but follow the current step first.',
+  'practiceNextLesson': 'Next lesson',
   'practicePackCoreTitle': 'Core turn basics',
   'practicePackTableTitle': 'Table mechanics',
   'practicePackFinishTitle': 'Finishing & Fifty',
@@ -1384,6 +1388,7 @@ const _arabicValues = {
   'practiceUnskip': 'إلغاء التخطي',
   'practiceComingSoon': 'هذا التدريب سيتوفر في تحديث قادم.',
   'practiceFollowStep': 'حدس جيد — لكن اتبع الخطوة الحالية أولاً.',
+  'practiceNextLesson': 'الدرس التالي',
   'practicePackCoreTitle': 'أساسيات الدور',
   'practicePackTableTitle': 'آليات الطاولة',
   'practicePackFinishTitle': 'الإنهاء والخمسين',

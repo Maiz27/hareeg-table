@@ -73,6 +73,7 @@ class GameTableScreen extends StatefulWidget {
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
     this.practiceSession,
     this.onPracticeFinished,
+    this.nextPracticeScript,
   });
 
   /// Setup used to deal the round.
@@ -102,10 +103,17 @@ class GameTableScreen extends StatefulWidget {
   /// the lesson plays on the exact surface a real match uses.
   final PracticeSession? practiceSession;
 
-  /// Called once when the practice lesson's final step is demonstrated, so
-  /// the app shell can persist checklist completion. The table never touches
-  /// learning progress itself.
-  final Future<void> Function()? onPracticeFinished;
+  /// Called when a practice lesson's final step is demonstrated, so the app
+  /// shell can persist checklist completion. The table never touches learning
+  /// progress itself; [String] is the finished lesson's id because the
+  /// completion overlay can chain straight into the pack's next lesson.
+  final Future<void> Function(String lessonId)? onPracticeFinished;
+
+  /// Resolves the lesson that continues a finished lesson's practice pack,
+  /// or null at a pack boundary. Owned by the shell so the table stays
+  /// ignorant of the script registry; a non-null result powers the
+  /// completion overlay's "next lesson" button.
+  final PracticeLessonScript? Function(String lessonId)? nextPracticeScript;
 
   @override
   State<GameTableScreen> createState() => _GameTableScreenState();
@@ -172,13 +180,19 @@ class _GameTableScreenState extends State<GameTableScreen>
   // completion overlay instead of the match round-result pipeline.
   bool _practiceComplete = false;
 
-  bool get _isPractice => widget.practiceSession != null;
+  // State-owned so replay / next-lesson swap sessions in place. A route swap
+  // would build the replacement table (landscape) and then dispose this one,
+  // whose dispose() restores portrait — flipping the live lesson upright.
+  PracticeSession? _practiceSession;
+
+  bool get _isPractice => _practiceSession != null;
 
   @override
   void initState() {
     super.initState();
     AppOrientation.useLandscape();
-    final practice = widget.practiceSession;
+    _practiceSession = widget.practiceSession;
+    final practice = _practiceSession;
     final snapshot = widget.initialSnapshot;
     _controller = practice != null
         ? practice.controller
@@ -520,7 +534,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     final isHumanTurn =
         _controller.currentSeat == humanSeat && _canAcceptHumanInput;
     final practiceAllowed = isHumanTurn && !_practiceComplete
-        ? widget.practiceSession?.allowedActionIds
+        ? _practiceSession?.allowedActionIds
         : null;
     final controlActions = !isHumanTurn || _practiceComplete
         ? const <String>[]
@@ -906,7 +920,11 @@ class _GameTableScreenState extends State<GameTableScreen>
               child: !_practiceComplete
                   ? const SizedBox.shrink()
                   : PracticeCompletionOverlay(
-                      onReplay: _replayPracticeLesson,
+                      onReplay: () =>
+                          _startPracticeLesson(_practiceSession!.script),
+                      onNext: _nextPracticeScript() == null
+                          ? null
+                          : () => _startPracticeLesson(_nextPracticeScript()!),
                       onDone: () => Navigator.of(context).pop(),
                     ),
             ),
@@ -941,7 +959,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   /// Builds the persistent step prompt for the active practice lesson.
   Widget _buildPracticeStepBanner(AppStrings strings) {
-    final session = widget.practiceSession!;
+    final session = _practiceSession!;
     final step = session.currentStep;
     if (step == null) {
       return const SizedBox.shrink();
@@ -956,14 +974,43 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
   }
 
-  /// Restarts the lesson on a fresh board. Replacing the route rebuilds the
-  /// whole table state (controller, cues, flights) instead of trying to
-  /// reconcile a swapped controller in place.
-  void _replayPracticeLesson() {
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.practiceLesson,
-      arguments: widget.practiceSession!.script.lessonId,
-    );
+  /// Starts [script] on a fresh board without leaving the route — the same
+  /// in-place controller swap [_advanceToNextRound] uses, minus the deal
+  /// choreography. Serves both replay (same script) and the completion
+  /// overlay's next-lesson continuation; swapping routes instead would let
+  /// the replaced table's dispose() flip a live landscape lesson to portrait.
+  void _startPracticeLesson(PracticeLessonScript script) {
+    final session = PracticeSession(script: script);
+    // Drain every cue timer + the fifty ticker before swapping controllers
+    // so no stale dwell can fire against the fresh lesson board.
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
+    setState(() {
+      _practiceSession = session;
+      _controller = session.controller;
+      _coachInsightCacheKey = null;
+      _coachInsights = const [];
+      _resetHandInteraction();
+      _isCpuRunning = false;
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _placedJokerSnapshot = null;
+      _activeFlights.clear();
+      _meldFlight.clear();
+      _inspectedCard = null;
+      _roundResultPresentation = null;
+      _practiceComplete = false;
+    });
+    _ensureFiftyTicker();
+  }
+
+  /// Script continuing the active lesson's pack, when the shell offers one.
+  PracticeLessonScript? _nextPracticeScript() {
+    final session = _practiceSession;
+    if (session == null) {
+      return null;
+    }
+    return widget.nextPracticeScript?.call(session.script.lessonId);
   }
 
   /// Builds the coaching hint to surface this frame, or null when none should
@@ -1087,7 +1134,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     final controllerReader = ClassicHareegControllerTableInteractionReader(
       _controller,
     );
-    final practice = widget.practiceSession;
+    final practice = _practiceSession;
     return ClassicHareegTableInteractionPlanner(
       // Practice narrows every gesture affordance to the step being taught;
       // a finished lesson locks the board under the completion overlay.
@@ -1614,7 +1661,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     final applyWatch = Stopwatch()..start();
     // Practice routes the apply through the session so the lesson step gates
     // and observes the same engine mutation the table would make directly.
-    final practice = widget.practiceSession;
+    final practice = _practiceSession;
     final completedPracticeStep = practice?.currentStep;
     final practiceResult = practice?.submit(actionId);
     if (practiceResult?.status == PracticeSubmitStatus.notAllowed) {
@@ -1744,7 +1791,9 @@ class _GameTableScreenState extends State<GameTableScreen>
           });
         }
       case PracticeSubmitStatus.lessonCompleted:
-        unawaited(widget.onPracticeFinished?.call());
+        unawaited(
+          widget.onPracticeFinished?.call(_practiceSession!.script.lessonId),
+        );
         setState(() {
           _scoreOpen = false;
           _pauseOpen = false;

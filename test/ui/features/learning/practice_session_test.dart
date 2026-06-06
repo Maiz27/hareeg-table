@@ -116,4 +116,16 @@ void main() {
       expect(session.stepIndex, 1, reason: 'step must not advance');
     });
   });
+
+  group('PracticeScripts.nextScriptInPack', () {
+    test('stops while the pack continuation is unscripted', () {
+      // turn-rhythm's pack continues with pending-discard, which ships in a
+      // later slice; the continuation must stay hidden until then.
+      expect(PracticeScripts.nextScriptInPack('turn-rhythm'), isNull);
+    });
+
+    test('returns null for unknown lessons', () {
+      expect(PracticeScripts.nextScriptInPack('not-a-lesson'), isNull);
+    });
+  });
 }
