@@ -102,17 +102,19 @@ abstract final class PracticeCatalog {
       title: (s) => s.practiceBenchmarkTitle,
       summary: (s) => s.practiceBenchmarkSummary,
     ),
-    PracticeLesson(
-      id: 'sequence-cover',
-      pack: PracticePackId.tableMechanics,
-      title: (s) => s.practiceSequenceCoverTitle,
-      summary: (s) => s.practiceSequenceCoverSummary,
-    ),
+    // Covers teach in two beats: one card on one meld establishes the rule,
+    // then stacked covers across two melds show its reach.
     PracticeLesson(
       id: 'set-cover',
       pack: PracticePackId.tableMechanics,
       title: (s) => s.practiceSetCoverTitle,
       summary: (s) => s.practiceSetCoverSummary,
+    ),
+    PracticeLesson(
+      id: 'sequence-cover',
+      pack: PracticePackId.tableMechanics,
+      title: (s) => s.practiceSequenceCoverTitle,
+      summary: (s) => s.practiceSequenceCoverSummary,
     ),
     PracticeLesson(
       id: 'cover-discard-block',

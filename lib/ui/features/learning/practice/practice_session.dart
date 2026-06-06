@@ -63,8 +63,10 @@ class PracticeSession {
   /// Corrections are how a player recovers from staging the wrong cards
   /// (e.g. a valid-but-partial run that can never reach the opening), so
   /// practice always offers them whenever the engine does — gating them
-  /// behind the step filter would strand the lesson. Applying one never
-  /// advances step progress.
+  /// behind the step filter would strand the lesson. An unsolicited
+  /// correction never advances step progress; a step whose filter explicitly
+  /// teaches the take-back (benchmark-pressure's retract) completes through
+  /// the normal path instead.
   static const _correctionKinds = {
     ClassicHareegActionKind.returnOpeningMelds,
     ClassicHareegActionKind.returnTablePlay,
@@ -158,7 +160,10 @@ class PracticeSession {
       return const PracticeSubmitResult._(PracticeSubmitStatus.notAllowed, '');
     }
     final action = ClassicHareegActionIds.describe(actionId);
-    if (_correctionKinds.contains(action.kind)) {
+    // A take-back the step does not ask for is a correction: applied, never
+    // advancing. When the step's own filter names the take-back kind, the
+    // retract IS the taught move and completes the step like any other.
+    if (_correctionKinds.contains(action.kind) && !step.allows(action)) {
       return _applyCorrection(actionId);
     }
     if (!step.allows(action)) {

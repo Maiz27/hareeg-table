@@ -185,10 +185,40 @@ void main() {
       );
     });
 
+    test('chains the scripted table mechanics lessons in order', () {
+      expect(
+        PracticeScripts.nextScriptInPack('pending-discard')?.lessonId,
+        'benchmark-pressure',
+      );
+      // The single-card cover lesson teaches the rule before the stacked
+      // one widens it.
+      expect(
+        PracticeScripts.nextScriptInPack('benchmark-pressure')?.lessonId,
+        'set-cover',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('set-cover')?.lessonId,
+        'sequence-cover',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('sequence-cover')?.lessonId,
+        'cover-discard-block',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('cover-discard-block')?.lessonId,
+        'joker-identity',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('joker-identity')?.lessonId,
+        'joker-replacement',
+      );
+    });
+
     test('stops at the pack boundary', () {
       // Finishing a pack is a deliberate stopping point; the continuation
       // never crosses into the next pack.
       expect(PracticeScripts.nextScriptInPack('opening-51'), isNull);
+      expect(PracticeScripts.nextScriptInPack('joker-replacement'), isNull);
     });
 
     test('returns null for unknown lessons', () {
