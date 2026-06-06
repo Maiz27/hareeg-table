@@ -12,8 +12,13 @@ enum PracticeSubmitStatus {
   /// The action is not offered by the current step; nothing was applied.
   notAllowed,
 
-  /// The action applied but did not finish the step (multi-action steps).
+  /// The action applied but did not finish the step (multi-action steps or
+  /// a staged play that has not satisfied the step yet).
   accepted,
+
+  /// A take-back applied; step progress is untouched. Distinct from
+  /// [accepted] so the surface never narrates a correction as a stall.
+  corrected,
 
   /// The action applied and completed the current step.
   stepCompleted,
@@ -53,6 +58,18 @@ class PracticeSession {
         script.buildSnapshot(),
       );
 
+  /// Action kinds that take a staged play back rather than make a move.
+  ///
+  /// Corrections are how a player recovers from staging the wrong cards
+  /// (e.g. a valid-but-partial run that can never reach the opening), so
+  /// practice always offers them whenever the engine does — gating them
+  /// behind the step filter would strand the lesson. Applying one never
+  /// advances step progress.
+  static const _correctionKinds = {
+    ClassicHareegActionKind.returnOpeningMelds,
+    ClassicHareegActionKind.returnTablePlay,
+  };
+
   /// Script being taught.
   final PracticeLessonScript script;
 
@@ -91,13 +108,24 @@ class PracticeSession {
     if (step == null) {
       return const [];
     }
-    return _allowedActionsCache ??= [
+    final cached = _allowedActionsCache;
+    if (cached != null) {
+      return cached;
+    }
+    final actions = [
       for (final action
           in controller
               .legalActionIdsFor(seat)
               .map(ClassicHareegActionIds.describe))
         if (step.allows(action)) action,
     ];
+    // An empty surface mid-step means it is not the player's turn yet — the
+    // lesson's scripted intro mutates the board outside [submit], so caching
+    // here would freeze the gate before the player's turn arrives.
+    if (actions.isEmpty) {
+      return actions;
+    }
+    return _allowedActionsCache = actions;
   }
 
   /// Whether the active step offers the move encoded by [actionId].
@@ -116,7 +144,11 @@ class PracticeSession {
     if (step == null) {
       return false;
     }
-    return step.allows(ClassicHareegActionIds.describe(actionId));
+    final action = ClassicHareegActionIds.describe(actionId);
+    if (_correctionKinds.contains(action.kind)) {
+      return true;
+    }
+    return step.allows(action);
   }
 
   /// Applies one action through the real engine and advances step progress.
@@ -126,6 +158,9 @@ class PracticeSession {
       return const PracticeSubmitResult._(PracticeSubmitStatus.notAllowed, '');
     }
     final action = ClassicHareegActionIds.describe(actionId);
+    if (_correctionKinds.contains(action.kind)) {
+      return _applyCorrection(actionId);
+    }
     if (!step.allows(action)) {
       return const PracticeSubmitResult._(PracticeSubmitStatus.notAllowed, '');
     }
@@ -159,5 +194,19 @@ class PracticeSession {
           : PracticeSubmitStatus.stepCompleted,
       '',
     );
+  }
+
+  /// Applies a take-back through the real engine without touching step
+  /// progress — the step's move still has to be demonstrated afterwards.
+  PracticeSubmitResult _applyCorrection(String actionId) {
+    final result = controller.applyAction(actionId);
+    if (!result.isSuccess) {
+      return PracticeSubmitResult._(
+        PracticeSubmitStatus.rejected,
+        result.message,
+      );
+    }
+    _allowedActionsCache = null;
+    return const PracticeSubmitResult._(PracticeSubmitStatus.corrected, '');
   }
 }

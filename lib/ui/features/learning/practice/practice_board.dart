@@ -3,6 +3,7 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../../../../domain/classic_hareeg/rules/classic_hareeg_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
 
 /// Builds deterministic mini-hand boards for guided practice lessons.
@@ -23,12 +24,17 @@ abstract final class PracticeBoard {
   /// [southHand] is the exact teaching hand. [topDiscard] (if given) becomes
   /// the only discard-pile card. [tableMelds] are pre-placed melds keyed by
   /// owner seat. [openingState] defaults to a fresh benchmark at the setup's
-  /// opening requirement. The lesson seat is always [PlayerSeat.south].
+  /// opening requirement. [cpuSeedCards] pins named cards into a CPU seat's
+  /// hand for scripted intro turns (the rest of that hand pads with dummies).
+  /// [currentSeat] defaults to the south lesson seat; boards with a scripted
+  /// intro start on the acting CPU seat instead.
   static ClassicHareegMatchSnapshot build({
     required List<HareegCard> southHand,
     HareegCard? topDiscard,
     Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
+    Map<PlayerSeat, List<HareegCard>> cpuSeedCards = const {},
     OpeningState? openingState,
+    PlayerSeat currentSeat = PlayerSeat.south,
     TurnPhase turnPhase = TurnPhase.draw,
     ClassicHareegSetup? setup,
     int seed = 404,
@@ -49,6 +55,8 @@ abstract final class PracticeBoard {
       for (final melds in tableMelds.values)
         for (final meld in melds)
           for (final card in meld.cards) card.id,
+      for (final seeds in cpuSeedCards.values)
+        for (final card in seeds) card.id,
     };
 
     // Pool every dealt card, then keep only the unclaimed ones for the CPU
@@ -70,9 +78,10 @@ abstract final class PracticeBoard {
       );
     }
 
-    // Small dummy CPU hands keep seat counts plausible without mattering to
-    // the lesson; the rest becomes stock.
-    const cpuHandSize = 5;
+    // CPU hands deal the real hand size so the table reads like a live
+    // match; seeded cards for scripted intro turns come first, dummies pad
+    // the rest, and everything left over becomes stock.
+    final cpuHandSize = ClassicHareegRules.defaults().cardsPerPlayer;
     final hands = <PlayerSeat, List<HareegCard>>{
       PlayerSeat.south: List.unmodifiable(southHand),
     };
@@ -82,10 +91,14 @@ abstract final class PracticeBoard {
       PlayerSeat.north,
       PlayerSeat.west,
     ]) {
-      hands[seat] = List.unmodifiable(
-        unclaimed.sublist(cursor, cursor + cpuHandSize),
-      );
-      cursor += cpuHandSize;
+      final seeds = cpuSeedCards[seat] ?? const <HareegCard>[];
+      final padCount = cpuHandSize - seeds.length;
+      assert(padCount >= 0, 'CPU seed cards exceed the dealt hand size');
+      hands[seat] = List.unmodifiable([
+        ...seeds,
+        ...unclaimed.sublist(cursor, cursor + padCount),
+      ]);
+      cursor += padCount;
     }
     final stock = List<HareegCard>.unmodifiable(unclaimed.sublist(cursor));
 
@@ -96,7 +109,7 @@ abstract final class PracticeBoard {
       discardPile: [?topDiscard],
       tableMelds: tableMelds,
       starter: PlayerSeat.east,
-      currentSeat: PlayerSeat.south,
+      currentSeat: currentSeat,
       turnPhase: turnPhase,
       openingState: openingState,
       savedAt: _savedAt,
