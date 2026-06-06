@@ -184,9 +184,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   // completion overlay instead of the match round-result pipeline.
   bool _practiceComplete = false;
 
-  /// Banner-level reaction to the player's last practice move (a step's
-  /// [PracticeStep.holdNote]): persists in the step banner's guidance slot
-  /// until the situation changes, unlike the transient feedback chip.
+  /// Banner-level reaction to the player's last practice move — a stalled
+  /// step's [PracticeStep.holdNote], or the just-completed step's
+  /// [PracticeStep.successNote]: persists in the step banner's guidance slot
+  /// until the situation changes. The lesson banner is the sole narrator in
+  /// practice; the table's transient feedback chip stays error-only.
   String Function(AppStrings strings)? _practiceReaction;
 
   // State-owned so replay / next-lesson swap sessions in place. A route swap
@@ -1414,6 +1416,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// pre-refactor signature; the choreographer notifies on each pump so the
   /// caller no longer needs to wrap.
   void _emitFeedbackForFirstNewJoker({required bool needsSetState}) {
+    // Lessons narrate declarations through the step banner and its notes;
+    // the table's own "joker declared" cue would talk over the teaching
+    // voice (both for the scripted intro and the player's taught meld).
+    if (_isPractice) return;
     final newJokers = _consumeJokerPlacements();
     if (newJokers.isEmpty) return;
     if (needsSetState && !mounted) return;
@@ -1858,12 +1864,13 @@ class _GameTableScreenState extends State<GameTableScreen>
           setState(() => _practiceReaction = note);
         }
       case PracticeSubmitStatus.stepCompleted:
+        // The completed step's confirmation rides the banner's guidance
+        // slot, not the table's action chip — the lesson banner is the only
+        // narrator during practice (a playtest flagged the chip peeking out
+        // behind it).
         final note = completedStep?.successNote;
         setState(() {
-          _practiceReaction = null;
-          if (note != null) {
-            _replaceHumanFeedback(note(context.strings), isError: false);
-          }
+          _practiceReaction = note;
         });
       case PracticeSubmitStatus.lessonCompleted:
         // Persistence stays non-blocking so the completion overlay raises
