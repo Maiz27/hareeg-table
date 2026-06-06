@@ -7,10 +7,14 @@ import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.d
 import 'package:hareeg_table/ui/core/motion/motion_speed.dart';
 import 'package:hareeg_table/ui/core/theme/table_surface_theme.dart';
 
+import '../../support/test_fixtures.dart';
+
 void main() {
   group('LocalPreferencesRepository', () {
     test('returns defaults when no preferences are saved', () async {
-      final repository = LocalPreferencesRepository(store: _MemoryStore());
+      final repository = LocalPreferencesRepository(
+        store: MemoryKeyValueStore(),
+      );
 
       final preferences = await repository.loadPreferences();
 
@@ -27,7 +31,7 @@ void main() {
     });
 
     test('saves and restores setup and display preferences', () async {
-      final store = _MemoryStore();
+      final store = MemoryKeyValueStore();
       final repository = LocalPreferencesRepository(store: store);
       final saved = GamePreferences.defaults().copyWith(
         setup: ClassicHareegSetup.defaults().copyWith(
@@ -67,7 +71,7 @@ void main() {
     });
 
     test('legacy saved silent defaults migrate to sound on once', () async {
-      final store = _MemoryStore()
+      final store = MemoryKeyValueStore()
         ..values['preferences.v1'] =
             '{"soundEnabled":false,"autoSort":false,"fastCpuTurns":false}';
       final repository = LocalPreferencesRepository(store: store);
@@ -80,7 +84,7 @@ void main() {
     });
 
     test('legacy autoSort=true migrates to byRank', () async {
-      final store = _MemoryStore()
+      final store = MemoryKeyValueStore()
         ..values['preferences.v1'] = '{"autoSort":true}';
       final repository = LocalPreferencesRepository(store: store);
 
@@ -90,7 +94,7 @@ void main() {
     });
 
     test('saved handSortMode overrides legacy autoSort', () async {
-      final store = _MemoryStore()
+      final store = MemoryKeyValueStore()
         ..values['preferences.v1'] =
             '{"autoSort":true,"handSortMode":"bySuit"}';
       final repository = LocalPreferencesRepository(store: store);
@@ -103,7 +107,7 @@ void main() {
     test(
       'saved sound off is preserved after the audio-default migration',
       () async {
-        final store = _MemoryStore()
+        final store = MemoryKeyValueStore()
           ..values['preferences.v1'] =
               '{"soundEnabled":false,"soundDefaultsVersion":1}';
         final repository = LocalPreferencesRepository(store: store);
@@ -115,7 +119,7 @@ void main() {
     );
 
     test('invalid saved preferences fall back to defaults', () async {
-      final store = _MemoryStore()..values['preferences.v1'] = '{';
+      final store = MemoryKeyValueStore()..values['preferences.v1'] = '{';
       final repository = LocalPreferencesRepository(store: store);
 
       final preferences = await repository.loadPreferences();
@@ -155,21 +159,4 @@ void main() {
       );
     });
   });
-}
-
-class _MemoryStore implements KeyValueStore {
-  final values = <String, String>{};
-
-  @override
-  Future<String?> loadString(String key) async => values[key];
-
-  @override
-  Future<void> remove(String key) async {
-    values.remove(key);
-  }
-
-  @override
-  Future<void> saveString(String key, String value) async {
-    values[key] = value;
-  }
 }
