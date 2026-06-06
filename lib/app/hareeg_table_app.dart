@@ -78,16 +78,17 @@ class _HareegTableAppState extends State<HareegTableApp> {
     _matches = widget.matchRepository ?? AppRepositories.matches;
     _learning = widget.learningProgressRepository ?? AppRepositories.learning;
     // Kicked off at startup so the splash hand-off can decide between home
-    // and first-run onboarding without a visible wait. Errors fall back to
-    // defaults; failing to read progress must never block the menu.
-    _learningFuture = _learning.loadProgress().catchError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      debugPrint('Failed to load learning progress in app shell: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      return LearningProgress.defaults();
-    });
+    // and first-run onboarding without a visible wait. Errors and stalled
+    // reads fall back to defaults; failing to read progress must never block
+    // the menu.
+    _learningFuture = _learning
+        .loadProgress()
+        .timeout(const Duration(seconds: 2))
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Failed to load learning progress in app shell: $error');
+          debugPrintStack(stackTrace: stackTrace);
+          return LearningProgress.defaults();
+        });
     _haptics = TableHaptics(enabled: _values.hapticsEnabled);
     _audio = TableAudio(enabled: _values.soundEnabled);
     _loadPreferences();
@@ -102,7 +103,13 @@ class _HareegTableAppState extends State<HareegTableApp> {
       return;
     }
     if (progress.onboardingCompleted) {
-      unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      // Path-based initial route generation already placed home beneath the
+      // splash, so popping reveals the menu without stacking a second home.
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      }
       return;
     }
     // Path-based initial route generation already placed home beneath the
