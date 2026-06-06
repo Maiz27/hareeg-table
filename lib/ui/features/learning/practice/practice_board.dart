@@ -48,16 +48,36 @@ abstract final class PracticeBoard {
       starterOverride: PlayerSeat.east,
     );
 
-    // Cards claimed by the lesson setup, by physical id.
-    final claimedIds = <String>{
-      for (final card in southHand) card.id,
-      if (topDiscard != null) topDiscard.id,
-      for (final melds in tableMelds.values)
-        for (final meld in melds)
-          for (final card in meld.cards) card.id,
-      for (final seeds in cpuSeedCards.values)
-        for (final card in seeds) card.id,
-    };
+    // Cards claimed by the lesson setup, by physical id. A duplicate claim
+    // (the same physical card named in two places) would silently shrink
+    // the set and slip past the pool-count guard below, materialising the
+    // card twice on the board — fail fast with the offending ids instead.
+    final claimedIds = <String>{};
+    final duplicateIds = <String>{};
+    void claim(HareegCard card) {
+      if (!claimedIds.add(card.id)) {
+        duplicateIds.add(card.id);
+      }
+    }
+
+    southHand.forEach(claim);
+    if (topDiscard != null) {
+      claim(topDiscard);
+    }
+    for (final melds in tableMelds.values) {
+      for (final meld in melds) {
+        meld.cards.forEach(claim);
+      }
+    }
+    for (final seeds in cpuSeedCards.values) {
+      seeds.forEach(claim);
+    }
+    if (duplicateIds.isNotEmpty) {
+      throw ArgumentError(
+        'Practice board claims the same physical card more than once: '
+        '$duplicateIds',
+      );
+    }
 
     // Pool every dealt card, then keep only the unclaimed ones for the CPU
     // hands and stock so each physical card appears exactly once.
@@ -93,7 +113,12 @@ abstract final class PracticeBoard {
     ]) {
       final seeds = cpuSeedCards[seat] ?? const <HareegCard>[];
       final padCount = cpuHandSize - seeds.length;
-      assert(padCount >= 0, 'CPU seed cards exceed the dealt hand size');
+      if (padCount < 0) {
+        throw ArgumentError(
+          'Practice board seeds ${seeds.length} cards for ${seat.name}, '
+          'past the $cpuHandSize-card hand.',
+        );
+      }
       hands[seat] = List.unmodifiable([
         ...seeds,
         ...unclaimed.sublist(cursor, cursor + padCount),

@@ -34,6 +34,38 @@ void main() {
       );
     });
 
+    test('rejects a board that claims the same physical card twice', () {
+      // A double-claimed card would otherwise materialise in two hands and
+      // break card conservation silently.
+      final eight = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
+      expect(
+        () => PracticeBoard.build(
+          southHand: [eight],
+          cpuSeedCards: {
+            PlayerSeat.west: [eight],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects CPU seed cards past the dealt hand size', () {
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.west: [
+              for (final suit in CardSuit.values)
+                for (final rank in CardRank.values)
+                  if (!(rank == CardRank.two && suit == CardSuit.clubs))
+                    PracticeBoard.card(rank, suit),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('builds identical boards on every call', () {
       final first = PracticeScripts.turnRhythm().buildSnapshot();
       final second = PracticeScripts.turnRhythm().buildSnapshot();
