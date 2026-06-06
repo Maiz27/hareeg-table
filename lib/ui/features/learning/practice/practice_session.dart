@@ -66,7 +66,6 @@ class PracticeSession {
   /// engine's combinatorial meld enumeration, so it is cached until [submit]
   /// mutates the board or advances the step.
   List<ClassicHareegActionDescriptor>? _allowedActionsCache;
-  Set<String>? _allowedActionIdsCache;
 
   /// Seat the player controls.
   PlayerSeat get seat => script.seat;
@@ -99,14 +98,6 @@ class PracticeSession {
               .map(ClassicHareegActionIds.describe))
         if (step.allows(action)) action,
     ];
-  }
-
-  /// Raw ids of [allowedActions] — the table's practice affordance gate, so
-  /// only on-script moves light up as tappable/draggable targets.
-  Set<String> get allowedActionIds {
-    return _allowedActionIdsCache ??= {
-      for (final action in allowedActions) action.id,
-    };
   }
 
   /// Whether the active step offers the move encoded by [actionId].
@@ -142,7 +133,6 @@ class PracticeSession {
     final result = controller.applyAction(actionId);
     if (result.isSuccess) {
       _allowedActionsCache = null;
-      _allowedActionIdsCache = null;
     }
     if (!result.isSuccess || result.revertedCardId != null) {
       // A reverted action (stricter tiers) only applied a penalty — the move
