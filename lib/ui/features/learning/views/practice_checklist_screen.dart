@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -8,6 +10,7 @@ import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_catalog.dart';
 import '../practice/practice_scripts.dart';
+import 'onboarding_screen.dart';
 
 /// Guided practice checklist hub.
 ///
@@ -16,10 +19,7 @@ import '../practice/practice_scripts.dart';
 /// Progress persists locally and is independent of onboarding completion.
 class PracticeChecklistScreen extends StatefulWidget {
   /// Creates the practice hub.
-  const PracticeChecklistScreen({
-    required this.learningRepository,
-    super.key,
-  });
+  const PracticeChecklistScreen({required this.learningRepository, super.key});
 
   /// Onboarding and practice progress persistence.
   final LearningProgressRepository learningRepository;
@@ -86,10 +86,9 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
       return;
     }
     try {
-      await Navigator.of(context).pushNamed(
-        AppRoutes.practiceLesson,
-        arguments: lesson.id,
-      );
+      await Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.practiceLesson, arguments: lesson.id);
     } finally {
       if (mounted) {
         await _loadProgress();
@@ -97,8 +96,20 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
     }
   }
 
-  void _replayIntro() {
-    Navigator.of(context).pushNamed(AppRoutes.onboarding);
+  Future<void> _replayIntro() async {
+    final navigator = Navigator.of(context);
+    // Let queued status writes land before onboarding runs its own
+    // load-modify-save on the same key, so a just-tapped skip cannot be lost.
+    await _pendingSave.catchError((Object _) {});
+    if (!mounted) {
+      return;
+    }
+    unawaited(
+      navigator.pushNamed(
+        AppRoutes.onboarding,
+        arguments: OnboardingScreen.fromPracticeArgument,
+      ),
+    );
   }
 
   @override
@@ -259,21 +270,16 @@ class _LessonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final muted = status == PracticeLessonStatus.skipped;
+    final look = _lookFor(strings);
+    final muted = look.muted;
 
     return Container(
       margin: const EdgeInsets.only(bottom: LoungeTokens.space3),
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(
-          alpha: muted ? 0.3 : 0.5,
-        ),
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: muted ? 0.3 : 0.5),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(
-          color: status == PracticeLessonStatus.completed
-              ? LoungeTokens.goldAccent.withValues(alpha: 0.45)
-              : LoungeTokens.sandLine.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: look.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +287,7 @@ class _LessonTile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatusBadge(status: status),
+              Icon(look.badgeIcon, size: 20, color: look.badgeColor),
               const SizedBox(width: LoungeTokens.space3),
               Expanded(
                 child: Column(
@@ -312,7 +318,7 @@ class _LessonTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _statusLabel(strings),
+                  look.statusLabel,
                   overflow: TextOverflow.ellipsis,
                   style: LoungeTokens.bodyMuted.copyWith(
                     fontSize: 12,
@@ -344,17 +350,8 @@ class _LessonTile extends StatelessWidget {
               const SizedBox(width: LoungeTokens.space2),
               OutlinedButton.icon(
                 onPressed: onStart,
-                icon: Icon(
-                  status == PracticeLessonStatus.completed
-                      ? Icons.replay_outlined
-                      : Icons.play_arrow_outlined,
-                  size: 18,
-                ),
-                label: Text(
-                  status == PracticeLessonStatus.completed
-                      ? strings.practiceReplay
-                      : strings.practiceStart,
-                ),
+                icon: Icon(look.startIcon, size: 18),
+                label: Text(look.startLabel),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: LoungeTokens.goldAccent,
                   side: BorderSide(
@@ -371,37 +368,48 @@ class _LessonTile extends StatelessWidget {
     );
   }
 
-  String _statusLabel(AppStrings strings) {
+  /// Status-driven presentation, derived in one exhaustive switch so a new
+  /// status cannot ship half-styled.
+  ({
+    bool muted,
+    IconData badgeIcon,
+    Color badgeColor,
+    Color borderColor,
+    IconData startIcon,
+    String startLabel,
+    String statusLabel,
+  })
+  _lookFor(AppStrings strings) {
+    final restingBorder = LoungeTokens.sandLine.withValues(alpha: 0.16);
     return switch (status) {
-      PracticeLessonStatus.notStarted => strings.practiceStatusNotStarted,
-      PracticeLessonStatus.skipped => strings.practiceStatusSkipped,
-      PracticeLessonStatus.completed => strings.practiceStatusCompleted,
-    };
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final PracticeLessonStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, color) = switch (status) {
       PracticeLessonStatus.notStarted => (
-        Icons.radio_button_unchecked,
-        LoungeTokens.mutedText,
+        muted: false,
+        badgeIcon: Icons.radio_button_unchecked,
+        badgeColor: LoungeTokens.mutedText,
+        borderColor: restingBorder,
+        startIcon: Icons.play_arrow_outlined,
+        startLabel: strings.practiceStart,
+        statusLabel: strings.practiceStatusNotStarted,
       ),
       PracticeLessonStatus.skipped => (
-        Icons.remove_circle_outline,
-        LoungeTokens.mutedText,
+        muted: true,
+        badgeIcon: Icons.remove_circle_outline,
+        badgeColor: LoungeTokens.mutedText,
+        borderColor: restingBorder,
+        startIcon: Icons.play_arrow_outlined,
+        startLabel: strings.practiceStart,
+        statusLabel: strings.practiceStatusSkipped,
       ),
       PracticeLessonStatus.completed => (
-        Icons.check_circle,
-        LoungeTokens.goldAccent,
+        muted: false,
+        badgeIcon: Icons.check_circle,
+        badgeColor: LoungeTokens.goldAccent,
+        borderColor: LoungeTokens.goldAccent.withValues(alpha: 0.45),
+        startIcon: Icons.replay_outlined,
+        startLabel: strings.practiceReplay,
+        statusLabel: strings.practiceStatusCompleted,
       ),
     };
-    return Icon(icon, size: 20, color: color);
   }
 }
 

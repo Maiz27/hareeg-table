@@ -99,12 +99,24 @@ class _HareegTableAppState extends State<HareegTableApp> {
   /// straight to the home menu.
   Future<void> _continueFromSplash(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final progress = await _learningFuture;
+    // Cap the wait here rather than on the startup read itself so the timer
+    // only exists while the splash is actually waiting; a stalled store can
+    // never strand the player on the splash.
+    final progress = await _learningFuture.timeout(
+      const Duration(seconds: 2),
+      onTimeout: LearningProgress.defaults,
+    );
     if (!navigator.mounted) {
       return;
     }
     if (progress.onboardingCompleted) {
-      unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      // Path-based initial route generation already placed home beneath the
+      // splash, so popping reveals the menu without stacking a second home.
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      }
       return;
     }
     // Path-based initial route generation already placed home beneath the
