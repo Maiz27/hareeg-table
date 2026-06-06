@@ -183,7 +183,7 @@ void main() {
     expect(
       find.text(
         'The last discard is the 8 of diamonds — and you hold two more '
-        'eights. Take it instead of drawing.',
+        'eights. Tap the pile to take it instead of drawing.',
       ),
       findsOneWidget,
     );

@@ -1206,25 +1206,25 @@ const _englishValues = {
   'practiceTurnRhythmStep2Hint':
       'Drag the card you can spare onto the discard pile.',
   'practicePendingStep1':
-      'The last discard is the 8 of diamonds — and you hold two more eights. Take it instead of drawing.',
+      'The last discard is the 8 of diamonds — and you hold two more eights. Tap the pile to take it instead of drawing.',
   'practicePendingStep1Done':
       'The eight is now pending: it must be used this turn or returned.',
   'practicePendingStep2':
       'A taken discard must earn its place. Play it in a meld now — or return it and draw from stock instead.',
   'practicePendingStep2Hint':
-      'Select all three eights, then Play Meld. Changed your mind? Return + Draw.',
+      'Tap the three eights, then the gold meld chip. Changed your mind? Tap the pile to return the eight.',
   'practicePendingStep2Done': 'Pending discard resolved.',
   'practicePendingStep3':
       'End your turn with a discard. (If you returned the eight, draw from stock first.)',
   'practiceMeldStep1':
       'Three or more cards make a meld when they share a rank or run in one suit. Play the 5-6-7 of spades.',
   'practiceMeldStep1Hint':
-      'Select exactly those three cards — extras break the meld.',
+      'Tap exactly those three cards, then the gold meld chip — extras break the meld.',
   'practiceMeldStep1Done': 'A clean run. Sets of one rank work the same way.',
   'practiceMeldStep2': 'Finish the turn: discard a card you do not need.',
   'practiceOpeningStep1':
       'Opening needs new melds worth 51 in one turn. Start with your kings — notice 30 is not enough on its own.',
-  'practiceOpeningStep1Hint': 'Select the three kings, then Play Meld.',
+  'practiceOpeningStep1Hint': 'Tap the three kings, then the gold meld chip.',
   'practiceOpeningStep1Done':
       'Staged at 30. The table holds your melds until you reach 51.',
   'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
@@ -1490,26 +1490,27 @@ const _arabicValues = {
   'practiceTurnRhythmStep2': 'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
   'practiceTurnRhythmStep2Hint': 'اسحب البطاقة التي لا تحتاجها إلى كومة الرمي.',
   'practicePendingStep1':
-      'آخر رمية هي 8 الديناري — وأنت تحمل ثمانيتين أخريين. خذها بدلا من السحب.',
+      'آخر رمية هي 8 الديناري — وأنت تحمل ثمانيتين أخريين. اضغط على كومة الرمي لأخذها بدلا من السحب.',
   'practicePendingStep1Done':
       'الثمانية الآن معلقة: يجب استخدامها هذا الدور أو إرجاعها.',
   'practicePendingStep2':
       'الرمية المأخوذة يجب أن تستحق مكانها. العبها في مجموعة الآن — أو أرجعها واسحب من الكومة.',
   'practicePendingStep2Hint':
-      'حدد الثمانيات الثلاث ثم العب المجموعة. غيرت رأيك؟ أرجع + اسحب.',
+      'اضغط على الثمانيات الثلاث ثم على شريحة المجموعة الذهبية. غيرت رأيك؟ اضغط على كومة الرمي لإرجاع الثمانية.',
   'practicePendingStep2Done': 'حسمت الرمية المعلقة.',
   'practicePendingStep3':
       'أنهِ دورك برمي ورقة. (إن أرجعت الثمانية، اسحب من الكومة أولا.)',
   'practiceMeldStep1':
       'ثلاث أوراق أو أكثر تصنع مجموعة عندما تتشارك الرتبة أو تتسلسل بشكل واحد. العب 5-6-7 البستوني.',
   'practiceMeldStep1Hint':
-      'حدد هذه الأوراق الثلاث بالضبط — الزيادة تفسد المجموعة.',
+      'اضغط على هذه الأوراق الثلاث بالضبط ثم على شريحة المجموعة الذهبية — الزيادة تفسد المجموعة.',
   'practiceMeldStep1Done':
       'تسلسل نظيف. مجموعات الرتبة الواحدة تعمل بنفس الطريقة.',
   'practiceMeldStep2': 'أنهِ الدور: ارم ورقة لا تحتاجها.',
   'practiceOpeningStep1':
       'الافتتاح يحتاج مجموعات جديدة بقيمة 51 في دور واحد. ابدأ بملوكك — لاحظ أن 30 لا تكفي وحدها.',
-  'practiceOpeningStep1Hint': 'حدد الملوك الثلاثة ثم العب المجموعة.',
+  'practiceOpeningStep1Hint':
+      'اضغط على الملوك الثلاثة ثم على شريحة المجموعة الذهبية.',
   'practiceOpeningStep1Done':
       'مرحلية عند 30. الطاولة تحفظ مجموعاتك حتى تبلغ 51.',
   'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
