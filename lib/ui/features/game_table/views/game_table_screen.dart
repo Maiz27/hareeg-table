@@ -736,13 +736,14 @@ class _GameTableScreenState extends State<GameTableScreen>
                     : isTablet
                     ? 14.0
                     : 10.0;
-                // A landscape camera cutout inflates ONE side's safe inset
-                // (which side depends on rotation), so per-side insets leave
-                // the corner buttons visibly lopsided. Mirror the larger
-                // inset to both corners: the cutout side keeps its required
-                // clearance and the opposite button moves in to match.
-                final horizontalInset =
-                    math.max(safe.left, safe.right) + edgeInset;
+                // Side safe-insets are deliberately ignored: in landscape the
+                // OS pads an entire short edge for a punch-hole that actually
+                // sits vertically centered (and for system bars hidden by
+                // immersive mode), which pushed the corner buttons visibly
+                // off the edges while the stock pile and open-need pill sat
+                // flush. The top corners are clear on side-cutout devices, so
+                // the chrome matches the rest of the table: cosmetic inset
+                // only.
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -750,7 +751,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     // the hub; lesson boards have no match score to inspect.
                     Positioned(
                       top: safe.top + edgeInset,
-                      left: horizontalInset,
+                      left: edgeInset,
                       child: _isPractice
                           ? _TableChromeButton(
                               key: const ValueKey('practice-exit'),
@@ -771,7 +772,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     ),
                     Positioned(
                       top: safe.top + edgeInset,
-                      right: horizontalInset,
+                      right: edgeInset,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -804,8 +805,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                             safe.top +
                             edgeInset +
                             math.max(0.0, (buttonSize - 34) / 2),
-                        left: horizontalInset + buttonSize + 14,
-                        right: horizontalInset + buttonSize + 14,
+                        left: edgeInset + buttonSize + 14,
+                        right: edgeInset + buttonSize + 14,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
