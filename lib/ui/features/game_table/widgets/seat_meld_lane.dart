@@ -436,8 +436,12 @@ class _TableMeldStackState extends State<_TableMeldStack> {
       builder: (context, candidates, rejected) {
         final hot = candidates.isNotEmpty;
         final retractable = canRetract && onRetract != null;
-        final bodyWidth = vertical ? width : width + (expanded ? 14 : 10);
-        final bodyHeight = vertical ? height + (expanded ? 14 : 10) : height;
+        // The body hugs the card fan exactly: trailing slack here painted
+        // the take-back/drop frame past the last card (the same dead-space
+        // family as the suggestion rack's trailing separator). The value
+        // badge overlays the fan's corner instead of claiming its own lane.
+        final bodyWidth = width;
+        final bodyHeight = height;
         final hoverPlacement = _hoverPlacement;
         final hoverColor = _hoverAccepts
             ? LoungeTokens.goldAccent
