@@ -40,8 +40,12 @@ abstract final class PracticeBoard {
     int seed = 404,
   }) {
     final effectiveSetup = setup ?? ClassicHareegSetup.defaults();
+    // One ruleset feeds both the deal and the CPU hand padding below, so
+    // the pad size can never drift from the dealt hand size.
+    final rules = ClassicHareegRules.defaults();
     final base = ClassicHareegRound.deal(
       setup: effectiveSetup,
+      rules: rules,
       seed: seed,
       // South never starts: lessons that teach the draw phase need a seat
       // that begins its turn by drawing.
@@ -110,7 +114,7 @@ abstract final class PracticeBoard {
     // CPU hands deal the real hand size so the table reads like a live
     // match; seeded cards for scripted intro turns come first, dummies pad
     // the rest, and everything left over becomes stock.
-    final cpuHandSize = ClassicHareegRules.defaults().cardsPerPlayer;
+    final cpuHandSize = rules.cardsPerPlayer;
     final hands = <PlayerSeat, List<HareegCard>>{
       PlayerSeat.south: List.unmodifiable(southHand),
     };
