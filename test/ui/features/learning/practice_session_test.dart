@@ -77,9 +77,7 @@ void main() {
       // Step 2 offers exactly one discard action per hand card.
       final discardActions = session.allowedActions;
       expect(
-        discardActions.every(
-          (a) => a.kind == ClassicHareegActionKind.discard,
-        ),
+        discardActions.every((a) => a.kind == ClassicHareegActionKind.discard),
         isTrue,
       );
       expect(discardActions, hasLength(handBefore + 1));
@@ -116,6 +114,33 @@ void main() {
       expect(result.status, PracticeSubmitStatus.rejected);
       expect(result.message, isNotEmpty);
       expect(session.stepIndex, 1, reason: 'step must not advance');
+    });
+  });
+
+  group('PracticeScripts.nextScriptInPack', () {
+    test('chains the scripted core turn pack lessons in order', () {
+      expect(
+        PracticeScripts.nextScriptInPack('turn-rhythm')?.lessonId,
+        'pending-discard',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('pending-discard')?.lessonId,
+        'meld-picker',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('meld-picker')?.lessonId,
+        'opening-51',
+      );
+    });
+
+    test('stops at the pack boundary', () {
+      // Finishing a pack is a deliberate stopping point; the continuation
+      // never crosses into the next pack.
+      expect(PracticeScripts.nextScriptInPack('opening-51'), isNull);
+    });
+
+    test('returns null for unknown lessons', () {
+      expect(PracticeScripts.nextScriptInPack('not-a-lesson'), isNull);
     });
   });
 }

@@ -2,6 +2,7 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
+import '../models/practice_catalog.dart';
 import 'practice_board.dart';
 import 'practice_lesson_script.dart';
 
@@ -19,6 +20,24 @@ abstract final class PracticeScripts {
       'opening-51' => openingTo51(),
       _ => null,
     };
+  }
+
+  /// Script for the lesson after [lessonId] within the same practice pack.
+  ///
+  /// Returns null at the pack boundary (finishing a pack is a deliberate
+  /// stopping point) or when the next lesson's script has not shipped yet.
+  /// Drives the completion overlay's "next lesson" continuation.
+  static PracticeLessonScript? nextScriptInPack(String lessonId) {
+    final lesson = PracticeCatalog.byId(lessonId);
+    if (lesson == null) {
+      return null;
+    }
+    final pack = PracticeCatalog.lessonsIn(lesson.pack);
+    final index = pack.indexWhere((entry) => entry.id == lessonId);
+    if (index == -1 || index + 1 >= pack.length) {
+      return null;
+    }
+    return byId(pack[index + 1].id);
   }
 
   /// Turn rhythm: draw from stock, then end the turn with a discard.

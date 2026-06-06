@@ -4,8 +4,9 @@ import 'practice_lesson_script.dart';
 
 /// How the session handled one submitted action.
 enum PracticeSubmitStatus {
-  /// The engine rejected the action; the step is unchanged. The result
-  /// message explains why (real rules feedback).
+  /// The engine rejected the action (or reverted it with a penalty under the
+  /// stricter tiers); the step is unchanged. The result message explains why
+  /// (real rules feedback).
   rejected,
 
   /// The action is not offered by the current step; nothing was applied.
@@ -29,7 +30,7 @@ class PracticeSubmitResult {
   final PracticeSubmitStatus status;
 
   /// Raw engine message for rejected actions (empty otherwise). UI localizes
-  /// it via `AppStrings.localizedActionFailure`.
+  /// it via `AppStrings.gameMessage`.
   final String message;
 
   /// Whether the action mutated the board.
@@ -61,6 +62,12 @@ class PracticeSession {
 
   var _stepIndex = 0;
 
+  /// Legal-action surface for the current board state; computing it runs the
+  /// engine's combinatorial meld enumeration, so it is cached until [submit]
+  /// mutates the board or advances the step.
+  List<ClassicHareegActionDescriptor>? _allowedActionsCache;
+  Set<String>? _allowedActionIdsCache;
+
   /// Seat the player controls.
   PlayerSeat get seat => script.seat;
 
@@ -74,8 +81,7 @@ class PracticeSession {
   bool get isComplete => _stepIndex >= script.steps.length;
 
   /// Active step, or null once the lesson is complete.
-  PracticeStep? get currentStep =>
-      isComplete ? null : script.steps[_stepIndex];
+  PracticeStep? get currentStep => isComplete ? null : script.steps[_stepIndex];
 
   /// Legal engine actions the current step offers, as parsed descriptors.
   ///
@@ -86,32 +92,42 @@ class PracticeSession {
     if (step == null) {
       return const [];
     }
-    return [
-      for (final id in controller.legalActionIdsFor(seat))
-        if (step.allows(ClassicHareegActionIds.describe(id)))
-          ClassicHareegActionIds.describe(id),
+    return _allowedActionsCache ??= [
+      for (final action
+          in controller
+              .legalActionIdsFor(seat)
+              .map(ClassicHareegActionIds.describe))
+        if (step.allows(action)) action,
     ];
+  }
+
+  /// Raw ids of [allowedActions] — the table's practice affordance gate, so
+  /// only on-script moves light up as tappable/draggable targets.
+  Set<String> get allowedActionIds {
+    return _allowedActionIdsCache ??= {
+      for (final action in allowedActions) action.id,
+    };
   }
 
   /// Applies one action through the real engine and advances step progress.
   PracticeSubmitResult submit(String actionId) {
     final step = currentStep;
     if (step == null) {
-      return const PracticeSubmitResult._(
-        PracticeSubmitStatus.notAllowed,
-        '',
-      );
+      return const PracticeSubmitResult._(PracticeSubmitStatus.notAllowed, '');
     }
     final action = ClassicHareegActionIds.describe(actionId);
     if (!step.allows(action)) {
-      return const PracticeSubmitResult._(
-        PracticeSubmitStatus.notAllowed,
-        '',
-      );
+      return const PracticeSubmitResult._(PracticeSubmitStatus.notAllowed, '');
     }
 
     final result = controller.applyAction(actionId);
-    if (!result.isSuccess) {
+    if (result.isSuccess) {
+      _allowedActionsCache = null;
+      _allowedActionIdsCache = null;
+    }
+    if (!result.isSuccess || result.revertedCardId != null) {
+      // A reverted action (stricter tiers) only applied a penalty — the move
+      // itself was taken back, so the step was not demonstrated.
       return PracticeSubmitResult._(
         PracticeSubmitStatus.rejected,
         result.message,

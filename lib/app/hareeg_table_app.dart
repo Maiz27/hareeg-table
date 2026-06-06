@@ -21,9 +21,9 @@ import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
 import '../ui/features/learning/practice/practice_scripts.dart';
+import '../ui/features/learning/practice/practice_session.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
-import '../ui/features/learning/views/practice_lesson_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
@@ -99,12 +99,24 @@ class _HareegTableAppState extends State<HareegTableApp> {
   /// straight to the home menu.
   Future<void> _continueFromSplash(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final progress = await _learningFuture;
+    // Cap the wait here rather than on the startup read itself so the timer
+    // only exists while the splash is actually waiting; a stalled store can
+    // never strand the player on the splash.
+    final progress = await _learningFuture.timeout(
+      const Duration(seconds: 2),
+      onTimeout: LearningProgress.defaults,
+    );
     if (!navigator.mounted) {
       return;
     }
     if (progress.onboardingCompleted) {
-      unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      // Path-based initial route generation already placed home beneath the
+      // splash, so popping reveals the menu without stacking a second home.
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      }
       return;
     }
     // Path-based initial route generation already placed home beneath the
@@ -134,6 +146,21 @@ class _HareegTableAppState extends State<HareegTableApp> {
       }
     } catch (error, stackTrace) {
       debugPrint('Failed to load preferences in app shell: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// Marks [lessonId] completed once its final practice step is demonstrated.
+  /// Lives in the shell so the game table never learns about learning
+  /// progress; failures only log — a lost write must never block the lesson.
+  Future<void> _persistPracticeCompletion(String lessonId) async {
+    try {
+      final progress = await _learning.loadProgress();
+      await _learning.saveProgress(
+        progress.withLessonStatus(lessonId, PracticeLessonStatus.completed),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save practice completion: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
@@ -278,10 +305,19 @@ class _HareegTableAppState extends State<HareegTableApp> {
           if (script == null) {
             return null;
           }
+          // Lessons run on the real table in practice mode: the session's
+          // deterministic controller, step-gated affordances, no CPU
+          // autonomy, and no active-match writes (PRD #64 amendment).
+          final session = PracticeSession(script: script);
           return MaterialPageRoute<void>(
-            builder: (context) => PracticeLessonScreen(
-              script: script,
-              learningRepository: _learning,
+            builder: (context) => GameTableScreen(
+              setup: session.controller.setup,
+              matchRepository: _matches,
+              preferences: _values,
+              onPreferencesChanged: _updatePreferences,
+              practiceSession: session,
+              onPracticeFinished: _persistPracticeCompletion,
+              nextPracticeScript: PracticeScripts.nextScriptInPack,
             ),
             settings: settings,
           );

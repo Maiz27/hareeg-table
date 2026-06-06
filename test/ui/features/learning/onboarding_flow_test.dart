@@ -5,6 +5,7 @@ import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/learning/views/onboarding_screen.dart';
+import 'package:hareeg_table/ui/features/learning/views/practice_checklist_screen.dart';
 import 'package:hareeg_table/ui/features/splash/views/splash_screen.dart';
 
 import '../../../support/test_fixtures.dart';
@@ -12,9 +13,7 @@ import '../../../support/test_fixtures.dart';
 void main() {
   ShowcaseCardFan.disableLoopingMotionForTesting = true;
 
-  testWidgets('first launch routes the splash into onboarding', (
-    tester,
-  ) async {
+  testWidgets('first launch routes the splash into onboarding', (tester) async {
     final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(
       _testApp(learning: learning, initialRoute: AppRoutes.splash),
@@ -33,9 +32,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(
       _testApp(learning: learning, initialRoute: AppRoutes.splash),
@@ -126,9 +123,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_testApp(learning: learning));
     await tester.pumpAndSettle();
@@ -152,16 +147,46 @@ void main() {
     expect(find.text('Classic Hareeg rules'), findsWidgets);
   });
 
-  testWidgets('home exposes the guided practice entry', (tester) async {
+  testWidgets('replaying the intro from the practice hub returns to the same '
+      'hub when choosing practice', (tester) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_testApp(learning: learning));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Guided practice'));
+    await tester.tap(find.text('Guided practice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Replay intro'));
+    await tester.pumpAndSettle();
+
+    for (var page = 0; page < 3; page++) {
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('Try guided practice'));
+    await tester.pumpAndSettle();
+
+    // The original hub is reused; no duplicate hub is stacked beneath.
+    expect(
+      find.byType(PracticeChecklistScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+
+    // Backing out of the hub lands on home, not a stale second hub.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('New Game'), findsOneWidget);
+  });
+
+  testWidgets('home exposes the guided practice entry', (tester) async {
+    final learning = MemoryLearningProgressRepository(
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
+    );
+    await tester.pumpWidget(_testApp(learning: learning));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Guided practice'));
     await tester.pumpAndSettle();
 
     expect(find.text('0 of 15 completed'), findsOneWidget);
@@ -169,9 +194,7 @@ void main() {
 
   testWidgets('rules/help exposes the guided practice entry', (tester) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_testApp(learning: learning));
     await tester.pumpAndSettle();
