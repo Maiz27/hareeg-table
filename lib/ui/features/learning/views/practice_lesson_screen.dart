@@ -131,12 +131,13 @@ class _PracticeLessonScreenState extends State<PracticeLessonScreen> {
   Widget _buildLesson(BuildContext context) {
     final strings = context.strings;
     final step = _session.currentStep!;
+    final allowed = _session.allowedActions;
     final candidates = practiceActionCandidates(
-      allowed: _session.allowedActions,
+      allowed: allowed,
       selectedCardIds: _selectedCardIds,
     );
     final hand = _session.controller.handFor(_session.seat);
-    final selectionMatters = _session.allowedActions.any(
+    final selectionMatters = allowed.any(
       (action) => PracticeActionCandidate(action: action).usesSelection,
     );
 
@@ -247,10 +248,7 @@ class _PromptCard extends StatelessWidget {
           Text(prompt, style: LoungeTokens.body.copyWith(height: 1.4)),
           if (hint != null) ...[
             const SizedBox(height: LoungeTokens.space2),
-            Text(
-              hint!,
-              style: LoungeTokens.bodyMuted.copyWith(fontSize: 13),
-            ),
+            Text(hint!, style: LoungeTokens.bodyMuted.copyWith(fontSize: 13)),
           ],
           if (error != null) ...[
             const SizedBox(height: LoungeTokens.space3),
@@ -301,18 +299,21 @@ class _TableStrip extends StatelessWidget {
       children: [
         _LabeledPile(
           label: '${strings.stock} (${controller.stockCount})',
-          child: const _StockBack(),
+          // Same themed back the live table's stock pile renders, so practice
+          // tracks the active card theme.
+          child: HareegCardView(
+            theme: theme,
+            card: _stockBackSeed,
+            faceDown: true,
+            size: _cardSize,
+          ),
         ),
         const SizedBox(width: LoungeTokens.space6),
         _LabeledPile(
           label: strings.discard,
           child: topDiscard == null
               ? const _EmptyCardSlot()
-              : HareegCardView(
-                  theme: theme,
-                  card: topDiscard,
-                  size: _cardSize,
-                ),
+              : HareegCardView(theme: theme, card: topDiscard, size: _cardSize),
         ),
         if (pending != null) ...[
           const SizedBox(width: LoungeTokens.space6),
@@ -357,31 +358,13 @@ class _LabeledPile extends StatelessWidget {
   }
 }
 
-class _StockBack extends StatelessWidget {
-  const _StockBack();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: _cardSize.width,
-      height: _cardSize.height,
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.style_outlined,
-          color: LoungeTokens.sandLine.withValues(alpha: 0.6),
-          size: 24,
-        ),
-      ),
-    );
-  }
-}
+/// Off-deck card identity backing the face-down stock rendering (mirrors the
+/// table's `_backSeed`; the face is never shown).
+final _stockBackSeed = HareegCard.standard(
+  rank: CardRank.ace,
+  suit: CardSuit.spades,
+  deckIndex: 510,
+);
 
 class _EmptyCardSlot extends StatelessWidget {
   const _EmptyCardSlot();
@@ -474,9 +457,7 @@ class _ActionRow extends StatelessWidget {
       // Card-bearing steps offer no button until the selection matches a
       // legal action; nudge the player toward selecting.
       return Text(
-        selectionMatters && !hasSelection
-            ? strings.practiceSelectHint
-            : '',
+        selectionMatters && !hasSelection ? strings.practiceSelectHint : '',
         textAlign: TextAlign.center,
         style: LoungeTokens.bodyMuted.copyWith(fontSize: 13),
       );
