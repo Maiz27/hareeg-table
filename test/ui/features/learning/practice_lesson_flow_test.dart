@@ -504,6 +504,376 @@ void main() {
     // stopping point, so the overlay offers no continuation.
     expect(find.text('Next lesson'), findsNothing);
   });
+
+  /// Drags a south-hand card onto another seat's placed meld — the cover
+  /// and joker-replacement gesture. Targets the meld stack by owner and
+  /// index with the same left-edge grip the discard helper uses.
+  Future<void> dragToMeld(
+    WidgetTester tester,
+    CardRank rank,
+    CardSuit suit, {
+    required String owner,
+    required int meldIndex,
+  }) async {
+    final rect = handCardRect(tester, rank, suit);
+    final grip = Offset(rect.left + 6, rect.center.dy);
+    final target = tester.getCenter(
+      find.byKey(ValueKey('table-meld-$owner-$meldIndex-normal')),
+    );
+    await tester.dragFrom(grip, target - grip);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('pending-discard lesson: take, hand back, draw, free meld, '
+      'and the overlay chains into benchmark-pressure', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'pending-discard');
+
+    // West visibly draws and throws the four; the player starts opened with
+    // their prior melds already on the table.
+    expect(find.byKey(const ValueKey('practice-step-banner')), findsNothing);
+    await pumpThroughIntro(tester);
+    expect(find.bySemanticsLabel('Four of Clubs'), findsOneWidget);
+
+    // Step 1 rings the pair the take completes.
+    expect(ringedCard(CardRank.four, CardSuit.hearts), findsOneWidget);
+    expect(ringedCard(CardRank.two, CardSuit.spades), findsNothing);
+
+    // Take by tapping the pile.
+    await tapDiscardPile(tester);
+    expect(
+      find.textContaining('tapping the pile hands it back'),
+      findsOneWidget,
+    );
+
+    // Return by tapping the pile again — the taught step move.
+    await tapDiscardPile(tester);
+    expect(
+      find.textContaining('draw from the stock', findRichText: false),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Play your twos'), findsOneWidget);
+
+    // The free six-point meld: legal only because the player is open.
+    await toggleHandCard(tester, CardRank.two, CardSuit.spades);
+    await toggleHandCard(tester, CardRank.two, CardSuit.diamonds);
+    await toggleHandCard(tester, CardRank.two, CardSuit.clubs);
+    await playSelectedMeld(tester);
+    expect(find.text('End your turn with a discard.'), findsOneWidget);
+
+    await dragToDiscard(tester, CardRank.ace, CardSuit.clubs);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('pending-discard'),
+      PracticeLessonStatus.completed,
+    );
+
+    // Pack two chains: benchmark-pressure is the next scripted lesson. Its
+    // own scripted intro starts immediately, so pump through it before the
+    // test ends or its lead-in timer would still be pending.
+    await tester.tap(find.text('Next lesson'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GameTableScreen), findsOneWidget);
+    expect(
+      learning.progress.statusFor('benchmark-pressure'),
+      PracticeLessonStatus.notStarted,
+    );
+    await pumpThroughIntro(tester);
+  });
+
+  testWidgets('benchmark-pressure lesson: west raises the bar on screen; '
+      'staging, the taught retract, and the closing discard', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'benchmark-pressure');
+
+    // West's intro opens three melds totalling 75 through the real flights.
+    await pumpThroughIntro(tester);
+    expect(find.bySemanticsLabel('Ace of Spades'), findsOneWidget);
+    expect(
+      find.textContaining('the bar is now 75'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    // Stage the legal-but-short run.
+    expect(ringedCard(CardRank.seven, CardSuit.hearts), findsOneWidget);
+    await toggleHandCard(tester, CardRank.seven, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.eight, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.nine, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.ten, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.jack, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.queen, CardSuit.hearts);
+    await playSelectedMeld(tester);
+
+    // The retract step: the take-back is the taught move, so the undo pill
+    // must advance the lesson instead of holding it as a correction.
+    expect(
+      find.textContaining('Take the run back'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Take Back Melds'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('End the turn with a discard'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Queen of Hearts'),
+      findsOneWidget,
+      reason: 'the retract restored the run to the hand',
+    );
+
+    await dragToDiscard(tester, CardRank.queen, CardSuit.spades);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('benchmark-pressure'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('sequence-cover lesson: stack the jack and queen on west\'s '
+      'run, then fill the eights with the twin diamond', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'sequence-cover');
+
+    await pumpThroughIntro(tester);
+
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    // The step rings both stacked covers in hand (the run's cards ring on
+    // the table side).
+    expect(ringedCard(CardRank.jack, CardSuit.diamonds), findsOneWidget);
+    expect(ringedCard(CardRank.queen, CardSuit.diamonds), findsOneWidget);
+
+    // West staged the eights first, so the diamond run is meld index 1.
+    // One card at a time: the jack lands, the banner reacts and holds for
+    // the queen.
+    await dragToMeld(
+      tester,
+      CardRank.jack,
+      CardSuit.diamonds,
+      owner: 'west',
+      meldIndex: 1,
+    );
+    expect(
+      find.textContaining('The queen is its new neighbor'),
+      findsOneWidget,
+    );
+    await dragToMeld(
+      tester,
+      CardRank.queen,
+      CardSuit.diamonds,
+      owner: 'west',
+      meldIndex: 1,
+    );
+
+    // Second target, same turn: the duplicate-deck eight fills the set.
+    expect(find.textContaining('Fill the set.'), findsOneWidget);
+    final eightRect = tester.getRect(
+      find.byKey(const ValueKey('south-hand-drag-deck-1-eight-diamonds')),
+    );
+    final eightsTarget = tester.getCenter(
+      find.byKey(const ValueKey('table-meld-west-0-normal')),
+    );
+    final grip = Offset(eightRect.left + 6, eightRect.center.dy);
+    await tester.dragFrom(grip, eightsTarget - grip);
+    await tester.pumpAndSettle();
+
+    expect(find.text('End your turn with a discard.'), findsOneWidget);
+    await dragToDiscard(tester, CardRank.ace, CardSuit.clubs);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('sequence-cover'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('set-cover lesson: the club king fills west\'s kings', (
+    tester,
+  ) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'set-cover');
+
+    await pumpThroughIntro(tester);
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    await dragToMeld(
+      tester,
+      CardRank.king,
+      CardSuit.clubs,
+      owner: 'west',
+      meldIndex: 1,
+    );
+    expect(find.text('End your turn with a discard.'), findsOneWidget);
+
+    await dragToDiscard(tester, CardRank.ace, CardSuit.hearts);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('set-cover'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('cover-discard-block lesson: the trapped ten bounces off the '
+      'pile; any other card ends the turn', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'cover-discard-block');
+
+    await pumpThroughIntro(tester);
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    // The trapped cover rings beside the set it would complete — a playtest
+    // missed the relationship when only the hand card ringed. Trying to
+    // throw it does nothing: the drop target never accepts it.
+    expect(ringedCard(CardRank.ten, CardSuit.hearts), findsOneWidget);
+    expect(ringedCard(CardRank.ten, CardSuit.spades), findsOneWidget);
+    await dragToDiscard(tester, CardRank.ten, CardSuit.hearts);
+    expect(find.bySemanticsLabel('Ten of Hearts'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('cover-discard-block'),
+      PracticeLessonStatus.notStarted,
+    );
+
+    await dragToDiscard(tester, CardRank.ace, CardSuit.spades);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('cover-discard-block'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('joker-identity lesson: the picker offers both sevens and the '
+      'declaration completes the meld', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'joker-identity');
+
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    await toggleHandCard(tester, CardRank.seven, CardSuit.clubs);
+    await toggleHandCard(tester, CardRank.seven, CardSuit.hearts);
+    // The joker has no rank/suit key; toggle it by its drag key directly.
+    final jokerRect = tester.getRect(
+      find.byKey(const ValueKey('south-hand-drag-deck-0-joker-0')),
+    );
+    await tester.tapAt(Offset(jokerRect.left + 6, jokerRect.center.dy));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Play selected meld'));
+    await tester.pumpAndSettle();
+
+    // The real identity picker: both missing sevens are offered.
+    expect(find.byKey(const ValueKey('joker-choice-dialog')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('joker-choice-seven-diamonds')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('joker-choice-seven-spades')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('joker-choice-seven-diamonds')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('End your turn with a discard.'), findsOneWidget);
+    await dragToDiscard(tester, CardRank.ace, CardSuit.spades);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('joker-identity'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('joker-replacement lesson: swap the real seven in; the freed '
+      'joker bounces off the pile', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'joker-replacement');
+
+    await pumpThroughIntro(tester);
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+
+    expect(ringedCard(CardRank.seven, CardSuit.diamonds), findsOneWidget);
+
+    // West melded the sevens (with the joker) first: meld index 0.
+    await dragToMeld(
+      tester,
+      CardRank.seven,
+      CardSuit.diamonds,
+      owner: 'west',
+      meldIndex: 0,
+    );
+    expect(
+      find.textContaining('a joker never leaves as a discard'),
+      findsOneWidget,
+    );
+
+    // The freed joker is in hand and blocked as a discard.
+    final jokerInHand = find.byKey(
+      const ValueKey('south-hand-drag-deck-0-joker-0'),
+    );
+    expect(jokerInHand, findsOneWidget);
+    final jokerRect = tester.getRect(jokerInHand);
+    final pileCenter = tester.getCenter(
+      find.byKey(const ValueKey('discard-pile-drop-target')),
+    );
+    final grip = Offset(jokerRect.left + 6, jokerRect.center.dy);
+    await tester.dragFrom(grip, pileCenter - grip);
+    await tester.pumpAndSettle();
+    expect(jokerInHand, findsOneWidget, reason: 'joker discards are blocked');
+
+    // The use branch: bridge the 8 and 10 of hearts with the joker as a
+    // nine. The step accepts the meld, reacts, and still waits for the
+    // closing discard.
+    await toggleHandCard(tester, CardRank.eight, CardSuit.hearts);
+    await toggleHandCard(tester, CardRank.ten, CardSuit.hearts);
+    final freshJokerRect = tester.getRect(jokerInHand);
+    await tester.tapAt(
+      Offset(freshJokerRect.left + 6, freshJokerRect.center.dy),
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Play selected meld'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('the joker is a nine of hearts now'),
+      findsOneWidget,
+    );
+
+    await dragToDiscard(tester, CardRank.king, CardSuit.hearts);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('joker-replacement'),
+      PracticeLessonStatus.completed,
+    );
+  });
 }
 
 Widget _practiceApp({
