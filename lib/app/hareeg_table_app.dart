@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../data/persistence/app_repositories.dart';
+import '../data/persistence/learning_progress_repository.dart';
 import '../data/persistence/match_repository.dart';
 import '../data/persistence/preferences_repository.dart';
 import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -19,6 +20,8 @@ import '../ui/features/game_setup/views/new_game_setup_screen.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
+import '../ui/features/learning/views/onboarding_screen.dart';
+import '../ui/features/learning/views/practice_checklist_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
@@ -37,6 +40,7 @@ class HareegTableApp extends StatefulWidget {
   const HareegTableApp({
     this.preferencesRepository,
     this.matchRepository,
+    this.learningProgressRepository,
     this.initialRouteOverride,
     super.key,
   });
@@ -46,6 +50,9 @@ class HareegTableApp extends StatefulWidget {
 
   /// Active match storage dependency.
   final MatchRepository? matchRepository;
+
+  /// Onboarding and guided practice progress storage dependency.
+  final LearningProgressRepository? learningProgressRepository;
 
   /// Test hook: bypass the splash screen and start at a specific route. When
   /// null the app shell starts at [AppRoutes.splash].
@@ -58,6 +65,8 @@ class HareegTableApp extends StatefulWidget {
 class _HareegTableAppState extends State<HareegTableApp> {
   late final PreferencesRepository _preferences;
   late final MatchRepository _matches;
+  late final LearningProgressRepository _learning;
+  late final Future<LearningProgress> _learningFuture;
   late final TableHaptics _haptics;
   late final TableAudio _audio;
   GamePreferences _values = GamePreferences.defaults();
@@ -67,9 +76,56 @@ class _HareegTableAppState extends State<HareegTableApp> {
     super.initState();
     _preferences = widget.preferencesRepository ?? AppRepositories.preferences;
     _matches = widget.matchRepository ?? AppRepositories.matches;
+    _learning = widget.learningProgressRepository ?? AppRepositories.learning;
+    // Kicked off at startup so the splash hand-off can decide between home
+    // and first-run onboarding without a visible wait. Errors fall back to
+    // defaults; failing to read progress must never block the menu.
+    _learningFuture = _learning.loadProgress().catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      debugPrint('Failed to load learning progress in app shell: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return LearningProgress.defaults();
+    });
     _haptics = TableHaptics(enabled: _values.hapticsEnabled);
     _audio = TableAudio(enabled: _values.soundEnabled);
     _loadPreferences();
+  }
+
+  /// Splash hand-off: first launch goes to onboarding, later launches go
+  /// straight to the home menu.
+  Future<void> _continueFromSplash(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    // Cap the wait here rather than on the startup read itself so the timer
+    // only exists while the splash is actually waiting; a stalled store can
+    // never strand the player on the splash.
+    final progress = await _learningFuture.timeout(
+      const Duration(seconds: 2),
+      onTimeout: LearningProgress.defaults,
+    );
+    if (!navigator.mounted) {
+      return;
+    }
+    if (progress.onboardingCompleted) {
+      // Path-based initial route generation already placed home beneath the
+      // splash, so popping reveals the menu without stacking a second home.
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        unawaited(navigator.pushReplacementNamed(AppRoutes.home));
+      }
+      return;
+    }
+    // Path-based initial route generation already placed home beneath the
+    // splash, so replacing the splash leaves onboarding sitting on top of the
+    // menu. The argument only switches the final-page copy to first-run.
+    unawaited(
+      navigator.pushReplacementNamed(
+        AppRoutes.onboarding,
+        arguments: OnboardingScreen.firstRunArgument,
+      ),
+    );
   }
 
   Future<void> _loadPreferences() async {
@@ -173,8 +229,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
       },
       routes: {
         AppRoutes.splash: (context) => SplashScreen(
-          onContinue: () =>
-              Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+          onContinue: () => unawaited(_continueFromSplash(context)),
         ),
         AppRoutes.home: (context) => HomeScreen(matchRepository: _matches),
         AppRoutes.newGame: (context) =>
@@ -182,6 +237,10 @@ class _HareegTableAppState extends State<HareegTableApp> {
         AppRoutes.licenses: (context) =>
             LicensesScreen(themes: CardThemeRegistry.all()),
         AppRoutes.rulesHelp: (context) => const RulesHelpScreen(),
+        AppRoutes.onboarding: (context) =>
+            OnboardingScreen(learningRepository: _learning),
+        AppRoutes.practice: (context) =>
+            PracticeChecklistScreen(learningRepository: _learning),
       },
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.settings) {

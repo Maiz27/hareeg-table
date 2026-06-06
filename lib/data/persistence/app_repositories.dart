@@ -1,4 +1,5 @@
 import 'key_value_store.dart';
+import 'learning_progress_repository.dart';
 import 'match_repository.dart';
 import 'preferences_repository.dart';
 
@@ -13,4 +14,8 @@ abstract final class AppRepositories {
 
   /// Active match repository backed by local platform storage.
   static final MatchRepository matches = LocalMatchRepository(store: _store);
+
+  /// Onboarding and guided practice progress backed by local platform storage.
+  static final LearningProgressRepository learning =
+      LocalLearningProgressRepository(store: _store);
 }

@@ -57,6 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           arguments: _savedMatch,
                         ),
                   onAbandon: _abandonSavedMatch,
+                  onPractice: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.practice),
                 );
                 final content = Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -281,6 +283,7 @@ class _HeroSection extends StatelessWidget {
     required this.onNewGame,
     required this.onContinue,
     required this.onAbandon,
+    required this.onPractice,
   });
 
   final ClassicHareegMatchSnapshot? savedMatch;
@@ -288,6 +291,7 @@ class _HeroSection extends StatelessWidget {
   final VoidCallback onNewGame;
   final VoidCallback? onContinue;
   final Future<void> Function() onAbandon;
+  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -319,14 +323,41 @@ class _HeroSection extends StatelessWidget {
           label: Text(strings.newGame),
         ),
         const SizedBox(height: LoungeTokens.space3),
-        _ContinueButton(
-          enabled: hasSavedMatch,
-          loading: loadingSavedMatch,
-          onPressed: onContinue,
+        _ContinueButton(enabled: hasSavedMatch, onPressed: onContinue),
+        const SizedBox(height: LoungeTokens.space3),
+        // Third member of the action stack: same full-width shape as the
+        // buttons above, one emphasis tier down (muted instead of gold), so
+        // play -> resume -> learn reads as one column.
+        OutlinedButton.icon(
+          onPressed: onPractice,
+          icon: const Icon(Icons.school_outlined, size: 20),
+          label: Text(strings.practiceTitle),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: LoungeTokens.mutedText,
+            side: BorderSide(
+              color: LoungeTokens.sandLine.withValues(alpha: 0.28),
+              width: 1.2,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: LoungeTokens.space5,
+              vertical: LoungeTokens.space3,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+            ),
+            minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
         ),
         SizedBox(
-          height: hasSavedMatch ? LoungeTokens.space2 : LoungeTokens.space5,
+          height: hasSavedMatch ? LoungeTokens.space2 : LoungeTokens.space4,
         ),
+        // One status slot under the stack: the abandon action when a match
+        // is saved, otherwise the caption explaining the disabled Continue.
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutCubic,
@@ -349,7 +380,17 @@ class _HeroSection extends StatelessWidget {
                     ),
                   ),
                 )
-              : const SizedBox.shrink(key: ValueKey('no-abandon')),
+              : Text(
+                  key: const ValueKey('no-match-caption'),
+                  loadingSavedMatch
+                      ? strings.checkingSavedMatch
+                      : strings.noSavedMatch,
+                  textAlign: TextAlign.center,
+                  style: LoungeTokens.bodyMuted.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0.3,
+                  ),
+                ),
         ),
       ],
     );
@@ -357,22 +398,14 @@ class _HeroSection extends StatelessWidget {
 }
 
 class _ContinueButton extends StatelessWidget {
-  const _ContinueButton({
-    required this.enabled,
-    required this.loading,
-    required this.onPressed,
-  });
+  const _ContinueButton({required this.enabled, required this.onPressed});
 
   final bool enabled;
-  final bool loading;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final caption = enabled
-        ? null
-        : (loading ? strings.checkingSavedMatch : strings.noSavedMatch);
 
     final borderColor = enabled
         ? LoungeTokens.goldAccent.withValues(alpha: 0.6)
@@ -384,62 +417,32 @@ class _ContinueButton extends StatelessWidget {
         ? LoungeTokens.goldAccent
         : LoungeTokens.mutedText.withValues(alpha: 0.55);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        OutlinedButton.icon(
-          onPressed: onPressed,
-          icon: Icon(
-            Icons.play_circle_outline,
-            color: foregroundColor,
-            size: 20,
-          ),
-          label: Text(
-            strings.continueGame,
-            style: TextStyle(
-              color: foregroundColor,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: foregroundColor,
-            disabledForegroundColor: foregroundColor,
-            backgroundColor: backgroundColor,
-            side: BorderSide(color: borderColor, width: 1.2),
-            padding: const EdgeInsets.symmetric(
-              horizontal: LoungeTokens.space5,
-              vertical: LoungeTokens.space3,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-            ),
-            minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
-            textStyle: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(Icons.play_circle_outline, color: foregroundColor, size: 20),
+      label: Text(
+        strings.continueGame,
+        style: TextStyle(
+          color: foregroundColor,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
         ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          alignment: Alignment.topCenter,
-          child: caption == null
-              ? const SizedBox(width: double.infinity)
-              : Padding(
-                  padding: const EdgeInsets.only(top: LoungeTokens.space2),
-                  child: Text(
-                    caption,
-                    textAlign: TextAlign.center,
-                    style: LoungeTokens.bodyMuted.copyWith(
-                      fontSize: 12,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: foregroundColor,
+        disabledForegroundColor: foregroundColor,
+        backgroundColor: backgroundColor,
+        side: BorderSide(color: borderColor, width: 1.2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space5,
+          vertical: LoungeTokens.space3,
         ),
-      ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        ),
+        minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

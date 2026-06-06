@@ -1,3 +1,5 @@
+import 'package:hareeg_table/data/persistence/key_value_store.dart';
+import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
@@ -5,6 +7,24 @@ import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.d
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
+
+/// In-memory [KeyValueStore] shared by the persistence repository tests.
+class MemoryKeyValueStore implements KeyValueStore {
+  final values = <String, String>{};
+
+  @override
+  Future<String?> loadString(String key) async => values[key];
+
+  @override
+  Future<void> remove(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> saveString(String key, String value) async {
+    values[key] = value;
+  }
+}
 
 /// In-memory preferences repository used by widget + integration tests.
 class MemoryPreferencesRepository implements PreferencesRepository {
@@ -16,6 +36,22 @@ class MemoryPreferencesRepository implements PreferencesRepository {
   @override
   Future<void> savePreferences(GamePreferences preferences) async {
     this.preferences = preferences;
+  }
+}
+
+/// In-memory learning progress repository.
+class MemoryLearningProgressRepository implements LearningProgressRepository {
+  MemoryLearningProgressRepository({LearningProgress? progress})
+    : progress = progress ?? LearningProgress.defaults();
+
+  LearningProgress progress;
+
+  @override
+  Future<LearningProgress> loadProgress() async => progress;
+
+  @override
+  Future<void> saveProgress(LearningProgress progress) async {
+    this.progress = progress;
   }
 }
 
