@@ -339,15 +339,25 @@ void main() {
       );
     });
 
-    test('wrong path: a mixed selection is rejected by the validator', () {
+    test('wrong path: each staging step offers exactly its own meld', () {
       final session = PracticeSession(script: PracticeScripts.openingTo51());
       session.submit(ClassicHareegActionIds.drawStock);
+
+      // Jacks first would complete a step whose copy and rings describe the
+      // kings — the step gate keeps the order the lesson narrates.
+      final jacksFirst = session.submit(_meldId(jacks));
+      expect(jacksFirst.status, PracticeSubmitStatus.notAllowed);
+      expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
+
       session.submit(_meldId(kings));
 
-      final result = session.submit(_meldId([jacks[0], jacks[1], threeClubs]));
-
-      expect(result.status, PracticeSubmitStatus.rejected);
-      expect(result.message, isNotEmpty);
+      // A selection that is not exactly the jacks stays off the surface.
+      final mixed = session.submit(_meldId([jacks[0], jacks[1], threeClubs]));
+      expect(mixed.status, PracticeSubmitStatus.notAllowed);
+      expect(
+        session.controller.openingState.hasOpened(PlayerSeat.south),
+        isFalse,
+      );
     });
   });
 

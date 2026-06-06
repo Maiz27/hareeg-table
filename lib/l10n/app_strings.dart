@@ -333,7 +333,6 @@ class AppStrings {
   String get practiceOpeningStep1Done => _v('practiceOpeningStep1Done');
   String get practiceOpeningStep2 => _v('practiceOpeningStep2');
   String get practiceOpeningStep2Done => _v('practiceOpeningStep2Done');
-  String get practiceOpeningStepHold => _v('practiceOpeningStepHold');
   String get practiceOpeningStep3 => _v('practiceOpeningStep3');
 
   String get turn => isRtl ? 'الدور' : 'Turn';
@@ -1264,8 +1263,6 @@ const _englishValues = {
       'Staged at 30. The table holds your melds until you reach 51.',
   'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
   'practiceOpeningStep2Done': 'Opened at 60! The table is yours now.',
-  'practiceOpeningStepHold':
-      'Staged — keep adding melds until the total passes 51, or take them back with the undo pill.',
   'practiceOpeningStep3': 'Seal the opening: end your turn with a discard.',
 };
 
@@ -1566,7 +1563,5 @@ const _arabicValues = {
       'مرحلية عند 30. الطاولة تحفظ مجموعاتك حتى تبلغ 51.',
   'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
   'practiceOpeningStep2Done': 'افتتحت بـ 60! الطاولة لك الآن.',
-  'practiceOpeningStepHold':
-      'مرحلية — واصل إضافة المجموعات حتى يتجاوز المجموع 51، أو استرجعها بزر التراجع.',
   'practiceOpeningStep3': 'أكمل الافتتاح: أنهِ دورك برمي ورقة.',
 };

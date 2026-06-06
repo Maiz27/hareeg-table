@@ -28,6 +28,19 @@ abstract final class PracticeScripts {
     };
   }
 
+  /// Allows only a play-meld of exactly [cardIds] — for staging lessons
+  /// whose copy and rings teach one specific meld per step, so an
+  /// out-of-order set cannot silently complete a step its prompt is not
+  /// describing.
+  static bool Function(ClassicHareegActionDescriptor action) _playsExactly(
+    Set<String> cardIds,
+  ) {
+    return (action) =>
+        action.kind == ClassicHareegActionKind.playMeld &&
+        action.cardIds.length == cardIds.length &&
+        cardIds.containsAll(action.cardIds);
+  }
+
   /// Script for the lesson after [lessonId] within the same practice pack.
   ///
   /// Returns null at the pack boundary (finishing a pack is a deliberate
@@ -346,18 +359,21 @@ abstract final class PracticeScripts {
           prompt: (s) => s.practiceTurnRhythmStep1,
           kinds: const {ClassicHareegActionKind.drawStock},
         ),
-        PracticeStep.kinds(
+        // Each staging step offers exactly the meld its copy and rings
+        // teach — playing the jacks first would otherwise complete the
+        // kings step and leave every prompt after it describing the wrong
+        // cards.
+        PracticeStep(
           prompt: (s) => s.practiceOpeningStep1,
           hint: (s) => s.practiceOpeningStep1Hint,
           successNote: (s) => s.practiceOpeningStep1Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          allows: _playsExactly({for (final card in kings) card.id}),
           highlightCardIds: {for (final card in kings) card.id},
         ),
-        PracticeStep.kinds(
+        PracticeStep(
           prompt: (s) => s.practiceOpeningStep2,
           successNote: (s) => s.practiceOpeningStep2Done,
-          holdNote: (s) => s.practiceOpeningStepHold,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          allows: _playsExactly({for (final card in jacks) card.id}),
           highlightCardIds: {for (final card in jacks) card.id},
           isSatisfied: (context) => context.controller.openingState.hasOpened(
             PlayerSeat.south,
