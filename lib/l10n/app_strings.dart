@@ -335,20 +335,35 @@ class AppStrings {
   String get practiceOpeningStep2Done => _v('practiceOpeningStep2Done');
   String get practiceOpeningStep3 => _v('practiceOpeningStep3');
 
+  // Pending discard lesson.
+  String get practicePendingStep1 => _v('practicePendingStep1');
+  String get practicePendingStep1Done => _v('practicePendingStep1Done');
+  String get practicePendingStep2 => _v('practicePendingStep2');
+  String get practicePendingStep2Hint => _v('practicePendingStep2Hint');
+  String get practicePendingStep2Done => _v('practicePendingStep2Done');
+  String get practicePendingStep3 => _v('practicePendingStep3');
+  String get practicePendingStep4 => _v('practicePendingStep4');
+  String get practicePendingStep4Hint => _v('practicePendingStep4Hint');
+  String get practicePendingStep4Done => _v('practicePendingStep4Done');
+
   // Benchmark pressure lesson.
   String get practiceBenchmarkStep1 => _v('practiceBenchmarkStep1');
-  String get practiceBenchmarkStep1Hint => _v('practiceBenchmarkStep1Hint');
-  String get practiceBenchmarkStep1Done => _v('practiceBenchmarkStep1Done');
   String get practiceBenchmarkStep2 => _v('practiceBenchmarkStep2');
+  String get practiceBenchmarkStep2Hint => _v('practiceBenchmarkStep2Hint');
   String get practiceBenchmarkStep2Done => _v('practiceBenchmarkStep2Done');
   String get practiceBenchmarkStep3 => _v('practiceBenchmarkStep3');
+  String get practiceBenchmarkStep3Hint => _v('practiceBenchmarkStep3Hint');
   String get practiceBenchmarkStep3Done => _v('practiceBenchmarkStep3Done');
   String get practiceBenchmarkStep4 => _v('practiceBenchmarkStep4');
 
   // Cover lessons.
   String get practiceSeqCoverStep1 => _v('practiceSeqCoverStep1');
   String get practiceSeqCoverStep1Hint => _v('practiceSeqCoverStep1Hint');
+  String get practiceSeqCoverStep1Hold => _v('practiceSeqCoverStep1Hold');
   String get practiceSeqCoverStep1Done => _v('practiceSeqCoverStep1Done');
+  String get practiceSeqCoverStep2 => _v('practiceSeqCoverStep2');
+  String get practiceSeqCoverStep2Hint => _v('practiceSeqCoverStep2Hint');
+  String get practiceSeqCoverStep2Done => _v('practiceSeqCoverStep2Done');
   String get practiceSetCoverStep1 => _v('practiceSetCoverStep1');
   String get practiceSetCoverStep1Hint => _v('practiceSetCoverStep1Hint');
   String get practiceSetCoverStep1Done => _v('practiceSetCoverStep1Done');
@@ -371,6 +386,8 @@ class AppStrings {
   String get practiceJokerReplaceStep2 => _v('practiceJokerReplaceStep2');
   String get practiceJokerReplaceStep2Hint =>
       _v('practiceJokerReplaceStep2Hint');
+  String get practiceJokerReplaceStep2Hold =>
+      _v('practiceJokerReplaceStep2Hold');
 
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
@@ -1220,11 +1237,12 @@ const _englishValues = {
   'practiceBenchmarkTitle': 'Benchmark pressure',
   'practiceBenchmarkSummary':
       'A high first opening raises what everyone else must reach.',
-  'practiceSequenceCoverTitle': 'Sequence covers',
+  'practiceSequenceCoverTitle': 'Stacking covers',
   'practiceSequenceCoverSummary':
-      'Extend a table run with its direct neighbors.',
-  'practiceSetCoverTitle': 'Set covers',
-  'practiceSetCoverSummary': 'Extend a set with the missing suit.',
+      'Grow a run by two and fill a second meld in the same turn.',
+  'practiceSetCoverTitle': 'Your first cover',
+  'practiceSetCoverSummary':
+      'Extend another player\'s meld with one card of your own.',
   'practiceCoverDiscardTitle': 'Cover discard rules',
   'practiceCoverDiscardSummary':
       'Why a playable cover usually cannot be thrown away.',
@@ -1301,52 +1319,79 @@ const _englishValues = {
   'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
   'practiceOpeningStep2Done': 'Opened at 60! The table is yours now.',
   'practiceOpeningStep3': 'Seal the opening: end your turn with a discard.',
+  'practicePendingStep1':
+      'You are open — your run and sevens already hold the table. West\'s four pairs with yours: tap the pile and see what taking commits you to.',
+  'practicePendingStep1Done':
+      'The four is pending. It must hit the table this turn — or go back.',
+  'practicePendingStep2':
+      'Here is the exit: until a pending card touches the table, tapping the pile hands it back.',
+  'practicePendingStep2Hint':
+      'You could meld it instead — pending cards must lead your first play.',
+  'practicePendingStep2Done':
+      'Returned — no harm, but no second chance: a returned card cannot be re-taken this turn.',
+  'practicePendingStep3':
+      'The four is off limits now, so the turn falls back to its start: draw from the stock.',
+  'practicePendingStep4':
+      'Now the real freedom: you opened already, so any value melds. Play your twos — six points, perfectly legal.',
+  'practicePendingStep4Hint': 'Tap the three twos, then the gold meld chip.',
+  'practicePendingStep4Done':
+      'Melded for 6 — the numbers only matter before you open.',
   'practiceBenchmarkStep1':
-      'East opened with 75 points, so the table now demands 75 — not 51. Start staging: play your kings.',
-  'practiceBenchmarkStep1Hint': 'Select the three kings, then Play meld.',
-  'practiceBenchmarkStep1Done': 'Kings staged: 30.',
+      'West opened big: 75 on the table, so the bar is now 75 — not 51. Start your turn with a draw.',
   'practiceBenchmarkStep2':
-      'Add the sevens. Watch the total — 51 would have opened yesterday.',
+      'Your hearts make a real run worth 54. Stage it and watch the table\'s answer.',
+  'practiceBenchmarkStep2Hint': 'Tap the six hearts, then the gold meld chip.',
   'practiceBenchmarkStep2Done':
-      '51 staged — enough against the base rule, not against East\'s raised bar.',
+      'Staged at 54 — over the old 51, under West\'s 75. The table holds it but cannot open.',
   'practiceBenchmarkStep3':
-      'You need 75. Add the queens to climb over East\'s benchmark.',
+      'Under the bar, staged melds are stuck — they cannot seal. Take the run back and build on it later.',
+  'practiceBenchmarkStep3Hint':
+      'Tap the undo pill — or the staged run itself — to take it back.',
   'practiceBenchmarkStep3Done':
-      '81 — over the bar. Once a second player opens, the benchmark locks for the round.',
-  'practiceBenchmarkStep4': 'End your turn with a discard.',
+      'Back in hand, nothing lost — a staged opening is never locked in.',
+  'practiceBenchmarkStep4':
+      'End the turn with a discard. The run keeps its value for a 75-point turn later.',
   'practiceSeqCoverStep1':
-      'East\'s run ends at the 7 of diamonds. Your 8 of diamonds is its direct neighbor — select it and place the cover.',
+      'Covers stack: West\'s run ends at the ten, and you hold the jack AND the queen. Grow it by two.',
   'practiceSeqCoverStep1Hint':
-      'Sequence covers must touch an end of the run: 4♦ or 8♦ here, nothing else.',
+      'Drag the J♦ onto West\'s diamond run, then the Q♦ — or select both and drop them together.',
+  'practiceSeqCoverStep1Hold':
+      'One on — the run reaches the jack now. The queen is its new neighbor: slide it on too.',
   'practiceSeqCoverStep1Done':
-      'Covered. After a card lands, new neighbors (like the 9♦) become legal in turn.',
+      'Two covers stacked — the run runs 8 through queen now.',
+  'practiceSeqCoverStep2':
+      'Same turn, different meld: West\'s eights miss the diamond, and the second deck gave you its twin. Fill the set.',
+  'practiceSeqCoverStep2Hint': 'Drag your 8♦ onto West\'s eights.',
+  'practiceSeqCoverStep2Done':
+      'Three covers, two melds, one turn — every card you shed this way is one less to count against you.',
   'practiceSetCoverStep1':
-      'East\'s set holds three kings — clubs, diamonds, hearts. Your king of spades is the missing suit. Select it and place the cover.',
-  'practiceSetCoverStep1Hint':
-      'A set cover adds the same rank in a suit the set does not have yet.',
+      'Once you are open, every meld on the table can grow — that is a cover. West\'s kings miss clubs, and you hold it.',
+  'practiceSetCoverStep1Hint': 'Drag the K♣ onto West\'s kings.',
   'practiceSetCoverStep1Done':
-      'Covered. A four-suit set is full — nothing more can land on it.',
+      'Covered. Four suits make a full set — nothing more can land on it.',
   'practiceCoverFinishStep': 'End your turn with a discard.',
   'practiceCoverBlockStep1':
-      'Try to throw the 8 of diamonds — there is no discard for it. It extends East\'s run, so the table blocks it: covers are not free defense. Throw the 2 of clubs instead.',
+      'Your ten of hearts completes West\'s tens — but you are not open to place it, and a cover can never be thrown away. It is stuck: discard another card.',
   'practiceCoverBlockStep1Hint':
-      'Select the 8♦ and look — no Discard button appears. Only the final discard of a finish may be a cover.',
+      'Try it — drag the 10♥ to the pile or onto the tens; the table refuses both. Then discard any other card.',
   'practiceJokerIdentityStep1':
-      'A joker is whatever you declare — once. Select both sevens and the joker, then choose what the joker stands for.',
+      'A joker is whatever you declare — once. Meld your two sevens with the joker and pick what it stands for.',
   'practiceJokerIdentityStep1Hint':
-      'Two declarations are legal here: 7 of diamonds or 7 of spades. Pick either.',
+      'Tap both sevens and the joker, then the gold meld chip — a picker asks for the joker\'s identity. Either seven works.',
   'practiceJokerIdentityStep1Done':
-      'Declared. The joker now is that card until someone reclaims it.',
+      'Declared. The joker is exactly that card now — until someone reclaims it.',
   'practiceJokerReplaceStep1':
-      'East\'s set uses a joker standing in for the 7 of diamonds — and you hold the real one. Select your 7♦ and replace the joker.',
+      'West\'s joker stands in for the seven of diamonds — and you hold the real one. Swap it: the joker comes to your hand.',
   'practiceJokerReplaceStep1Hint':
-      'Only opened players may reclaim table jokers, and only with the exact represented card.',
+      'Drag your 7♦ onto West\'s sevens; the exact represented card is the only legal swap.',
   'practiceJokerReplaceStep1Done':
-      'The joker is yours — free to declare again in a future play.',
+      'Reclaimed — and look at your hearts: the 8 and 10 are one nine apart.',
   'practiceJokerReplaceStep2':
-      'End your turn with a discard. Not the joker, though — normal joker discards are always blocked.',
+      'Your call: bridge the 8 and 10 of hearts with the joker as a nine, or bank it for later. Either way, a joker never leaves as a discard — end with a plain card.',
   'practiceJokerReplaceStep2Hint':
-      'Select the joker and look: no Discard button. Throw a plain card.',
+      'Tap the 8♥, 10♥ and joker, then the gold meld chip — or just drag a plain card to the pile.',
+  'practiceJokerReplaceStep2Hold':
+      'Bridged — the joker is a nine of hearts now. Seal the turn with a discard.',
 };
 
 const _arabicValues = {
@@ -1576,10 +1621,11 @@ const _arabicValues = {
   'practiceBenchmarkTitle': 'ضغط المعيار',
   'practiceBenchmarkSummary':
       'الافتتاح الأول العالي يرفع ما يجب على الآخرين بلوغه.',
-  'practiceSequenceCoverTitle': 'تكميلات التسلسل',
-  'practiceSequenceCoverSummary': 'مدّد تسلسلا على الطاولة بجيرانه المباشرين.',
-  'practiceSetCoverTitle': 'تكميلات المجموعة',
-  'practiceSetCoverSummary': 'مدّد مجموعة متشابهة بالشكل الناقص.',
+  'practiceSequenceCoverTitle': 'تكميلات متراكمة',
+  'practiceSequenceCoverSummary':
+      'مدّد تسلسلا بورقتين وأكمل مجموعة ثانية في نفس الدور.',
+  'practiceSetCoverTitle': 'تكميلتك الأولى',
+  'practiceSetCoverSummary': 'مدّد مجموعة لاعب آخر بورقة واحدة من يدك.',
   'practiceCoverDiscardTitle': 'قواعد رمي التكميلة',
   'practiceCoverDiscardSummary': 'لماذا لا يمكن عادة رمي ورقة تصلح تكميلة.',
   'practiceJokerIdentityTitle': 'هوية الجوكر',
@@ -1647,49 +1693,79 @@ const _arabicValues = {
   'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
   'practiceOpeningStep2Done': 'افتتحت بـ 60! الطاولة لك الآن.',
   'practiceOpeningStep3': 'أكمل الافتتاح: أنهِ دورك برمي ورقة.',
+  'practicePendingStep1':
+      'أنت مفتتح — تسلسلك وسبعاتك على الطاولة بالفعل. أربعة الغرب تزاوج أربعاتك: اضغط على الكومة وانظر بمَ يلزمك الأخذ.',
+  'practicePendingStep1Done':
+      'الأربعة معلقة. يجب أن تنزل على الطاولة هذا الدور — أو تعود.',
+  'practicePendingStep2':
+      'هذا هو المخرج: ما دامت الورقة المعلقة لم تلمس الطاولة، الضغط على الكومة يعيدها.',
+  'practicePendingStep2Hint':
+      'كان بإمكانك لعبها بدلا من ذلك — الورقة المعلقة يجب أن تتصدر أول لعبة لك.',
+  'practicePendingStep2Done':
+      'أُعيدت — لا ضرر، لكن لا فرصة ثانية: الورقة المعادة لا تُؤخذ مجددا هذا الدور.',
+  'practicePendingStep3':
+      'الأربعة محظورة الآن، فيعود الدور إلى بدايته: اسحب من كومة السحب.',
+  'practicePendingStep4':
+      'وهذه الحرية الحقيقية: افتتحت سابقا، فأي قيمة تنزل. العب الاثنينات — ست نقاط، وقانونية تماما.',
+  'practicePendingStep4Hint':
+      'اضغط على الاثنينات الثلاث ثم على شريحة المجموعة الذهبية.',
+  'practicePendingStep4Done':
+      'نزلت بقيمة 6 — الأرقام لا تهم إلا قبل الافتتاح.',
   'practiceBenchmarkStep1':
-      'افتتح الشرق بـ 75 نقطة، فأصبحت الطاولة تطلب 75 — لا 51. ابدأ التجهيز: العب ملوكك.',
-  'practiceBenchmarkStep1Hint': 'حدد الملوك الثلاثة ثم العب المجموعة.',
-  'practiceBenchmarkStep1Done': 'الملوك مرحلية: 30.',
+      'افتتح الغرب بقوة: 75 على الطاولة، فأصبح المعيار 75 — لا 51. ابدأ دورك بالسحب.',
   'practiceBenchmarkStep2':
-      'أضف السبعات. راقب المجموع — 51 كانت كافية بالأمس.',
+      'كُبّاتك تصنع تسلسلا حقيقيا بقيمة 54. جهّزه وراقب رد الطاولة.',
+  'practiceBenchmarkStep2Hint':
+      'اضغط على الكُبّات الست ثم على شريحة المجموعة الذهبية.',
   'practiceBenchmarkStep2Done':
-      '51 مرحلية — تكفي وفق القاعدة الأساسية، لا وفق معيار الشرق المرتفع.',
-  'practiceBenchmarkStep3': 'تحتاج 75. أضف الملكات لتتجاوز معيار الشرق.',
+      'مرحلية عند 54 — فوق 51 القديمة، تحت 75 الغرب. الطاولة تحفظها لكنها لا تفتتح.',
+  'practiceBenchmarkStep3':
+      'تحت المعيار تبقى المجموعات عالقة — لا تُختم. استرجع التسلسل وابنِ عليه لاحقا.',
+  'practiceBenchmarkStep3Hint':
+      'اضغط على زر التراجع — أو على التسلسل المرحلي نفسه — لاسترجاعه.',
   'practiceBenchmarkStep3Done':
-      '81 — فوق المعيار. حين يفتتح لاعب ثانٍ، يُقفل المعيار لبقية الجولة.',
-  'practiceBenchmarkStep4': 'أنهِ دورك برمي ورقة.',
+      'عاد إلى يدك، لم تخسر شيئا — التجهيز لا يُلزمك قبل الختم.',
+  'practiceBenchmarkStep4':
+      'أنهِ الدور برمي ورقة. التسلسل يحتفظ بقيمته لدور يبلغ 75 لاحقا.',
   'practiceSeqCoverStep1':
-      'تسلسل الشرق ينتهي عند 7 الديناري. ورقتك 8 الديناري جارتها المباشرة — حددها وضع التكميلة.',
+      'التكميلات تتراكم: تسلسل الغرب ينتهي عند العشرة، وأنت تحمل الولد والملكة معا. مدّده باثنتين.',
   'practiceSeqCoverStep1Hint':
-      'تكميلات التسلسل تلامس طرف التسلسل فقط: 4♦ أو 8♦ هنا، لا غير.',
+      'اسحب J♦ إلى تسلسل الغرب الديناري ثم Q♦ — أو حدد الاثنتين وأنزلهما معا.',
+  'practiceSeqCoverStep1Hold':
+      'نزلت واحدة — التسلسل يبلغ الولد الآن. الملكة جارته الجديدة: أنزلها أيضا.',
   'practiceSeqCoverStep1Done':
-      'تم التكميل. بعد نزول الورقة، يصبح الجيران الجدد (مثل 9♦) قانونيين بدورهم.',
+      'تكميلتان متراكمتان — التسلسل يمتد من 8 إلى الملكة الآن.',
+  'practiceSeqCoverStep2':
+      'نفس الدور، مجموعة أخرى: ثمانيات الغرب ينقصها الديناري، والرزمة الثانية أعطتك توأمها. أكمل المجموعة.',
+  'practiceSeqCoverStep2Hint': 'اسحب 8♦ إلى ثمانيات الغرب.',
+  'practiceSeqCoverStep2Done':
+      'ثلاث تكميلات على مجموعتين في دور واحد — كل ورقة تنزلها هكذا ورقة أقل تُحسب عليك.',
   'practiceSetCoverStep1':
-      'مجموعة الشرق فيها ثلاثة ملوك — سنيك وديناري وكُبّة. ملكك البستوني هو الشكل الناقص. حدده وضع التكميلة.',
-  'practiceSetCoverStep1Hint':
-      'تكميلة المجموعة تضيف نفس الرتبة بشكل لا تملكه المجموعة بعد.',
+      'بعد افتتاحك، كل مجموعة على الطاولة قابلة للنمو — هذه هي التكميلة. ملوك الغرب ينقصها السنيك، وأنت تحمله.',
+  'practiceSetCoverStep1Hint': 'اسحب K♣ إلى ملوك الغرب.',
   'practiceSetCoverStep1Done':
-      'تم التكميل. مجموعة الأشكال الأربعة مكتملة — لا شيء يضاف إليها.',
+      'تم التكميل. أربعة أشكال تصنع مجموعة مكتملة — لا شيء يضاف إليها بعد الآن.',
   'practiceCoverFinishStep': 'أنهِ دورك برمي ورقة.',
   'practiceCoverBlockStep1':
-      'حاول رمي 8 الديناري — لا يوجد زر رمي لها. إنها تكمل تسلسل الشرق، فالطاولة تمنعها: التكميلات ليست دفاعا مجانيا. ارم 2 السنيك بدلا منها.',
+      'عشرتك الكُبّة تكمل عشرات الغرب — لكنك لست مفتتحا لتضعها، والتكميلة لا تُرمى أبدا. إنها عالقة: ارم ورقة أخرى.',
   'practiceCoverBlockStep1Hint':
-      'حدد 8♦ ولاحظ — لا يظهر زر الرمي. فقط الرمية الأخيرة للإنهاء يجوز أن تكون تكميلة.',
+      'جرّب — اسحب 10♥ إلى الكومة أو إلى العشرات؛ الطاولة ترفض الاثنين. ثم ارم أي ورقة أخرى.',
   'practiceJokerIdentityStep1':
-      'الجوكر هو ما تعلنه — مرة واحدة. حدد السبعتين والجوكر، ثم اختر ما يمثله الجوكر.',
+      'الجوكر هو ما تعلنه — مرة واحدة. العب سبعتيك مع الجوكر واختر ما يمثله.',
   'practiceJokerIdentityStep1Hint':
-      'إعلانان قانونيان هنا: 7 الديناري أو 7 البستوني. اختر أيهما.',
+      'اضغط على السبعتين والجوكر ثم على شريحة المجموعة الذهبية — تظهر نافذة تسأل عن هوية الجوكر. أي سبعة تصلح.',
   'practiceJokerIdentityStep1Done':
-      'أُعلن. الجوكر الآن هو تلك الورقة حتى يسترجعه أحد.',
+      'أُعلن. الجوكر الآن هو تلك الورقة بالضبط — حتى يسترجعه أحد.',
   'practiceJokerReplaceStep1':
-      'مجموعة الشرق تستخدم جوكر ينوب عن 7 الديناري — وأنت تحمل الأصلية. حدد 7♦ واستبدل الجوكر.',
+      'جوكر الغرب ينوب عن سبعة الديناري — وأنت تحمل الأصلية. بدّلها: الجوكر يأتي إلى يدك.',
   'practiceJokerReplaceStep1Hint':
-      'فقط اللاعبون المفتتحون يسترجعون جوكر الطاولة، وبالورقة الممثلة بالضبط.',
+      'اسحب 7♦ إلى سبعات الغرب؛ الورقة الممثلة بالضبط هي التبديل القانوني الوحيد.',
   'practiceJokerReplaceStep1Done':
-      'الجوكر لك — حر لإعلان جديد في لعبة قادمة.',
+      'استرجعته — وانظر إلى كُبّاتك: الثمانية والعشرة بينهما تسعة واحدة.',
   'practiceJokerReplaceStep2':
-      'أنهِ دورك برمي ورقة. ليس الجوكر — رمي الجوكر العادي ممنوع دائما.',
+      'القرار لك: اجسر بين 8 و10 الكُبّة بالجوكر كتسعة، أو احتفظ به. في الحالين، الجوكر لا يُرمى أبدا — أنهِ بورقة عادية.',
   'practiceJokerReplaceStep2Hint':
-      'حدد الجوكر ولاحظ: لا زر رمي. ارم ورقة عادية.',
+      'اضغط على 8♥ و10♥ والجوكر ثم شريحة المجموعة الذهبية — أو اسحب ورقة عادية إلى الكومة مباشرة.',
+  'practiceJokerReplaceStep2Hold':
+      'تم الجسر — الجوكر تسعة كُبّة الآن. أكمل الدور برمي ورقة.',
 };
