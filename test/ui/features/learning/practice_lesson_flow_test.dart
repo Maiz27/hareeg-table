@@ -17,6 +17,10 @@ void main() {
   }
 
   Future<void> dragToDiscard(WidgetTester tester, String semanticsLabel) async {
+    // Lesson boards hold each named card exactly once (the deterministic
+    // seeded deal guarantees it); `.first` only guards against transient
+    // duplicate semantics nodes mid-animation, mirroring the established
+    // pattern in the game-table widget tests.
     final card = find.bySemanticsLabel(semanticsLabel).first;
     final target = find.byKey(const ValueKey('discard-pile-drop-target'));
     await tester.dragFrom(
@@ -109,7 +113,7 @@ void main() {
       find.text('Your turn starts with a card: draw one from the stock.'),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('Three of Clubs'), findsWidgets);
+    expect(find.bySemanticsLabel('Three of Clubs'), findsOneWidget);
   });
 
   testWidgets('off-script affordances stay dark during a step', (tester) async {
@@ -126,7 +130,7 @@ void main() {
       find.text('Your turn starts with a card: draw one from the stock.'),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('Three of Clubs'), findsWidgets);
+    expect(find.bySemanticsLabel('Three of Clubs'), findsOneWidget);
     expect(
       learning.progress.statusFor('turn-rhythm'),
       PracticeLessonStatus.notStarted,

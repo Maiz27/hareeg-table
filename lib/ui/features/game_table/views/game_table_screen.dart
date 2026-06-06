@@ -736,6 +736,13 @@ class _GameTableScreenState extends State<GameTableScreen>
                     : isTablet
                     ? 14.0
                     : 10.0;
+                // A landscape camera cutout inflates ONE side's safe inset
+                // (which side depends on rotation), so per-side insets leave
+                // the corner buttons visibly lopsided. Mirror the larger
+                // inset to both corners: the cutout side keeps its required
+                // clearance and the opposite button moves in to match.
+                final horizontalInset =
+                    math.max(safe.left, safe.right) + edgeInset;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -743,7 +750,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     // the hub; lesson boards have no match score to inspect.
                     Positioned(
                       top: safe.top + edgeInset,
-                      left: safe.left + edgeInset,
+                      left: horizontalInset,
                       child: _isPractice
                           ? _TableChromeButton(
                               key: const ValueKey('practice-exit'),
@@ -764,7 +771,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     ),
                     Positioned(
                       top: safe.top + edgeInset,
-                      right: safe.right + edgeInset,
+                      right: horizontalInset,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -797,8 +804,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                             safe.top +
                             edgeInset +
                             math.max(0.0, (buttonSize - 34) / 2),
-                        left: safe.left + edgeInset + buttonSize + 14,
-                        right: safe.right + edgeInset + buttonSize + 14,
+                        left: horizontalInset + buttonSize + 14,
+                        right: horizontalInset + buttonSize + 14,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
