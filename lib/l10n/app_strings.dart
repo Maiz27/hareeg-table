@@ -225,14 +225,17 @@ class AppStrings {
   String get practiceSkip => _v('practiceSkip');
   String get practiceUnskip => _v('practiceUnskip');
   String get practiceComingSoon => _v('practiceComingSoon');
+
+  /// Gentle nudge when a legal table action is off-script for the step.
+  String get practiceFollowStep => _v('practiceFollowStep');
   String get practicePackCoreTitle => _v('practicePackCoreTitle');
   String get practicePackTableTitle => _v('practicePackTableTitle');
   String get practicePackFinishTitle => _v('practicePackFinishTitle');
 
   /// Checklist progress summary, e.g. "3 of 15 completed".
-  String practiceProgress(int completed, int total) => _v('practiceProgress')
-      .replaceFirst('{completed}', '$completed')
-      .replaceFirst('{total}', '$total');
+  String practiceProgress(int completed, int total) => _v(
+    'practiceProgress',
+  ).replaceFirst('{completed}', '$completed').replaceFirst('{total}', '$total');
 
   // Guided practice lesson catalog.
   String get practiceTurnRhythmTitle => _v('practiceTurnRhythmTitle');
@@ -247,15 +250,13 @@ class AppStrings {
   String get practiceBenchmarkTitle => _v('practiceBenchmarkTitle');
   String get practiceBenchmarkSummary => _v('practiceBenchmarkSummary');
   String get practiceSequenceCoverTitle => _v('practiceSequenceCoverTitle');
-  String get practiceSequenceCoverSummary =>
-      _v('practiceSequenceCoverSummary');
+  String get practiceSequenceCoverSummary => _v('practiceSequenceCoverSummary');
   String get practiceSetCoverTitle => _v('practiceSetCoverTitle');
   String get practiceSetCoverSummary => _v('practiceSetCoverSummary');
   String get practiceCoverDiscardTitle => _v('practiceCoverDiscardTitle');
   String get practiceCoverDiscardSummary => _v('practiceCoverDiscardSummary');
   String get practiceJokerIdentityTitle => _v('practiceJokerIdentityTitle');
-  String get practiceJokerIdentitySummary =>
-      _v('practiceJokerIdentitySummary');
+  String get practiceJokerIdentitySummary => _v('practiceJokerIdentitySummary');
   String get practiceJokerReplacementTitle =>
       _v('practiceJokerReplacementTitle');
   String get practiceJokerReplacementSummary =>
@@ -276,26 +277,21 @@ class AppStrings {
   String get helpLearningBody => _v('helpLearningBody');
 
   // Practice lesson surface.
-  String get practiceSelectHint => _v('practiceSelectHint');
-  String get practiceYourHand => _v('practiceYourHand');
-  String get practiceUseDiscard => _v('practiceUseDiscard');
   String get practiceLessonCompleteTitle => _v('practiceLessonCompleteTitle');
   String get practiceLessonCompleteBody => _v('practiceLessonCompleteBody');
   String get practiceBackToList => _v('practiceBackToList');
   String get practiceReplayLesson => _v('practiceReplayLesson');
 
   /// Step position label, e.g. "Step 1 of 2".
-  String practiceStepLabel(int step, int total) => _v('practiceStepLabel')
-      .replaceFirst('{step}', '$step')
-      .replaceFirst('{total}', '$total');
+  String practiceStepLabel(int step, int total) => _v(
+    'practiceStepLabel',
+  ).replaceFirst('{step}', '$step').replaceFirst('{total}', '$total');
 
   // Turn rhythm lesson.
   String get practiceTurnRhythmStep1 => _v('practiceTurnRhythmStep1');
-  String get practiceTurnRhythmStep1Done =>
-      _v('practiceTurnRhythmStep1Done');
+  String get practiceTurnRhythmStep1Done => _v('practiceTurnRhythmStep1Done');
   String get practiceTurnRhythmStep2 => _v('practiceTurnRhythmStep2');
-  String get practiceTurnRhythmStep2Hint =>
-      _v('practiceTurnRhythmStep2Hint');
+  String get practiceTurnRhythmStep2Hint => _v('practiceTurnRhythmStep2Hint');
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1117,6 +1113,7 @@ const _englishValues = {
   'practiceSkip': 'Skip',
   'practiceUnskip': 'Unskip',
   'practiceComingSoon': 'This practice hand arrives in an upcoming update.',
+  'practiceFollowStep': 'Good instinct — but follow the current step first.',
   'practicePackCoreTitle': 'Core turn basics',
   'practicePackTableTitle': 'Table mechanics',
   'practicePackFinishTitle': 'Finishing & Fifty',
@@ -1168,9 +1165,6 @@ const _englishValues = {
   'helpLearningTitle': 'New to Hareeg?',
   'helpLearningBody':
       'Step through short guided practice hands, or replay the first-run intro.',
-  'practiceSelectHint': 'Tap cards in your hand to select them.',
-  'practiceYourHand': 'Your hand',
-  'practiceUseDiscard': 'Use Discard',
   'practiceLessonCompleteTitle': 'Lesson complete!',
   'practiceLessonCompleteBody':
       'Nice — you showed the move. Replay it any time from the practice list.',
@@ -1182,7 +1176,8 @@ const _englishValues = {
   'practiceTurnRhythmStep1Done': 'Card drawn — it joined your hand.',
   'practiceTurnRhythmStep2':
       'Now end your turn: pick a card you do not need and discard it.',
-  'practiceTurnRhythmStep2Hint': 'Tap a card to select it, then tap Discard.',
+  'practiceTurnRhythmStep2Hint':
+      'Drag the card you can spare onto the discard pile.',
 };
 
 const _arabicValues = {
@@ -1388,6 +1383,7 @@ const _arabicValues = {
   'practiceSkip': 'تخطي',
   'practiceUnskip': 'إلغاء التخطي',
   'practiceComingSoon': 'هذا التدريب سيتوفر في تحديث قادم.',
+  'practiceFollowStep': 'حدس جيد — لكن اتبع الخطوة الحالية أولاً.',
   'practicePackCoreTitle': 'أساسيات الدور',
   'practicePackTableTitle': 'آليات الطاولة',
   'practicePackFinishTitle': 'الإنهاء والخمسين',
@@ -1403,14 +1399,14 @@ const _arabicValues = {
   'practiceOpeningTitle': 'الافتتاح بـ 51',
   'practiceOpeningSummary': 'ضع مجموعات بقيمة شرط الافتتاح في دور واحد.',
   'practiceBenchmarkTitle': 'ضغط المعيار',
-  'practiceBenchmarkSummary': 'الافتتاح الأول العالي يرفع ما يجب على الآخرين بلوغه.',
+  'practiceBenchmarkSummary':
+      'الافتتاح الأول العالي يرفع ما يجب على الآخرين بلوغه.',
   'practiceSequenceCoverTitle': 'تكميلات التسلسل',
   'practiceSequenceCoverSummary': 'مدّد تسلسلا على الطاولة بجيرانه المباشرين.',
   'practiceSetCoverTitle': 'تكميلات المجموعة',
   'practiceSetCoverSummary': 'مدّد مجموعة متشابهة بالشكل الناقص.',
   'practiceCoverDiscardTitle': 'قواعد رمي التكميلة',
-  'practiceCoverDiscardSummary':
-      'لماذا لا يمكن عادة رمي ورقة تصلح تكميلة.',
+  'practiceCoverDiscardSummary': 'لماذا لا يمكن عادة رمي ورقة تصلح تكميلة.',
   'practiceJokerIdentityTitle': 'هوية الجوكر',
   'practiceJokerIdentitySummary': 'حدد بالضبط ما يمثله الجوكر الموضوع.',
   'practiceJokerReplacementTitle': 'استبدال الجوكر',
@@ -1430,9 +1426,6 @@ const _arabicValues = {
   'helpLearningTitle': 'جديد على حريق؟',
   'helpLearningBody':
       'تدرّب عبر أيادٍ موجهة قصيرة، أو أعد مقدمة التشغيل الأول.',
-  'practiceSelectHint': 'اضغط على أوراق يدك لتحديدها.',
-  'practiceYourHand': 'يدك',
-  'practiceUseDiscard': 'استخدم الرمية',
   'practiceLessonCompleteTitle': 'اكتمل الدرس!',
   'practiceLessonCompleteBody':
       'أحسنت — أتقنت الحركة. يمكنك إعادتها في أي وقت من قائمة التدريب.',
@@ -1441,7 +1434,6 @@ const _arabicValues = {
   'practiceStepLabel': 'الخطوة {step} من {total}',
   'practiceTurnRhythmStep1': 'دورك يبدأ بورقة: اسحب واحدة من الكومة.',
   'practiceTurnRhythmStep1Done': 'سحبت ورقة — انضمت إلى يدك.',
-  'practiceTurnRhythmStep2':
-      'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
-  'practiceTurnRhythmStep2Hint': 'اضغط على ورقة لتحديدها، ثم اضغط ارم.',
+  'practiceTurnRhythmStep2': 'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
+  'practiceTurnRhythmStep2Hint': 'اسحب البطاقة التي لا تحتاجها إلى كومة الرمي.',
 };

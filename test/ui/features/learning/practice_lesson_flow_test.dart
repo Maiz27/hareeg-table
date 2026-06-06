@@ -3,56 +3,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
-import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
-import 'package:hareeg_table/ui/features/learning/views/practice_lesson_screen.dart';
+import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart';
 
 import '../../../support/test_fixtures.dart';
 
 void main() {
   ShowcaseCardFan.disableLoopingMotionForTesting = true;
 
-  testWidgets('checklist launches the turn-rhythm lesson deterministically', (
+  Future<void> openLesson(WidgetTester tester) async {
+    await tester.tap(find.text('Start').first);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dragToDiscard(WidgetTester tester, String semanticsLabel) async {
+    final card = find.bySemanticsLabel(semanticsLabel).first;
+    final target = find.byKey(const ValueKey('discard-pile-drop-target'));
+    await tester.dragFrom(
+      tester.getCenter(card),
+      tester.getCenter(target) - tester.getCenter(card),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('checklist launches the turn-rhythm lesson on the real table', (
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(_practiceApp(learning: learning));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Start').first);
-    await tester.pumpAndSettle();
+    await openLesson(tester);
 
-    expect(find.byType(PracticeLessonScreen), findsOneWidget);
-    expect(find.text('Step 1 of 2'), findsOneWidget);
+    // The lesson is the real table surface in practice mode.
+    expect(find.byType(GameTableScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('practice-step-banner')), findsOneWidget);
     expect(
       find.text('Your turn starts with a card: draw one from the stock.'),
       findsOneWidget,
     );
-    expect(find.text('Draw Stock'), findsOneWidget);
+    // Match chrome is hidden; the exit shortcut takes the score slot.
+    expect(find.byTooltip('Scores'), findsNothing);
+    expect(find.byKey(const ValueKey('practice-exit')), findsOneWidget);
   });
 
-  testWidgets('completing the lesson updates and persists checklist progress', (
+  testWidgets('completing the lesson with real gestures persists progress', (
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(_practiceApp(learning: learning));
     await tester.pumpAndSettle();
+    await openLesson(tester);
 
-    await tester.tap(find.text('Start').first);
+    // Step 1: draw by tapping the stock pile, exactly like a real match.
+    await tester.tap(find.byTooltip('Draw Stock'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Draw Stock'));
-    await tester.pumpAndSettle();
-    expect(find.text('Step 2 of 2'), findsOneWidget);
     expect(find.text('Card drawn — it joined your hand.'), findsOneWidget);
+    expect(
+      find.text(
+        'Now end your turn: pick a card you do not need and discard it.',
+      ),
+      findsOneWidget,
+    );
 
-    // Select a hand card; the exact legal discard action becomes a button.
-    // (The table strip also labels its pile "Discard", so target the button.)
-    expect(find.widgetWithText(FilledButton, 'Discard'), findsNothing);
-    await tester.tap(find.byType(HareegCardView).last);
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await tester.pumpAndSettle();
+    // Step 2: drag a hand card onto the discard pile.
+    await dragToDiscard(tester, 'Three of Clubs');
 
     expect(find.text('Lesson complete!'), findsOneWidget);
     expect(
@@ -65,104 +81,71 @@ void main() {
 
     expect(find.text('1 of 15 completed'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
-    expect(find.text('Replay'), findsOneWidget);
   });
 
-  testWidgets('replaying a completed lesson restarts the same board', (
-    tester,
-  ) async {
-    final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().withLessonStatus(
-        'turn-rhythm',
-        PracticeLessonStatus.completed,
-      ),
-    );
+  testWidgets('replay restarts the lesson on a fresh board', (tester) async {
+    final learning = MemoryLearningProgressRepository();
     await tester.pumpWidget(_practiceApp(learning: learning));
     await tester.pumpAndSettle();
+    await openLesson(tester);
 
-    await tester.tap(find.text('Replay').first);
+    await tester.tap(find.byTooltip('Draw Stock'));
+    await tester.pumpAndSettle();
+    await dragToDiscard(tester, 'Three of Clubs');
+    expect(find.text('Lesson complete!'), findsOneWidget);
+
+    await tester.tap(find.text('Replay lesson'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Step 1 of 2'), findsOneWidget);
-    expect(find.text('Draw Stock'), findsOneWidget);
+    expect(
+      find.text('Your turn starts with a card: draw one from the stock.'),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Three of Clubs'), findsWidgets);
   });
 
-  testWidgets('exiting practice never touches the saved match', (
-    tester,
-  ) async {
-    final savedMatch = snapshotWithSouthHand(const []);
-    final matches = MemoryMatchRepository(saved: savedMatch);
+  testWidgets('off-script affordances stay dark during a step', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(
-      _practiceApp(learning: learning, matches: matches),
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester);
+
+    // Step 1 allows only the stock draw. Discarding a hand card is a legal
+    // engine action, but the step gate must keep the drop target dark.
+    await dragToDiscard(tester, 'Three of Clubs');
+
+    expect(
+      find.text('Your turn starts with a card: draw one from the stock.'),
+      findsOneWidget,
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Start').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Draw Stock'));
-    await tester.pumpAndSettle();
-
-    // Leave mid-lesson.
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-
-    expect(matches.saved, same(savedMatch));
+    expect(find.bySemanticsLabel('Three of Clubs'), findsWidgets);
     expect(
       learning.progress.statusFor('turn-rhythm'),
       PracticeLessonStatus.notStarted,
     );
   });
 
-  testWidgets('selection hint shows until the selection matches an action', (
-    tester,
-  ) async {
-    // The surface only offers exact legal engine actions, so a mismatched
-    // selection has no button; the hint guides the player instead. (Real
-    // engine rejections are covered at the session layer.)
+  testWidgets('exiting practice never touches the saved match', (tester) async {
+    final savedMatch = snapshotWithSouthHand(const []);
+    final matches = MemoryMatchRepository(saved: savedMatch);
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(_practiceApp(learning: learning, matches: matches));
+    await tester.pumpAndSettle();
+    await openLesson(tester);
+
+    await tester.tap(find.byTooltip('Draw Stock'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Start').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Draw Stock'));
+    // Leave mid-lesson through the practice exit shortcut.
+    await tester.tap(find.byKey(const ValueKey('practice-exit')));
     await tester.pumpAndSettle();
 
+    expect(find.text('0 of 15 completed'), findsOneWidget);
+    expect(matches.saved, same(savedMatch));
     expect(
-      find.text('Tap cards in your hand to select them.'),
-      findsOneWidget,
+      learning.progress.statusFor('turn-rhythm'),
+      PracticeLessonStatus.notStarted,
     );
-  });
-
-  testWidgets('lesson surface fits a compact portrait phone', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2070);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(find.text('Start').first, 120);
-    await tester.tap(find.text('Start').first);
-    await tester.pumpAndSettle();
-
-    // Walk the whole lesson at 360x690 logical; overflows would throw.
-    await tester.tap(find.text('Draw Stock'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byType(HareegCardView).last, 120);
-    await tester.tap(find.byType(HareegCardView).last);
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.widgetWithText(FilledButton, 'Discard'),
-      120,
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Lesson complete!'), findsOneWidget);
   });
 }
 

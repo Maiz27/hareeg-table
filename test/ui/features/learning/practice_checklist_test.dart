@@ -100,9 +100,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_practiceApp(learning));
     await tester.pumpAndSettle();

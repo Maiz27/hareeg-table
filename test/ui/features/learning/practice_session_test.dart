@@ -77,9 +77,7 @@ void main() {
       // Step 2 offers exactly one discard action per hand card.
       final discardActions = session.allowedActions;
       expect(
-        discardActions.every(
-          (a) => a.kind == ClassicHareegActionKind.discard,
-        ),
+        discardActions.every((a) => a.kind == ClassicHareegActionKind.discard),
         isTrue,
       );
       expect(discardActions, hasLength(handBefore + 1));
