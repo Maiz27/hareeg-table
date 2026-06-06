@@ -121,14 +121,18 @@ void main() {
     test('chains the scripted core turn pack lessons in order', () {
       expect(
         PracticeScripts.nextScriptInPack('turn-rhythm')?.lessonId,
-        'pending-discard',
+        'first-meld',
       );
       expect(
-        PracticeScripts.nextScriptInPack('pending-discard')?.lessonId,
-        'meld-picker',
+        PracticeScripts.nextScriptInPack('first-meld')?.lessonId,
+        'discard-opening',
       );
       expect(
-        PracticeScripts.nextScriptInPack('meld-picker')?.lessonId,
+        PracticeScripts.nextScriptInPack('discard-opening')?.lessonId,
+        'bait-discard',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('bait-discard')?.lessonId,
         'opening-51',
       );
     });

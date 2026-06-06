@@ -19,8 +19,8 @@ void main() {
     await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
     await tester.pumpAndSettle();
 
-    expect(PracticeCatalog.lessons, hasLength(15));
-    expect(find.text('0 of 15 completed'), findsOneWidget);
+    expect(PracticeCatalog.lessons, hasLength(17));
+    expect(find.text('0 of 17 completed'), findsOneWidget);
     // The checklist builds lazily; walk it top to bottom, checking each pack
     // header followed by its lessons.
     for (final pack in PracticePackId.values) {
@@ -43,12 +43,12 @@ void main() {
     final learning = MemoryLearningProgressRepository(
       progress: LearningProgress.defaults()
           .withLessonStatus('turn-rhythm', PracticeLessonStatus.completed)
-          .withLessonStatus('pending-discard', PracticeLessonStatus.skipped),
+          .withLessonStatus('first-meld', PracticeLessonStatus.skipped),
     );
     await tester.pumpWidget(_practiceApp(learning));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 of 15 completed'), findsOneWidget);
+    expect(find.text('1 of 17 completed'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Skipped'), findsOneWidget);
     // Completed lessons offer replay instead of start.
@@ -125,7 +125,7 @@ void main() {
     await tester.tap(find.text('Skip intro'));
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 15 completed'), findsOneWidget);
+    expect(find.text('0 of 17 completed'), findsOneWidget);
   });
 }
 
