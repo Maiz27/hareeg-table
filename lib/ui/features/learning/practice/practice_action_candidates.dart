@@ -43,7 +43,6 @@ List<PracticeActionCandidate> practiceActionCandidates({
     switch (action.kind) {
       case ClassicHareegActionKind.drawStock:
       case ClassicHareegActionKind.takeDiscard:
-      case ClassicHareegActionKind.usePendingDiscard:
       case ClassicHareegActionKind.returnPendingDiscard:
       case ClassicHareegActionKind.returnOpeningMelds:
       case ClassicHareegActionKind.claimFifty:
@@ -53,12 +52,6 @@ List<PracticeActionCandidate> practiceActionCandidates({
       case ClassicHareegActionKind.discard:
       case ClassicHareegActionKind.discardBlockedCover:
       case ClassicHareegActionKind.discardJoker:
-        final cardId = action.cardId;
-        if (cardId != null &&
-            selectedCardIds.length == 1 &&
-            selectedCardIds.contains(cardId)) {
-          candidates.add(PracticeActionCandidate(action: action));
-        }
       case ClassicHareegActionKind.replaceJoker:
         final cardId = action.cardId;
         if (cardId != null &&
@@ -74,8 +67,12 @@ List<PracticeActionCandidate> practiceActionCandidates({
             selectedCardIds.containsAll(action.cardIds)) {
           candidates.add(PracticeActionCandidate(action: action));
         }
+      case ClassicHareegActionKind.usePendingDiscard:
       case ClassicHareegActionKind.returnTablePlay:
       case ClassicHareegActionKind.unknown:
+        // usePendingDiscard is a control-surface sentinel the engine always
+        // rejects ("use it in a meld or cover"), so it must never become a
+        // tappable button.
         break;
     }
   }
