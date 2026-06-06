@@ -78,17 +78,16 @@ class _HareegTableAppState extends State<HareegTableApp> {
     _matches = widget.matchRepository ?? AppRepositories.matches;
     _learning = widget.learningProgressRepository ?? AppRepositories.learning;
     // Kicked off at startup so the splash hand-off can decide between home
-    // and first-run onboarding without a visible wait. Errors and stalled
-    // reads fall back to defaults; failing to read progress must never block
-    // the menu.
-    _learningFuture = _learning
-        .loadProgress()
-        .timeout(const Duration(seconds: 2))
-        .catchError((Object error, StackTrace stackTrace) {
-          debugPrint('Failed to load learning progress in app shell: $error');
-          debugPrintStack(stackTrace: stackTrace);
-          return LearningProgress.defaults();
-        });
+    // and first-run onboarding without a visible wait. Errors fall back to
+    // defaults; failing to read progress must never block the menu.
+    _learningFuture = _learning.loadProgress().catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      debugPrint('Failed to load learning progress in app shell: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return LearningProgress.defaults();
+    });
     _haptics = TableHaptics(enabled: _values.hapticsEnabled);
     _audio = TableAudio(enabled: _values.soundEnabled);
     _loadPreferences();
@@ -98,7 +97,13 @@ class _HareegTableAppState extends State<HareegTableApp> {
   /// straight to the home menu.
   Future<void> _continueFromSplash(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final progress = await _learningFuture;
+    // Cap the wait here rather than on the startup read itself so the timer
+    // only exists while the splash is actually waiting; a stalled store can
+    // never strand the player on the splash.
+    final progress = await _learningFuture.timeout(
+      const Duration(seconds: 2),
+      onTimeout: LearningProgress.defaults,
+    );
     if (!navigator.mounted) {
       return;
     }
