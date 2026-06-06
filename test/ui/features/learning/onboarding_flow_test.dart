@@ -155,7 +155,7 @@ void main() {
     await tester.pumpWidget(_testApp(learning: learning));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Guided practice'));
+    await tester.tap(find.text('Guided practice'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Replay intro'));
     await tester.pumpAndSettle();
@@ -186,7 +186,7 @@ void main() {
     await tester.pumpWidget(_testApp(learning: learning));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Guided practice'));
+    await tester.tap(find.text('Guided practice'));
     await tester.pumpAndSettle();
 
     expect(find.text('0 of 15 completed'), findsOneWidget);

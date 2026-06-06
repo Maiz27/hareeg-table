@@ -57,6 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           arguments: _savedMatch,
                         ),
                   onAbandon: _abandonSavedMatch,
+                  onPractice: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.practice),
                 );
                 final content = Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -77,9 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onRulesHelp: () => Navigator.of(
                           context,
                         ).pushNamed(AppRoutes.rulesHelp),
-                        onPractice: () => Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.practice),
                       ),
                       if (shortViewport) ...[
                         const SizedBox(height: LoungeTokens.space6),
@@ -186,15 +185,10 @@ class _MenuBackdrop extends StatelessWidget {
 }
 
 class _BrandHeader extends StatelessWidget {
-  const _BrandHeader({
-    required this.onSettings,
-    required this.onRulesHelp,
-    required this.onPractice,
-  });
+  const _BrandHeader({required this.onSettings, required this.onRulesHelp});
 
   final VoidCallback onSettings;
   final VoidCallback onRulesHelp;
-  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -213,11 +207,6 @@ class _BrandHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(width: LoungeTokens.space2),
-            _ChromeIconButton(
-              icon: Icons.school_outlined,
-              tooltip: strings.practiceTitle,
-              onPressed: onPractice,
-            ),
             _ChromeIconButton(
               icon: Icons.menu_book_outlined,
               tooltip: strings.rulesHelp,
@@ -294,6 +283,7 @@ class _HeroSection extends StatelessWidget {
     required this.onNewGame,
     required this.onContinue,
     required this.onAbandon,
+    required this.onPractice,
   });
 
   final ClassicHareegMatchSnapshot? savedMatch;
@@ -301,6 +291,7 @@ class _HeroSection extends StatelessWidget {
   final VoidCallback onNewGame;
   final VoidCallback? onContinue;
   final Future<void> Function() onAbandon;
+  final VoidCallback onPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +354,28 @@ class _HeroSection extends StatelessWidget {
                   ),
                 )
               : const SizedBox.shrink(key: ValueKey('no-abandon')),
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        // Labeled learning entry in the action stack: practice is a journey,
+        // not utility chrome, so it sits with the game actions instead of as
+        // a third unlabeled icon crowding the header.
+        Align(
+          alignment: Alignment.center,
+          child: TextButton.icon(
+            onPressed: onPractice,
+            icon: const Icon(Icons.school_outlined, size: 18),
+            label: Text(strings.practiceTitle),
+            style: TextButton.styleFrom(
+              foregroundColor: LoungeTokens.mutedText,
+              // The theme minimum is full-width; hug the label.
+              minimumSize: const Size(0, 40),
+              textStyle: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
         ),
       ],
     );
