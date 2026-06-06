@@ -1799,8 +1799,17 @@ class _GameTableScreenState extends State<GameTableScreen>
           });
         }
       case PracticeSubmitStatus.lessonCompleted:
+        // Persistence stays non-blocking so the completion overlay raises
+        // immediately; the catchError guard keeps a throwing handler from
+        // stranding an unhandled async error (the shell's own handler logs
+        // its failures, this covers any other callback).
         unawaited(
-          widget.onPracticeFinished?.call(_practiceSession!.script.lessonId),
+          widget.onPracticeFinished
+              ?.call(_practiceSession!.script.lessonId)
+              .catchError((Object error, StackTrace stackTrace) {
+                debugPrint('Failed to record practice completion: $error');
+                debugPrintStack(stackTrace: stackTrace);
+              }),
         );
         setState(() {
           _scoreOpen = false;
