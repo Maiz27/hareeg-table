@@ -533,16 +533,16 @@ class _GameTableScreenState extends State<GameTableScreen>
     final humanSeat = PlayerSeat.south;
     final isHumanTurn =
         _controller.currentSeat == humanSeat && _canAcceptHumanInput;
-    final practiceAllowed = isHumanTurn && !_practiceComplete
-        ? _practiceSession?.allowedActionIds
+    final practiceGate = isHumanTurn && !_practiceComplete
+        ? _practiceSession
         : null;
     final controlActions = !isHumanTurn || _practiceComplete
         ? const <String>[]
-        : practiceAllowed == null
+        : practiceGate == null
         ? _controller.controlActionIdsFor(humanSeat)
         : [
             for (final id in _controller.controlActionIdsFor(humanSeat))
-              if (practiceAllowed.contains(id)) id,
+              if (practiceGate.offersActionId(id)) id,
           ];
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);

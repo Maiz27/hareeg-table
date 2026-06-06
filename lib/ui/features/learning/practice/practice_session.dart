@@ -109,6 +109,25 @@ class PracticeSession {
     };
   }
 
+  /// Whether the active step offers the move encoded by [actionId].
+  ///
+  /// This is the affordance gate's membership check and it mirrors [submit]'s
+  /// step filter exactly: the step decides by parsed action meaning, while
+  /// legality is the caller's contract — every id passed here must already be
+  /// a real offer computed from the live controller (the table's interaction
+  /// readers only produce engine-legal offers). Matching against the
+  /// enumerated legal-id surface instead would wrongly darken legal moves the
+  /// enumeration chooses not to advertise (staging an opening meld below the
+  /// benchmark) or encodes in a different card order (selection-order meld
+  /// ids).
+  bool offersActionId(String actionId) {
+    final step = currentStep;
+    if (step == null) {
+      return false;
+    }
+    return step.allows(ClassicHareegActionIds.describe(actionId));
+  }
+
   /// Applies one action through the real engine and advances step progress.
   PracticeSubmitResult submit(String actionId) {
     final step = currentStep;
