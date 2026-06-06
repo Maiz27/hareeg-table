@@ -69,6 +69,15 @@ abstract final class PracticeBoard {
         meld.cards.forEach(claim);
       }
     }
+    // The lesson seat's hand comes from [southHand] alone; a south entry
+    // here would claim cards out of the pool that no hand ever
+    // materialises, silently dropping them from the board.
+    if (cpuSeedCards.containsKey(PlayerSeat.south)) {
+      throw ArgumentError(
+        'cpuSeedCards must not seed the lesson seat — '
+        'southHand is the sole source for south.',
+      );
+    }
     for (final seeds in cpuSeedCards.values) {
       seeds.forEach(claim);
     }

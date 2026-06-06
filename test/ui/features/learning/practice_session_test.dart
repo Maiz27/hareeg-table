@@ -49,6 +49,22 @@ void main() {
       );
     });
 
+    test('rejects CPU seed cards for the lesson seat', () {
+      // A south entry would claim cards no hand materialises — they would
+      // silently vanish from the board.
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.south: [
+              PracticeBoard.card(CardRank.three, CardSuit.clubs),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects CPU seed cards past the dealt hand size', () {
       expect(
         () => PracticeBoard.build(
