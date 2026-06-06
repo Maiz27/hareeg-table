@@ -174,31 +174,4 @@ abstract final class PracticeBoard {
       openedSeats: {seat},
     );
   }
-
-  /// Opening state with several seats already opened (e.g. a lesson where a
-  /// CPU seat owns table melds and the player covers them).
-  static OpeningState openedSeats(
-    Set<PlayerSeat> seats, {
-    int requirement = 51,
-  }) {
-    return OpeningState(
-      baseRequirement: requirement,
-      currentRequirement: requirement,
-      openedSeats: seats,
-    );
-  }
-
-  /// Opening state where [opener] already opened high, raising the live
-  /// benchmark above its base for everyone still unopened.
-  static OpeningState raisedBenchmark({
-    required PlayerSeat opener,
-    required int currentRequirement,
-    int baseRequirement = 51,
-  }) {
-    return OpeningState(
-      baseRequirement: baseRequirement,
-      currentRequirement: currentRequirement,
-      openedSeats: {opener},
-    );
-  }
 }

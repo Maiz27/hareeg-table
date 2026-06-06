@@ -379,8 +379,8 @@ void main() {
     });
 
     test('later-pack lessons stay unscripted until their slice ships', () {
-      expect(PracticeScripts.byId('pending-discard'), isNull);
-      expect(PracticeScripts.byId('benchmark-pressure'), isNull);
+      expect(PracticeScripts.byId('final-discard'), isNull);
+      expect(PracticeScripts.byId('normal-finish'), isNull);
     });
 
     test('every script replays an identical deterministic board', () {
