@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -7,6 +9,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_catalog.dart';
+import 'onboarding_screen.dart';
 
 /// Signature for launching one practice lesson from the checklist.
 ///
@@ -107,8 +110,20 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
     }
   }
 
-  void _replayIntro() {
-    Navigator.of(context).pushNamed(AppRoutes.onboarding);
+  Future<void> _replayIntro() async {
+    final navigator = Navigator.of(context);
+    // Let queued status writes land before onboarding runs its own
+    // load-modify-save on the same key, so a just-tapped skip cannot be lost.
+    await _pendingSave.catchError((Object _) {});
+    if (!mounted) {
+      return;
+    }
+    unawaited(
+      navigator.pushNamed(
+        AppRoutes.onboarding,
+        arguments: OnboardingScreen.fromPracticeArgument,
+      ),
+    );
   }
 
   @override

@@ -21,13 +21,18 @@ import '../../../core/theme/lounge_tokens.dart';
 /// on path-based initial route generation; reopen entry points push from
 /// screens above home), so skip/finish simply pop back. The route argument
 /// [firstRunArgument] only switches the final-page exit copy from "Done" to
-/// "Start playing".
+/// "Start playing"; [fromPracticeArgument] makes "Try guided practice" pop
+/// back to the hub that opened the replay instead of pushing a new one.
 class OnboardingScreen extends StatefulWidget {
   /// Creates the onboarding flow.
   const OnboardingScreen({required this.learningRepository, super.key});
 
   /// Route argument marking the automatic first-launch presentation.
   static const firstRunArgument = 'first-run';
+
+  /// Route argument marking a replay opened from the practice hub, so
+  /// "Try guided practice" pops back to it instead of stacking a second hub.
+  static const fromPracticeArgument = 'from-practice';
 
   /// Onboarding and practice progress persistence.
   final LearningProgressRepository learningRepository;
@@ -74,6 +79,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// stopping at the previous screen / home menu.
   Future<void> _finish({required bool toPractice}) async {
     final navigator = Navigator.of(context);
+    final openedFromPractice =
+        ModalRoute.of(context)?.settings.arguments ==
+        OnboardingScreen.fromPracticeArgument;
     await _persistCompletion();
     if (!mounted) {
       return;
@@ -88,11 +96,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       return;
     }
-    if (toPractice) {
+    if (toPractice && !openedFromPractice) {
       // Replace onboarding with the practice hub so backing out of practice
       // returns to wherever onboarding was opened from (home on first run).
       unawaited(navigator.popAndPushNamed(AppRoutes.practice));
     } else {
+      // When the practice hub opened the intro, popping lands back on it.
       navigator.pop();
     }
   }
@@ -305,9 +314,7 @@ class _IconHero extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: LoungeTokens.feltGreen.withValues(alpha: 0.55),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.3)),
       ),
       child: Icon(icon, size: 48, color: LoungeTokens.goldAccent),
     );
