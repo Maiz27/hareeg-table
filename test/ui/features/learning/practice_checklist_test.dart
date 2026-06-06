@@ -80,13 +80,14 @@ void main() {
     expect(find.text('Skipped'), findsNothing);
   });
 
-  testWidgets('starting a lesson before the surface ships shows the notice', (
+  testWidgets('starting a lesson whose pack has not shipped shows the notice', (
     tester,
   ) async {
     await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Start').first);
+    // Second lesson (pending-discard) has no script until HT-46.
+    await tester.tap(find.text('Start').at(1));
     await tester.pump();
 
     expect(
@@ -99,9 +100,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_practiceApp(learning));
     await tester.pumpAndSettle();

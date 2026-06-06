@@ -42,6 +42,11 @@ import '../table_hand_interaction_state.dart';
 import '../table_interaction_planner.dart';
 import '../table_persistence_planner.dart';
 import '../table_session_flow_planner.dart';
+import '../../learning/practice/practice_lesson_script.dart';
+import '../../learning/practice/practice_session.dart';
+import '../../learning/practice/practice_table_interaction_reader.dart';
+import '../../learning/widgets/practice_completion_overlay.dart';
+import '../../learning/widgets/practice_step_banner.dart';
 import '../widgets/coach_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
@@ -66,6 +71,9 @@ class GameTableScreen extends StatefulWidget {
     required this.onPreferencesChanged,
     this.initialSnapshot,
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
+    this.practiceSession,
+    this.onPracticeFinished,
+    this.nextPracticeScript,
   });
 
   /// Setup used to deal the round.
@@ -85,6 +93,27 @@ class GameTableScreen extends StatefulWidget {
 
   /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
+
+  /// Non-null when this table hosts a guided practice lesson.
+  ///
+  /// Practice mode adopts the session's deterministic controller, gates every
+  /// affordance and applied action through the lesson step, suppresses CPU
+  /// autonomy and match persistence, and swaps the match chrome for the step
+  /// banner + completion overlay. Real legality and gestures are unchanged —
+  /// the lesson plays on the exact surface a real match uses.
+  final PracticeSession? practiceSession;
+
+  /// Called when a practice lesson's final step is demonstrated, so the app
+  /// shell can persist checklist completion. The table never touches learning
+  /// progress itself; [String] is the finished lesson's id because the
+  /// completion overlay can chain straight into the pack's next lesson.
+  final Future<void> Function(String lessonId)? onPracticeFinished;
+
+  /// Resolves the lesson that continues a finished lesson's practice pack,
+  /// or null at a pack boundary. Owned by the shell so the table stays
+  /// ignorant of the script registry; a non-null result powers the
+  /// completion overlay's "next lesson" button.
+  final PracticeLessonScript? Function(String lessonId)? nextPracticeScript;
 
   @override
   State<GameTableScreen> createState() => _GameTableScreenState();
@@ -147,12 +176,27 @@ class _GameTableScreenState extends State<GameTableScreen>
   String? _coachInsightCacheKey;
   List<CoachingInsight> _coachInsights = const [];
 
+  // Set once the practice lesson's final step is demonstrated; drives the
+  // completion overlay instead of the match round-result pipeline.
+  bool _practiceComplete = false;
+
+  // State-owned so replay / next-lesson swap sessions in place. A route swap
+  // would build the replacement table (landscape) and then dispose this one,
+  // whose dispose() restores portrait — flipping the live lesson upright.
+  PracticeSession? _practiceSession;
+
+  bool get _isPractice => _practiceSession != null;
+
   @override
   void initState() {
     super.initState();
     AppOrientation.useLandscape();
+    _practiceSession = widget.practiceSession;
+    final practice = _practiceSession;
     final snapshot = widget.initialSnapshot;
-    _controller = snapshot != null
+    _controller = practice != null
+        ? practice.controller
+        : snapshot != null
         ? ClassicHareegGameController.fromSnapshot(snapshot)
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
@@ -164,7 +208,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     )..addListener(_handleCueOrFlightChange);
     _cues.addListener(_handleCueOrFlightChange);
     _resetHandInteraction();
-    if (snapshot == null) {
+    if (snapshot == null && practice == null) {
       _pendingDealBuild = true;
     }
     _debugTableLog(
@@ -174,7 +218,11 @@ class _GameTableScreenState extends State<GameTableScreen>
       'counts=${_debugSeatCounts(_controller)}',
     );
     _ensureFiftyTicker();
-    _scheduleTurnFlow();
+    // Practice never runs the opening deal, CPU turns, or persistence the
+    // turn-flow planner orchestrates; the lesson waits on the player.
+    if (!_isPractice) {
+      _scheduleTurnFlow();
+    }
   }
 
   @override
@@ -485,9 +533,17 @@ class _GameTableScreenState extends State<GameTableScreen>
     final humanSeat = PlayerSeat.south;
     final isHumanTurn =
         _controller.currentSeat == humanSeat && _canAcceptHumanInput;
-    final controlActions = isHumanTurn
+    final practiceAllowed = isHumanTurn && !_practiceComplete
+        ? _practiceSession?.allowedActionIds
+        : null;
+    final controlActions = !isHumanTurn || _practiceComplete
+        ? const <String>[]
+        : practiceAllowed == null
         ? _controller.controlActionIdsFor(humanSeat)
-        : const <String>[];
+        : [
+            for (final id in _controller.controlActionIdsFor(humanSeat))
+              if (practiceAllowed.contains(id)) id,
+          ];
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);
     final strictness = _controller.setup.tableStrictness;
@@ -531,7 +587,9 @@ class _GameTableScreenState extends State<GameTableScreen>
 
     // Coaching tier: surface one prioritized hint when the player is on turn,
     // the toggle is on, and nothing is mid-animation or covering the table.
+    // Practice replaces the advisor coach with the step banner.
     final coachActive =
+        !_isPractice &&
         strictness.showsProactiveHints &&
         widget.preferences.coachingTipsEnabled &&
         isHumanTurn &&
@@ -678,27 +736,47 @@ class _GameTableScreenState extends State<GameTableScreen>
                     : isTablet
                     ? 14.0
                     : 10.0;
+                // Side safe-insets are deliberately ignored: in landscape the
+                // OS pads an entire short edge for a punch-hole that actually
+                // sits vertically centered (and for system bars hidden by
+                // immersive mode), which pushed the corner buttons visibly
+                // off the edges while the stock pile and open-need pill sat
+                // flush. The top corners are clear on side-cutout devices, so
+                // the chrome matches the rest of the table: cosmetic inset
+                // only.
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Practice swaps the score shortcut for an exit back to
+                    // the hub; lesson boards have no match score to inspect.
                     Positioned(
                       top: safe.top + edgeInset,
-                      left: safe.left + edgeInset,
-                      child: _TableChromeButton(
-                        tooltip: strings.scores,
-                        icon: Icons.bar_chart_rounded,
-                        diameter: buttonSize,
-                        iconSize: iconSize,
-                        onPressed: () => setState(() => _scoreOpen = true),
-                      ),
+                      left: edgeInset,
+                      child: _isPractice
+                          ? _TableChromeButton(
+                              key: const ValueKey('practice-exit'),
+                              tooltip: strings.practiceBackToList,
+                              icon: Icons.close_rounded,
+                              diameter: buttonSize,
+                              iconSize: iconSize,
+                              onPressed: () => Navigator.of(context).pop(),
+                            )
+                          : _TableChromeButton(
+                              tooltip: strings.scores,
+                              icon: Icons.bar_chart_rounded,
+                              diameter: buttonSize,
+                              iconSize: iconSize,
+                              onPressed: () =>
+                                  setState(() => _scoreOpen = true),
+                            ),
                     ),
                     Positioned(
                       top: safe.top + edgeInset,
-                      right: safe.right + edgeInset,
+                      right: edgeInset,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (_canShowFastForwardRound()) ...[
+                          if (!_isPractice && _canShowFastForwardRound()) ...[
                             _TableChromeButton(
                               key: const ValueKey('table-chrome-fast-forward'),
                               tooltip: strings.skipToNextRound,
@@ -727,8 +805,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                             safe.top +
                             edgeInset +
                             math.max(0.0, (buttonSize - 34) / 2),
-                        left: safe.left + edgeInset + buttonSize + 14,
-                        right: safe.right + edgeInset + buttonSize + 14,
+                        left: edgeInset + buttonSize + 14,
+                        right: edgeInset + buttonSize + 14,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
@@ -749,6 +827,13 @@ class _GameTableScreenState extends State<GameTableScreen>
                 hint: coachHint,
                 highContrast: widget.preferences.highContrastCards,
               ),
+            // Practice step prompt: persistent through the player's own card
+            // flights (unlike the coach), hidden only under blocking overlays.
+            if (_isPractice &&
+                !_practiceComplete &&
+                !_pauseOpen &&
+                _inspectedCard == null)
+              _buildPracticeStepBanner(strings),
             for (final flight in _activeFlights)
               Positioned.fill(
                 key: ValueKey('flight-${flight.serial}'),
@@ -769,7 +854,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
 
     return PopScope(
-      canPop: false,
+      // Practice rides a pushed route under the hub; the system back simply
+      // pops to it. A real match owns the root stack and exits to home.
+      canPop: _isPractice,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _returnToMainMenu();
@@ -822,7 +909,9 @@ class _GameTableScreenState extends State<GameTableScreen>
                   widget.preferences.copyWith(coachingTipsEnabled: v),
                 ),
                 onResume: () => setState(() => _pauseOpen = false),
-                onLeave: _returnToMainMenu,
+                onLeave: _isPractice
+                    ? () => Navigator.of(context).pop()
+                    : _returnToMainMenu,
               ),
             ),
             if (_inspectedCard != null)
@@ -832,6 +921,21 @@ class _GameTableScreenState extends State<GameTableScreen>
                 strictness: strictness,
                 onClose: () => setState(() => _inspectedCard = null),
               ),
+            _AnimatedOverlaySlot(
+              visible: _practiceComplete,
+              overlayKey: 'practice-completion-overlay-slot',
+              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              child: !_practiceComplete
+                  ? const SizedBox.shrink()
+                  : PracticeCompletionOverlay(
+                      onReplay: () =>
+                          _startPracticeLesson(_practiceSession!.script),
+                      onNext: _nextPracticeScript() == null
+                          ? null
+                          : () => _startPracticeLesson(_nextPracticeScript()!),
+                      onDone: () => Navigator.of(context).pop(),
+                    ),
+            ),
             _AnimatedOverlaySlot(
               visible: _roundResultPresentation != null,
               overlayKey: 'round-result-overlay-slot',
@@ -859,6 +963,62 @@ class _GameTableScreenState extends State<GameTableScreen>
         ),
       ),
     );
+  }
+
+  /// Builds the persistent step prompt for the active practice lesson.
+  Widget _buildPracticeStepBanner(AppStrings strings) {
+    final session = _practiceSession!;
+    final step = session.currentStep;
+    if (step == null) {
+      return const SizedBox.shrink();
+    }
+    return PracticeStepBanner(
+      key: const ValueKey('practice-step-banner'),
+      stepIndex: session.stepIndex,
+      stepCount: session.stepCount,
+      prompt: step.prompt(strings),
+      hint: step.hint?.call(strings),
+      highContrast: widget.preferences.highContrastCards,
+    );
+  }
+
+  /// Starts [script] on a fresh board without leaving the route — the same
+  /// in-place controller swap [_advanceToNextRound] uses, minus the deal
+  /// choreography. Serves both replay (same script) and the completion
+  /// overlay's next-lesson continuation; swapping routes instead would let
+  /// the replaced table's dispose() flip a live landscape lesson to portrait.
+  void _startPracticeLesson(PracticeLessonScript script) {
+    final session = PracticeSession(script: script);
+    // Drain every cue timer + the fifty ticker before swapping controllers
+    // so no stale dwell can fire against the fresh lesson board.
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
+    setState(() {
+      _practiceSession = session;
+      _controller = session.controller;
+      _coachInsightCacheKey = null;
+      _coachInsights = const [];
+      _resetHandInteraction();
+      _isCpuRunning = false;
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _placedJokerSnapshot = null;
+      _activeFlights.clear();
+      _meldFlight.clear();
+      _inspectedCard = null;
+      _roundResultPresentation = null;
+      _practiceComplete = false;
+    });
+    _ensureFiftyTicker();
+  }
+
+  /// Script continuing the active lesson's pack, when the shell offers one.
+  PracticeLessonScript? _nextPracticeScript() {
+    final session = _practiceSession;
+    if (session == null) {
+      return null;
+    }
+    return widget.nextPracticeScript?.call(session.script.lessonId);
   }
 
   /// Builds the coaching hint to surface this frame, or null when none should
@@ -979,12 +1139,23 @@ class _GameTableScreenState extends State<GameTableScreen>
     TableHandInteractionSnapshot? southHand,
   ]) {
     final hand = southHand ?? _southHandInteraction();
+    final controllerReader = ClassicHareegControllerTableInteractionReader(
+      _controller,
+    );
+    final practice = _practiceSession;
     return ClassicHareegTableInteractionPlanner(
-      reader: ClassicHareegControllerTableInteractionReader(_controller),
+      // Practice narrows every gesture affordance to the step being taught;
+      // a finished lesson locks the board under the completion overlay.
+      reader: practice == null
+          ? controllerReader
+          : PracticeTableInteractionReader(
+              inner: controllerReader,
+              session: practice,
+            ),
       seat: PlayerSeat.south,
       selectedCardIds: hand.selectedCardIds,
       handCards: hand.orderedCards,
-      inputLocked: !_canAcceptHumanInput,
+      inputLocked: !_canAcceptHumanInput || _practiceComplete,
     );
   }
 
@@ -1496,7 +1667,26 @@ class _GameTableScreenState extends State<GameTableScreen>
         ? _capturePlacedJokerIds()
         : null;
     final applyWatch = Stopwatch()..start();
-    final result = _controller.applyAction(actionId);
+    // Practice routes the apply through the session so the lesson step gates
+    // and observes the same engine mutation the table would make directly.
+    final practice = _practiceSession;
+    final completedPracticeStep = practice?.currentStep;
+    final practiceResult = practice?.submit(actionId);
+    if (practiceResult?.status == PracticeSubmitStatus.notAllowed) {
+      // Legal engine action, but off-script for this step. Affordance gating
+      // makes this near-unreachable; keep a gentle nudge as the backstop.
+      _placedJokerSnapshot = null;
+      setState(() {
+        _replaceHumanFeedback(
+          context.strings.practiceFollowStep,
+          isError: false,
+        );
+      });
+      return;
+    }
+    final result = practiceResult == null
+        ? _controller.applyAction(actionId)
+        : _adaptPracticeResult(practiceResult);
     applyWatch.stop();
     if (!result.isSuccess) {
       _placedJokerSnapshot = null;
@@ -1549,6 +1739,12 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (flowPlan.shouldEnsureFiftyTicker) {
       _ensureFiftyTicker();
     }
+    if (practiceResult != null) {
+      // Lesson flow replaces the match pipeline: no persistence, no CPU
+      // turns, no round-result overlay.
+      _handlePracticeProgress(practiceResult, completedPracticeStep);
+      return;
+    }
     if (flowPlan.shouldPersist) {
       await _persistAndMaybeFinish();
     }
@@ -1567,6 +1763,52 @@ class _GameTableScreenState extends State<GameTableScreen>
   Future<void> _playSound(TableSoundEvent? event) async {
     if (event == null) return;
     await _audio.play(event);
+  }
+
+  /// Maps a session outcome onto the [ApplyActionResult] shape the table's
+  /// post-apply flow consumes. `notAllowed` is intercepted before this
+  /// adapter runs; reverted actions surface as rejections (the session never
+  /// advances a step on a penalty-only non-move).
+  ApplyActionResult _adaptPracticeResult(PracticeSubmitResult result) {
+    return switch (result.status) {
+      PracticeSubmitStatus.rejected || PracticeSubmitStatus.notAllowed =>
+        ApplyActionResult.failure(result.message),
+      PracticeSubmitStatus.accepted ||
+      PracticeSubmitStatus.stepCompleted ||
+      PracticeSubmitStatus.lessonCompleted => const ApplyActionResult.success(),
+    };
+  }
+
+  /// Advances the lesson presentation after a successfully applied practice
+  /// action: surfaces the completed step's confirmation on the feedback chip
+  /// and raises the completion overlay when the final step lands.
+  void _handlePracticeProgress(
+    PracticeSubmitResult result,
+    PracticeStep? completedStep,
+  ) {
+    switch (result.status) {
+      case PracticeSubmitStatus.rejected:
+      case PracticeSubmitStatus.notAllowed:
+      case PracticeSubmitStatus.accepted:
+        return;
+      case PracticeSubmitStatus.stepCompleted:
+        final note = completedStep?.successNote;
+        if (note != null) {
+          setState(() {
+            _replaceHumanFeedback(note(context.strings), isError: false);
+          });
+        }
+      case PracticeSubmitStatus.lessonCompleted:
+        unawaited(
+          widget.onPracticeFinished?.call(_practiceSession!.script.lessonId),
+        );
+        setState(() {
+          _scoreOpen = false;
+          _pauseOpen = false;
+          _inspectedCard = null;
+          _practiceComplete = true;
+        });
+    }
   }
 
   /// Whether the Table-tier "skip to next round" chrome button should show.
@@ -1659,6 +1901,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<bool> _runCpuTurns() async {
+    // Practice lessons have no CPU autonomy: the board waits on the player's
+    // next step even when the turn passes to another seat.
+    if (_isPractice) {
+      return false;
+    }
     if (_isCpuRunning ||
         _isOpeningDealRunning ||
         _controller.isRoundOver ||
@@ -1766,6 +2013,12 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<bool> _persistAndMaybeFinish() async {
+    // Practice never touches the active-match store and never enters the
+    // round-result / next-round pipeline; lesson completion has its own
+    // overlay driven by the session.
+    if (_isPractice) {
+      return true;
+    }
     final totalWatch = Stopwatch()..start();
     final isRoundOver = _controller.isRoundOver;
     final scoreView = _controller.scoreView;

@@ -20,6 +20,8 @@ import '../ui/features/game_setup/views/new_game_setup_screen.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
+import '../ui/features/learning/practice/practice_scripts.dart';
+import '../ui/features/learning/practice/practice_session.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
@@ -144,6 +146,21 @@ class _HareegTableAppState extends State<HareegTableApp> {
       }
     } catch (error, stackTrace) {
       debugPrint('Failed to load preferences in app shell: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// Marks [lessonId] completed once its final practice step is demonstrated.
+  /// Lives in the shell so the game table never learns about learning
+  /// progress; failures only log — a lost write must never block the lesson.
+  Future<void> _persistPracticeCompletion(String lessonId) async {
+    try {
+      final progress = await _learning.loadProgress();
+      await _learning.saveProgress(
+        progress.withLessonStatus(lessonId, PracticeLessonStatus.completed),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save practice completion: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
@@ -275,6 +292,32 @@ class _HareegTableAppState extends State<HareegTableApp> {
               matchRepository: _matches,
               preferences: _values,
               onPreferencesChanged: _updatePreferences,
+            ),
+            settings: settings,
+          );
+        }
+
+        if (settings.name == AppRoutes.practiceLesson) {
+          final lessonId = settings.arguments;
+          final script = lessonId is String
+              ? PracticeScripts.byId(lessonId)
+              : null;
+          if (script == null) {
+            return null;
+          }
+          // Lessons run on the real table in practice mode: the session's
+          // deterministic controller, step-gated affordances, no CPU
+          // autonomy, and no active-match writes (PRD #64 amendment).
+          final session = PracticeSession(script: script);
+          return MaterialPageRoute<void>(
+            builder: (context) => GameTableScreen(
+              setup: session.controller.setup,
+              matchRepository: _matches,
+              preferences: _values,
+              onPreferencesChanged: _updatePreferences,
+              practiceSession: session,
+              onPracticeFinished: _persistPracticeCompletion,
+              nextPracticeScript: PracticeScripts.nextScriptInPack,
             ),
             settings: settings,
           );

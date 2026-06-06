@@ -150,12 +150,15 @@ abstract final class PracticeCatalog {
   ]);
 
   /// All stable lesson ids in display order.
-  static List<String> get lessonIds =>
-      [for (final lesson in lessons) lesson.id];
+  static List<String> get lessonIds => [
+    for (final lesson in lessons) lesson.id,
+  ];
 
   /// Lessons belonging to one pack, preserving catalog order.
-  static List<PracticeLesson> lessonsIn(PracticePackId pack) =>
-      [for (final lesson in lessons) if (lesson.pack == pack) lesson];
+  static List<PracticeLesson> lessonsIn(PracticePackId pack) => [
+    for (final lesson in lessons)
+      if (lesson.pack == pack) lesson,
+  ];
 
   /// Looks up a lesson by stable id.
   static PracticeLesson? byId(String id) {
