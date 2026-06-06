@@ -243,11 +243,16 @@ class AppStrings {
   // Guided practice lesson catalog.
   String get practiceTurnRhythmTitle => _v('practiceTurnRhythmTitle');
   String get practiceTurnRhythmSummary => _v('practiceTurnRhythmSummary');
+  String get practiceFirstMeldTitle => _v('practiceFirstMeldTitle');
+  String get practiceFirstMeldSummary => _v('practiceFirstMeldSummary');
+  String get practiceDiscardOpeningTitle => _v('practiceDiscardOpeningTitle');
+  String get practiceDiscardOpeningSummary =>
+      _v('practiceDiscardOpeningSummary');
+  String get practiceBaitDiscardTitle => _v('practiceBaitDiscardTitle');
+  String get practiceBaitDiscardSummary => _v('practiceBaitDiscardSummary');
   String get practicePendingDiscardTitle => _v('practicePendingDiscardTitle');
   String get practicePendingDiscardSummary =>
       _v('practicePendingDiscardSummary');
-  String get practiceMeldPickerTitle => _v('practiceMeldPickerTitle');
-  String get practiceMeldPickerSummary => _v('practiceMeldPickerSummary');
   String get practiceOpeningTitle => _v('practiceOpeningTitle');
   String get practiceOpeningSummary => _v('practiceOpeningSummary');
   String get practiceBenchmarkTitle => _v('practiceBenchmarkTitle');
@@ -295,6 +300,41 @@ class AppStrings {
   String get practiceTurnRhythmStep1Done => _v('practiceTurnRhythmStep1Done');
   String get practiceTurnRhythmStep2 => _v('practiceTurnRhythmStep2');
   String get practiceTurnRhythmStep2Hint => _v('practiceTurnRhythmStep2Hint');
+
+  // First meld lesson.
+  String get practiceFirstMeldStep2 => _v('practiceFirstMeldStep2');
+  String get practiceFirstMeldStep2Hint => _v('practiceFirstMeldStep2Hint');
+  String get practiceFirstMeldStep2Done => _v('practiceFirstMeldStep2Done');
+  String get practiceFirstMeldStep2Hold => _v('practiceFirstMeldStep2Hold');
+  String get practiceFirstMeldStep3 => _v('practiceFirstMeldStep3');
+
+  // Opening from the discard lesson.
+  String get practiceDiscardOpeningStep1 => _v('practiceDiscardOpeningStep1');
+  String get practiceDiscardOpeningStep1Done =>
+      _v('practiceDiscardOpeningStep1Done');
+  String get practiceDiscardOpeningStep2 => _v('practiceDiscardOpeningStep2');
+  String get practiceDiscardOpeningStep2Hint =>
+      _v('practiceDiscardOpeningStep2Hint');
+  String get practiceDiscardOpeningStep2Done =>
+      _v('practiceDiscardOpeningStep2Done');
+  String get practiceDiscardOpeningStep3 => _v('practiceDiscardOpeningStep3');
+  String get practiceDiscardOpeningStep3Done =>
+      _v('practiceDiscardOpeningStep3Done');
+  String get practiceDiscardOpeningStep4 => _v('practiceDiscardOpeningStep4');
+
+  // Bait discard lesson.
+  String get practiceBaitStep1 => _v('practiceBaitStep1');
+  String get practiceBaitStep1Done => _v('practiceBaitStep1Done');
+  String get practiceBaitStep2 => _v('practiceBaitStep2');
+
+  // Opening to 51 lesson.
+  String get practiceOpeningStep1 => _v('practiceOpeningStep1');
+  String get practiceOpeningStep1Hint => _v('practiceOpeningStep1Hint');
+  String get practiceOpeningStep1Done => _v('practiceOpeningStep1Done');
+  String get practiceOpeningStep2 => _v('practiceOpeningStep2');
+  String get practiceOpeningStep2Done => _v('practiceOpeningStep2Done');
+  String get practiceOpeningStep3 => _v('practiceOpeningStep3');
+
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
@@ -1125,15 +1165,21 @@ const _englishValues = {
   'practiceTurnRhythmTitle': 'Turn rhythm',
   'practiceTurnRhythmSummary':
       'Draw, play if you can, then discard to end your turn.',
+  'practiceFirstMeldTitle': 'Your first meld',
+  'practiceFirstMeldSummary':
+      'Open the table with one run straight from your own hand.',
+  'practiceDiscardOpeningTitle': 'Opening from the discard',
+  'practiceDiscardOpeningSummary':
+      'Take the thrown card that pushes your opening past 51.',
+  'practiceBaitDiscardTitle': 'The bait discard',
+  'practiceBaitDiscardSummary':
+      'A useful-looking discard is not always worth taking.',
   'practicePendingDiscardTitle': 'Taking the discard',
   'practicePendingDiscardSummary':
       'A taken discard must be used in a play or returned before drawing.',
-  'practiceMeldPickerTitle': 'Choosing a legal meld',
-  'practiceMeldPickerSummary':
-      'Turn selected cards into one exact legal set or sequence.',
   'practiceOpeningTitle': 'Opening to 51',
   'practiceOpeningSummary':
-      'Place melds worth the opening requirement in one turn.',
+      'Stage melds worth the opening requirement in one turn.',
   'practiceBenchmarkTitle': 'Benchmark pressure',
   'practiceBenchmarkSummary':
       'A high first opening raises what everyone else must reach.',
@@ -1182,6 +1228,42 @@ const _englishValues = {
       'Now end your turn: pick a card you do not need and discard it.',
   'practiceTurnRhythmStep2Hint':
       'Drag the card you can spare onto the discard pile.',
+  'practiceFirstMeldStep2':
+      'Three or more cards that share a rank or run in one suit make a meld. Your hearts already line up: 9 through ace is one run worth 59 — past the 51 opening. Play it.',
+  'practiceFirstMeldStep2Hint':
+      'Tap all six hearts, then the gold meld chip — extras break the meld, and the undo pill takes a staged meld back.',
+  'practiceFirstMeldStep2Done': 'Opened at 59 in a single play.',
+  'practiceFirstMeldStep2Hold':
+      'Staged — but only the full six-heart run reaches 51. The undo pill takes it back; then play all six.',
+  'practiceFirstMeldStep3':
+      'Finish the turn: discard a card you do not need.',
+  'practiceDiscardOpeningStep1':
+      'Your queens are a ready 30, and you hold two more eights — West\'s eight completes the set. Together that is 54, past the 51 opening. Tap the pile to take it.',
+  'practiceDiscardOpeningStep1Done':
+      'The eight is pending: a taken card must earn its place this turn.',
+  'practiceDiscardOpeningStep2':
+      'The taken eight must hit the table first: meld the three eights.',
+  'practiceDiscardOpeningStep2Hint':
+      'Tap the three eights, then the gold meld chip.',
+  'practiceDiscardOpeningStep2Done':
+      'Staged at 24 — the queens will push it past 51.',
+  'practiceDiscardOpeningStep3':
+      'Now the queens: 24 + 30 makes 54 and the opening seals.',
+  'practiceDiscardOpeningStep3Done': 'Opened at 54 — two sets, one turn.',
+  'practiceDiscardOpeningStep4': 'End your turn with a discard.',
+  'practiceBaitStep1':
+      'West\'s seven pairs with yours — but three sevens make 21, nowhere near the 51 you need to open. Leave it and draw from the stock.',
+  'practiceBaitStep1Done': 'Good judgment — the bait stays on the pile.',
+  'practiceBaitStep2': 'Bank the patience: end your turn with a discard.',
+  'practiceOpeningStep1':
+      'No single meld here reaches 51 — but melds can stack in one turn. Start with your kings; notice 30 is not enough on its own.',
+  'practiceOpeningStep1Hint':
+      'Tap the three kings, then the gold meld chip. Staged it wrong? The undo pill takes it back.',
+  'practiceOpeningStep1Done':
+      'Staged at 30. The table holds your melds until you reach 51.',
+  'practiceOpeningStep2': 'Add the jacks to push the total past 51.',
+  'practiceOpeningStep2Done': 'Opened at 60! The table is yours now.',
+  'practiceOpeningStep3': 'Seal the opening: end your turn with a discard.',
 };
 
 const _arabicValues = {
@@ -1395,14 +1477,19 @@ const _arabicValues = {
   'practiceProgress': 'اكتمل {completed} من {total}',
   'practiceTurnRhythmTitle': 'إيقاع الدور',
   'practiceTurnRhythmSummary': 'اسحب، العب إن استطعت، ثم ارم لإنهاء دورك.',
+  'practiceFirstMeldTitle': 'أول مجموعة لك',
+  'practiceFirstMeldSummary': 'افتتح الطاولة بتسلسل واحد من يدك مباشرة.',
+  'practiceDiscardOpeningTitle': 'الافتتاح من الرمية',
+  'practiceDiscardOpeningSummary':
+      'خذ الورقة المرمية التي تدفع افتتاحك فوق 51.',
+  'practiceBaitDiscardTitle': 'رمية الطُعم',
+  'practiceBaitDiscardSummary':
+      'الورقة التي تبدو مفيدة لا تستحق الأخذ دائما.',
   'practicePendingDiscardTitle': 'أخذ الرمية',
   'practicePendingDiscardSummary':
       'الرمية المأخوذة يجب استخدامها في لعبة أو إرجاعها قبل السحب.',
-  'practiceMeldPickerTitle': 'اختيار مجموعة قانونية',
-  'practiceMeldPickerSummary':
-      'حوّل الأوراق المحددة إلى مجموعة أو تسلسل قانوني واحد بالضبط.',
   'practiceOpeningTitle': 'الافتتاح بـ 51',
-  'practiceOpeningSummary': 'ضع مجموعات بقيمة شرط الافتتاح في دور واحد.',
+  'practiceOpeningSummary': 'كدّس مجموعات بقيمة شرط الافتتاح في دور واحد.',
   'practiceBenchmarkTitle': 'ضغط المعيار',
   'practiceBenchmarkSummary':
       'الافتتاح الأول العالي يرفع ما يجب على الآخرين بلوغه.',
@@ -1441,4 +1528,40 @@ const _arabicValues = {
   'practiceTurnRhythmStep1Done': 'سحبت ورقة — انضمت إلى يدك.',
   'practiceTurnRhythmStep2': 'الآن أنهِ دورك: اختر ورقة لا تحتاجها وارمها.',
   'practiceTurnRhythmStep2Hint': 'اسحب البطاقة التي لا تحتاجها إلى كومة الرمي.',
+  'practiceFirstMeldStep2':
+      'ثلاث أوراق أو أكثر تتشارك الرتبة أو تتسلسل بشكل واحد تصنع مجموعة. قلوبك مصطفة بالفعل: من 9 إلى الآس تسلسل واحد بقيمة 59 — فوق افتتاح 51. العبه.',
+  'practiceFirstMeldStep2Hint':
+      'اضغط على القلوب الستة كلها ثم على شريحة المجموعة الذهبية — الزيادة تفسد المجموعة، وزر التراجع يستعيد المجموعة المرحلية.',
+  'practiceFirstMeldStep2Done': 'افتتحت بـ 59 بلعبة واحدة.',
+  'practiceFirstMeldStep2Hold':
+      'مرحلية — لكن التسلسل الكامل بقلوبه الستة هو ما يبلغ 51. زر التراجع يستعيدها؛ ثم العب الستة كلها.',
+  'practiceFirstMeldStep3': 'أنهِ الدور: ارم ورقة لا تحتاجها.',
+  'practiceDiscardOpeningStep1':
+      'ملكاتك جاهزة بقيمة 30، وتحمل ثمانيتين أخريين — ثمانية الغرب تكمل المجموعة. معا تساوي 54، فوق افتتاح 51. اضغط على كومة الرمي لأخذها.',
+  'practiceDiscardOpeningStep1Done':
+      'الثمانية الآن معلقة: الورقة المأخوذة يجب أن تستحق مكانها هذا الدور.',
+  'practiceDiscardOpeningStep2':
+      'الثمانية المأخوذة يجب أن تنزل على الطاولة أولا: العب الثمانيات الثلاث.',
+  'practiceDiscardOpeningStep2Hint':
+      'اضغط على الثمانيات الثلاث ثم على شريحة المجموعة الذهبية.',
+  'practiceDiscardOpeningStep2Done':
+      'مرحلية عند 24 — الملكات ستدفعها فوق 51.',
+  'practiceDiscardOpeningStep3':
+      'الآن الملكات: 24 + 30 تساوي 54 ويكتمل الافتتاح.',
+  'practiceDiscardOpeningStep3Done':
+      'افتتحت بـ 54 — مجموعتان في دور واحد.',
+  'practiceDiscardOpeningStep4': 'أنهِ دورك برمي ورقة.',
+  'practiceBaitStep1':
+      'سبعة الغرب تناسب سبعاتك — لكن ثلاث سبعات تساوي 21، بعيدة كل البعد عن 51 المطلوبة للافتتاح. اتركها واسحب من الكومة.',
+  'practiceBaitStep1Done': 'حكم سليم — الطُعم بقي على الكومة.',
+  'practiceBaitStep2': 'اكسب بالصبر: أنهِ دورك برمي ورقة.',
+  'practiceOpeningStep1':
+      'لا توجد مجموعة واحدة هنا تبلغ 51 — لكن المجموعات تتكدس في الدور الواحد. ابدأ بملوكك؛ لاحظ أن 30 لا تكفي وحدها.',
+  'practiceOpeningStep1Hint':
+      'اضغط على الملوك الثلاثة ثم على شريحة المجموعة الذهبية. وضعتها خطأ؟ زر التراجع يستعيدها.',
+  'practiceOpeningStep1Done':
+      'مرحلية عند 30. الطاولة تحفظ مجموعاتك حتى تبلغ 51.',
+  'practiceOpeningStep2': 'أضف الأولاد لتتجاوز قيمة 51.',
+  'practiceOpeningStep2Done': 'افتتحت بـ 60! الطاولة لك الآن.',
+  'practiceOpeningStep3': 'أكمل الافتتاح: أنهِ دورك برمي ورقة.',
 };

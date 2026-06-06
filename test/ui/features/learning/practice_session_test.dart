@@ -34,6 +34,54 @@ void main() {
       );
     });
 
+    test('rejects a board that claims the same physical card twice', () {
+      // A double-claimed card would otherwise materialise in two hands and
+      // break card conservation silently.
+      final eight = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
+      expect(
+        () => PracticeBoard.build(
+          southHand: [eight],
+          cpuSeedCards: {
+            PlayerSeat.west: [eight],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects CPU seed cards for the lesson seat', () {
+      // A south entry would claim cards no hand materialises — they would
+      // silently vanish from the board.
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.south: [
+              PracticeBoard.card(CardRank.three, CardSuit.clubs),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects CPU seed cards past the dealt hand size', () {
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.west: [
+              for (final suit in CardSuit.values)
+                for (final rank in CardRank.values)
+                  if (!(rank == CardRank.two && suit == CardSuit.clubs))
+                    PracticeBoard.card(rank, suit),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('builds identical boards on every call', () {
       final first = PracticeScripts.turnRhythm().buildSnapshot();
       final second = PracticeScripts.turnRhythm().buildSnapshot();
@@ -118,10 +166,29 @@ void main() {
   });
 
   group('PracticeScripts.nextScriptInPack', () {
-    test('stops while the pack continuation is unscripted', () {
-      // turn-rhythm's pack continues with pending-discard, which ships in a
-      // later slice; the continuation must stay hidden until then.
-      expect(PracticeScripts.nextScriptInPack('turn-rhythm'), isNull);
+    test('chains the scripted core turn pack lessons in order', () {
+      expect(
+        PracticeScripts.nextScriptInPack('turn-rhythm')?.lessonId,
+        'first-meld',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('first-meld')?.lessonId,
+        'discard-opening',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('discard-opening')?.lessonId,
+        'bait-discard',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('bait-discard')?.lessonId,
+        'opening-51',
+      );
+    });
+
+    test('stops at the pack boundary', () {
+      // Finishing a pack is a deliberate stopping point; the continuation
+      // never crosses into the next pack.
+      expect(PracticeScripts.nextScriptInPack('opening-51'), isNull);
     });
 
     test('returns null for unknown lessons', () {

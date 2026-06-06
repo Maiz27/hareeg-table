@@ -54,7 +54,11 @@ class PracticeLesson {
 abstract final class PracticeCatalog {
   /// All lessons in checklist display order.
   static final List<PracticeLesson> lessons = List.unmodifiable([
-    // Core turn basics.
+    // Core turn basics, in strict teaching order: the loop, then a first
+    // opening that needs nothing but your own hand, then openings that lean
+    // on the discard pile, then judging when the pile is a trap, and finally
+    // multi-meld staging. Mechanics that assume an already-opened table
+    // (pending use-or-return, covers, jokers) live in later packs.
     PracticeLesson(
       id: 'turn-rhythm',
       pack: PracticePackId.coreTurn,
@@ -62,16 +66,22 @@ abstract final class PracticeCatalog {
       summary: (s) => s.practiceTurnRhythmSummary,
     ),
     PracticeLesson(
-      id: 'pending-discard',
+      id: 'first-meld',
       pack: PracticePackId.coreTurn,
-      title: (s) => s.practicePendingDiscardTitle,
-      summary: (s) => s.practicePendingDiscardSummary,
+      title: (s) => s.practiceFirstMeldTitle,
+      summary: (s) => s.practiceFirstMeldSummary,
     ),
     PracticeLesson(
-      id: 'meld-picker',
+      id: 'discard-opening',
       pack: PracticePackId.coreTurn,
-      title: (s) => s.practiceMeldPickerTitle,
-      summary: (s) => s.practiceMeldPickerSummary,
+      title: (s) => s.practiceDiscardOpeningTitle,
+      summary: (s) => s.practiceDiscardOpeningSummary,
+    ),
+    PracticeLesson(
+      id: 'bait-discard',
+      pack: PracticePackId.coreTurn,
+      title: (s) => s.practiceBaitDiscardTitle,
+      summary: (s) => s.practiceBaitDiscardSummary,
     ),
     PracticeLesson(
       id: 'opening-51',
@@ -80,6 +90,12 @@ abstract final class PracticeCatalog {
       summary: (s) => s.practiceOpeningSummary,
     ),
     // Table mechanics.
+    PracticeLesson(
+      id: 'pending-discard',
+      pack: PracticePackId.tableMechanics,
+      title: (s) => s.practicePendingDiscardTitle,
+      summary: (s) => s.practicePendingDiscardSummary,
+    ),
     PracticeLesson(
       id: 'benchmark-pressure',
       pack: PracticePackId.tableMechanics,

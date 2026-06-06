@@ -74,6 +74,45 @@ void main() {
       );
     });
 
+    test('suggestion cards render in canonical meld order regardless of '
+        'selection order', () {
+      // A high-ace run selected ace-first (hand display order) must still
+      // read 9..A on the suggestion rack.
+      final run = [
+        _card(CardRank.ace, CardSuit.hearts, 14),
+        _card(CardRank.nine, CardSuit.hearts, 14),
+        _card(CardRank.ten, CardSuit.hearts, 14),
+        _card(CardRank.jack, CardSuit.hearts, 14),
+        _card(CardRank.queen, CardSuit.hearts, 14),
+        _card(CardRank.king, CardSuit.hearts, 14),
+      ];
+      final discard = _card(CardRank.two, CardSuit.spades, 14);
+      final planner = _planner(southHand: [...run, discard]);
+
+      final suggestions = planner.meldSuggestionsForSelection(
+        PlayerSeat.south,
+        run.map((card) => card.id).toList(growable: false),
+        limit: 1,
+      );
+
+      expect(suggestions, hasLength(1));
+      expect(
+        [
+          for (final card in suggestions.single.cards)
+            card.effectiveIdentity!.rank,
+        ],
+        [
+          CardRank.nine,
+          CardRank.ten,
+          CardRank.jack,
+          CardRank.queen,
+          CardRank.king,
+          CardRank.ace,
+        ],
+        reason: 'the ace belongs at the high end, not where it was tapped',
+      );
+    });
+
     test('exposes ambiguous joker representation options', () {
       const joker = HareegCard.joker(deckIndex: 13, jokerIndex: 0);
       final aceHearts = _card(CardRank.ace, CardSuit.hearts, 13);

@@ -145,6 +145,7 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
                   const SizedBox(height: LoungeTokens.space3),
                   for (final lesson in PracticeCatalog.lessonsIn(pack))
                     _LessonTile(
+                      key: ValueKey('practice-lesson-tile-${lesson.id}'),
                       lesson: lesson,
                       status: _progress.statusFor(lesson.id),
                       onStart: () => _startLesson(lesson),
@@ -254,6 +255,7 @@ class _PackHeader extends StatelessWidget {
 
 class _LessonTile extends StatelessWidget {
   const _LessonTile({
+    super.key,
     required this.lesson,
     required this.status,
     required this.onStart,

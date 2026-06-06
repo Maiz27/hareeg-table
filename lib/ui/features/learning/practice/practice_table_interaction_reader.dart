@@ -28,13 +28,16 @@ class PracticeTableInteractionReader implements TableInteractionActionReader {
   /// Active lesson session supplying the step's allowed action ids.
   final PracticeSession session;
 
-  Set<String> get _allowed => session.allowedActionIds;
-
+  // Membership checks go through [PracticeSession.offersActionId] — the same
+  // step filter submit applies — never raw id equality against the enumerated
+  // legal-id set: the inner reader's offers are already engine-legal, and the
+  // enumeration both orders meld card ids differently than a selection and
+  // deliberately skips legal-but-unadvertised plays (staged opening melds).
   String? _allowedOrNull(String? actionId) {
     if (actionId == null) {
       return null;
     }
-    return _allowed.contains(actionId) ? actionId : null;
+    return session.offersActionId(actionId) ? actionId : null;
   }
 
   @override
@@ -45,10 +48,9 @@ class PracticeTableInteractionReader implements TableInteractionActionReader {
 
   @override
   List<String> controlActionIdsFor(PlayerSeat seat) {
-    final allowed = _allowed;
     return [
       for (final id in inner.controlActionIdsFor(seat))
-        if (allowed.contains(id)) id,
+        if (session.offersActionId(id)) id,
     ];
   }
 
@@ -72,10 +74,9 @@ class PracticeTableInteractionReader implements TableInteractionActionReader {
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    final allowed = _allowed;
     return [
       for (final choice in inner.jokerMeldChoicesFor(seat, cardIds))
-        if (allowed.contains(choice.actionId)) choice,
+        if (session.offersActionId(choice.actionId)) choice,
     ];
   }
 
@@ -85,14 +86,13 @@ class PracticeTableInteractionReader implements TableInteractionActionReader {
     List<String> selectedCardIds, {
     int limit = 5,
   }) {
-    final allowed = _allowed;
     return [
       for (final suggestion in inner.meldSuggestionsForSelection(
         seat,
         selectedCardIds,
         limit: limit,
       ))
-        if (allowed.contains(suggestion.actionId)) suggestion,
+        if (session.offersActionId(suggestion.actionId)) suggestion,
     ];
   }
 
