@@ -17,6 +17,7 @@ class PracticeLessonScript {
     required this.lessonId,
     required this.buildSnapshot,
     required this.steps,
+    this.introActionIds = const [],
     this.seat = PlayerSeat.south,
     this.completionNote,
   }) : assert(steps.length > 0, 'A lesson script needs at least one step.');
@@ -30,8 +31,17 @@ class PracticeLessonScript {
   /// Teaching steps in order. Must not be empty.
   final List<PracticeStep> steps;
 
-  /// Seat the player controls. Practice lessons drive only this seat; no CPU
-  /// turns run on the teaching surface.
+  /// Scripted prologue the other seats play before the player's first step —
+  /// e.g. west drawing and throwing the card the lesson teaches the player
+  /// to take, or visibly opening its melds. Applied in order through the
+  /// real engine with the table's normal CPU pacing and flights, so the
+  /// player watches how seats actually behave. The board must start with
+  /// its `currentSeat` on the acting seat, and the final action must hand
+  /// the turn to [seat].
+  final List<String> introActionIds;
+
+  /// Seat the player controls. Practice lessons drive only this seat; beyond
+  /// the scripted intro, no CPU autonomy runs on the teaching surface.
   final PlayerSeat seat;
 
   /// Optional localized outcome note for the completion panel. Receives the
@@ -71,7 +81,8 @@ class PracticeStep {
     required this.prompt,
     this.successNote,
     this.hint,
-    this.extraActionIds,
+    this.holdNote,
+    this.highlightCardIds = const {},
     bool Function(ClassicHareegActionDescriptor action)? allows,
     bool Function(PracticeStepContext context)? isSatisfied,
   }) : _allows = allows,
@@ -84,7 +95,8 @@ class PracticeStep {
     required Set<ClassicHareegActionKind> kinds,
     this.successNote,
     this.hint,
-    this.extraActionIds,
+    this.holdNote,
+    this.highlightCardIds = const {},
     bool Function(PracticeStepContext context)? isSatisfied,
   }) : _allows = ((action) => kinds.contains(action.kind)),
        _isSatisfied = isSatisfied;
@@ -99,15 +111,19 @@ class PracticeStep {
   /// look at).
   final String Function(AppStrings strings)? hint;
 
-  /// Optional engine-valid action ids to offer beyond the advertised surface.
-  ///
-  /// The advertised surface canonicalizes some choices (e.g. it lists one
-  /// representative joker identity); the real table UI composes the explicit
-  /// alternatives through its pickers. Lessons that teach such a choice list
-  /// the alternatives here — `applyAction` still validates every one of
-  /// them, so the surface never offers a move the rules would not accept.
-  final List<String> Function(ClassicHareegGameController controller)?
-  extraActionIds;
+  /// Optional localized reaction for an allowed action that applied but left
+  /// the step unsatisfied (e.g. a valid partial run staged below the
+  /// benchmark) — the lesson's chance to say what to do about it instead of
+  /// repeating the static prompt. Take-backs never trigger it.
+  final String Function(AppStrings strings)? holdNote;
+
+  /// Card ids the table rings with the coach highlight while this step is
+  /// active — the specific cards the step asks the player to find, in the
+  /// same visual language the live coaching tier uses. Steps that
+  /// deliberately leave the choice open (pick any discard) ring nothing.
+  /// Stock and pile-take rings are derived from the step's allowed kinds,
+  /// not listed here.
+  final Set<String> highlightCardIds;
 
   final bool Function(ClassicHareegActionDescriptor action)? _allows;
   final bool Function(PracticeStepContext context)? _isSatisfied;

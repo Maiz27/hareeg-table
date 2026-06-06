@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/data/persistence/key_value_store.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -7,10 +6,12 @@ import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
+import '../../support/test_fixtures.dart';
+
 void main() {
   group('LocalMatchRepository', () {
     test('saves and restores an active match snapshot', () async {
-      final store = _MemoryStore();
+      final store = MemoryKeyValueStore();
       final repository = LocalMatchRepository(store: store);
       final round = ClassicHareegRound.deal(
         setup: ClassicHareegSetup.defaults(),
@@ -63,7 +64,7 @@ void main() {
     });
 
     test('abandons an active match snapshot', () async {
-      final store = _MemoryStore();
+      final store = MemoryKeyValueStore();
       final repository = LocalMatchRepository(store: store);
       final round = ClassicHareegRound.deal(
         setup: ClassicHareegSetup.defaults(),
@@ -88,7 +89,7 @@ void main() {
     });
 
     test('invalid saved match is cleared and ignored', () async {
-      final store = _MemoryStore()
+      final store = MemoryKeyValueStore()
         ..values['active_match.v1'] = '{"version":99}';
       final repository = LocalMatchRepository(store: store);
 
@@ -102,21 +103,4 @@ void main() {
 
 HareegCard _card(CardRank rank, CardSuit suit) {
   return HareegCard.standard(rank: rank, suit: suit, deckIndex: 50);
-}
-
-class _MemoryStore implements KeyValueStore {
-  final values = <String, String>{};
-
-  @override
-  Future<String?> loadString(String key) async => values[key];
-
-  @override
-  Future<void> remove(String key) async {
-    values.remove(key);
-  }
-
-  @override
-  Future<void> saveString(String key, String value) async {
-    values[key] = value;
-  }
 }

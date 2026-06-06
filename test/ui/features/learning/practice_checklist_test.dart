@@ -19,8 +19,8 @@ void main() {
     await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
     await tester.pumpAndSettle();
 
-    expect(PracticeCatalog.lessons, hasLength(15));
-    expect(find.text('0 of 15 completed'), findsOneWidget);
+    expect(PracticeCatalog.lessons, hasLength(17));
+    expect(find.text('0 of 17 completed'), findsOneWidget);
     // The checklist builds lazily; walk it top to bottom, checking each pack
     // header followed by its lessons.
     for (final pack in PracticePackId.values) {
@@ -43,12 +43,12 @@ void main() {
     final learning = MemoryLearningProgressRepository(
       progress: LearningProgress.defaults()
           .withLessonStatus('turn-rhythm', PracticeLessonStatus.completed)
-          .withLessonStatus('pending-discard', PracticeLessonStatus.skipped),
+          .withLessonStatus('first-meld', PracticeLessonStatus.skipped),
     );
     await tester.pumpWidget(_practiceApp(learning));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 of 15 completed'), findsOneWidget);
+    expect(find.text('1 of 17 completed'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Skipped'), findsOneWidget);
     // Completed lessons offer replay instead of start.
@@ -80,17 +80,40 @@ void main() {
     expect(find.text('Skipped'), findsNothing);
   });
 
-  // Every catalog lesson is now scripted (HT-46..HT-48); the coming-soon
-  // notice remains only as a defensive fallback for future catalog growth
-  // and is no longer reachable through the UI.
+  testWidgets('starting a lesson whose pack has not shipped shows the notice', (
+    tester,
+  ) async {
+    // Tall surface so the unscripted tile is on-screen without scrolling.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
+    await tester.pumpAndSettle();
+
+    // Final-discard has no script until HT-48.
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('practice-lesson-tile-final-discard'),
+        ),
+        matching: find.text('Start'),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('This practice hand arrives in an upcoming update.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('replay intro from the hub opens onboarding and pops back', (
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository(
-      progress: LearningProgress.defaults().copyWith(
-        onboardingCompleted: true,
-      ),
+      progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
     await tester.pumpWidget(_practiceApp(learning));
     await tester.pumpAndSettle();
@@ -102,7 +125,7 @@ void main() {
     await tester.tap(find.text('Skip intro'));
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 15 completed'), findsOneWidget);
+    expect(find.text('0 of 17 completed'), findsOneWidget);
   });
 }
 
