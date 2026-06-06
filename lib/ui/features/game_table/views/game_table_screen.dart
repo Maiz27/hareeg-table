@@ -1858,9 +1858,11 @@ class _GameTableScreenState extends State<GameTableScreen>
       case PracticeSubmitStatus.accepted:
         // The move applied but the step still holds (e.g. a valid partial
         // run staged below the benchmark): the banner reacts with the way
-        // out instead of leaving the static prompt to repeat itself.
+        // out instead of leaving the static prompt to repeat itself. The
+        // reaction always mirrors the step's hold note — including null, so
+        // a holdNote-less step can never show a stale earlier reaction.
         final note = completedStep?.holdNote;
-        if (note != null) {
+        if (_practiceReaction != note) {
           setState(() => _practiceReaction = note);
         }
       case PracticeSubmitStatus.stepCompleted:

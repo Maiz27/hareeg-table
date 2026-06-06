@@ -828,11 +828,17 @@ abstract final class PracticeScripts {
           prompt: (s) => s.practiceTurnRhythmStep1,
           kinds: const {ClassicHareegActionKind.drawStock},
         ),
-        PracticeStep.kinds(
+        // Gate to the exact taught card, not the cover kind: the board
+        // holds no other cover today, but the step must not silently
+        // complete on one if a future hand edit introduces it.
+        PracticeStep(
           prompt: (s) => s.practiceSetCoverStep1,
           hint: (s) => s.practiceSetCoverStep1Hint,
           successNote: (s) => s.practiceSetCoverStep1Done,
-          kinds: const {ClassicHareegActionKind.placeCover},
+          allows: (action) =>
+              action.kind == ClassicHareegActionKind.placeCover &&
+              action.cardIds.length == 1 &&
+              action.cardIds.single == kingClubs.id,
           highlightCardIds: {
             kingClubs.id,
             for (final card in westKings) card.id,

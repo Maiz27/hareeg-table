@@ -325,10 +325,21 @@ void main() {
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
 
+    // Setup moves in wrong-path tests assert their status: a silently
+    // regressed setup would otherwise let the notAllowed checks pass for
+    // the wrong reason.
+    void advance(PracticeSession session, String actionId) {
+      expect(
+        session.submit(actionId).status,
+        PracticeSubmitStatus.stepCompleted,
+        reason: 'setup action $actionId must complete before the wrong path',
+      );
+    }
+
     test('wrong path: discarding below the benchmark is not offered', () {
       final session = PracticeSession(script: PracticeScripts.openingTo51());
-      session.submit(ClassicHareegActionIds.drawStock);
-      session.submit(_meldId(kings));
+      advance(session, ClassicHareegActionIds.drawStock);
+      advance(session, _meldId(kings));
 
       final result = session.submit(_discardId(threeClubs));
 
@@ -341,7 +352,7 @@ void main() {
 
     test('wrong path: each staging step offers exactly its own meld', () {
       final session = PracticeSession(script: PracticeScripts.openingTo51());
-      session.submit(ClassicHareegActionIds.drawStock);
+      advance(session, ClassicHareegActionIds.drawStock);
 
       // Jacks first would complete a step whose copy and rings describe the
       // kings — the step gate keeps the order the lesson narrates.
@@ -349,7 +360,7 @@ void main() {
       expect(jacksFirst.status, PracticeSubmitStatus.notAllowed);
       expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
 
-      session.submit(_meldId(kings));
+      advance(session, _meldId(kings));
 
       // A selection that is not exactly the jacks stays off the surface.
       final mixed = session.submit(_meldId([jacks[0], jacks[1], threeClubs]));
