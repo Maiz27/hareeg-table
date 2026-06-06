@@ -34,6 +34,54 @@ void main() {
       );
     });
 
+    test('rejects a board that claims the same physical card twice', () {
+      // A double-claimed card would otherwise materialise in two hands and
+      // break card conservation silently.
+      final eight = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
+      expect(
+        () => PracticeBoard.build(
+          southHand: [eight],
+          cpuSeedCards: {
+            PlayerSeat.west: [eight],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects CPU seed cards for the lesson seat', () {
+      // A south entry would claim cards no hand materialises — they would
+      // silently vanish from the board.
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.south: [
+              PracticeBoard.card(CardRank.three, CardSuit.clubs),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects CPU seed cards past the dealt hand size', () {
+      expect(
+        () => PracticeBoard.build(
+          southHand: [PracticeBoard.card(CardRank.two, CardSuit.clubs)],
+          cpuSeedCards: {
+            PlayerSeat.west: [
+              for (final suit in CardSuit.values)
+                for (final rank in CardRank.values)
+                  if (!(rank == CardRank.two && suit == CardSuit.clubs))
+                    PracticeBoard.card(rank, suit),
+            ],
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('builds identical boards on every call', () {
       final first = PracticeScripts.turnRhythm().buildSnapshot();
       final second = PracticeScripts.turnRhythm().buildSnapshot();
@@ -77,9 +125,7 @@ void main() {
       // Step 2 offers exactly one discard action per hand card.
       final discardActions = session.allowedActions;
       expect(
-        discardActions.every(
-          (a) => a.kind == ClassicHareegActionKind.discard,
-        ),
+        discardActions.every((a) => a.kind == ClassicHareegActionKind.discard),
         isTrue,
       );
       expect(discardActions, hasLength(handBefore + 1));
@@ -116,6 +162,37 @@ void main() {
       expect(result.status, PracticeSubmitStatus.rejected);
       expect(result.message, isNotEmpty);
       expect(session.stepIndex, 1, reason: 'step must not advance');
+    });
+  });
+
+  group('PracticeScripts.nextScriptInPack', () {
+    test('chains the scripted core turn pack lessons in order', () {
+      expect(
+        PracticeScripts.nextScriptInPack('turn-rhythm')?.lessonId,
+        'first-meld',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('first-meld')?.lessonId,
+        'discard-opening',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('discard-opening')?.lessonId,
+        'bait-discard',
+      );
+      expect(
+        PracticeScripts.nextScriptInPack('bait-discard')?.lessonId,
+        'opening-51',
+      );
+    });
+
+    test('stops at the pack boundary', () {
+      // Finishing a pack is a deliberate stopping point; the continuation
+      // never crosses into the next pack.
+      expect(PracticeScripts.nextScriptInPack('opening-51'), isNull);
+    });
+
+    test('returns null for unknown lessons', () {
+      expect(PracticeScripts.nextScriptInPack('not-a-lesson'), isNull);
     });
   });
 }

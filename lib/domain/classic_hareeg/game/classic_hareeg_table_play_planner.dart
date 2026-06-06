@@ -2,6 +2,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../rules/cover_rules.dart';
 import '../rules/joker_rules.dart';
+import '../rules/meld_card_ordering.dart';
 import '../rules/meld_validator.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_action.dart';
@@ -201,7 +202,13 @@ class ClassicHareegTablePlayPlanner {
       final key = (List<String>.of(groupIds)..sort()).join('|');
       if (!seen.add(key)) continue;
       suggestions.add(
-        ClassicHareegMeldSuggestion(actionId: actionId, cards: group),
+        ClassicHareegMeldSuggestion(
+          actionId: actionId,
+          // Canonical display order (sequences low-to-high with the ace
+          // high when the run requires it) — the raw group carries the
+          // player's selection order, which reads wrong on the rack.
+          cards: MeldCardOrdering.forCards(group),
+        ),
       );
       if (suggestions.length >= limit) {
         return suggestions;

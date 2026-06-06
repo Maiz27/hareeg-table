@@ -1,8 +1,7 @@
 import '../../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
-import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
+import '../models/practice_catalog.dart';
 import 'practice_board.dart';
 import 'practice_lesson_script.dart';
 
@@ -10,29 +9,61 @@ import 'practice_lesson_script.dart';
 ///
 /// Lessons without a script yet show a coming-soon notice in the checklist;
 /// each practice pack slice (HT-46..HT-48) registers its scripts here.
+///
+/// The core turn pack teaches strictly in order: the draw → discard loop,
+/// then a first opening from the player's own hand, then an opening that
+/// leans on the discard pile, then judging when the pile is a trap, and
+/// finally multi-meld staging. Opening lessons deal the real 14-card hand —
+/// only the loop lesson trims the hand so the heartbeat stays in focus.
 abstract final class PracticeScripts {
   /// Script for [lessonId], or null while the lesson's pack has not shipped.
   static PracticeLessonScript? byId(String lessonId) {
     return switch (lessonId) {
       'turn-rhythm' => turnRhythm(),
-      'pending-discard' => pendingDiscard(),
-      'meld-picker' => meldPicker(),
+      'first-meld' => firstMeld(),
+      'discard-opening' => discardOpening(),
+      'bait-discard' => baitDiscard(),
       'opening-51' => openingTo51(),
-      'benchmark-pressure' => benchmarkPressure(),
-      'sequence-cover' => sequenceCover(),
-      'set-cover' => setCover(),
-      'cover-discard-block' => coverDiscardBlock(),
-      'joker-identity' => jokerIdentity(),
-      'joker-replacement' => jokerReplacement(),
       _ => null,
     };
   }
 
+  /// Allows only a play-meld of exactly [cardIds] — for staging lessons
+  /// whose copy and rings teach one specific meld per step, so an
+  /// out-of-order set cannot silently complete a step its prompt is not
+  /// describing.
+  static bool Function(ClassicHareegActionDescriptor action) _playsExactly(
+    Set<String> cardIds,
+  ) {
+    return (action) =>
+        action.kind == ClassicHareegActionKind.playMeld &&
+        action.cardIds.length == cardIds.length &&
+        cardIds.containsAll(action.cardIds);
+  }
+
+  /// Script for the lesson after [lessonId] within the same practice pack.
+  ///
+  /// Returns null at the pack boundary (finishing a pack is a deliberate
+  /// stopping point) or when the next lesson's script has not shipped yet.
+  /// Drives the completion overlay's "next lesson" continuation.
+  static PracticeLessonScript? nextScriptInPack(String lessonId) {
+    final lesson = PracticeCatalog.byId(lessonId);
+    if (lesson == null) {
+      return null;
+    }
+    final pack = PracticeCatalog.lessonsIn(lesson.pack);
+    final index = pack.indexWhere((entry) => entry.id == lessonId);
+    if (index == -1 || index + 1 >= pack.length) {
+      return null;
+    }
+    return byId(pack[index + 1].id);
+  }
+
   /// Turn rhythm: draw from stock, then end the turn with a discard.
   ///
-  /// The proving lesson for the scenario harness (HT-45); the rest of the
-  /// core turn pack lands with HT-46. The teaching hand deliberately holds no
-  /// meld so the focus stays on the draw → discard heartbeat.
+  /// The proving lesson for the scenario harness (HT-45). The teaching hand
+  /// deliberately holds no meld and stays small so the focus is purely the
+  /// draw → discard heartbeat.
   static PracticeLessonScript turnRhythm() {
     return PracticeLessonScript(
       lessonId: 'turn-rhythm',
@@ -60,434 +91,297 @@ abstract final class PracticeScripts {
     );
   }
 
-  /// Pending discard: take it, then use it legally or return it.
+  /// First opening meld: a real 14-card hand already holds a six-card run
+  /// worth 59 — past the 51 benchmark in one play. Draw, place it, discard.
   ///
-  /// The top discard completes a set with two hand cards, so "use it" has an
-  /// obvious payoff; the return path stays open and the final step accepts
-  /// the extra stock draw that path requires. South starts opened so the
-  /// meld is not staged behind the opening benchmark.
-  static PracticeLessonScript pendingDiscard() {
+  /// A five-card royal run is only 50 under the card values (ace counts 10),
+  /// so the sixth card is the quiet first taste of opening arithmetic.
+  static PracticeLessonScript firstMeld() {
+    // The ready opening run: 9-10-J-Q-K-A of hearts = 59.
+    final heartRun = [
+      PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+      PracticeBoard.card(CardRank.ten, CardSuit.hearts),
+      PracticeBoard.card(CardRank.jack, CardSuit.hearts),
+      PracticeBoard.card(CardRank.queen, CardSuit.hearts),
+      PracticeBoard.card(CardRank.king, CardSuit.hearts),
+      PracticeBoard.card(CardRank.ace, CardSuit.hearts),
+    ];
     return PracticeLessonScript(
-      lessonId: 'pending-discard',
+      lessonId: 'first-meld',
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
-          PracticeBoard.card(CardRank.eight, CardSuit.clubs),
-          PracticeBoard.card(CardRank.eight, CardSuit.hearts),
-          PracticeBoard.card(CardRank.king, CardSuit.spades),
-          PracticeBoard.card(CardRank.four, CardSuit.clubs),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
-        openingState: PracticeBoard.openedFor(PlayerSeat.south),
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practicePendingStep1,
-          successNote: (s) => s.practicePendingStep1Done,
-          kinds: const {ClassicHareegActionKind.takeDiscard},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practicePendingStep2,
-          hint: (s) => s.practicePendingStep2Hint,
-          successNote: (s) => s.practicePendingStep2Done,
-          kinds: const {
-            ClassicHareegActionKind.playMeld,
-            ClassicHareegActionKind.returnPendingDiscard,
-          },
-        ),
-        // The meld path is already in action phase; the return path is back
-        // in draw phase, so the step also allows the stock draw it needs.
-        PracticeStep.kinds(
-          prompt: (s) => s.practicePendingStep3,
-          kinds: const {
-            ClassicHareegActionKind.discard,
-            ClassicHareegActionKind.drawStock,
-          },
-          isSatisfied: (context) => context.action.isSafeDiscard,
-        ),
-      ],
-    );
-  }
-
-  /// Legal meld selection: turn exactly the right cards into one meld.
-  static PracticeLessonScript meldPicker() {
-    return PracticeLessonScript(
-      lessonId: 'meld-picker',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
+          ...heartRun,
+          // Fillers: no second meld, no run cover (8 of hearts stays out so
+          // the closing discard can never hit the cover-discard block).
+          PracticeBoard.card(CardRank.two, CardSuit.clubs),
+          PracticeBoard.card(CardRank.three, CardSuit.spades),
+          PracticeBoard.card(CardRank.four, CardSuit.diamonds),
           PracticeBoard.card(CardRank.five, CardSuit.spades),
-          PracticeBoard.card(CardRank.six, CardSuit.spades),
-          PracticeBoard.card(CardRank.seven, CardSuit.spades),
+          PracticeBoard.card(CardRank.seven, CardSuit.clubs),
           PracticeBoard.card(CardRank.nine, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.queen, CardSuit.clubs),
+          PracticeBoard.card(CardRank.jack, CardSuit.spades),
+          PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
         ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        openingState: PracticeBoard.openedFor(PlayerSeat.south),
-        turnPhase: TurnPhase.action,
+        topDiscard: PracticeBoard.card(CardRank.six, CardSuit.spades),
       ),
       steps: [
         PracticeStep.kinds(
-          prompt: (s) => s.practiceMeldStep1,
-          hint: (s) => s.practiceMeldStep1Hint,
-          successNote: (s) => s.practiceMeldStep1Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          prompt: (s) => s.practiceTurnRhythmStep1,
+          kinds: const {ClassicHareegActionKind.drawStock},
         ),
         PracticeStep.kinds(
-          prompt: (s) => s.practiceMeldStep2,
+          prompt: (s) => s.practiceFirstMeldStep2,
+          hint: (s) => s.practiceFirstMeldStep2Hint,
+          successNote: (s) => s.practiceFirstMeldStep2Done,
+          // A valid partial run (K-Q-J) stages below the benchmark and would
+          // otherwise leave the static prompt repeating itself — react with
+          // the way out instead.
+          holdNote: (s) => s.practiceFirstMeldStep2Hold,
+          kinds: const {ClassicHareegActionKind.playMeld},
+          highlightCardIds: {for (final card in heartRun) card.id},
+          // Staging below the benchmark applies but does not demonstrate the
+          // opening; the step holds until the table is actually open.
+          isSatisfied: (context) => context.controller.openingState.hasOpened(
+            PlayerSeat.south,
+          ),
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFirstMeldStep3,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
           kinds: const {ClassicHareegActionKind.discard},
         ),
       ],
     );
   }
 
-  /// Opening to 51: stage melds until their combined value reaches the
-  /// requirement, then end the turn.
+  /// Opening from the discard: west visibly draws and throws the eight that
+  /// turns a held pair into a set — queens (30) plus eights (24) open at 54.
+  ///
+  /// First contact with take-discard, taught in the only context a new
+  /// player has a reason to take: the card opens the table. Where the
+  /// first-meld lesson taught a one-suit sequence, this one opens with two
+  /// rank sets, so the player meets both meld shapes early. The scripted
+  /// intro plays west's turn for real, so the player watches the discard
+  /// land instead of finding it pre-baked on the pile.
+  static PracticeLessonScript discardOpening() {
+    // A ready set of queens (30) and a pair of eights waiting for west's
+    // third eight (24) — together 54, past the 51 benchmark.
+    final queens = [
+      PracticeBoard.card(CardRank.queen, CardSuit.spades),
+      PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.queen, CardSuit.hearts),
+    ];
+    final eightPair = [
+      PracticeBoard.card(CardRank.eight, CardSuit.clubs),
+      PracticeBoard.card(CardRank.eight, CardSuit.hearts),
+    ];
+    final eightDiamonds = PracticeBoard.card(
+      CardRank.eight,
+      CardSuit.diamonds,
+    );
+    return PracticeLessonScript(
+      lessonId: 'discard-opening',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          ...queens,
+          ...eightPair,
+          // Fillers: no third meld, and neither set's cover card (no queen
+          // of clubs, no eight of spades) so the closing discard always has
+          // safe cards.
+          PracticeBoard.card(CardRank.two, CardSuit.hearts),
+          PracticeBoard.card(CardRank.three, CardSuit.spades),
+          PracticeBoard.card(CardRank.four, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.five, CardSuit.hearts),
+          PracticeBoard.card(CardRank.six, CardSuit.spades),
+          PracticeBoard.card(CardRank.nine, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.ten, CardSuit.hearts),
+          PracticeBoard.card(CardRank.jack, CardSuit.spades),
+          PracticeBoard.card(CardRank.ace, CardSuit.diamonds),
+        ],
+        cpuSeedCards: {
+          PlayerSeat.west: [eightDiamonds],
+        },
+        currentSeat: PlayerSeat.west,
+      ),
+      introActionIds: [
+        ClassicHareegActionIds.drawStock,
+        '${ClassicHareegActionIds.discardPrefix}${eightDiamonds.id}',
+      ],
+      steps: [
+        // Stepwise guidance, one meld per step (the opening-51 pattern):
+        // ringing the whole 54 at once invites mis-grouping the cards.
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceDiscardOpeningStep1,
+          successNote: (s) => s.practiceDiscardOpeningStep1Done,
+          kinds: const {ClassicHareegActionKind.takeDiscard},
+          // The pair the take completes rings alongside the pile.
+          highlightCardIds: {for (final card in eightPair) card.id},
+        ),
+        // The engine forces the pending eight into the first play, so any
+        // successful meld here is the eights — staged at 24.
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceDiscardOpeningStep2,
+          hint: (s) => s.practiceDiscardOpeningStep2Hint,
+          successNote: (s) => s.practiceDiscardOpeningStep2Done,
+          kinds: const {ClassicHareegActionKind.playMeld},
+          highlightCardIds: {
+            for (final card in eightPair) card.id,
+            eightDiamonds.id,
+          },
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceDiscardOpeningStep3,
+          successNote: (s) => s.practiceDiscardOpeningStep3Done,
+          kinds: const {ClassicHareegActionKind.playMeld},
+          highlightCardIds: {for (final card in queens) card.id},
+          isSatisfied: (context) => context.controller.openingState.hasOpened(
+            PlayerSeat.south,
+          ),
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceDiscardOpeningStep4,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+        ),
+      ],
+    );
+  }
+
+  /// The bait discard: the pile pairs with the hand, but even used it stays
+  /// far below the benchmark — the correct move is to leave it and draw.
+  ///
+  /// The scripted intro has west genuinely open on the table — kings plus a
+  /// 6-7-8 run, exactly the 51 benchmark, so the displayed requirement stays
+  /// coherent — and then throw the tempting seven. The player's first look
+  /// at what an opened seat is allowed to do is a real turn, not pre-baked
+  /// table state.
+  static PracticeLessonScript baitDiscard() {
+    final westKings = [
+      PracticeBoard.card(CardRank.king, CardSuit.hearts),
+      PracticeBoard.card(CardRank.king, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.king, CardSuit.spades),
+    ];
+    final westRun = [
+      PracticeBoard.card(CardRank.six, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.seven, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
+    ];
+    final sevenHearts = PracticeBoard.card(CardRank.seven, CardSuit.hearts);
+    return PracticeLessonScript(
+      lessonId: 'bait-discard',
+      buildSnapshot: () => PracticeBoard.build(
+        southHand: [
+          // The tempting pair: with the discarded seven it makes 21 — far
+          // short of the 51 needed to open.
+          PracticeBoard.card(CardRank.seven, CardSuit.spades),
+          PracticeBoard.card(CardRank.seven, CardSuit.clubs),
+          // Fillers: no meld anywhere, and none of west's cover cards
+          // (no king of clubs, no 5 or 9 of diamonds) so every closing
+          // discard stays safe.
+          PracticeBoard.card(CardRank.two, CardSuit.spades),
+          PracticeBoard.card(CardRank.two, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.three, CardSuit.hearts),
+          PracticeBoard.card(CardRank.four, CardSuit.clubs),
+          PracticeBoard.card(CardRank.four, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.five, CardSuit.hearts),
+          PracticeBoard.card(CardRank.six, CardSuit.clubs),
+          PracticeBoard.card(CardRank.eight, CardSuit.spades),
+          PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+          PracticeBoard.card(CardRank.ten, CardSuit.spades),
+          PracticeBoard.card(CardRank.jack, CardSuit.hearts),
+          PracticeBoard.card(CardRank.queen, CardSuit.spades),
+        ],
+        cpuSeedCards: {
+          PlayerSeat.west: [...westKings, ...westRun, sevenHearts],
+        },
+        currentSeat: PlayerSeat.west,
+      ),
+      introActionIds: [
+        ClassicHareegActionIds.drawStock,
+        ClassicHareegActionIds.playMeldActionId([
+          for (final card in westKings) card.id,
+        ]),
+        ClassicHareegActionIds.playMeldActionId([
+          for (final card in westRun) card.id,
+        ]),
+        '${ClassicHareegActionIds.discardPrefix}${sevenHearts.id}',
+      ],
+      steps: [
+        // Only the stock draw is offered: taking the bait stays dark and the
+        // prompt carries the judgment being taught.
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceBaitStep1,
+          successNote: (s) => s.practiceBaitStep1Done,
+          kinds: const {ClassicHareegActionKind.drawStock},
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceBaitStep2,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+        ),
+      ],
+    );
+  }
+
+  /// Opening to 51 by staging: no single meld reaches the benchmark, so the
+  /// kings and jacks stack up within one turn before the opening seals.
   static PracticeLessonScript openingTo51() {
+    final kings = [
+      PracticeBoard.card(CardRank.king, CardSuit.spades),
+      PracticeBoard.card(CardRank.king, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.king, CardSuit.hearts),
+    ];
+    final jacks = [
+      PracticeBoard.card(CardRank.jack, CardSuit.clubs),
+      PracticeBoard.card(CardRank.jack, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.jack, CardSuit.hearts),
+    ];
     return PracticeLessonScript(
       lessonId: 'opening-51',
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
-          PracticeBoard.card(CardRank.king, CardSuit.spades),
-          PracticeBoard.card(CardRank.king, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.king, CardSuit.hearts),
-          PracticeBoard.card(CardRank.jack, CardSuit.clubs),
-          PracticeBoard.card(CardRank.jack, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.jack, CardSuit.hearts),
+          ...kings,
+          ...jacks,
+          // Fillers: no third meld, no king or jack covers in hand.
+          PracticeBoard.card(CardRank.two, CardSuit.hearts),
           PracticeBoard.card(CardRank.three, CardSuit.clubs),
+          PracticeBoard.card(CardRank.four, CardSuit.spades),
+          PracticeBoard.card(CardRank.five, CardSuit.clubs),
+          PracticeBoard.card(CardRank.six, CardSuit.hearts),
+          PracticeBoard.card(CardRank.eight, CardSuit.spades),
           PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+          PracticeBoard.card(CardRank.ten, CardSuit.diamonds),
         ],
         topDiscard: PracticeBoard.card(CardRank.two, CardSuit.spades),
-        turnPhase: TurnPhase.action,
       ),
       steps: [
         PracticeStep.kinds(
+          prompt: (s) => s.practiceTurnRhythmStep1,
+          kinds: const {ClassicHareegActionKind.drawStock},
+        ),
+        // Each staging step offers exactly the meld its copy and rings
+        // teach — playing the jacks first would otherwise complete the
+        // kings step and leave every prompt after it describing the wrong
+        // cards.
+        PracticeStep(
           prompt: (s) => s.practiceOpeningStep1,
           hint: (s) => s.practiceOpeningStep1Hint,
           successNote: (s) => s.practiceOpeningStep1Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          allows: _playsExactly({for (final card in kings) card.id}),
+          highlightCardIds: {for (final card in kings) card.id},
         ),
-        PracticeStep.kinds(
+        PracticeStep(
           prompt: (s) => s.practiceOpeningStep2,
           successNote: (s) => s.practiceOpeningStep2Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          allows: _playsExactly({for (final card in jacks) card.id}),
+          highlightCardIds: {for (final card in jacks) card.id},
           isSatisfied: (context) => context.controller.openingState.hasOpened(
             PlayerSeat.south,
           ),
         ),
         PracticeStep.kinds(
           prompt: (s) => s.practiceOpeningStep3,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Benchmark pressure: east opened high, so 51 is no longer enough.
-  ///
-  /// East's three table melds total 75 and the live benchmark matches. South
-  /// stages 30, then 51 — the old requirement — and only crosses at 81.
-  static PracticeLessonScript benchmarkPressure() {
-    return PracticeLessonScript(
-      lessonId: 'benchmark-pressure',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          PracticeBoard.card(CardRank.king, CardSuit.spades),
-          PracticeBoard.card(CardRank.king, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.king, CardSuit.hearts),
-          PracticeBoard.card(CardRank.seven, CardSuit.clubs),
-          PracticeBoard.card(CardRank.seven, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.seven, CardSuit.hearts),
-          PracticeBoard.card(CardRank.queen, CardSuit.spades),
-          PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.queen, CardSuit.hearts),
-          PracticeBoard.card(CardRank.three, CardSuit.clubs),
-          PracticeBoard.card(CardRank.nine, CardSuit.spades),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        tableMelds: {
-          PlayerSeat.east: [
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.king, CardSuit.spades, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.king,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-              PracticeBoard.card(CardRank.king, CardSuit.hearts, deckIndex: 1),
-            ]),
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.queen, CardSuit.spades, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.queen,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-              PracticeBoard.card(CardRank.queen, CardSuit.hearts, deckIndex: 1),
-            ]),
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.five, CardSuit.clubs, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.five,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-              PracticeBoard.card(CardRank.five, CardSuit.hearts, deckIndex: 1),
-            ]),
-          ],
-        },
-        openingState: PracticeBoard.raisedBenchmark(
-          opener: PlayerSeat.east,
-          currentRequirement: 75,
-        ),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceBenchmarkStep1,
-          hint: (s) => s.practiceBenchmarkStep1Hint,
-          successNote: (s) => s.practiceBenchmarkStep1Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceBenchmarkStep2,
-          successNote: (s) => s.practiceBenchmarkStep2Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceBenchmarkStep3,
-          successNote: (s) => s.practiceBenchmarkStep3Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
-          isSatisfied: (context) => context.controller.openingState.hasOpened(
-            PlayerSeat.south,
-          ),
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceBenchmarkStep4,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Sequence cover: extend east's 5-6-7 of diamonds with the neighboring 8.
-  static PracticeLessonScript sequenceCover() {
-    return PracticeLessonScript(
-      lessonId: 'sequence-cover',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.three, CardSuit.clubs),
-          PracticeBoard.card(CardRank.jack, CardSuit.spades),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        tableMelds: {
-          PlayerSeat.east: [
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.five, CardSuit.diamonds, deckIndex: 1),
-              PracticeBoard.card(CardRank.six, CardSuit.diamonds, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.seven,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-            ]),
-          ],
-        },
-        openingState: PracticeBoard.openedSeats(const {
-          PlayerSeat.south,
-          PlayerSeat.east,
-        }),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceSeqCoverStep1,
-          hint: (s) => s.practiceSeqCoverStep1Hint,
-          successNote: (s) => s.practiceSeqCoverStep1Done,
-          kinds: const {ClassicHareegActionKind.placeCover},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceCoverFinishStep,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Set cover: extend east's three kings with the missing spade.
-  static PracticeLessonScript setCover() {
-    return PracticeLessonScript(
-      lessonId: 'set-cover',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          PracticeBoard.card(CardRank.king, CardSuit.spades),
-          PracticeBoard.card(CardRank.four, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.nine, CardSuit.clubs),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        tableMelds: {
-          PlayerSeat.east: [
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.king, CardSuit.clubs, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.king,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-              PracticeBoard.card(CardRank.king, CardSuit.hearts, deckIndex: 1),
-            ]),
-          ],
-        },
-        openingState: PracticeBoard.openedSeats(const {
-          PlayerSeat.south,
-          PlayerSeat.east,
-        }),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceSetCoverStep1,
-          hint: (s) => s.practiceSetCoverStep1Hint,
-          successNote: (s) => s.practiceSetCoverStep1Done,
-          kinds: const {ClassicHareegActionKind.placeCover},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceCoverFinishStep,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Cover discard block: a card that extends a table meld cannot normally
-  /// be thrown away.
-  static PracticeLessonScript coverDiscardBlock() {
-    return PracticeLessonScript(
-      lessonId: 'cover-discard-block',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.two, CardSuit.clubs),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        tableMelds: {
-          PlayerSeat.east: [
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.five, CardSuit.diamonds, deckIndex: 1),
-              PracticeBoard.card(CardRank.six, CardSuit.diamonds, deckIndex: 1),
-              PracticeBoard.card(
-                CardRank.seven,
-                CardSuit.diamonds,
-                deckIndex: 1,
-              ),
-            ]),
-          ],
-        },
-        openingState: PracticeBoard.openedSeats(const {
-          PlayerSeat.south,
-          PlayerSeat.east,
-        }),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceCoverBlockStep1,
-          hint: (s) => s.practiceCoverBlockStep1Hint,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Joker identity: declare exactly what a placed joker represents.
-  ///
-  /// The advertised surface canonicalizes the set declaration to one suit;
-  /// the step lists the other legal suit explicitly (mirroring the table
-  /// UI's identity picker) so the player makes a real choice — both ids are
-  /// validated by the engine on submit.
-  static PracticeLessonScript jokerIdentity() {
-    final sevenClubs = PracticeBoard.card(CardRank.seven, CardSuit.clubs);
-    final sevenHearts = PracticeBoard.card(CardRank.seven, CardSuit.hearts);
-    final joker = PracticeBoard.joker();
-    return PracticeLessonScript(
-      lessonId: 'joker-identity',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          sevenClubs,
-          sevenHearts,
-          joker,
-          PracticeBoard.card(CardRank.four, CardSuit.spades),
-          PracticeBoard.card(CardRank.nine, CardSuit.hearts),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        openingState: PracticeBoard.openedFor(PlayerSeat.south),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceJokerIdentityStep1,
-          hint: (s) => s.practiceJokerIdentityStep1Hint,
-          successNote: (s) => s.practiceJokerIdentityStep1Done,
-          kinds: const {ClassicHareegActionKind.playMeldWithJoker},
-          extraActionIds: (_) => [
-            ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
-              cardIds: [sevenClubs.id, sevenHearts.id, joker.id],
-              jokerId: joker.id,
-              identity: const CardIdentity(
-                rank: CardRank.seven,
-                suit: CardSuit.spades,
-              ),
-            ),
-          ],
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceCoverFinishStep,
-          kinds: const {ClassicHareegActionKind.discard},
-        ),
-      ],
-    );
-  }
-
-  /// Joker replacement: swap the real represented card for a table joker.
-  static PracticeLessonScript jokerReplacement() {
-    return PracticeLessonScript(
-      lessonId: 'joker-replacement',
-      buildSnapshot: () => PracticeBoard.build(
-        southHand: [
-          PracticeBoard.card(CardRank.seven, CardSuit.diamonds),
-          PracticeBoard.card(CardRank.king, CardSuit.clubs),
-          PracticeBoard.card(CardRank.two, CardSuit.spades),
-        ],
-        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
-        tableMelds: {
-          PlayerSeat.east: [
-            PlacedMeld.fromCards([
-              PracticeBoard.card(CardRank.seven, CardSuit.clubs, deckIndex: 1),
-              PracticeBoard.card(CardRank.seven, CardSuit.hearts, deckIndex: 1),
-              PracticeBoard.joker().asRepresenting(
-                const CardIdentity(
-                  rank: CardRank.seven,
-                  suit: CardSuit.diamonds,
-                ),
-              ),
-            ]),
-          ],
-        },
-        openingState: PracticeBoard.openedSeats(const {
-          PlayerSeat.south,
-          PlayerSeat.east,
-        }),
-        turnPhase: TurnPhase.action,
-      ),
-      steps: [
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceJokerReplaceStep1,
-          hint: (s) => s.practiceJokerReplaceStep1Hint,
-          successNote: (s) => s.practiceJokerReplaceStep1Done,
-          kinds: const {ClassicHareegActionKind.replaceJoker},
-        ),
-        PracticeStep.kinds(
-          prompt: (s) => s.practiceJokerReplaceStep2,
-          hint: (s) => s.practiceJokerReplaceStep2Hint,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
           kinds: const {ClassicHareegActionKind.discard},
         ),
       ],
