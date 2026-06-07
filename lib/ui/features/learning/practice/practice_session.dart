@@ -104,7 +104,7 @@ class PracticeSession {
       // in the future) stays on the real clock and expires as it should.
       final age = base.difference(openedAt);
       if (age.isNegative ||
-          age.inSeconds > controller.setup.fiftyTimerSeconds) {
+          age.inSeconds >= controller.setup.fiftyTimerSeconds) {
         _ignoredWindowOpenedAt = openedAt;
         return base;
       }

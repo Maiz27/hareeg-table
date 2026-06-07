@@ -105,6 +105,7 @@ void main() {
         for (final card in snapshot.stock) card.id,
         for (final card in snapshot.discardPile) card.id,
       ];
+      expect(allIds, hasLength(106));
       expect(allIds.toSet(), hasLength(106));
     });
 
