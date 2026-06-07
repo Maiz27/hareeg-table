@@ -1297,7 +1297,7 @@ const _englishValues = {
   'practiceDiscardOpeningStep1Done':
       'The eight is pending: a taken card must earn its place this turn.',
   'practiceDiscardOpeningStep2':
-      'The taken eight must hit the table first: meld the three eights.',
+      'The taken eight must be used before your turn ends: meld the three eights.',
   'practiceDiscardOpeningStep2Hint':
       'Tap the three eights, then the gold meld chip.',
   'practiceDiscardOpeningStep2Done':
@@ -1326,7 +1326,7 @@ const _englishValues = {
   'practicePendingStep2':
       'Here is the exit: until a pending card touches the table, tapping the pile hands it back.',
   'practicePendingStep2Hint':
-      'You could meld it instead — pending cards must lead your first play.',
+      'You could meld it instead — a taken card must be used in a meld or cover before your turn ends.',
   'practicePendingStep2Done':
       'Returned — no harm, but no second chance: a returned card cannot be re-taken this turn.',
   'practicePendingStep3':
@@ -1670,7 +1670,7 @@ const _arabicValues = {
   'practiceDiscardOpeningStep1Done':
       'الثمانية الآن معلقة: الورقة المأخوذة يجب أن تستحق مكانها هذا الدور.',
   'practiceDiscardOpeningStep2':
-      'الثمانية المأخوذة يجب أن تنزل على الطاولة أولا: العب الثمانيات الثلاث.',
+      'الثمانية المأخوذة يجب أن تُستخدم قبل نهاية دورك: العب الثمانيات الثلاث.',
   'practiceDiscardOpeningStep2Hint':
       'اضغط على الثمانيات الثلاث ثم على شريحة المجموعة الذهبية.',
   'practiceDiscardOpeningStep2Done':
@@ -1700,7 +1700,7 @@ const _arabicValues = {
   'practicePendingStep2':
       'هذا هو المخرج: ما دامت الورقة المعلقة لم تلمس الطاولة، الضغط على الكومة يعيدها.',
   'practicePendingStep2Hint':
-      'كان بإمكانك لعبها بدلا من ذلك — الورقة المعلقة يجب أن تتصدر أول لعبة لك.',
+      'كان بإمكانك لعبها بدلا من ذلك — الورقة المأخوذة يجب أن تُستخدم في مجموعة أو تغطية قبل نهاية دورك.',
   'practicePendingStep2Done':
       'أُعيدت — لا ضرر، لكن لا فرصة ثانية: الورقة المعادة لا تُؤخذ مجددا هذا الدور.',
   'practicePendingStep3':

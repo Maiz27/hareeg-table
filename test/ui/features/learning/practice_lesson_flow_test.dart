@@ -383,7 +383,8 @@ void main() {
     await tapDiscardPile(tester);
     expect(
       find.text(
-        'The taken eight must hit the table first: meld the three eights.',
+        'The taken eight must be used before your turn ends: '
+        'meld the three eights.',
       ),
       findsOneWidget,
     );
