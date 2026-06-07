@@ -96,22 +96,40 @@ class PracticeCompletionOverlay extends StatelessWidget {
                 ],
                 const SizedBox(height: LoungeTokens.space5),
                 if (onNext != null) ...[
-                  FilledButton.icon(
-                    onPressed: onNext,
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: Text(strings.practiceNextLesson),
-                  ),
-                  const SizedBox(height: LoungeTokens.space3),
-                  OutlinedButton.icon(
-                    onPressed: onReplay,
-                    icon: const Icon(Icons.replay_outlined, size: 18),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: LoungeTokens.goldAccent,
-                      side: BorderSide(
-                        color: LoungeTokens.goldAccent.withValues(alpha: 0.6),
+                  // Continuing is the headline action: replay shrinks to an
+                  // icon beside it so the row reads "onward, or once more".
+                  Row(
+                    children: [
+                      Tooltip(
+                        message: strings.practiceReplayLesson,
+                        child: OutlinedButton(
+                          onPressed: onReplay,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: LoungeTokens.goldAccent,
+                            side: BorderSide(
+                              color: LoungeTokens.goldAccent.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                            // The theme's buttons stretch to infinite width;
+                            // inside a Row the icon button must size itself.
+                            minimumSize: const Size(48, 40),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: LoungeTokens.space3,
+                            ),
+                          ),
+                          child: const Icon(Icons.replay_outlined, size: 20),
+                        ),
                       ),
-                    ),
-                    label: Text(strings.practiceReplayLesson),
+                      const SizedBox(width: LoungeTokens.space3),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: onNext,
+                          icon: const Icon(Icons.arrow_forward_rounded),
+                          label: Text(strings.practiceNextLesson),
+                        ),
+                      ),
+                    ],
                   ),
                 ] else ...[
                   FilledButton.icon(

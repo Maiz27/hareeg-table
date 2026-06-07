@@ -20,6 +20,7 @@ class PracticeLessonScript {
     this.introActionIds = const [],
     this.seat = PlayerSeat.south,
     this.completionNote,
+    this.showScoresOnCompletion = false,
     this.fiftyTimerPausesAtSeconds,
   }) : assert(steps.length > 0, 'A lesson script needs at least one step.');
 
@@ -53,6 +54,12 @@ class PracticeLessonScript {
     ClassicHareegGameController controller,
   )?
   completionNote;
+
+  /// Whether the real score sheet opens over the finished board before the
+  /// completion panel — scoring lessons let the player read the round's
+  /// effect where a match would show it, instead of narrating numbers in
+  /// the panel text.
+  final bool showScoresOnCompletion;
 
   /// When set, the lesson clock freezes once the live Fifty window counts
   /// down to this many seconds — the ring ticks long enough to feel real,

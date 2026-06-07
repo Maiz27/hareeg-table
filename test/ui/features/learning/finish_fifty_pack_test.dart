@@ -484,12 +484,15 @@ void main() {
       expect(scores[PlayerSeat.north], 14);
       expect(scores[PlayerSeat.east], 14);
 
+      // The numbers live on the score sheet the lesson reveals first; the
+      // completion note keeps only the rule behind them.
+      expect(session.script.showScoresOnCompletion, isTrue);
       final note = session.script.completionNote!(
         AppStrings.english,
         session.controller,
       );
       expect(note, contains('-3'));
-      expect(note, contains('17'));
+      expect(note, contains('plus 3'));
     });
   });
 

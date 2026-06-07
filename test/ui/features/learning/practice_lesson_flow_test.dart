@@ -194,7 +194,8 @@ void main() {
     await dragToDiscard(tester, CardRank.three, CardSuit.clubs);
     expect(find.text('Lesson complete!'), findsOneWidget);
 
-    await tester.tap(find.text('Replay lesson'));
+    // Replay shares a row with Next as an icon-only button.
+    await tester.tap(find.byTooltip('Replay lesson'));
     await tester.pumpAndSettle();
 
     // In-place restart: the same table route, fresh board, step 1 again.
@@ -948,10 +949,19 @@ void main() {
     await playSelectedMeld(tester);
     await dragToDiscard(tester, CardRank.king, CardSuit.clubs);
 
+    // The scoring lesson shows its consequence on the REAL score sheet
+    // first: claimant -3, discarder's full unopened hand plus 3.
+    expect(find.text('Match scores'), findsOneWidget);
+    expect(find.text('Lesson complete!'), findsNothing);
+    expect(find.text('-3'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
+
+    // Closing the sheet hands off to the completion overlay, whose note
+    // keeps only the rule behind the numbers.
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
     expect(find.text('Lesson complete!'), findsOneWidget);
-    // The dynamic note reads the scores the engine just wrote: claimant -3,
-    // discarder's full unopened hand plus 3.
-    expect(find.textContaining('You -3 · West 17'), findsOneWidget);
+    expect(find.textContaining('Fifty pays double-edged'), findsOneWidget);
     expect(finished, ['fifty-scoring']);
   });
 

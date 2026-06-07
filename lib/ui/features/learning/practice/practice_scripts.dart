@@ -1443,9 +1443,11 @@ abstract final class PracticeScripts {
 
   /// Fifty scoring: the same claim, watched through the score sheet.
   ///
-  /// Scores start from zero so the completion panel's numbers read as the
-  /// round's own effect: the claimant's -3, and the discarder's full
-  /// unopened hand plus 3 — the punishment is the lesson.
+  /// Scores start from zero so the sheet reads as the round's own effect:
+  /// the claimant's -3, and the discarder's full unopened hand plus 3 —
+  /// the punishment is the lesson. The REAL score sheet opens over the
+  /// finished board before the completion panel, so the numbers are read
+  /// where a match would show them.
   static PracticeLessonScript fiftyScoring({bool pauseTimer = true}) {
     final priorThrees = [
       PracticeBoard.card(CardRank.three, CardSuit.spades),
@@ -1530,15 +1532,10 @@ abstract final class PracticeScripts {
           isSatisfied: (context) => context.controller.isRoundOver,
         ),
       ],
-      completionNote: (s, controller) {
-        // [scores] folds the just-finished round's deltas; the zero baseline
-        // above makes the cited numbers read as the round's own effect.
-        final scores = controller.scores;
-        return s.practiceFiftyScoringCompletion(
-          scores[PlayerSeat.south] ?? 0,
-          scores[PlayerSeat.west] ?? 0,
-        );
-      },
+      // The numbers live on the score sheet the lesson opens first; the
+      // panel keeps only the rule behind them.
+      completionNote: (s, _) => s.practiceFiftyScoringCompletion,
+      showScoresOnCompletion: true,
     );
   }
 }

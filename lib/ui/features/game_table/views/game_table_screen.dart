@@ -185,6 +185,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   // completion overlay instead of the match round-result pipeline.
   bool _practiceComplete = false;
 
+  // Scoring lessons open the real score sheet over the finished board
+  // before the completion overlay; true only between the final step
+  // landing and the sheet being dismissed.
+  bool _practiceScoreReveal = false;
+
   /// Banner-level reaction to the player's last practice move — a stalled
   /// step's [PracticeStep.holdNote], or the just-completed step's
   /// [PracticeStep.successNote]: persists in the step banner's guidance slot
@@ -915,7 +920,15 @@ class _GameTableScreenState extends State<GameTableScreen>
                 starter: _controller.starter,
                 currentSeat: _controller.currentSeat,
                 roundNumber: _controller.roundNumber,
-                onClose: () => setState(() => _scoreOpen = false),
+                onClose: () => setState(() {
+                  _scoreOpen = false;
+                  // A scoring lesson's reveal hands off to the completion
+                  // overlay once the sheet is read.
+                  if (_practiceScoreReveal) {
+                    _practiceScoreReveal = false;
+                    _practiceComplete = true;
+                  }
+                }),
               ),
             ),
             _AnimatedOverlaySlot(
@@ -1071,6 +1084,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _roundResultPresentation = null;
       _practiceReaction = null;
       _practiceComplete = false;
+      _practiceScoreReveal = false;
     });
     _ensureFiftyTicker();
     unawaited(_runPracticeIntro());
@@ -1930,11 +1944,18 @@ class _GameTableScreenState extends State<GameTableScreen>
               }),
         );
         setState(() {
-          _scoreOpen = false;
           _pauseOpen = false;
           _inspectedCard = null;
           _practiceReaction = null;
-          _practiceComplete = true;
+          // A scoring lesson shows its consequence on the real score sheet
+          // first; the completion overlay waits for the sheet to close.
+          if (_practiceSession!.script.showScoresOnCompletion) {
+            _practiceScoreReveal = true;
+            _scoreOpen = true;
+          } else {
+            _scoreOpen = false;
+            _practiceComplete = true;
+          }
         });
     }
   }

@@ -426,10 +426,8 @@ class AppStrings {
   String get practiceFiftyMissed => _v('practiceFiftyMissed');
   String get practiceRestartLesson => _v('practiceRestartLesson');
 
-  /// Fifty score-impact note with the engine's real totals appended.
-  String practiceFiftyScoringCompletion(int southScore, int westScore) => _v(
-    'practiceFiftyScoringCompletion',
-  ).replaceFirst('{south}', '$southScore').replaceFirst('{west}', '$westScore');
+  String get practiceFiftyScoringCompletion =>
+      _v('practiceFiftyScoringCompletion');
 
   // Strictness tier explainer.
   String get practiceTiersIntro => _v('practiceTiersIntro');
@@ -1507,7 +1505,7 @@ const _englishValues = {
   'practiceFiftyScoringStep3':
       'Throw the king — and watch what it does to the score sheet.',
   'practiceFiftyScoringCompletion':
-      'Fifty pays double-edged: you score -3, and West — who threw the card — adds their leftover cards plus 3. (First dealt round is the exception: the winner takes -1 there.)\nThis round: You {south} · West {west}.',
+      'Fifty pays double-edged: you score -3, and West — who threw the card — adds their leftover cards plus 3. (First dealt round is the exception: the winner takes -1 there.)',
   'practiceFiftyMissed':
       'The window closed — Fifty waits for no one. Restart and claim faster.',
   'practiceRestartLesson': 'Restart lesson',
@@ -1935,7 +1933,7 @@ const _arabicValues = {
       'اضغط الخمستين و5 الكُبّة المطالَب بها ثم شريحة المجموعة الذهبية.',
   'practiceFiftyScoringStep3': 'ارم الملك — وراقب ما يفعله ذلك بورقة النتائج.',
   'practiceFiftyScoringCompletion':
-      'الخمسين سلاح ذو حدين: تسجل -3، والغرب — من رمى الورقة — يضيف ما بقي في يده زائد 3. (الجولة الأولى الموزعة استثناء: الفائز يأخذ -1 فيها.)\nهذه الجولة: أنت {south} · الغرب {west}.',
+      'الخمسين سلاح ذو حدين: تسجل -3، والغرب — من رمى الورقة — يضيف ما بقي في يده زائد 3. (الجولة الأولى الموزعة استثناء: الفائز يأخذ -1 فيها.)',
   'practiceFiftyMissed':
       'أُغلقت النافذة — الخمسين لا ينتظر أحدا. أعد الدرس وطالب أسرع.',
   'practiceRestartLesson': 'إعادة الدرس',
