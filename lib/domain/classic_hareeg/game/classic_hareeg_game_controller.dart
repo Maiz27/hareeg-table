@@ -700,7 +700,12 @@ class ClassicHareegGameController {
     _applyTurnFlowState(next);
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn();
+    // Do NOT reset the turn journal here: the journal resets at turn exits
+    // (discard advance, removal, round end), so any recorded plays belong to
+    // THIS turn — a seat that placed table plays, returned its taken discard,
+    // and now draws from stock keeps those plays reversible and
+    // finish-eligible. Only the finish source changes.
+    _turnJournal.setSource(FinishCardSource.stock);
     return const ApplyActionResult.success();
   }
 
@@ -715,7 +720,9 @@ class ClassicHareegGameController {
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn(source: FinishCardSource.previousDiscard);
+    // See _applyDrawStock: the journal is turn-scoped and resets at turn
+    // exits, not on draw decisions.
+    _turnJournal.setSource(FinishCardSource.previousDiscard);
     return const ApplyActionResult.success();
   }
 
@@ -725,9 +732,33 @@ class ClassicHareegGameController {
     );
   }
 
+  /// Whether the unused pending discard may be returned right now.
+  ///
+  /// Opened seats may return the unused taken card at any point of the turn,
+  /// even after other committed plays. Unopened seats must take back staged
+  /// opening melds first — those plays are not valid commitments yet, so the
+  /// taken card cannot be returned around them.
+  bool _canReturnPendingDiscard(PlayerSeat seat) {
+    if (_pendingDiscard == null || seat != _currentSeat) {
+      return false;
+    }
+    return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
+  }
+
   ApplyActionResult _applyReturnPendingDiscard() {
     final pending = _pendingDiscard;
     final returningSeat = _currentSeat;
+    // An unopened seat's staged table plays are not valid commitments yet, so
+    // the taken card cannot be returned around them — the staged melds must
+    // be taken back first. Opened seats may return the unused taken card even
+    // after other committed plays this turn (relaxed taken-discard rule).
+    if (pending != null &&
+        !_openingState.hasOpened(returningSeat) &&
+        _turnOpeningMelds.isNotEmpty) {
+      return const ApplyActionResult.failure(
+        'Take back your staged melds before returning the taken card.',
+      );
+    }
     try {
       final next = ClassicHareegTurnFlowRules.returnPendingDiscard(
         _turnFlowState(),
@@ -742,7 +773,12 @@ class ClassicHareegGameController {
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn();
+    // Keep the journal: plays committed earlier this turn stay reversible and
+    // finish-eligible across the return → draw continuation of the same turn.
+    // The returned card was never consumed, so only the source resets.
+    _turnJournal
+      ..clearConsumedPendingDiscard()
+      ..setSource(FinishCardSource.stock);
     _evaluateRoundEnd();
     return const ApplyActionResult.success();
   }
@@ -849,7 +885,9 @@ class ClassicHareegGameController {
       }
     }
 
-    if (pending != null) {
+    // Relaxed taken-discard rule: the pending card is consumed only by the
+    // play that actually uses it; unrelated melds leave it pending.
+    if (pending != null && uniqueIds.contains(pending.id)) {
       _consumePendingDiscard();
       if (!alreadyOpened && !_openingState.hasOpened(_currentSeat)) {
         _turnJournal.recordConsumedPendingDiscard(pending);
@@ -1142,12 +1180,11 @@ class ClassicHareegGameController {
       );
     }
 
+    // Relaxed taken-discard rule: covers that do not use the pending card are
+    // legal; the pending card is consumed only by the cover that includes it.
     final pending = _pendingDiscard;
-    if (pending != null && !target.cardIds.toSet().contains(pending.id)) {
-      return const ApplyActionResult.failure(
-        'The picked up discard must be used in a meld or returned first.',
-      );
-    }
+    final usesPending =
+        pending != null && target.cardIds.toSet().contains(pending.id);
 
     final targetMelds = _tableMelds[target.targetSeat];
     if (targetMelds == null ||
@@ -1176,7 +1213,7 @@ class ClassicHareegGameController {
 
     final hand = _handFor(_currentSeat);
     final previousOpeningState = _openingState;
-    final consumedPendingDiscard = pending;
+    final consumedPendingDiscard = usesPending ? pending : null;
     for (final card in ordered) {
       hand.removeWhere((candidate) => candidate.id == card.id);
     }
@@ -1205,7 +1242,7 @@ class ClassicHareegGameController {
         consumedPendingDiscard: consumedPendingDiscard,
       ),
     );
-    if (pending != null) {
+    if (usesPending) {
       _consumePendingDiscard();
       _turnJournal.clearConsumedPendingDiscard();
     }
@@ -1239,12 +1276,10 @@ class ClassicHareegGameController {
       );
     }
 
+    // Relaxed taken-discard rule: any hand card may replace a table joker;
+    // the pending card is consumed only when it is the replacement itself.
     final pending = _pendingDiscard;
-    if (pending != null && pending.id != target.cardId) {
-      return const ApplyActionResult.failure(
-        'The picked up discard must be used before another card.',
-      );
-    }
+    final usesPending = pending != null && pending.id == target.cardId;
 
     final targetMelds = _tableMelds[target.targetSeat];
     if (targetMelds == null ||
@@ -1286,7 +1321,7 @@ class ClassicHareegGameController {
       valueSnapshot: targetMeld.valueSnapshot,
       coverValue: targetMeld.coverValue,
     );
-    if (pending != null) {
+    if (usesPending) {
       _consumePendingDiscard();
       _turnJournal.clearConsumedPendingDiscard();
     }
@@ -1302,6 +1337,22 @@ class ClassicHareegGameController {
 
     final card = hand[index];
     final isFinalDiscard = hand.length == 1;
+
+    // Relaxed taken-discard rule: the pending card may be used at any point
+    // of the turn, but the turn cannot end while it sits unused — and the
+    // taken card itself can never leave as the turn's closing discard.
+    final pending = _pendingDiscard;
+    if (pending != null) {
+      if (card.id == pending.id) {
+        return const ApplyActionResult.failure(
+          'The taken card cannot be discarded — use it in a meld or cover.',
+        );
+      }
+      return const ApplyActionResult.failure(
+        'Use or return the taken card before ending the turn.',
+      );
+    }
+
     final eligibility = _discardEligibilityFor(
       seat: _currentSeat,
       card: card,
@@ -2207,7 +2258,6 @@ class ClassicHareegGameController {
       playedMelds: melds,
       handCount: handCount,
       playedCardIds: playedCardIds,
-      pendingDiscardId: seat == _currentSeat ? _pendingDiscard?.id : null,
     );
   }
 
@@ -2474,6 +2524,11 @@ class _LiveActionSurfaceFacts implements ClassicHareegActionSurfaceFacts {
   }
 
   @override
+  bool canReturnPendingDiscard(PlayerSeat seat) {
+    return _controller._canReturnPendingDiscard(seat);
+  }
+
+  @override
   ClassicHareegDrawDecisionPlan drawDecisionPlan(PlayerSeat seat) {
     return _controller._drawDecisionPlanFor(seat);
   }
@@ -2555,6 +2610,11 @@ class _LoggingActionSurfaceFacts implements ClassicHareegActionSurfaceFacts {
   @override
   bool canReturnOpeningMelds(PlayerSeat seat) {
     return _inner.canReturnOpeningMelds(seat);
+  }
+
+  @override
+  bool canReturnPendingDiscard(PlayerSeat seat) {
+    return _inner.canReturnPendingDiscard(seat);
   }
 
   @override

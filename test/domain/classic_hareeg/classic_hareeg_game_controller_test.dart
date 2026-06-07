@@ -243,7 +243,7 @@ void main() {
       );
     });
 
-    test('pending state limits legal actions to use or return', () {
+    test('pending state blocks ending the turn but keeps return legal', () {
       final controller = _freshControllerInActionPhase();
       final south = controller.handFor(PlayerSeat.south);
       final discardedByHuman = south.firstWhere((c) => !c.isJoker);
@@ -255,10 +255,29 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(controller.pendingDiscard?.id, discardedByHuman.id);
+      // Relaxed taken-discard rule: table plays stay legal while the pending
+      // card is unused, but the turn cannot end — no discard ids surface and
+      // draw decisions are gone.
+      final legal = controller.legalActionIdsFor(PlayerSeat.east);
+      expect(legal, contains(ClassicHareegActionIds.returnPendingDiscard));
       expect(
-        controller.legalActionIdsFor(PlayerSeat.east),
-        equals([ClassicHareegActionIds.returnPendingDiscard]),
+        legal.where(
+          (id) => ClassicHareegActionIds.describe(id).isDiscard,
+        ),
+        isEmpty,
       );
+      expect(legal, isNot(contains(ClassicHareegActionIds.drawStock)));
+      expect(legal, isNot(contains(ClassicHareegActionIds.takeDiscard)));
+
+      // Ending the turn with the taken card unused is refused outright.
+      final eastHand = controller.handFor(PlayerSeat.east);
+      final otherCard = eastHand.firstWhere(
+        (c) => !c.isJoker && c.id != discardedByHuman.id,
+      );
+      final blockedDiscard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${otherCard.id}',
+      );
+      expect(blockedDiscard.isSuccess, isFalse);
     });
 
     test('returning a pending discard goes back to draw decision', () {
@@ -1793,12 +1812,16 @@ void main() {
       },
     );
 
-    test('pending discard must be part of the played meld', () {
+    test('pending discard may be used after an unrelated meld (relaxed)', () {
       final pending = _card(CardRank.eight, CardSuit.clubs, 21);
       final otherMeld = [
         _card(CardRank.seven, CardSuit.clubs, 22),
         _card(CardRank.seven, CardSuit.diamonds, 22),
         _card(CardRank.seven, CardSuit.hearts, 22),
+      ];
+      final pendingMeld = [
+        _card(CardRank.eight, CardSuit.diamonds, 23),
+        _card(CardRank.eight, CardSuit.hearts, 23),
       ];
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
@@ -1807,25 +1830,50 @@ void main() {
             PlayerSeat.south: [
               pending,
               ...otherMeld,
+              ...pendingMeld,
               ...defaults[PlayerSeat.south]!,
             ],
           },
           currentSeat: PlayerSeat.south,
           turnPhase: TurnPhase.action,
           pendingDiscard: pending,
+          openingState: _opened(PlayerSeat.south),
         ),
       );
 
-      final result = controller.applyAction(
+      // An unrelated meld is legal while the taken card sits unused.
+      final unrelated = controller.applyAction(
         ClassicHareegActionIds.playMeldActionId(
           otherMeld.map((card) => card.id),
         ),
       );
-
-      expect(result.isSuccess, isFalse);
-      expect(result.message, contains('picked up discard'));
+      expect(unrelated.isSuccess, isTrue);
       expect(controller.pendingDiscard?.id, pending.id);
-      expect(controller.tableMeldsFor(PlayerSeat.south), isEmpty);
+
+      // But the turn cannot end while it is unused...
+      final hand = controller.handFor(PlayerSeat.south);
+      final blocked = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${hand.firstWhere((c) => !c.isJoker && c.id != pending.id).id}',
+      );
+      expect(blocked.isSuccess, isFalse);
+
+      // ...and the taken card itself can never be the closing discard.
+      final pendingDiscarded = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${pending.id}',
+      );
+      expect(pendingDiscarded.isSuccess, isFalse);
+
+      // Using it in a later meld clears the obligation.
+      final usesPending = controller.applyAction(
+        ClassicHareegActionIds.playMeldActionId([
+          pending.id,
+          ...pendingMeld.map((card) => card.id),
+        ]),
+      );
+      expect(usesPending.isSuccess, isTrue);
+      expect(controller.pendingDiscard, isNull);
+      expect(controller.tableMeldsFor(PlayerSeat.south), hasLength(2));
     });
   });
 

@@ -33,31 +33,32 @@ void main() {
       expect(result.message, 'Meld played.');
     });
 
-    test('picked up discard must be included in the meld play', () {
+    test('melds that do not use the pending discard stay legal (relaxed)', () {
+      // Relaxed taken-discard rule: the pending card may land in any play of
+      // the turn, so an unrelated meld is allowed and advertised. The
+      // controller blocks the turn from ending while it sits unused.
       final played = meld([
         card(CardRank.ten, CardSuit.clubs),
         card(CardRank.ten, CardSuit.diamonds),
         card(CardRank.ten, CardSuit.hearts),
       ]);
-      final pendingDiscard = card(CardRank.two, CardSuit.spades);
 
       final result = ClassicHareegMeldPlayEligibilityPlanner.evaluate(
-        openingState: OpeningState.initial(51),
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south},
+        ),
         seat: PlayerSeat.south,
         stagedOpeningMelds: const [],
         playedMelds: [played],
         handCount: 7,
         playedCardIds: idsOf(played.cards),
-        pendingDiscardId: pendingDiscard.id,
       );
 
-      expect(
-        result.scenario,
-        ClassicHareegMeldPlayScenario.missingPendingDiscard,
-      );
-      expect(result.isAllowed, isFalse);
-      expect(result.shouldAdvertise, isFalse);
-      expect(result.message, contains('picked up discard'));
+      expect(result.scenario, ClassicHareegMeldPlayScenario.regularMeld);
+      expect(result.isAllowed, isTrue);
+      expect(result.shouldAdvertise, isTrue);
     });
 
     test('meld plays cannot consume the final discard card', () {

@@ -66,6 +66,13 @@ abstract class ClassicHareegActionSurfaceFacts {
   /// Whether table plays made this turn can be returned.
   bool canReturnOpeningMelds(PlayerSeat seat);
 
+  /// Whether the unused pending discard may be returned right now.
+  ///
+  /// False for unopened seats with staged opening melds (the staged plays
+  /// must be taken back first) and during a Fifty proof turn (the claimed
+  /// card cannot be returned).
+  bool canReturnPendingDiscard(PlayerSeat seat);
+
   /// Draw decision plan for draw phase.
   ClassicHareegDrawDecisionPlan drawDecisionPlan(PlayerSeat seat);
 }
@@ -178,16 +185,29 @@ abstract final class ClassicHareegActionSurfacePlanner {
     required String pendingDiscardId,
     required ClassicHareegActionSurfaceFacts facts,
   }) {
+    // Relaxed taken-discard rule: while the pending card sits unused, every
+    // table play stays legal (using the pending card or not) — only ending
+    // the turn is off the surface. Returning the pending card stays available
+    // while no rule forbids it (see [canReturnPendingDiscard]).
+    final canReturnPending = facts.canReturnPendingDiscard(seat);
+
     if (purpose == ClassicHareegActionSurfacePurpose.control) {
-      return const ClassicHareegActionSurfacePlan(
+      return ClassicHareegActionSurfacePlan(
         purpose: ClassicHareegActionSurfacePurpose.control,
         scenario: ClassicHareegActionSurfaceScenario.pendingDiscard,
-        actionIds: [ClassicHareegActionIds.returnPendingDiscard],
+        actionIds: [
+          if (facts.canReturnOpeningMelds(seat))
+            ClassicHareegActionIds.returnOpeningMelds,
+          if (canReturnPending) ClassicHareegActionIds.returnPendingDiscard,
+        ],
         reason: 'pending-control',
       );
     }
 
     if (purpose == ClassicHareegActionSurfacePurpose.cpu) {
+      // CPU posture: use the pending card as soon as a play accepts it; the
+      // relaxed ordering keeps that play legal whenever it exists, so the
+      // use-first priority remains optimal for the CPU.
       final playMeld = facts.firstPlayMeldActionId(
         seat,
         mustUseCardId: pendingDiscardId,
@@ -224,11 +244,23 @@ abstract final class ClassicHareegActionSurfacePlanner {
         );
       }
 
+      if (canReturnPending) {
+        return ClassicHareegActionSurfacePlan(
+          purpose: purpose,
+          scenario: ClassicHareegActionSurfaceScenario.pendingDiscard,
+          actionIds: const [ClassicHareegActionIds.returnPendingDiscard],
+          reason: 'pending-return',
+        );
+      }
+
       return ClassicHareegActionSurfacePlan(
         purpose: purpose,
         scenario: ClassicHareegActionSurfaceScenario.pendingDiscard,
-        actionIds: const [ClassicHareegActionIds.returnPendingDiscard],
-        reason: 'pending-return',
+        actionIds: [
+          if (facts.canReturnOpeningMelds(seat))
+            ClassicHareegActionIds.returnOpeningMelds,
+        ],
+        reason: 'pending-stuck',
       );
     }
 
@@ -236,10 +268,12 @@ abstract final class ClassicHareegActionSurfacePlanner {
       purpose: purpose,
       scenario: ClassicHareegActionSurfaceScenario.pendingDiscard,
       actionIds: [
-        ...facts.playMeldActionIds(seat, mustUseCardId: pendingDiscardId),
-        ...facts.replaceJokerActionIds(seat, mustUseCardId: pendingDiscardId),
-        ...facts.coverActionIds(seat, mustUseCardId: pendingDiscardId),
-        ClassicHareegActionIds.returnPendingDiscard,
+        if (facts.canReturnOpeningMelds(seat))
+          ClassicHareegActionIds.returnOpeningMelds,
+        ...facts.playMeldActionIds(seat),
+        ...facts.replaceJokerActionIds(seat),
+        ...facts.coverActionIds(seat),
+        if (canReturnPending) ClassicHareegActionIds.returnPendingDiscard,
       ],
       reason: 'pending-full',
     );

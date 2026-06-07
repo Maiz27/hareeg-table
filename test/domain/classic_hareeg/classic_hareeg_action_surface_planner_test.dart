@@ -30,12 +30,12 @@ void main() {
     });
 
     test(
-      'pending full surface includes all pending-use options and return',
+      'pending full surface exposes unrestricted table plays plus return',
       () {
         final facts = _facts(
-          playMeldActionIds: ['play-pending'],
-          replaceJokerActionIds: ['replace-pending'],
-          coverActionIds: ['cover-pending'],
+          playMeldActionIds: ['play-any'],
+          replaceJokerActionIds: ['replace-any'],
+          coverActionIds: ['cover-any'],
         );
 
         final plan = _evaluate(
@@ -50,24 +50,43 @@ void main() {
         );
         expect(plan.reason, 'pending-full');
         expect(plan.actionIds, [
-          'play-pending',
-          'replace-pending',
-          'cover-pending',
+          'play-any',
+          'replace-any',
+          'cover-any',
           ClassicHareegActionIds.returnPendingDiscard,
         ]);
+        // Relaxed taken-discard rule: searches are NOT constrained to the
+        // pending card; any table play stays legal while it sits unused.
         expect(facts.calls, [
-          'play:pending-card',
-          'replace:pending-card',
-          'cover:pending-card',
+          'can-return-pending',
+          'can-return',
+          'play:-',
+          'replace:-',
+          'cover:-',
         ]);
       },
     );
 
+    test('pending full surface omits return when it is not allowed', () {
+      final facts = _facts(
+        canReturnPendingDiscard: false,
+        playMeldActionIds: ['play-any'],
+      );
+
+      final plan = _evaluate(
+        ClassicHareegActionSurfacePurpose.full,
+        pendingDiscardId: 'pending-card',
+        facts: facts,
+      );
+
+      expect(plan.actionIds, ['play-any']);
+    });
+
     test('pending control surface stays cheap', () {
       final facts = _facts(
-        playMeldActionIds: ['play-pending'],
-        replaceJokerActionIds: ['replace-pending'],
-        coverActionIds: ['cover-pending'],
+        playMeldActionIds: ['play-any'],
+        replaceJokerActionIds: ['replace-any'],
+        coverActionIds: ['cover-any'],
       );
 
       final plan = _evaluate(
@@ -77,7 +96,7 @@ void main() {
       );
 
       expect(plan.actionIds, [ClassicHareegActionIds.returnPendingDiscard]);
-      expect(facts.calls, isEmpty);
+      expect(facts.calls, ['can-return-pending', 'can-return']);
     });
 
     test('pending CPU surface stops at first usable pending action', () {
@@ -95,7 +114,7 @@ void main() {
 
       expect(plan.actionIds, ['play-pending']);
       expect(plan.reason, 'pending-meld');
-      expect(facts.calls, ['first-play:pending-card']);
+      expect(facts.calls, ['can-return-pending', 'first-play:pending-card']);
     });
 
     test(
@@ -268,6 +287,7 @@ ClassicHareegActionSurfacePlan _evaluate(
 
 _RecordingFacts _facts({
   bool canReturnOpeningMelds = false,
+  bool canReturnPendingDiscard = true,
   List<String> playMeldActionIds = const [],
   String? firstPlayMeldActionId,
   List<String> replaceJokerActionIds = const [],
@@ -277,6 +297,7 @@ _RecordingFacts _facts({
 }) {
   return _RecordingFacts(
     canReturnOpeningMeldsResult: canReturnOpeningMelds,
+    canReturnPendingDiscardResult: canReturnPendingDiscard,
     playMeldActionIdsResult: playMeldActionIds,
     firstPlayMeldActionIdResult: firstPlayMeldActionId,
     replaceJokerActionIdsResult: replaceJokerActionIds,
@@ -308,6 +329,7 @@ ClassicHareegDrawDecisionPlan _drawPlan([List<String> actionIds = const []]) {
 class _RecordingFacts implements ClassicHareegActionSurfaceFacts {
   _RecordingFacts({
     required this.canReturnOpeningMeldsResult,
+    required this.canReturnPendingDiscardResult,
     required this.playMeldActionIdsResult,
     required this.firstPlayMeldActionIdResult,
     required this.replaceJokerActionIdsResult,
@@ -317,6 +339,7 @@ class _RecordingFacts implements ClassicHareegActionSurfaceFacts {
   });
 
   final bool canReturnOpeningMeldsResult;
+  final bool canReturnPendingDiscardResult;
   final List<String> playMeldActionIdsResult;
   final String? firstPlayMeldActionIdResult;
   final List<String> replaceJokerActionIdsResult;
@@ -359,6 +382,12 @@ class _RecordingFacts implements ClassicHareegActionSurfaceFacts {
   bool canReturnOpeningMelds(PlayerSeat seat) {
     calls.add('can-return');
     return canReturnOpeningMeldsResult;
+  }
+
+  @override
+  bool canReturnPendingDiscard(PlayerSeat seat) {
+    calls.add('can-return-pending');
+    return canReturnPendingDiscardResult;
   }
 
   @override
