@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/ui/features/learning/models/practice_catalog.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_scripts.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
 
@@ -26,8 +27,11 @@ void _runIntro(PracticeSession session) {
       reason: 'intro action $actionId must be legal: ${result.message}',
     );
   }
-  expect(session.controller.currentSeat, PlayerSeat.south,
-      reason: 'the intro must hand the turn to the player');
+  expect(
+    session.controller.currentSeat,
+    PlayerSeat.south,
+    reason: 'the intro must hand the turn to the player',
+  );
 }
 
 void main() {
@@ -102,8 +106,11 @@ void main() {
       final partial = session.submit(
         _meldId([heartRun[4], heartRun[3], heartRun[2]]),
       );
-      expect(partial.status, PracticeSubmitStatus.accepted,
-          reason: 'staging applies but does not demonstrate the opening');
+      expect(
+        partial.status,
+        PracticeSubmitStatus.accepted,
+        reason: 'staging applies but does not demonstrate the opening',
+      );
       expect(session.controller.tableMeldsFor(PlayerSeat.south), hasLength(1));
 
       // The correction is always offered and never advances the step.
@@ -131,13 +138,14 @@ void main() {
     final twoHearts = _card(CardRank.two, CardSuit.hearts);
 
     test('the intro plays west throwing the eight onto an empty pile', () {
-      final session = PracticeSession(
-        script: PracticeScripts.discardOpening(),
-      );
+      final session = PracticeSession(script: PracticeScripts.discardOpening());
 
       expect(session.controller.currentSeat, PlayerSeat.west);
-      expect(session.controller.discardPile, isEmpty,
-          reason: 'the player watches the eight land, not finds it pre-baked');
+      expect(
+        session.controller.discardPile,
+        isEmpty,
+        reason: 'the player watches the eight land, not finds it pre-baked',
+      );
 
       _runIntro(session);
 
@@ -145,9 +153,7 @@ void main() {
     });
 
     test('take the eight, open with both sets, discard', () {
-      final session = PracticeSession(
-        script: PracticeScripts.discardOpening(),
-      );
+      final session = PracticeSession(script: PracticeScripts.discardOpening());
       _runIntro(session);
 
       expect(
@@ -186,9 +192,7 @@ void main() {
     });
 
     test('wrong path: drawing in step 1 is not offered', () {
-      final session = PracticeSession(
-        script: PracticeScripts.discardOpening(),
-      );
+      final session = PracticeSession(script: PracticeScripts.discardOpening());
       _runIntro(session);
 
       final result = session.submit(ClassicHareegActionIds.drawStock);
@@ -199,9 +203,7 @@ void main() {
 
     test('wrong path: the queens cannot hit the table before the taken '
         'eight', () {
-      final session = PracticeSession(
-        script: PracticeScripts.discardOpening(),
-      );
+      final session = PracticeSession(script: PracticeScripts.discardOpening());
       _runIntro(session);
       session.submit(ClassicHareegActionIds.takeDiscard);
 
@@ -228,8 +230,11 @@ void main() {
       final session = PracticeSession(script: PracticeScripts.baitDiscard());
 
       expect(session.controller.currentSeat, PlayerSeat.west);
-      expect(session.controller.tableMeldsFor(PlayerSeat.west), isEmpty,
-          reason: 'the opening happens on screen, not pre-baked');
+      expect(
+        session.controller.tableMeldsFor(PlayerSeat.west),
+        isEmpty,
+        reason: 'the opening happens on screen, not pre-baked',
+      );
 
       _runIntro(session);
 
@@ -389,9 +394,20 @@ void main() {
       }
     });
 
-    test('later-pack lessons stay unscripted until their slice ships', () {
-      expect(PracticeScripts.byId('final-discard'), isNull);
-      expect(PracticeScripts.byId('normal-finish'), isNull);
+    test('every planned lesson is playable: scripted, or the strictness '
+        'explainer panel', () {
+      for (final lesson in PracticeCatalog.lessons) {
+        if (lesson.id == 'strictness-tiers') {
+          // A reading panel with its own route, not a scripted hand.
+          expect(PracticeScripts.byId(lesson.id), isNull);
+          continue;
+        }
+        expect(
+          PracticeScripts.byId(lesson.id),
+          isNotNull,
+          reason: '${lesson.id} must be playable',
+        );
+      }
     });
 
     test('every script replays an identical deterministic board', () {

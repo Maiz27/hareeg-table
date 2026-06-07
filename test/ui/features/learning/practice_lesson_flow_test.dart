@@ -3,11 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
+import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart';
+import 'package:hareeg_table/ui/features/learning/practice/practice_scripts.dart';
+import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
 
 import '../../../support/test_fixtures.dart';
 
@@ -342,8 +345,10 @@ void main() {
     // Dropping the extra restores the exact run and the offer lights up.
     await toggleHandCard(tester, CardRank.two, CardSuit.clubs);
     await playSelectedMeld(tester);
-    expect(find.text('Finish the turn: discard a card you do not need.'),
-        findsOneWidget);
+    expect(
+      find.text('Finish the turn: discard a card you do not need.'),
+      findsOneWidget,
+    );
 
     await dragToDiscard(tester, CardRank.two, CardSuit.clubs);
 
@@ -461,49 +466,51 @@ void main() {
     );
   });
 
-  testWidgets('opening-51 lesson: draw, stage kings, open with jacks, discard',
-      (tester) async {
-    final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
-    await tester.pumpAndSettle();
-    await openLesson(tester, 'opening-51');
+  testWidgets(
+    'opening-51 lesson: draw, stage kings, open with jacks, discard',
+    (tester) async {
+      final learning = MemoryLearningProgressRepository();
+      await tester.pumpWidget(_practiceApp(learning: learning));
+      await tester.pumpAndSettle();
+      await openLesson(tester, 'opening-51');
 
-    await tester.tap(find.byTooltip('Draw Stock'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Draw Stock'));
+      await tester.pumpAndSettle();
 
-    // Step 2: the kings stage at 30 — below the 51 benchmark.
-    await toggleHandCard(tester, CardRank.king, CardSuit.spades);
-    await toggleHandCard(tester, CardRank.king, CardSuit.diamonds);
-    await toggleHandCard(tester, CardRank.king, CardSuit.hearts);
-    await playSelectedMeld(tester);
-    expect(
-      find.text('Add the jacks to push the total past 51.'),
-      findsOneWidget,
-    );
+      // Step 2: the kings stage at 30 — below the 51 benchmark.
+      await toggleHandCard(tester, CardRank.king, CardSuit.spades);
+      await toggleHandCard(tester, CardRank.king, CardSuit.diamonds);
+      await toggleHandCard(tester, CardRank.king, CardSuit.hearts);
+      await playSelectedMeld(tester);
+      expect(
+        find.text('Add the jacks to push the total past 51.'),
+        findsOneWidget,
+      );
 
-    // Step 3: the jacks push the staged total to 60 and complete the opening.
-    await toggleHandCard(tester, CardRank.jack, CardSuit.clubs);
-    await toggleHandCard(tester, CardRank.jack, CardSuit.diamonds);
-    await toggleHandCard(tester, CardRank.jack, CardSuit.hearts);
-    await playSelectedMeld(tester);
-    expect(
-      find.text('Seal the opening: end your turn with a discard.'),
-      findsOneWidget,
-    );
+      // Step 3: the jacks push the staged total to 60 and complete the opening.
+      await toggleHandCard(tester, CardRank.jack, CardSuit.clubs);
+      await toggleHandCard(tester, CardRank.jack, CardSuit.diamonds);
+      await toggleHandCard(tester, CardRank.jack, CardSuit.hearts);
+      await playSelectedMeld(tester);
+      expect(
+        find.text('Seal the opening: end your turn with a discard.'),
+        findsOneWidget,
+      );
 
-    // Step 4: the closing discard.
-    await dragToDiscard(tester, CardRank.three, CardSuit.clubs);
+      // Step 4: the closing discard.
+      await dragToDiscard(tester, CardRank.three, CardSuit.clubs);
 
-    expect(find.text('Lesson complete!'), findsOneWidget);
-    expect(
-      learning.progress.statusFor('opening-51'),
-      PracticeLessonStatus.completed,
-    );
+      expect(find.text('Lesson complete!'), findsOneWidget);
+      expect(
+        learning.progress.statusFor('opening-51'),
+        PracticeLessonStatus.completed,
+      );
 
-    // Opening-51 ends the core turn pack: finishing a pack is a deliberate
-    // stopping point, so the overlay offers no continuation.
-    expect(find.text('Next lesson'), findsNothing);
-  });
+      // Opening-51 ends the core turn pack: finishing a pack is a deliberate
+      // stopping point, so the overlay offers no continuation.
+      expect(find.text('Next lesson'), findsNothing);
+    },
+  );
 
   /// Drags a south-hand card onto another seat's placed meld — the cover
   /// and joker-replacement gesture. Targets the meld stack by owner and
@@ -597,10 +604,7 @@ void main() {
     // West's intro opens three melds totalling 75 through the real flights.
     await pumpThroughIntro(tester);
     expect(find.bySemanticsLabel('Ace of Spades'), findsOneWidget);
-    expect(
-      find.textContaining('the bar is now 75'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('the bar is now 75'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Draw Stock'));
     await tester.pumpAndSettle();
@@ -617,16 +621,10 @@ void main() {
 
     // The retract step: the take-back is the taught move, so the undo pill
     // must advance the lesson instead of holding it as a correction.
-    expect(
-      find.textContaining('Take the run back'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Take the run back'), findsOneWidget);
     await tester.tap(find.byTooltip('Take Back Melds'));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('End the turn with a discard'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('End the turn with a discard'), findsOneWidget);
     expect(
       find.bySemanticsLabel('Queen of Hearts'),
       findsOneWidget,
@@ -874,6 +872,149 @@ void main() {
       PracticeLessonStatus.completed,
     );
   });
+
+  testWidgets('final-discard lesson: meld the nines, go out on the last '
+      'card, and the completion panel cites the outcome', (tester) async {
+    final learning = MemoryLearningProgressRepository();
+    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpAndSettle();
+    await openLesson(tester, 'final-discard');
+
+    // Mid-turn endgame board: no draw step, the meld prompt is live and the
+    // nines ring while the spare five stays unringed.
+    expect(
+      find.textContaining('no one wins by simply laying every card'),
+      findsOneWidget,
+    );
+    expect(ringedCard(CardRank.nine, CardSuit.clubs), findsOneWidget);
+    expect(ringedCard(CardRank.five, CardSuit.spades), findsNothing);
+
+    await toggleHandCard(tester, CardRank.nine, CardSuit.clubs);
+    await toggleHandCard(tester, CardRank.nine, CardSuit.diamonds);
+    await toggleHandCard(tester, CardRank.nine, CardSuit.hearts);
+    await playSelectedMeld(tester);
+    expect(find.textContaining('One card left'), findsOneWidget);
+
+    await dragToDiscard(tester, CardRank.five, CardSuit.spades);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    // The script's completion note rides the panel: the finish rule plus
+    // the real -1 the engine just scored.
+    expect(find.textContaining('The winner scores -1'), findsOneWidget);
+    expect(
+      learning.progress.statusFor('final-discard'),
+      PracticeLessonStatus.completed,
+    );
+  });
+
+  testWidgets('fifty-scoring lesson: west\'s throw opens the flame ring, the '
+      'thrown card itself claims, and the note cites the engine\'s real '
+      'scores', (tester) async {
+    final clock = _PracticeClock();
+    final session = PracticeSession(
+      script: PracticeScripts.fiftyScoring(),
+      now: clock.now,
+    );
+    final finished = <String>[];
+    await tester.pumpWidget(_practiceTable(session, onFinished: finished.add));
+    await pumpThroughIntro(tester);
+
+    // West's scripted throw opened the real window on the lesson clock; the
+    // thrown five rings on the pile alongside the pair it completes.
+    expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
+    expect(ringedCard(CardRank.five, CardSuit.diamonds), findsOneWidget);
+
+    // Reading time is free: the practice clock holds the ring at 3.
+    clock.advance(const Duration(minutes: 2));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
+
+    // The natural gesture claims: tap the thrown card on the pile.
+    await tapDiscardPile(tester);
+
+    expect(find.text('Lesson complete!'), findsOneWidget);
+    // The dynamic note reads the scores the engine just wrote: claimant -3,
+    // discarder's full unopened hand plus 3.
+    expect(find.textContaining('You -3 · West 17'), findsOneWidget);
+    expect(finished, ['fifty-scoring']);
+  });
+
+  testWidgets('fifty-claim lesson: an expiring window (practice hold off) '
+      'dead-ends into the missed overlay, and restart lands a fresh board', (
+    tester,
+  ) async {
+    final clock = _PracticeClock();
+    final session = PracticeSession(
+      script: PracticeScripts.fiftyClaim(pauseTimer: false),
+      now: clock.now,
+    );
+    final finished = <String>[];
+    await tester.pumpWidget(_practiceTable(session, onFinished: finished.add));
+    await pumpThroughIntro(tester);
+    expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
+
+    // Sleep past the window and its expiry grace; the next ticker tick
+    // notices and hands narration to the missed overlay.
+    clock.advance(const Duration(seconds: 45));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('practice-missed-overlay')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Fifty waits for no one'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('practice-step-banner')),
+      findsNothing,
+      reason: 'the missed overlay is the only narrator once the lesson dies',
+    );
+
+    // Restart: a fresh in-place session replays the intro and reopens a
+    // live window (the restarted run rides the real clock, far from
+    // expiry inside a test).
+    await tester.tap(find.text('Restart lesson'));
+    await pumpThroughIntro(tester);
+
+    expect(find.byKey(const ValueKey('practice-missed-overlay')), findsNothing);
+    expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
+    expect(
+      finished,
+      isEmpty,
+      reason: 'a dead-ended run never records completion',
+    );
+  });
+}
+
+/// A manually advanced clock for walking a Fifty lesson's claim window
+/// deterministically in widget tests: the intro's discard stamps the
+/// window-open time through the same injected `now` the expiry check reads.
+class _PracticeClock {
+  DateTime current = DateTime.utc(2026, 1, 1, 12);
+
+  DateTime now() => current;
+
+  void advance(Duration delta) => current = current.add(delta);
+}
+
+/// Hosts a practice session on a directly constructed table (every scope the
+/// screen reads has a test fallback), so a lesson clock can be injected —
+/// the app shell's route always builds real-clock sessions.
+Widget _practiceTable(
+  PracticeSession session, {
+  required void Function(String lessonId) onFinished,
+}) {
+  return MaterialApp(
+    home: GameTableScreen(
+      setup: session.controller.setup,
+      matchRepository: MemoryMatchRepository(),
+      preferences: GamePreferences.defaults(),
+      onPreferencesChanged: (_) {},
+      practiceSession: session,
+      onPracticeFinished: (lessonId) async => onFinished(lessonId),
+      nextPracticeScript: PracticeScripts.nextScriptInPack,
+    ),
+  );
 }
 
 Widget _practiceApp({
