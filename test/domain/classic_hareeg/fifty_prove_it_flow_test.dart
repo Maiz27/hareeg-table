@@ -289,10 +289,7 @@ ClassicHareegGameController _controller({
       setup: setup,
       hands: {
         PlayerSeat.south: base.hands[PlayerSeat.south]!,
-        PlayerSeat.east: [
-          if (pendingDiscard != null) pendingDiscard,
-          ...eastHand,
-        ],
+        PlayerSeat.east: [?pendingDiscard, ...eastHand],
         PlayerSeat.north: base.hands[PlayerSeat.north]!,
         PlayerSeat.west: base.hands[PlayerSeat.west]!,
       },

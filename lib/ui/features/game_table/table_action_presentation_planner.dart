@@ -119,7 +119,10 @@ abstract final class ClassicHareegActionPresentationPlanner {
         destination: TableActionFlightDestination.seatHand,
         seat: seat,
       ),
-      ClassicHareegActionKind.takeDiscard => const TableActionFlightPlan(
+      // Prove-it flow: claiming Fifty takes the thrown card into the hand,
+      // so it flies exactly like a take.
+      ClassicHareegActionKind.takeDiscard ||
+      ClassicHareegActionKind.claimFifty => const TableActionFlightPlan(
         source: TableActionFlightSource.topDiscard,
         destination: TableActionFlightDestination.seatHand,
         seat: seat,
@@ -183,7 +186,11 @@ abstract final class ClassicHareegActionPresentationPlanner {
         destination: TableActionFlightDestination.seatHand,
         seat: seat,
       ),
-      ClassicHareegActionKind.takeDiscard => TableActionFlightPlan(
+      // Prove-it flow: a CPU claim takes the thrown card into the hand and
+      // then plays the proof out step by step, so the claim flies like a
+      // take before the meld/cover steps animate normally.
+      ClassicHareegActionKind.takeDiscard ||
+      ClassicHareegActionKind.claimFifty => TableActionFlightPlan(
         source: TableActionFlightSource.topDiscard,
         destination: TableActionFlightDestination.seatHand,
         seat: seat,
