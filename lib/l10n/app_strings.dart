@@ -935,6 +935,27 @@ class AppStrings {
       'Fifty must use the discarded card in the finish.' =>
         'يجب أن يستخدم الخمسين الورقة المرمية في الإنهاء.',
       'Valid Fifty.' => 'خمسين صحيح.',
+      'Fifty claimed.' => 'أُعلن الخمسين.',
+      'Fifty claimed — prove the finish before ending the turn.' =>
+        'أُعلن الخمسين — أثبت الإنهاء قبل نهاية الدور.',
+      'Fifty proven.' => 'أُثبت الخمسين.',
+      'The claimed card must be used in a meld or cover, never discarded.' =>
+        'الورقة المعلنة يجب أن تُستخدم في مجموعة أو تكميلة، ولا تُرمى أبدا.',
+      'That last card does not prove the Fifty.' =>
+        'هذه الورقة الأخيرة لا تثبت الخمسين.',
+      'That card cannot end the proof turn — pick a plain discard.' =>
+        'هذه الورقة لا تنهي دور الإثبات — اختر رمية عادية.',
+      'Prove the Fifty before ending the turn.' =>
+        'أثبت الخمسين قبل إنهاء الدور.',
+      'The claimed card cannot be returned — prove the Fifty or end the '
+              'turn.' =>
+        'لا يمكن إرجاع الورقة المعلنة — أثبت الخمسين أو أنهِ الدور.',
+      'The taken card cannot be discarded — use it in a meld or cover.' =>
+        'لا يمكن رمي الورقة المأخوذة — استخدمها في مجموعة أو تكميلة.',
+      'Use or return the taken card before ending the turn.' =>
+        'استخدم الورقة المأخوذة أو أرجعها قبل إنهاء الدور.',
+      'Take back your staged melds before returning the taken card.' =>
+        'استرجع مجموعاتك المرحلية قبل إرجاع الورقة المأخوذة.',
       'Final discard may use a cover.' => 'يمكن أن تكون الرمية الأخيرة تكملة.',
       'This card is a cover and cannot be discarded normally.' =>
         'هذه الورقة تكملة ولا يمكن رميها بشكل عادي.',
@@ -1041,7 +1062,7 @@ const _englishValues = {
       'Classic Hareeg uses four seats, one human player, three CPU players, and anti-clockwise turns. The app defaults to two decks and two jokers so there are enough cards for a four-seat deal. The starter receives 15 cards and skips the first draw.',
   'helpTurnFlowTitle': 'Turn flow',
   'helpTurnFlowBody':
-      'The starter begins in action phase. Other turns begin by drawing from stock or taking the previous discard. A taken discard becomes pending: it must be used in a valid play that turn or returned before drawing from stock.',
+      'The starter begins in action phase. Other turns begin by drawing from stock or taking the previous discard. A taken discard becomes pending: it may be used in a meld or cover at any point of the turn, but the turn cannot end while it sits unused and it can never be the turn\'s closing discard. Until it is used, it may be returned instead.',
   'helpOpeningTitle': 'Opening and benchmark',
   'helpOpeningBody':
       'The default opening requirement is 51, with 75 available as a setup option. A player opens by placing one or more new melds whose combined value reaches the current requirement. Covers do not count toward opening. The first opener owns the benchmark and can raise it until a second player opens, then the benchmark locks.',
@@ -1053,7 +1074,7 @@ const _englishValues = {
       'Jokers represent a chosen card identity when placed in a meld or cover. If several identities are legal, the human player must choose; CPU players choose deterministically. Opened players may replace a table joker with the represented card and take the joker. Normal joker discard is always blocked, but a joker may be the final discard.',
   'helpFiftyTitle': 'Fifty / Khamsin',
   'helpFiftyBody':
-      'After a discard, only the immediate next player can claim Fifty, and only before the timer expires. The discarded card must be part of a legal finish, including hand melds, table covers, or chained covers. Coaching and Standard show the Fifty action only when the finish is proven; Strict and Table allow wrong claims as penalized mistakes. If the timer is missed, the player may still take the discard normally when legal, but the finish scores as normal instead of Fifty.',
+      'After a discard, only the immediate next player can claim Fifty, and only before the timer expires. Claiming takes the thrown card into the hand; the claimant then proves the finish with no timer — melds, covers, or chained covers in any order — and the claimed card must end up in a meld or cover, never as the discard. Coaching and Standard show the Fifty action only when the finish is provable and block ending the turn unproven; on Strict an unproven exit charges +3 and the turn ends normally, on Table it removes the claimant from the round. If the timer is missed, the player may still take the discard normally when legal, but the finish scores as normal instead of Fifty.',
   'helpScoringTitle': 'Scoring',
   'helpScoringBody':
       'Normal winners score -1. In Fifty, the winner scores -3, except the first dealt round uses -1, and the discarder adds remaining cards plus 3. Other active players add remaining card count. Drawn rounds do not change scores. Players at 31 or more are eliminated, and the last remaining player wins.',
@@ -1428,7 +1449,7 @@ const _arabicValues = {
       'يستخدم حريق الكلاسيكي أربعة مقاعد: لاعب بشري واحد وثلاثة لاعبين آليين، مع دوران عكس عقارب الساعة. يبدأ التطبيق برزمتين وجوكرين لتكفي أوراق أربعة مقاعد. صاحب البداية يأخذ 15 ورقة ويتجاوز أول سحبة.',
   'helpTurnFlowTitle': 'سير الدور',
   'helpTurnFlowBody':
-      'يبدأ صاحب البداية في مرحلة اللعب. بقية الأدوار تبدأ بالسحب من الكومة أو أخذ الرمية السابقة. الرمية المأخوذة تصبح معلقة: يجب استخدامها في لعب قانوني في نفس الدور أو إرجاعها قبل السحب من الكومة.',
+      'يبدأ صاحب البداية في مرحلة اللعب. بقية الأدوار تبدأ بالسحب من الكومة أو أخذ الرمية السابقة. الرمية المأخوذة تصبح معلقة: يمكن استخدامها في مجموعة أو تكميلة في أي وقت من الدور، لكن الدور لا ينتهي وهي غير مستخدمة، ولا يمكن أبدا أن تكون رمية نهاية الدور. وما دامت غير مستخدمة يمكن إرجاعها بدلا من ذلك.',
   'helpOpeningTitle': 'الافتتاح والمعيار',
   'helpOpeningBody':
       'شرط الافتتاح الافتراضي هو 51، ويمكن اختيار 75 من الإعدادات. يفتتح اللاعب بوضع مجموعة جديدة أو أكثر تصل قيمتها المشتركة إلى الشرط الحالي. التكميلات لا تحتسب في الافتتاح. أول لاعب يفتتح يملك المعيار ويمكنه رفعه حتى يفتتح لاعب ثان، ثم يثبت المعيار.',
@@ -1440,7 +1461,7 @@ const _arabicValues = {
       'يمثل الجوكر هوية ورقة مختارة عند وضعه في مجموعة أو تكميلة. إذا وجدت عدة هويات قانونية يجب على اللاعب البشري الاختيار، بينما يختار اللاعب الآلي بطريقة ثابتة. اللاعب الذي افتتح يمكنه استبدال جوكر على الطاولة بالورقة التي يمثلها وأخذ الجوكر. رمي الجوكر العادي ممنوع دائما، لكن يمكن أن يكون الرمية الأخيرة.',
   'helpFiftyTitle': 'الخمسين',
   'helpFiftyBody':
-      'بعد الرمي، اللاعب التالي مباشرة فقط يستطيع إعلان الخمسين، وذلك قبل انتهاء المؤقت. يجب أن تكون الورقة المرمية جزءا من إنهاء قانوني، سواء عبر مجموعات اليد أو تكميلات الطاولة أو التكميلات المتتابعة. وضعا التدريب والقياسي يظهران إجراء الخمسين فقط عندما يكون الإنهاء مثبتا، بينما يسمح الوضعان الصارم والطاولة بإعلانات خاطئة كأخطاء مع عقوبة. إذا انتهى المؤقت يمكن للاعب أخذ الرمية بشكل عادي عند قانونيتها، لكن الإنهاء يسجل كإنهاء عادي وليس خمسين.',
+      'بعد الرمي، اللاعب التالي مباشرة فقط يستطيع إعلان الخمسين، وذلك قبل انتهاء المؤقت. الإعلان يأخذ الورقة المرمية إلى اليد، ثم يثبت المعلن الإنهاء بلا مؤقت — مجموعات أو تكميلات أو تكميلات متتابعة بأي ترتيب — ويجب أن تنتهي الورقة المعلنة في مجموعة أو تكميلة، ولا تُرمى أبدا. وضعا التدريب والقياسي يظهران إجراء الخمسين فقط عندما يكون الإنهاء قابلا للإثبات ويمنعان إنهاء الدور دون إثبات؛ في الوضع الصارم يكلف الخروج دون إثبات +3 وينتهي الدور بشكل عادي، وفي وضع الطاولة يُخرج المعلن من الجولة. إذا انتهى المؤقت يمكن للاعب أخذ الرمية بشكل عادي عند قانونيتها، لكن الإنهاء يسجل كإنهاء عادي وليس خمسين.',
   'helpScoringTitle': 'التسجيل',
   'helpScoringBody':
       'الفائز العادي يسجل -1. في الخمسين يسجل الفائز -3، ما عدا الجولة الأولى الموزعة فتستخدم -1، ويضيف الرامي الأوراق المتبقية لديه زائد 3. بقية اللاعبين النشطين يضيفون عدد أوراقهم المتبقية. الجولات المسحوبة لا تغير النقاط. اللاعب الذي يصل إلى 31 أو أكثر يخرج، وآخر لاعب باق يفوز.',
