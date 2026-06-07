@@ -255,6 +255,16 @@ void main() {
 
   group('fifty-claim lesson', () {
     final eightDiamonds = _card(CardRank.eight, CardSuit.diamonds);
+    final eightPair = [
+      _card(CardRank.eight, CardSuit.clubs),
+      _card(CardRank.eight, CardSuit.hearts),
+    ];
+    final twos = [
+      _card(CardRank.two, CardSuit.spades),
+      _card(CardRank.two, CardSuit.diamonds),
+      _card(CardRank.two, CardSuit.hearts),
+    ];
+    final queenSpades = _card(CardRank.queen, CardSuit.spades);
 
     test('the turn-start board accounts for every card and west\'s scripted '
         'throw opens the real 8-second window', () {
@@ -319,10 +329,10 @@ void main() {
 
       // The held window still claims — reading slowly costs nothing.
       final claim = session.submit(ClassicHareegActionIds.claimFifty);
-      expect(claim.status, PracticeSubmitStatus.lessonCompleted);
+      expect(claim.status, PracticeSubmitStatus.stepCompleted);
     });
 
-    test('claiming plays the whole two-meld finish out and wins the round', () {
+    test('claim, then prove it: the eights, the twos, the queen out', () {
       final clock = _FakeClock();
       final session = PracticeSession(
         script: PracticeScripts.fiftyClaim(),
@@ -331,21 +341,76 @@ void main() {
       _runIntro(session);
       clock.advance(const Duration(seconds: 3));
 
+      // The claim only takes the card: an untimed proof turn begins with
+      // the thrown eight as the pending discard.
       final claim = session.submit(ClassicHareegActionIds.claimFifty);
-      expect(claim.status, PracticeSubmitStatus.lessonCompleted);
+      expect(claim.status, PracticeSubmitStatus.stepCompleted);
+      expect(session.controller.isFiftyProofTurn, isTrue);
+      expect(session.controller.pendingDiscard?.id, eightDiamonds.id);
+      expect(
+        session.controller.fiftySecondsRemaining,
+        isNull,
+        reason: 'the timer only races the call — the proof is untimed',
+      );
+      expect(
+        session.isDeadEnd,
+        isFalse,
+        reason: 'a window-less proof turn is not a missed window',
+      );
+
+      // Off-proof throws stay dark: the lesson pins the taught order.
+      final early = session.submit(_discardId(queenSpades));
+      expect(early.status, PracticeSubmitStatus.notAllowed);
+
+      final eights = session.submit(_meldId([...eightPair, eightDiamonds]));
+      expect(eights.status, PracticeSubmitStatus.stepCompleted);
+      final twosMeld = session.submit(_meldId(twos));
+      expect(twosMeld.status, PracticeSubmitStatus.stepCompleted);
+
+      final out = session.submit(_discardId(queenSpades));
+      expect(out.status, PracticeSubmitStatus.lessonCompleted);
       expect(session.controller.isRoundOver, isTrue);
       expect(session.controller.roundOutcome, RoundOutcomeType.fiftyFinish);
       expect(session.controller.roundResult?.winner, PlayerSeat.south);
-      expect(
-        session.controller.handFor(PlayerSeat.south),
-        isEmpty,
-        reason: 'the claim plays the whole finish out',
-      );
+      expect(session.controller.handFor(PlayerSeat.south), isEmpty);
       expect(
         session.controller.tableMeldsFor(PlayerSeat.south),
         hasLength(4),
         reason: 'the eights and the twos both reached the table',
       );
+    });
+
+    test('retracting mid-proof restores the claimed card and walks the '
+        'prompt back', () {
+      final clock = _FakeClock();
+      final session = PracticeSession(
+        script: PracticeScripts.fiftyClaim(),
+        now: clock.now,
+      );
+      _runIntro(session);
+      session.submit(ClassicHareegActionIds.claimFifty);
+      session.submit(_meldId([...eightPair, eightDiamonds]));
+      expect(session.stepIndex, 2, reason: 'on the twos step');
+
+      // Take the eights back: the engine hands the claimed card back to
+      // pending and the lesson regresses to the eights step.
+      final retract = session.submit(
+        ClassicHareegActionIds.returnTablePlayActionId(
+          owner: PlayerSeat.south,
+          meldIndex: 2,
+        ),
+      );
+      expect(retract.status, PracticeSubmitStatus.corrected);
+      expect(session.stepIndex, 1);
+      expect(session.controller.pendingDiscard?.id, eightDiamonds.id);
+      expect(session.controller.isFiftyProofTurn, isTrue);
+
+      // Replay the proof to the end.
+      session.submit(_meldId([...eightPair, eightDiamonds]));
+      session.submit(_meldId(twos));
+      final out = session.submit(_discardId(queenSpades));
+      expect(out.status, PracticeSubmitStatus.lessonCompleted);
+      expect(session.controller.roundOutcome, RoundOutcomeType.fiftyFinish);
     });
 
     test('without the practice hold the window expires into the dead end', () {
@@ -380,8 +445,15 @@ void main() {
   });
 
   group('fifty-scoring lesson', () {
-    test('the claim writes the double-edged scores the completion note '
-        'reads back', () {
+    final fivePair = [
+      _card(CardRank.five, CardSuit.diamonds),
+      _card(CardRank.five, CardSuit.spades),
+    ];
+    final fiveHearts = _card(CardRank.five, CardSuit.hearts);
+    final kingClubs = _card(CardRank.king, CardSuit.clubs);
+
+    test('the proven claim writes the double-edged scores the completion '
+        'note reads back', () {
       final clock = _FakeClock();
       final session = PracticeSession(
         script: PracticeScripts.fiftyScoring(),
@@ -396,7 +468,11 @@ void main() {
       _runIntro(session);
 
       final claim = session.submit(ClassicHareegActionIds.claimFifty);
-      expect(claim.status, PracticeSubmitStatus.lessonCompleted);
+      expect(claim.status, PracticeSubmitStatus.stepCompleted);
+      final fives = session.submit(_meldId([...fivePair, fiveHearts]));
+      expect(fives.status, PracticeSubmitStatus.stepCompleted);
+      final out = session.submit(_discardId(kingClubs));
+      expect(out.status, PracticeSubmitStatus.lessonCompleted);
       expect(session.controller.roundOutcome, RoundOutcomeType.fiftyFinish);
 
       // Round 2, so no first-dealt-round exception: the claimant takes -3,

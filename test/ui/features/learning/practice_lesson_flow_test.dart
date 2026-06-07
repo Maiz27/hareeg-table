@@ -930,8 +930,23 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
 
-    // The natural gesture claims: tap the thrown card on the pile.
+    // The natural gesture claims: tap the thrown card on the pile. The
+    // claim only takes the card — the ring is gone (the proof is untimed)
+    // and the proof prompt takes over.
     await tapDiscardPile(tester);
+    expect(find.byKey(const ValueKey('fifty-cue')), findsNothing);
+    expect(
+      find.textContaining('Prove it: meld the three fives'),
+      findsOneWidget,
+    );
+
+    // Lay the proof down: the fives (claimed 5 of hearts included), then
+    // the king out.
+    await toggleHandCard(tester, CardRank.five, CardSuit.diamonds);
+    await toggleHandCard(tester, CardRank.five, CardSuit.spades);
+    await toggleHandCard(tester, CardRank.five, CardSuit.hearts);
+    await playSelectedMeld(tester);
+    await dragToDiscard(tester, CardRank.king, CardSuit.clubs);
 
     expect(find.text('Lesson complete!'), findsOneWidget);
     // The dynamic note reads the scores the engine just wrote: claimant -3,

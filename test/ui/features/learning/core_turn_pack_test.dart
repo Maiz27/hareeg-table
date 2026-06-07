@@ -203,9 +203,7 @@ void main() {
 
     test('wrong path: the queens stay off-step until the taken eight is '
         'melded', () {
-      final session = PracticeSession(
-        script: PracticeScripts.discardOpening(),
-      );
+      final session = PracticeSession(script: PracticeScripts.discardOpening());
       _runIntro(session);
       session.submit(ClassicHareegActionIds.takeDiscard);
 
