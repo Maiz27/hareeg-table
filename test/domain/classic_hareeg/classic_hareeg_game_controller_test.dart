@@ -2204,6 +2204,59 @@ void main() {
       },
     );
 
+    test('a mid-proof Fifty claim survives a snapshot round-trip', () {
+      final now = DateTime.utc(2026, 5, 19, 12);
+      final discarded = _card(CardRank.nine, CardSuit.clubs, 133);
+      final eastFinishCards = [
+        _card(CardRank.seven, CardSuit.clubs, 133),
+        _card(CardRank.eight, CardSuit.clubs, 133),
+        _card(CardRank.two, CardSuit.hearts, 133),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.east: eastFinishCards,
+          },
+          discardPile: [discarded],
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          roundNumber: 2,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+      expect(
+        controller.applyAction(ClassicHareegActionIds.claimFifty).isSuccess,
+        isTrue,
+      );
+      // Play the first proof step so this-turn table plays exist, then save.
+      final step = controller.cpuActionIdsFor(PlayerSeat.east);
+      expect(controller.applyAction(step.first).isSuccess, isTrue);
+      expect(controller.isFiftyProofTurn, isTrue);
+
+      final restored = ClassicHareegGameController.fromSnapshot(
+        controller.toSnapshot(savedAt: now),
+        now: () => now,
+      );
+
+      // The checkpoint reverted the proof's table plays: the claimed card is
+      // back in the hand as the pending discard and the claim is live again.
+      expect(restored.isFiftyProofTurn, isTrue);
+      expect(restored.fiftyProofClaimedCardId, discarded.id);
+      expect(restored.pendingDiscard?.id, discarded.id);
+      expect(restored.cardCountFor(PlayerSeat.east), 4);
+      // No live window resurrects alongside the resumed proof.
+      expect(restored.fiftyClaimant, isNull);
+
+      // The resumed proof completes as a Fifty finish (script rebuilds
+      // lazily from the restored state).
+      _driveFiftyProof(restored, PlayerSeat.east);
+      expect(restored.roundOutcome, RoundOutcomeType.fiftyFinish);
+      expect(restored.scores[PlayerSeat.east], -3);
+    });
+
     test('table tier mistakes add +17 and remove the player from round', () {
       final meldCards = [
         _card(CardRank.five, CardSuit.clubs, 33),

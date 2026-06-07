@@ -84,6 +84,19 @@ abstract final class ClassicHareegMatchRestoration {
       fiftyWindowOpenedAt: shouldRestoreFiftyWindow
           ? snapshot.fiftyWindowOpenedAt ?? snapshot.savedAt
           : null,
+      // Resume a Fifty proof turn when one was active at save time. The
+      // proof is untimed, so unlike windows it restores without any clock
+      // guard; the claimed card already sits in the hand (pending discard)
+      // because the checkpoint reverted the proof's table plays.
+      activeFiftyClaimCardId:
+          snapshot.turnPhase == TurnPhase.action &&
+              snapshot.activeFiftyClaimDiscarder != null
+          ? snapshot.activeFiftyClaimCardId
+          : null,
+      activeFiftyClaimDiscarder: snapshot.activeFiftyClaimDiscarder,
+      activeFiftyClaimIsFirstDealtRound:
+          snapshot.activeFiftyClaimIsFirstDealtRound ??
+          (snapshot.roundNumber == 1),
       turnSource: snapshot.pendingDiscard == null
           ? FinishCardSource.stock
           : FinishCardSource.previousDiscard,
@@ -116,6 +129,9 @@ class ClassicHareegRestoredMatchState {
     this.previousDiscardSeat,
     this.fiftyWindow,
     this.fiftyWindowOpenedAt,
+    this.activeFiftyClaimCardId,
+    this.activeFiftyClaimDiscarder,
+    this.activeFiftyClaimIsFirstDealtRound = false,
   }) : discardHistory = discardHistory ?? DiscardHistory();
 
   /// Restored setup.
@@ -171,6 +187,16 @@ class ClassicHareegRestoredMatchState {
 
   /// Restored opening time for the Fifty claim window.
   final DateTime? fiftyWindowOpenedAt;
+
+  /// Claimed-card id of a Fifty proof turn active at save time, or null.
+  final String? activeFiftyClaimCardId;
+
+  /// Discarder charged when the restored proof completes, if a claim resumes.
+  final PlayerSeat? activeFiftyClaimDiscarder;
+
+  /// Whether the restored proof claim carries the first-dealt-round
+  /// exception.
+  final bool activeFiftyClaimIsFirstDealtRound;
 
   /// Source of the turn card for finish validation.
   final FinishCardSource turnSource;

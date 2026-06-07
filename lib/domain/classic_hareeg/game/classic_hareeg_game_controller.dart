@@ -185,6 +185,17 @@ class ClassicHareegGameController {
        _roundResult = null,
        _discardHistory = restored.discardHistory,
        _turnJournal = ClassicHareegTurnJournal(source: restored.turnSource) {
+    final claimCardId = restored.activeFiftyClaimCardId;
+    final claimDiscarder = restored.activeFiftyClaimDiscarder;
+    if (claimCardId != null && claimDiscarder != null) {
+      // Resume the saved Fifty proof turn. The CPU script rebuilds lazily
+      // from the restored hand + table when the surface is next polled.
+      _activeFiftyClaim = _ActiveFiftyClaim(
+        claimedCardId: claimCardId,
+        discarder: claimDiscarder,
+        isFirstDealtRound: restored.activeFiftyClaimIsFirstDealtRound,
+      );
+    }
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -444,6 +455,14 @@ class ClassicHareegGameController {
       // round number (lost when roundNumber is absent on an old/partial save).
       fiftyWindowDiscarder: _fiftyWindow?.discarder,
       fiftyWindowIsFirstDealtRound: _fiftyWindow?.isFirstDealtRound,
+      // A mid-proof Fifty claim is persistent turn state: the checkpoint
+      // reverts the proof's table plays (the claimed card lands back in the
+      // hand as the pending discard) and these fields let restore resume the
+      // proof turn — never a live window, which stays restore-gated to draw
+      // phase with its ancient-stamp fallback.
+      activeFiftyClaimCardId: _activeFiftyClaim?.claimedCardId,
+      activeFiftyClaimDiscarder: _activeFiftyClaim?.discarder,
+      activeFiftyClaimIsFirstDealtRound: _activeFiftyClaim?.isFirstDealtRound,
       savedAt: effectiveSavedAt,
       discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
