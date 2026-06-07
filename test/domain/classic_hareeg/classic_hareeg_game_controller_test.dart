@@ -1996,6 +1996,7 @@ void main() {
       expect(controller.currentSeat, isNot(PlayerSeat.east));
       expect(controller.cardCountFor(PlayerSeat.east), 2);
       final pile = controller.discardPile;
+      expect(pile.length, greaterThanOrEqualTo(2));
       expect(pile[pile.length - 2].id, discarded.id);
     });
 

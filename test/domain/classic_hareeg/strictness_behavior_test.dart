@@ -237,6 +237,7 @@ void main() {
               reason: '${tier.name}: the exit discard lands normally',
             );
             final pile = controller.discardPile;
+            expect(pile.length, greaterThanOrEqualTo(2), reason: tier.name);
             expect(
               pile[pile.length - 2].id,
               fixture.discard.id,

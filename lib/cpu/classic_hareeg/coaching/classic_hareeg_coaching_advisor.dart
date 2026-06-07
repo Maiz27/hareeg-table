@@ -111,6 +111,11 @@ abstract final class ClassicHareegCoachingAdvisor {
       // benchmark, so a "finish" partition is not actionable as a finish.
       return;
     }
+    // Relaxed taken-discard rule: the pending (or claimed) card can never be
+    // the closing discard, so any "finish" whose final discard would be that
+    // card is not a finish. The one-card trivial case below can now reach a
+    // hand holding ONLY the unused pending card; guard both branches.
+    final pendingId = controller.pendingDiscard?.id;
     // The trivial finish: a single card left, where discarding (or covering)
     // it empties the hand and wins. The meld-partition enumerator yields no
     // partition for a meldless hand, so detect this directly and ring the last
@@ -118,6 +123,9 @@ abstract final class ClassicHareegCoachingAdvisor {
     // regardless of how the enumerator treats a one-card hand.
     final hand = controller.handFor(seat);
     if (hand.length == 1) {
+      if (hand.first.id == pendingId) {
+        return;
+      }
       out.add(
         CoachingInsight(
           category: CoachingInsightCategory.finishAvailable,
@@ -129,6 +137,10 @@ abstract final class ClassicHareegCoachingAdvisor {
     }
     final finishing = observation.finishingPartition();
     if (finishing == null) {
+      return;
+    }
+    if (pendingId != null &&
+        finishing.cardsRemaining.any((card) => card.id == pendingId)) {
       return;
     }
     final highlight = [for (final card in finishing.cardsUsed) card.id];
