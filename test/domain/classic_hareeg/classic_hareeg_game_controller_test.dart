@@ -1968,10 +1968,30 @@ void main() {
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
 
+      // Prove-it flow: the claim is accepted without a claim-time fee; the
+      // claimed card joins the hand and the proof turn begins.
       expect(result.isSuccess, isTrue);
+      expect(controller.scores[PlayerSeat.east], 0);
+      expect(controller.isFiftyProofTurn, isTrue);
+      expect(controller.currentSeat, PlayerSeat.east);
+      expect(controller.cardCountFor(PlayerSeat.east), 4);
+
+      // The claimed card itself can never be the exit discard.
+      final claimedDiscard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${discarded.id}',
+      );
+      expect(claimedDiscard.isSuccess, isFalse);
+
+      // Ending the proof turn unproven charges +3 and the turn ends normally.
+      final exit = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${_card(CardRank.two, CardSuit.hearts, 31).id}',
+      );
+      expect(exit.isSuccess, isTrue);
       expect(controller.scores[PlayerSeat.east], 3);
       expect(controller.isRoundOver, isFalse);
-      expect(controller.currentSeat, PlayerSeat.east);
+      expect(controller.isFiftyProofTurn, isFalse);
+      expect(controller.currentSeat, isNot(PlayerSeat.east));
     });
 
     test('table tier wrong Fifty claims add +17 and can end the round', () {
@@ -2003,7 +2023,18 @@ void main() {
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
 
+      // Prove-it flow: the claim is accepted; removal fires at the unproven
+      // exit, not at claim time.
       expect(result.isSuccess, isTrue);
+      expect(controller.scores[PlayerSeat.east], 0);
+      expect(controller.isFiftyProofTurn, isTrue);
+
+      final exit = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${_card(CardRank.two, CardSuit.hearts, 231).id}',
+      );
+
+      expect(exit.isSuccess, isTrue);
       expect(controller.scoreView.previousScores[PlayerSeat.east], 17);
       expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
       expect(controller.roundResult?.winner, PlayerSeat.south);
@@ -2110,10 +2141,11 @@ void main() {
       );
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+      expect(result.isSuccess, isTrue);
+      _driveFiftyProof(controller, PlayerSeat.east);
       final progress = controller.roundProgress;
       final next = controller.nextRoundSnapshot(savedAt: now);
 
-      expect(result.isSuccess, isTrue);
       expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
       expect(controller.scores[PlayerSeat.east], -3);
       expect(controller.scores[PlayerSeat.south], 14);
@@ -2158,6 +2190,8 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
+        _driveFiftyProof(controller, PlayerSeat.east);
+        expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
         expect(controller.handFor(PlayerSeat.east), isEmpty);
         // The 7-8-9 of clubs run (using the claimed 9♣) is now on East's table.
         final tableCardIds = [
@@ -2985,6 +3019,27 @@ ClassicHareegMatchSnapshot _snapshot({
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 19),
   );
+}
+
+/// Replays the CPU proof surface until the active Fifty claim resolves.
+void _driveFiftyProof(
+  ClassicHareegGameController controller,
+  PlayerSeat seat,
+) {
+  var safety = 0;
+  while (!controller.isRoundOver &&
+      controller.isFiftyProofTurn &&
+      safety < 24) {
+    final actions = controller.cpuActionIdsFor(seat);
+    expect(
+      actions,
+      isNotEmpty,
+      reason: 'proof surface must offer the next step',
+    );
+    final result = controller.applyAction(actions.first);
+    expect(result.isSuccess, isTrue, reason: result.message);
+    safety += 1;
+  }
 }
 
 OpeningState _opened(PlayerSeat seat) {

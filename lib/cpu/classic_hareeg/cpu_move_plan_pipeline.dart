@@ -122,6 +122,17 @@ class CpuMovePlanPipeline {
       );
     }
 
+    // Mid-proof on a claimed Fifty the rules engine serves the next step of
+    // the validated finish plan as the single legal action. Take it verbatim:
+    // a tier's own partition ranking could pick a different meld and break
+    // the planned cover routing.
+    if (observation.ownIsFiftyProofTurn) {
+      return ClassicHareegCpuMovePlan(
+        scenario: ClassicHareegCpuMoveScenario.fiftyProof,
+        actionId: actions.first.actionId,
+      );
+    }
+
     final fifty = firstActionOfKind(
       actions,
       ClassicHareegActionKind.claimFifty,

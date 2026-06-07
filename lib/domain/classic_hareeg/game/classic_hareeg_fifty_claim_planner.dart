@@ -35,8 +35,10 @@ enum ClassicHareegFiftyClaimScenario {
   /// The claim is not a finish and the active strictness blocks it.
   blockedWrongClaim,
 
-  /// The claim is not a finish and the active strictness penalizes it.
-  penalizedWrongClaim,
+  /// Penalty tiers accept the claim without proof; the claimant takes the
+  /// card and must prove the finish before the turn ends, or eat the
+  /// tier consequence at exit.
+  unprovenClaimAccepted,
 }
 
 /// Whether the caller is asking about action ids or applying the claim.
@@ -99,7 +101,6 @@ class ClassicHareegFiftyClaimPlan {
     required this.message,
     this.finishPlan,
     this.claimResult,
-    this.mistakeResolution,
   });
 
   /// Identified claim scenario.
@@ -119,12 +120,6 @@ class ClassicHareegFiftyClaimPlan {
 
   /// Pure Fifty validation result, when a finish plan was available.
   final FiftyClaimResult? claimResult;
-
-  /// Mistake behavior when a wrong claim is allowed by the active strictness.
-  final MistakeResolution? mistakeResolution;
-
-  /// Whether this claim proceeds as a mistake penalty instead of a finish.
-  bool get appliesMistake => mistakeResolution?.isAllowed ?? false;
 }
 
 /// Resolves Fifty visibility and claim application as one rich scenario.
@@ -223,6 +218,34 @@ abstract final class ClassicHareegFiftyClaimPlanner {
     );
   }
 
+  static ClassicHareegFiftyClaimPlan _wrongClaimPlan({
+    required TableStrictness strictness,
+    String message = 'That discard does not complete a valid Fifty.',
+  }) {
+    final resolution = ClassicHareegMistakePresetRules.resolve(
+      strictness: strictness,
+      mistake: MistakeType.wrongFiftyClaim,
+    );
+    if (!resolution.isAllowed) {
+      return ClassicHareegFiftyClaimPlan(
+        scenario: ClassicHareegFiftyClaimScenario.blockedWrongClaim,
+        shouldAdvertise: false,
+        canApply: false,
+        message: message,
+      );
+    }
+
+    // Prove-it flow: a wrong claim is no longer penalized at claim time. The
+    // permissive tiers accept the claim — the claimant takes the card and the
+    // tier consequence fires only if the turn ends unproven.
+    return const ClassicHareegFiftyClaimPlan(
+      scenario: ClassicHareegFiftyClaimScenario.unprovenClaimAccepted,
+      shouldAdvertise: true,
+      canApply: true,
+      message: 'Fifty claimed — prove the finish before ending the turn.',
+    );
+  }
+
   /// Finds a full-hand finish that must use [discarded].
   ///
   /// With [coverTargets] supplied, finishes may route through covers of
@@ -277,29 +300,4 @@ abstract final class ClassicHareegFiftyClaimPlanner {
     return null;
   }
 
-  static ClassicHareegFiftyClaimPlan _wrongClaimPlan({
-    required TableStrictness strictness,
-    String message = 'That discard does not complete a valid Fifty.',
-  }) {
-    final resolution = ClassicHareegMistakePresetRules.resolve(
-      strictness: strictness,
-      mistake: MistakeType.wrongFiftyClaim,
-    );
-    if (!resolution.isAllowed) {
-      return ClassicHareegFiftyClaimPlan(
-        scenario: ClassicHareegFiftyClaimScenario.blockedWrongClaim,
-        shouldAdvertise: false,
-        canApply: false,
-        message: message,
-      );
-    }
-
-    return ClassicHareegFiftyClaimPlan(
-      scenario: ClassicHareegFiftyClaimScenario.penalizedWrongClaim,
-      shouldAdvertise: true,
-      canApply: true,
-      message: resolution.message,
-      mistakeResolution: resolution,
-    );
-  }
 }

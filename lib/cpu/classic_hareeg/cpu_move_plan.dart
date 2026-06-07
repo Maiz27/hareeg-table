@@ -8,6 +8,9 @@ enum ClassicHareegCpuMoveScenario {
   /// Claim Fifty / Khamsin before any other move.
   fiftyClaim,
 
+  /// Replay the next step of an active Fifty proof verbatim.
+  fiftyProof,
+
   /// Play a meld, including represented-joker melds.
   meldPlay,
 

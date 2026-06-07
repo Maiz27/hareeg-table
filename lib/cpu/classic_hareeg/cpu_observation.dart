@@ -107,6 +107,11 @@ abstract interface class CpuObservation {
   /// Whether the CPU seat is the current Fifty claimant.
   bool get ownIsFiftyClaimant;
 
+  /// Whether the CPU seat is mid-proof on a claimed Fifty — the engine then
+  /// serves the next proof step as the single legal action, and planners must
+  /// take it verbatim instead of constructing their own play.
+  bool get ownIsFiftyProofTurn;
+
   /// Round-scoped discard memory view.
   DiscardHistoryView get discardHistory;
 
@@ -193,6 +198,7 @@ final class CpuObservationFacts implements CpuObservation {
     Iterable<PlayerSeat>? opponents,
     this.fiftyClaimant,
     this.fiftySecondsRemaining,
+    this.ownIsFiftyProofTurn = false,
     this.discardHistory = const EmptyDiscardHistoryView(),
     this.partitions = const EmptyMeldPartitionView(),
     MeldPartition? shortestSingleMeld,
@@ -269,6 +275,9 @@ final class CpuObservationFacts implements CpuObservation {
 
   @override
   final int? fiftySecondsRemaining;
+
+  @override
+  final bool ownIsFiftyProofTurn;
 
   @override
   final DiscardHistoryView discardHistory;
@@ -559,6 +568,10 @@ final class LiveCpuObservation implements CpuObservation {
 
   @override
   bool get ownIsFiftyClaimant => fiftyClaimant == seat;
+
+  @override
+  bool get ownIsFiftyProofTurn =>
+      controller.isFiftyProofTurn && controller.currentSeat == seat;
 
   @override
   MeldPartition? shortestSingleMeld() {

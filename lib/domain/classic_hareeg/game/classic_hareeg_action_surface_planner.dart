@@ -199,6 +199,9 @@ abstract final class ClassicHareegActionSurfacePlanner {
           if (facts.canReturnOpeningMelds(seat))
             ClassicHareegActionIds.returnOpeningMelds,
           if (canReturnPending) ClassicHareegActionIds.returnPendingDiscard,
+          // Empty while a normal taken card sits unused; during a Fifty proof
+          // turn on the mistake-allowing tiers these are the priced exits.
+          ...facts.discardActionIds(seat),
         ],
         reason: 'pending-control',
       );
@@ -274,6 +277,9 @@ abstract final class ClassicHareegActionSurfacePlanner {
         ...facts.replaceJokerActionIds(seat),
         ...facts.coverActionIds(seat),
         if (canReturnPending) ClassicHareegActionIds.returnPendingDiscard,
+        // Empty while a normal taken card sits unused; during a Fifty proof
+        // turn on the mistake-allowing tiers these are the priced exits.
+        ...facts.discardActionIds(seat),
       ],
       reason: 'pending-full',
     );

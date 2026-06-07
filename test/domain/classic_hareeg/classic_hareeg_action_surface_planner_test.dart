@@ -63,6 +63,7 @@ void main() {
           'play:-',
           'replace:-',
           'cover:-',
+          'discard',
         ]);
       },
     );
@@ -96,7 +97,7 @@ void main() {
       );
 
       expect(plan.actionIds, [ClassicHareegActionIds.returnPendingDiscard]);
-      expect(facts.calls, ['can-return-pending', 'can-return']);
+      expect(facts.calls, ['can-return-pending', 'can-return', 'discard']);
     });
 
     test('pending CPU surface stops at first usable pending action', () {

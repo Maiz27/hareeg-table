@@ -173,13 +173,40 @@ void main() {
             return;
           }
 
-          // Strict / Table: the claim goes through as a penalty.
+          // Strict / Table: the claim is accepted unproven. The claimant
+          // takes the card into the hand and must prove the finish; the
+          // tier consequence only fires when the turn ends unproven.
           expect(
             legal,
             contains(ClassicHareegActionIds.claimFifty),
             reason: '${tier.name} must advertise wrong-claim affordance',
           );
           expect(attempt.isSuccess, isTrue, reason: tier.name);
+          expect(
+            controller.scores[PlayerSeat.south],
+            scoreBefore,
+            reason: '${tier.name}: no claim-time fee in the prove-it flow',
+          );
+          expect(controller.isFiftyProofTurn, isTrue, reason: tier.name);
+          expect(controller.turnPhase, TurnPhase.action, reason: tier.name);
+          expect(
+            controller.handFor(PlayerSeat.south).map((card) => card.id),
+            contains(fixture.discard.id),
+            reason: '${tier.name}: the claimed card joins the hand',
+          );
+
+          // Ending the proof turn unproven prices the claim per tier.
+          final exitCard = controller
+              .handFor(PlayerSeat.south)
+              .firstWhere(
+                (card) =>
+                    !card.isJoker &&
+                    card.id != controller.fiftyProofClaimedCardId,
+              );
+          final exit = controller.applyAction(
+            '${ClassicHareegActionIds.discardPrefix}${exitCard.id}',
+          );
+          expect(exit.isSuccess, isTrue, reason: tier.name);
           expect(
             controller.scores[PlayerSeat.south],
             scoreBefore + tier.mistakePenaltyPoints,
@@ -195,12 +222,17 @@ void main() {
             );
           } else {
             // Strict: South still around — the round continues with them
-            // still on the active list.
+            // still on the active list, and the turn ended normally.
             final snapshot = controller.toSnapshot();
             expect(
               snapshot.removedSeats,
               isNot(contains(PlayerSeat.south)),
               reason: '${tier.name} keeps the wrong-claimant in the round',
+            );
+            expect(
+              controller.topDiscard?.id,
+              exitCard.id,
+              reason: '${tier.name}: the exit discard lands normally',
             );
           }
         });
