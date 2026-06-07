@@ -369,8 +369,7 @@ class AppStrings {
   String get practiceSetCoverStep1Done => _v('practiceSetCoverStep1Done');
   String get practiceCoverFinishStep => _v('practiceCoverFinishStep');
   String get practiceCoverBlockStep1 => _v('practiceCoverBlockStep1');
-  String get practiceCoverBlockStep1Hint =>
-      _v('practiceCoverBlockStep1Hint');
+  String get practiceCoverBlockStep1Hint => _v('practiceCoverBlockStep1Hint');
 
   // Joker lessons.
   String get practiceJokerIdentityStep1 => _v('practiceJokerIdentityStep1');
@@ -401,26 +400,27 @@ class AppStrings {
 
   // Normal finish lesson.
   String get practiceNormalFinishStep1 => _v('practiceNormalFinishStep1');
+  String get practiceNormalFinishStep1Done =>
+      _v('practiceNormalFinishStep1Done');
   String get practiceNormalFinishStep2 => _v('practiceNormalFinishStep2');
+  String get practiceNormalFinishStep2Hint =>
+      _v('practiceNormalFinishStep2Hint');
   String get practiceNormalFinishStep3 => _v('practiceNormalFinishStep3');
   String get practiceNormalFinishCompletion =>
       _v('practiceNormalFinishCompletion');
 
   // Fifty lessons.
   String get practiceFiftyClaimStep1 => _v('practiceFiftyClaimStep1');
-  String get practiceFiftyClaimStep1Hint =>
-      _v('practiceFiftyClaimStep1Hint');
-  String get practiceFiftyClaimCompletion =>
-      _v('practiceFiftyClaimCompletion');
+  String get practiceFiftyClaimStep1Hint => _v('practiceFiftyClaimStep1Hint');
+  String get practiceFiftyClaimCompletion => _v('practiceFiftyClaimCompletion');
   String get practiceFiftyScoringStep1 => _v('practiceFiftyScoringStep1');
   String get practiceFiftyMissed => _v('practiceFiftyMissed');
   String get practiceRestartLesson => _v('practiceRestartLesson');
 
   /// Fifty score-impact note with the engine's real totals appended.
-  String practiceFiftyScoringCompletion(int southScore, int westScore) =>
-      _v('practiceFiftyScoringCompletion')
-          .replaceFirst('{south}', '$southScore')
-          .replaceFirst('{west}', '$westScore');
+  String practiceFiftyScoringCompletion(int southScore, int westScore) => _v(
+    'practiceFiftyScoringCompletion',
+  ).replaceFirst('{south}', '$southScore').replaceFirst('{west}', '$westScore');
 
   // Strictness tier explainer.
   String get practiceTiersIntro => _v('practiceTiersIntro');
@@ -1331,8 +1331,7 @@ const _englishValues = {
   'practiceFirstMeldStep2Done': 'Opened at 59 in a single play.',
   'practiceFirstMeldStep2Hold':
       'Staged — but only the full six-heart run reaches 51. The undo pill takes it back; then play all six.',
-  'practiceFirstMeldStep3':
-      'Finish the turn: discard a card you do not need.',
+  'practiceFirstMeldStep3': 'Finish the turn: discard a card you do not need.',
   'practiceDiscardOpeningStep1':
       'Your queens are a ready 30, and you hold two more eights — West\'s eight completes the set. Together that is 54, past the 51 opening. Tap the pile to take it.',
   'practiceDiscardOpeningStep1Done':
@@ -1435,7 +1434,8 @@ const _englishValues = {
       'Bridged — the joker is a nine of hearts now. Seal the turn with a discard.',
   'practiceFinalDiscardStep1':
       'You are one play from the end — but no one wins by simply laying every card. Play your three nines.',
-  'practiceFinalDiscardStep1Hint': 'Select the nines, then Play meld.',
+  'practiceFinalDiscardStep1Hint':
+      'Tap the three nines, then the gold meld chip.',
   'practiceFinalDiscardStep1Done':
       'One card left — exactly what a finish needs.',
   'practiceFinalDiscardStep2':
@@ -1444,15 +1444,19 @@ const _englishValues = {
       'Round won — the last card always leaves your hand as a discard, never a play. The winner scores -1.',
   'practiceNormalFinishStep1':
       'Two melds and a spare card: this hand can finish cleanly. Play the queens.',
-  'practiceNormalFinishStep2': 'Now the threes.',
+  'practiceNormalFinishStep1Done':
+      'Queens down — the heart run will empty everything but one.',
+  'practiceNormalFinishStep2': 'Now the heart run: all five in one play.',
+  'practiceNormalFinishStep2Hint':
+      'Tap the five hearts, then the gold meld chip.',
   'practiceNormalFinishStep3':
       'Go out: discard the 7 of spades and end the round.',
   'practiceNormalFinishCompletion':
       'Winner scores -1; every other seat adds the cards still in its hand. Going out early is defense for you and damage for them.',
   'practiceFiftyClaimStep1':
-      'West just threw the 8 of diamonds — and your hand can finish around it right now. That discard is claimable: call Fifty before the timer runs out.',
+      'West just threw the 8 of diamonds — your eights meet it, your twos follow, and the queen stays back to throw. That discard is claimable: call Fifty before the timer runs out.',
   'practiceFiftyClaimStep1Hint':
-      'Only the very next player can claim, and only while the timer runs.',
+      'Tap the thrown card or the flame ring. Practice holds the ring at 3 — a real table never waits.',
   'practiceFiftyClaimCompletion':
       'Claimed in time: the finish played itself out and the round is yours.',
   'practiceFiftyScoringStep1':
@@ -1462,7 +1466,8 @@ const _englishValues = {
   'practiceFiftyMissed':
       'The window closed — Fifty waits for no one. Restart and claim faster.',
   'practiceRestartLesson': 'Restart lesson',
-  'practiceTiersIntro': 'Four ways to run a table — same rules, different mercy.',
+  'practiceTiersIntro':
+      'Four ways to run a table — same rules, different mercy.',
   'practiceTiersGotIt': 'Got it',
   'practiceTierCoachingBody':
       'Illegal moves are blocked and the live coach offers hints. Learn here.',
@@ -1691,8 +1696,7 @@ const _arabicValues = {
   'practiceDiscardOpeningSummary':
       'خذ الورقة المرمية التي تدفع افتتاحك فوق 51.',
   'practiceBaitDiscardTitle': 'رمية الطُعم',
-  'practiceBaitDiscardSummary':
-      'الورقة التي تبدو مفيدة لا تستحق الأخذ دائما.',
+  'practiceBaitDiscardSummary': 'الورقة التي تبدو مفيدة لا تستحق الأخذ دائما.',
   'practicePendingDiscardTitle': 'أخذ الرمية',
   'practicePendingDiscardSummary':
       'الرمية المأخوذة يجب استخدامها في لعبة أو إرجاعها قبل السحب.',
@@ -1753,12 +1757,10 @@ const _arabicValues = {
       'الثمانية المأخوذة يجب أن تنزل على الطاولة أولا: العب الثمانيات الثلاث.',
   'practiceDiscardOpeningStep2Hint':
       'اضغط على الثمانيات الثلاث ثم على شريحة المجموعة الذهبية.',
-  'practiceDiscardOpeningStep2Done':
-      'مرحلية عند 24 — الملكات ستدفعها فوق 51.',
+  'practiceDiscardOpeningStep2Done': 'مرحلية عند 24 — الملكات ستدفعها فوق 51.',
   'practiceDiscardOpeningStep3':
       'الآن الملكات: 24 + 30 تساوي 54 ويكتمل الافتتاح.',
-  'practiceDiscardOpeningStep3Done':
-      'افتتحت بـ 54 — مجموعتان في دور واحد.',
+  'practiceDiscardOpeningStep3Done': 'افتتحت بـ 54 — مجموعتان في دور واحد.',
   'practiceDiscardOpeningStep4': 'أنهِ دورك برمي ورقة.',
   'practiceBaitStep1':
       'سبعة الغرب تناسب سبعاتك — لكن ثلاث سبعات تساوي 21، بعيدة كل البعد عن 51 المطلوبة للافتتاح. اتركها واسحب من الكومة.',
@@ -1789,8 +1791,7 @@ const _arabicValues = {
       'وهذه الحرية الحقيقية: افتتحت سابقا، فأي قيمة تنزل. العب الاثنينات — ست نقاط، وقانونية تماما.',
   'practicePendingStep4Hint':
       'اضغط على الاثنينات الثلاث ثم على شريحة المجموعة الذهبية.',
-  'practicePendingStep4Done':
-      'نزلت بقيمة 6 — الأرقام لا تهم إلا قبل الافتتاح.',
+  'practicePendingStep4Done': 'نزلت بقيمة 6 — الأرقام لا تهم إلا قبل الافتتاح.',
   'practiceBenchmarkStep1':
       'افتتح الغرب بقوة: 75 على الطاولة، فأصبح المعيار 75 — لا 51. ابدأ دورك بالسحب.',
   'practiceBenchmarkStep2':
@@ -1850,23 +1851,27 @@ const _arabicValues = {
       'تم الجسر — الجوكر تسعة كُبّة الآن. أكمل الدور برمي ورقة.',
   'practiceFinalDiscardStep1':
       'أنت على بعد لعبة من النهاية — لكن لا أحد يفوز بمجرد وضع كل أوراقه. العب تساعياتك الثلاث.',
-  'practiceFinalDiscardStep1Hint': 'حدد التساعيات ثم العب المجموعة.',
-  'practiceFinalDiscardStep1Done':
-      'بقيت ورقة واحدة — تماما ما يحتاجه الإنهاء.',
+  'practiceFinalDiscardStep1Hint':
+      'اضغط على التساعيات الثلاث ثم شريحة المجموعة الذهبية.',
+  'practiceFinalDiscardStep1Done': 'بقيت ورقة واحدة — تماما ما يحتاجه الإنهاء.',
   'practiceFinalDiscardStep2':
       'الإنهاء ينتهي دائما برمية: ارم 5 البستوني لتخرج.',
   'practiceFinalDiscardCompletion':
       'فزت بالجولة — الورقة الأخيرة تغادر يدك رمية دائما، لا لعبة. الفائز يسجل -1.',
   'practiceNormalFinishStep1':
       'مجموعتان وورقة فائضة: هذه اليد تنهي بنظافة. العب الملكات.',
-  'practiceNormalFinishStep2': 'الآن الثلاثات.',
+  'practiceNormalFinishStep1Done':
+      'نزلت الملكات — تتابع الكُبّة سيفرغ كل شيء إلا ورقة واحدة.',
+  'practiceNormalFinishStep2': 'الآن تتابع الكُبّة: الخمس أوراق في لعبة واحدة.',
+  'practiceNormalFinishStep2Hint':
+      'اضغط أوراق الكُبّة الخمس ثم شريحة المجموعة الذهبية.',
   'practiceNormalFinishStep3': 'اخرج: ارم 7 البستوني وأنهِ الجولة.',
   'practiceNormalFinishCompletion':
       'الفائز يسجل -1؛ وكل مقعد آخر يضيف ما بقي في يده. الخروج المبكر دفاع لك وضرر عليهم.',
   'practiceFiftyClaimStep1':
-      'الغرب رمى للتو 8 الديناري — ويدك تنهي حولها الآن. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
+      'الغرب رمى للتو 8 الديناري — ثمانياتك تكتمل بها، وثنائياتك تتبعها، والملكة تبقى للرمي. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
   'practiceFiftyClaimStep1Hint':
-      'اللاعب التالي مباشرة فقط يطالب، وما دام المؤقت يعمل.',
+      'اضغط الورقة المرمية أو حلقة اللهب. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
   'practiceFiftyClaimCompletion':
       'طالبت في الوقت: الإنهاء لعب نفسه والجولة لك.',
   'practiceFiftyScoringStep1':
@@ -1876,8 +1881,7 @@ const _arabicValues = {
   'practiceFiftyMissed':
       'أُغلقت النافذة — الخمسين لا ينتظر أحدا. أعد الدرس وطالب أسرع.',
   'practiceRestartLesson': 'إعادة الدرس',
-  'practiceTiersIntro':
-      'أربع طرق لإدارة الطاولة — نفس القواعد، رحمة مختلفة.',
+  'practiceTiersIntro': 'أربع طرق لإدارة الطاولة — نفس القواعد، رحمة مختلفة.',
   'practiceTiersGotIt': 'فهمت',
   'practiceTierCoachingBody':
       'الحركات غير القانونية محجوبة والمدرب المباشر يلمّح. تعلم هنا.',
