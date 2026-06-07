@@ -165,6 +165,35 @@ void main() {
           expect(intent.actionId, ClassicHareegActionIds.claimFifty);
           final result = c.applyAction(intent.actionId);
           expect(result.isSuccess, isTrue, reason: result.message);
+
+          // Prove-it flow: the claim takes the card; the CPU then plays the
+          // proof out step by step through the same strategy loop.
+          expect(c.isFiftyProofTurn, isTrue);
+          var safety = 0;
+          while (!c.isRoundOver && safety < 24) {
+            final proofLegal = c.cpuActionIdsFor(PlayerSeat.south);
+            expect(
+              proofLegal,
+              isNotEmpty,
+              reason: 'proof surface must offer the next step',
+            );
+            final proofIntent = strategy.chooseMove(
+              CpuTurnSnapshot(
+                seat: PlayerSeat.south,
+                legalActionIds: proofLegal,
+                difficulty: c.setup.cpuDifficulty,
+              ),
+              observation: LiveCpuObservation(
+                controller: c,
+                seat: PlayerSeat.south,
+                legalActionIds: proofLegal,
+                difficulty: c.setup.cpuDifficulty,
+              ),
+            );
+            final stepResult = c.applyAction(proofIntent.actionId);
+            expect(stepResult.isSuccess, isTrue, reason: stepResult.message);
+            safety += 1;
+          }
           expect(c.isRoundOver, isTrue);
           expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
         },

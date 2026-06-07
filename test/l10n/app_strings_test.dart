@@ -7,7 +7,8 @@ void main() {
       final strings = AppStrings.english;
 
       expect(strings.helpFiftyBody, contains('Coaching and Standard'));
-      expect(strings.helpFiftyBody, contains('Strict and Table'));
+      expect(strings.helpFiftyBody, contains('Strict'));
+      expect(strings.helpFiftyBody, contains('Table'));
       expect(strings.helpFiftyBody, isNot(contains('Assisted')));
       expect(strings.helpMistakePresetsTitle, 'Mistake handling');
       expect(strings.helpMistakePresetsBody, contains('Coaching and Standard'));

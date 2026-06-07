@@ -36,7 +36,6 @@ void main() {
       expect(result.scenario, ClassicHareegFiftyClaimScenario.validClaim);
       expect(result.shouldAdvertise, isTrue);
       expect(result.canApply, isTrue);
-      expect(result.appliesMistake, isFalse);
       expect(result.finishPlan?.finalDiscard.label, '2H');
     });
 
@@ -64,7 +63,7 @@ void main() {
       expect(resolverCalled, isFalse);
     });
 
-    test('strict tier converts wrong Fifty claims into +3 mistakes', () {
+    test('strict tier accepts an unproven claim without a claim-time fee', () {
       final discarded = card(CardRank.nine, CardSuit.clubs, 3);
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
@@ -78,17 +77,17 @@ void main() {
         finishPlanResolver: () => null,
       );
 
+      // Prove-it flow: the claimant takes the card and the +3 only fires if
+      // the turn ends unproven.
       expect(
         result.scenario,
-        ClassicHareegFiftyClaimScenario.penalizedWrongClaim,
+        ClassicHareegFiftyClaimScenario.unprovenClaimAccepted,
       );
       expect(result.canApply, isTrue);
-      expect(result.appliesMistake, isTrue);
-      expect(result.mistakeResolution?.penaltyPoints, 3);
-      expect(result.mistakeResolution?.removeFromRound, isFalse);
+      expect(result.finishPlan, isNull);
     });
 
-    test('table tier converts wrong Fifty claims into removal mistakes', () {
+    test('table tier accepts an unproven claim; removal waits for exit', () {
       final discarded = card(CardRank.nine, CardSuit.clubs, 4);
 
       final result = ClassicHareegFiftyClaimPlanner.evaluate(
@@ -104,11 +103,10 @@ void main() {
 
       expect(
         result.scenario,
-        ClassicHareegFiftyClaimScenario.penalizedWrongClaim,
+        ClassicHareegFiftyClaimScenario.unprovenClaimAccepted,
       );
       expect(result.canApply, isTrue);
-      expect(result.mistakeResolution?.penaltyPoints, 17);
-      expect(result.mistakeResolution?.removeFromRound, isTrue);
+      expect(result.finishPlan, isNull);
     });
 
     test('blocking tiers block wrong Fifty claims without a penalty', () {
@@ -131,7 +129,6 @@ void main() {
       );
       expect(result.shouldAdvertise, isFalse);
       expect(result.canApply, isFalse);
-      expect(result.mistakeResolution, isNull);
       expect(result.message, contains('valid Fifty'));
     });
 

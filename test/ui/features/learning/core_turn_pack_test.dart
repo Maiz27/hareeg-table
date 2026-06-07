@@ -197,20 +197,20 @@ void main() {
       expect(session.stepIndex, 0);
     });
 
-    test('wrong path: the queens cannot hit the table before the taken '
-        'eight', () {
+    test('wrong path: the queens stay off-step until the taken eight is '
+        'melded', () {
       final session = PracticeSession(
         script: PracticeScripts.discardOpening(),
       );
       _runIntro(session);
       session.submit(ClassicHareegActionIds.takeDiscard);
 
-      // A valid set on its own, but the pending eight must be part of the
-      // first play this turn — a real rule the lesson surfaces.
+      // Under the relaxed taken-discard rule the queens are LEGAL here, but
+      // the lesson pins this step to the eights — the taught move is using
+      // the taken card in the meld it completes.
       final result = session.submit(_meldId(queens));
 
-      expect(result.status, PracticeSubmitStatus.rejected);
-      expect(result.message, isNotEmpty);
+      expect(result.status, PracticeSubmitStatus.notAllowed);
       expect(session.stepIndex, 1, reason: 'step must not advance');
     });
   });

@@ -242,6 +242,9 @@ final class _FakeCpuObservation implements CpuObservation {
        _finishingPartition = finishingPartition;
 
   @override
+  bool get ownIsFiftyProofTurn => false;
+
+  @override
   CpuDifficulty get difficulty => CpuDifficulty.skilled;
 
   @override
