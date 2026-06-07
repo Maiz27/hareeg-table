@@ -375,6 +375,12 @@ class ClassicHareegGameController {
   /// window is active.
   PlayerSeat? get fiftyClaimant => _fiftyWindow?.claimant;
 
+  /// Clock reading stamped when the live Fifty window opened, or null when
+  /// no window is active. Practice freezes its lesson clock relative to
+  /// this instant so a teaching window can hold instead of expiring.
+  DateTime? get fiftyWindowOpenedAt =>
+      _fiftyWindow == null ? null : _fiftyWindowOpenedAt;
+
   /// Seconds remaining in the Fifty claim window, or null when no window is
   /// open or the expired cue grace period has elapsed. Clamped to zero rather
   /// than going negative so the UI can render a stable timer ring during the
