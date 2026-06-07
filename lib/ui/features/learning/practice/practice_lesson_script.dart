@@ -20,6 +20,7 @@ class PracticeLessonScript {
     this.introActionIds = const [],
     this.seat = PlayerSeat.south,
     this.completionNote,
+    this.fiftyTimerPausesAtSeconds,
   }) : assert(steps.length > 0, 'A lesson script needs at least one step.');
 
   /// Stable catalog lesson id this script teaches (see `PracticeCatalog`).
@@ -52,6 +53,12 @@ class PracticeLessonScript {
     ClassicHareegGameController controller,
   )?
   completionNote;
+
+  /// When set, the lesson clock freezes once the live Fifty window counts
+  /// down to this many seconds — the ring ticks long enough to feel real,
+  /// then holds so reading the prompt is never punished. Null lets the
+  /// window expire like a match (the dead-end restart path).
+  final int? fiftyTimerPausesAtSeconds;
 }
 
 /// Everything a step predicate can inspect after a successful action.
@@ -82,11 +89,16 @@ class PracticeStep {
     this.successNote,
     this.hint,
     this.holdNote,
+    this.deadEndNote,
     this.highlightCardIds = const {},
     bool Function(ClassicHareegActionDescriptor action)? allows,
     bool Function(PracticeStepContext context)? isSatisfied,
+    bool Function(ClassicHareegGameController controller)? isDemonstrated,
+    bool Function(ClassicHareegGameController controller)? isDeadEnd,
   }) : _allows = allows,
-       _isSatisfied = isSatisfied;
+       _isSatisfied = isSatisfied,
+       _isDemonstrated = isDemonstrated,
+       _isDeadEnd = isDeadEnd;
 
   /// Convenience step that allows exactly the given action kinds and is
   /// satisfied by any successful allowed action.
@@ -96,10 +108,15 @@ class PracticeStep {
     this.successNote,
     this.hint,
     this.holdNote,
+    this.deadEndNote,
     this.highlightCardIds = const {},
     bool Function(PracticeStepContext context)? isSatisfied,
+    bool Function(ClassicHareegGameController controller)? isDemonstrated,
+    bool Function(ClassicHareegGameController controller)? isDeadEnd,
   }) : _allows = ((action) => kinds.contains(action.kind)),
-       _isSatisfied = isSatisfied;
+       _isSatisfied = isSatisfied,
+       _isDemonstrated = isDemonstrated,
+       _isDeadEnd = isDeadEnd;
 
   /// Localized instruction shown while the step is active.
   final String Function(AppStrings strings) prompt;
@@ -117,6 +134,10 @@ class PracticeStep {
   /// repeating the static prompt. Take-backs never trigger it.
   final String Function(AppStrings strings)? holdNote;
 
+  /// Optional localized explanation shown when the step dead-ends (see
+  /// [isDeadEnd]) — what went wrong and what the restart will teach.
+  final String Function(AppStrings strings)? deadEndNote;
+
   /// Card ids the table rings with the coach highlight while this step is
   /// active — the specific cards the step asks the player to find, in the
   /// same visual language the live coaching tier uses. Steps that
@@ -127,6 +148,11 @@ class PracticeStep {
 
   final bool Function(ClassicHareegActionDescriptor action)? _allows;
   final bool Function(PracticeStepContext context)? _isSatisfied;
+  final bool Function(ClassicHareegGameController controller)? _isDemonstrated;
+  final bool Function(ClassicHareegGameController controller)? _isDeadEnd;
+
+  /// Whether this step can re-verify its outcome from board state alone.
+  bool get hasDemonstrationCheck => _isDemonstrated != null;
 
   /// Whether the teaching surface should offer [action] during this step.
   ///
@@ -137,8 +163,33 @@ class PracticeStep {
   }
 
   /// Whether a successful allowed action completes this step. Defaults to
-  /// true: most steps are demonstrated by performing any allowed action.
+  /// the step's board-state proof when one is declared (see
+  /// [isDemonstrated]), else to true: most steps are demonstrated by
+  /// performing any allowed action.
   bool isSatisfied(PracticeStepContext context) {
-    return _isSatisfied?.call(context) ?? true;
+    final satisfied = _isSatisfied;
+    if (satisfied != null) {
+      return satisfied(context);
+    }
+    return _isDemonstrated?.call(context.controller) ?? true;
+  }
+
+  /// Whether this step's outcome currently holds on the board — the
+  /// state-level proof behind the action-level [isSatisfied]. The session
+  /// re-checks it after every take-back: a retract that undoes a completed
+  /// step's meld walks the lesson back to that step's prompt, and a step
+  /// whose outcome already stands (re-melding after a deeper retract) is
+  /// skipped on the way forward. Steps without a check are action-proofs
+  /// (a draw, a discard) that no take-back can undo.
+  bool isDemonstrated(ClassicHareegGameController controller) {
+    return _isDemonstrated?.call(controller) ?? true;
+  }
+
+  /// Whether the board can no longer demonstrate this step — a timed window
+  /// expired and the taught move left the rules surface for good. Most steps
+  /// can never strand (the default is false); a dead-ended lesson restarts
+  /// on a fresh board instead of leaving the prompt pointing at nothing.
+  bool isDeadEnd(ClassicHareegGameController controller) {
+    return _isDeadEnd?.call(controller) ?? false;
   }
 }
