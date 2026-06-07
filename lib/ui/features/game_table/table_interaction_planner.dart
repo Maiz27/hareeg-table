@@ -516,10 +516,9 @@ class ClassicHareegTableInteractionPlanner {
     List<String> cardIds,
   ) {
     if (cardIds.isEmpty) return null;
-    final pending = reader.pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return null;
-    }
+    // Relaxed taken-discard rule: plays that do not include the pending card
+    // are legal — the rules engine validates the drop, and the turn simply
+    // cannot end while the taken (or claimed) card sits unused.
 
     final coverActionId = reader.coverActionIdFor(seat, cardIds);
     if (coverActionId != null) {
@@ -554,10 +553,8 @@ class ClassicHareegTableInteractionPlanner {
     CoverPlacement? coverPlacement,
   }) {
     if (cardIds.isEmpty) return null;
-    final pending = reader.pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return null;
-    }
+    // Relaxed taken-discard rule: see _tableActionForCardIds — covers and
+    // joker replacements without the pending card are legal plays.
 
     final coverActionId = reader.coverActionIdForMeldTarget(
       seat: seat,

@@ -185,6 +185,17 @@ class ClassicHareegGameController {
        _roundResult = null,
        _discardHistory = restored.discardHistory,
        _turnJournal = ClassicHareegTurnJournal(source: restored.turnSource) {
+    final claimCardId = restored.activeFiftyClaimCardId;
+    final claimDiscarder = restored.activeFiftyClaimDiscarder;
+    if (claimCardId != null && claimDiscarder != null) {
+      // Resume the saved Fifty proof turn. The CPU script rebuilds lazily
+      // from the restored hand + table when the surface is next polled.
+      _activeFiftyClaim = _ActiveFiftyClaim(
+        claimedCardId: claimCardId,
+        discarder: claimDiscarder,
+        isFirstDealtRound: restored.activeFiftyClaimIsFirstDealtRound,
+      );
+    }
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -219,6 +230,7 @@ class ClassicHareegGameController {
   ({PlayerSeat seat, String cardId})? _lastReturnedPendingDiscard;
   FiftyClaimWindow? _fiftyWindow;
   DateTime? _fiftyWindowOpenedAt;
+  _ActiveFiftyClaim? _activeFiftyClaim;
   RoundOutcomeType? _roundOutcome;
   RoundProgressResult? _roundResult;
   final DiscardHistory _discardHistory;
@@ -381,6 +393,16 @@ class ClassicHareegGameController {
   DateTime? get fiftyWindowOpenedAt =>
       _fiftyWindow == null ? null : _fiftyWindowOpenedAt;
 
+  /// Whether the current turn is a Fifty proof turn — the claimant took the
+  /// thrown card and must lay the full finish down before the turn ends.
+  bool get isFiftyProofTurn => _activeFiftyClaim != null;
+
+  /// Physical id of the claimed card during a Fifty proof turn, or null.
+  ///
+  /// The claimed card must end the turn used in a meld or cover; discarding
+  /// it is always refused.
+  String? get fiftyProofClaimedCardId => _activeFiftyClaim?.claimedCardId;
+
   /// Seconds remaining in the Fifty claim window, or null when no window is
   /// open or the expired cue grace period has elapsed. Clamped to zero rather
   /// than going negative so the UI can render a stable timer ring during the
@@ -439,6 +461,14 @@ class ClassicHareegGameController {
       // round number (lost when roundNumber is absent on an old/partial save).
       fiftyWindowDiscarder: _fiftyWindow?.discarder,
       fiftyWindowIsFirstDealtRound: _fiftyWindow?.isFirstDealtRound,
+      // A mid-proof Fifty claim is persistent turn state: the checkpoint
+      // reverts the proof's table plays (the claimed card lands back in the
+      // hand as the pending discard) and these fields let restore resume the
+      // proof turn — never a live window, which stays restore-gated to draw
+      // phase with its ancient-stamp fallback.
+      activeFiftyClaimCardId: _activeFiftyClaim?.claimedCardId,
+      activeFiftyClaimDiscarder: _activeFiftyClaim?.discarder,
+      activeFiftyClaimIsFirstDealtRound: _activeFiftyClaim?.isFirstDealtRound,
       savedAt: effectiveSavedAt,
       discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
@@ -506,6 +536,16 @@ class ClassicHareegGameController {
         'actions=${_debugActionSummary(ids)}',
       );
       return List.unmodifiable(ids);
+    }
+
+    // An active Fifty claim is proven by replaying the validated finish plan
+    // step by step through the normal apply flow, so CPU claims play their
+    // proof out visibly at normal pacing. Falls through to the regular
+    // surface when no plan resolves (a wrong claim on a permissive tier —
+    // the only exits there are tier-priced plain discards).
+    final proofStep = _fiftyProofScriptActionFor(seat);
+    if (proofStep != null) {
+      return finish('fifty-proof', [proofStep]);
     }
 
     final plan = _actionSurfacePlanFor(
@@ -706,7 +746,12 @@ class ClassicHareegGameController {
     _applyTurnFlowState(next);
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn();
+    // Do NOT reset the turn journal here: the journal resets at turn exits
+    // (discard advance, removal, round end), so any recorded plays belong to
+    // THIS turn — a seat that placed table plays, returned its taken discard,
+    // and now draws from stock keeps those plays reversible and
+    // finish-eligible. Only the finish source changes.
+    _turnJournal.setSource(FinishCardSource.stock);
     return const ApplyActionResult.success();
   }
 
@@ -721,7 +766,9 @@ class ClassicHareegGameController {
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn(source: FinishCardSource.previousDiscard);
+    // See _applyDrawStock: the journal is turn-scoped and resets at turn
+    // exits, not on draw decisions.
+    _turnJournal.setSource(FinishCardSource.previousDiscard);
     return const ApplyActionResult.success();
   }
 
@@ -731,9 +778,44 @@ class ClassicHareegGameController {
     );
   }
 
+  /// Whether the unused pending discard may be returned right now.
+  ///
+  /// Opened seats may return the unused taken card at any point of the turn,
+  /// even after other committed plays. Unopened seats must take back staged
+  /// opening melds first — those plays are not valid commitments yet, so the
+  /// taken card cannot be returned around them.
+  bool _canReturnPendingDiscard(PlayerSeat seat) {
+    if (_pendingDiscard == null || seat != _currentSeat) {
+      return false;
+    }
+    // A claimed Fifty card cannot be returned: the claimant is committed to
+    // the proof, and abandoning it is priced at the turn exit instead.
+    if (_activeFiftyClaim != null) {
+      return false;
+    }
+    return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
+  }
+
   ApplyActionResult _applyReturnPendingDiscard() {
     final pending = _pendingDiscard;
     final returningSeat = _currentSeat;
+    if (_activeFiftyClaim != null) {
+      return const ApplyActionResult.failure(
+        'The claimed card cannot be returned — prove the Fifty or end the '
+        'turn.',
+      );
+    }
+    // An unopened seat's staged table plays are not valid commitments yet, so
+    // the taken card cannot be returned around them — the staged melds must
+    // be taken back first. Opened seats may return the unused taken card even
+    // after other committed plays this turn (relaxed taken-discard rule).
+    if (pending != null &&
+        !_openingState.hasOpened(returningSeat) &&
+        _turnOpeningMelds.isNotEmpty) {
+      return const ApplyActionResult.failure(
+        'Take back your staged melds before returning the taken card.',
+      );
+    }
     try {
       final next = ClassicHareegTurnFlowRules.returnPendingDiscard(
         _turnFlowState(),
@@ -748,7 +830,12 @@ class ClassicHareegGameController {
     }
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
-    _turnJournal.resetForNewTurn();
+    // Keep the journal: plays committed earlier this turn stay reversible and
+    // finish-eligible across the return → draw continuation of the same turn.
+    // The returned card was never consumed, so only the source resets.
+    _turnJournal
+      ..clearConsumedPendingDiscard()
+      ..setSource(FinishCardSource.stock);
     _evaluateRoundEnd();
     return const ApplyActionResult.success();
   }
@@ -855,7 +942,9 @@ class ClassicHareegGameController {
       }
     }
 
-    if (pending != null) {
+    // Relaxed taken-discard rule: the pending card is consumed only by the
+    // play that actually uses it; unrelated melds leave it pending.
+    if (pending != null && uniqueIds.contains(pending.id)) {
       _consumePendingDiscard();
       if (!alreadyOpened && !_openingState.hasOpened(_currentSeat)) {
         _turnJournal.recordConsumedPendingDiscard(pending);
@@ -1148,12 +1237,11 @@ class ClassicHareegGameController {
       );
     }
 
+    // Relaxed taken-discard rule: covers that do not use the pending card are
+    // legal; the pending card is consumed only by the cover that includes it.
     final pending = _pendingDiscard;
-    if (pending != null && !target.cardIds.toSet().contains(pending.id)) {
-      return const ApplyActionResult.failure(
-        'The picked up discard must be used in a meld or returned first.',
-      );
-    }
+    final usesPending =
+        pending != null && target.cardIds.toSet().contains(pending.id);
 
     final targetMelds = _tableMelds[target.targetSeat];
     if (targetMelds == null ||
@@ -1182,7 +1270,7 @@ class ClassicHareegGameController {
 
     final hand = _handFor(_currentSeat);
     final previousOpeningState = _openingState;
-    final consumedPendingDiscard = pending;
+    final consumedPendingDiscard = usesPending ? pending : null;
     for (final card in ordered) {
       hand.removeWhere((candidate) => candidate.id == card.id);
     }
@@ -1211,7 +1299,7 @@ class ClassicHareegGameController {
         consumedPendingDiscard: consumedPendingDiscard,
       ),
     );
-    if (pending != null) {
+    if (usesPending) {
       _consumePendingDiscard();
       _turnJournal.clearConsumedPendingDiscard();
     }
@@ -1245,12 +1333,10 @@ class ClassicHareegGameController {
       );
     }
 
+    // Relaxed taken-discard rule: any hand card may replace a table joker;
+    // the pending card is consumed only when it is the replacement itself.
     final pending = _pendingDiscard;
-    if (pending != null && pending.id != target.cardId) {
-      return const ApplyActionResult.failure(
-        'The picked up discard must be used before another card.',
-      );
-    }
+    final usesPending = pending != null && pending.id == target.cardId;
 
     final targetMelds = _tableMelds[target.targetSeat];
     if (targetMelds == null ||
@@ -1292,7 +1378,7 @@ class ClassicHareegGameController {
       valueSnapshot: targetMeld.valueSnapshot,
       coverValue: targetMeld.coverValue,
     );
-    if (pending != null) {
+    if (usesPending) {
       _consumePendingDiscard();
       _turnJournal.clearConsumedPendingDiscard();
     }
@@ -1301,13 +1387,55 @@ class ClassicHareegGameController {
 
   ApplyActionResult _applyDiscard(String cardId) {
     final hand = _handFor(_currentSeat);
-    final index = hand.indexWhere((card) => card.id == cardId);
+    var index = hand.indexWhere((card) => card.id == cardId);
     if (index == -1) {
       return ApplyActionResult.failure('Card "$cardId" is not in the hand.');
     }
 
     final card = hand[index];
     final isFinalDiscard = hand.length == 1;
+
+    final claim = _activeFiftyClaim;
+    var fiftyProofComplete = false;
+    var fiftyExitMessage = '';
+    if (claim != null) {
+      final exit = _applyFiftyProofExitGate(
+        claim: claim,
+        hand: hand,
+        card: card,
+        isFinalDiscard: isFinalDiscard,
+      );
+      switch (exit) {
+        case _FiftyProofExitRefused(:final result):
+          return result;
+        case _FiftyProofExitRemoved(:final result):
+          return result;
+        case _FiftyProofExitPenalized(:final message):
+          // Strict tier: the penalty is charged and the turn ends normally
+          // with this discard. The gate may have returned the unused claimed
+          // card to the pile, shifting hand indices.
+          fiftyExitMessage = message;
+          index = hand.indexWhere((candidate) => candidate.id == cardId);
+        case _FiftyProofExitProven():
+          fiftyProofComplete = true;
+      }
+    } else {
+      // Relaxed taken-discard rule: the pending card may be used at any point
+      // of the turn, but the turn cannot end while it sits unused — and the
+      // taken card itself can never leave as the turn's closing discard.
+      final pending = _pendingDiscard;
+      if (pending != null) {
+        if (card.id == pending.id) {
+          return const ApplyActionResult.failure(
+            'The taken card cannot be discarded — use it in a meld or cover.',
+          );
+        }
+        return const ApplyActionResult.failure(
+          'Use or return the taken card before ending the turn.',
+        );
+      }
+    }
+
     final eligibility = _discardEligibilityFor(
       seat: _currentSeat,
       card: card,
@@ -1317,7 +1445,7 @@ class ClassicHareegGameController {
       return ApplyActionResult.failure(eligibility.message);
     }
     final mistake = eligibility.mistakeResolution;
-    var successMessage = '';
+    var successMessage = fiftyExitMessage;
     if (mistake != null && mistake.isAllowed) {
       // Capture the penalty message so the feedback chip surfaces "+3 / +17"
       // when the cover discard goes through as a strict / table mistake.
@@ -1368,6 +1496,21 @@ class ClassicHareegGameController {
     // A new card now sits on top of the discard pile, so the previous
     // return-pending-discard memory no longer matters.
     _lastReturnedPendingDiscard = null;
+    if (fiftyProofComplete) {
+      // The claimant laid the full finish down and closed with a valid final
+      // discard: the round ends as a proven Fifty.
+      _activeFiftyClaim = null;
+      _fiftyWindow = null;
+      _fiftyWindowOpenedAt = null;
+      _finishRound(
+        type: RoundOutcomeType.fiftyFinish,
+        winner: _currentSeat,
+        fiftyDiscarder: claim!.discarder,
+        firstRoundFiftyException: claim.isFirstDealtRound,
+      );
+      return const ApplyActionResult.success('Fifty proven.');
+    }
+    _activeFiftyClaim = null;
     final exit = ClassicHareegTurnExitPlanner.afterDiscard(
       discarder: _currentSeat,
       discardedCard: card,
@@ -1390,6 +1533,112 @@ class ClassicHareegGameController {
       _evaluateRoundEnd();
     }
     return ApplyActionResult.success(successMessage);
+  }
+
+  /// Whether discarding [finalDiscard] right now completes a valid finish —
+  /// the single proof-completion condition shared by the apply gate and the
+  /// proof-turn discard surface, so they can never disagree.
+  bool _provesFiftyFinish(HareegCard finalDiscard) {
+    return ClassicHareegFinishRules.validateFinish(
+      playedMelds: _turnFinishPlays,
+      finalDiscard: finalDiscard,
+      playerOpened: _openingState.hasOpened(_currentSeat),
+      source: _turnSource,
+      perfectHandAttempt: !_openingState.hasOpened(_currentSeat),
+    ).isValid;
+  }
+
+  /// Resolves how a discard attempt exits an active Fifty proof turn.
+  ///
+  /// The claimed card can never be the discard. A final discard with the
+  /// claimed card used and a valid finish proves the claim. Anything else is
+  /// an unproven exit: blocked outright on Coaching/Standard (the claim was
+  /// pre-validated, so the proof is always reachable), +3 with a normal turn
+  /// end on Strict, and removal on Table.
+  _FiftyProofExit _applyFiftyProofExitGate({
+    required _ActiveFiftyClaim claim,
+    required List<HareegCard> hand,
+    required HareegCard card,
+    required bool isFinalDiscard,
+  }) {
+    if (card.id == claim.claimedCardId) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure(
+          'The claimed card must be used in a meld or cover, never discarded.',
+        ),
+      );
+    }
+
+    final claimedCardUsed = _pendingDiscard == null;
+    if (isFinalDiscard && claimedCardUsed && _provesFiftyFinish(card)) {
+      return const _FiftyProofExitProven();
+    }
+
+    // The exit is unproven. It must ride a plain discard — blocked cards keep
+    // their own restrictions and a failing last card cannot leave the hand.
+    if (isFinalDiscard) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure('That last card does not prove the Fifty.'),
+      );
+    }
+    final eligibility = _discardEligibilityFor(
+      seat: _currentSeat,
+      card: card,
+      isFinalDiscard: false,
+    );
+    if (eligibility.scenario != ClassicHareegDiscardScenario.normal) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure(
+          'That card cannot end the proof turn — pick a plain discard.',
+        ),
+      );
+    }
+
+    final mistake = _mistakeConsequencePlanFor(MistakeType.wrongFiftyClaim);
+    if (!mistake.canApply) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure('Prove the Fifty before ending the turn.'),
+      );
+    }
+    // The priced exit hands the unused claimed card back to the pile, so an
+    // exit that would empty the hand (claimed + exit are the last two cards)
+    // cannot end the turn — the claimant must prove or take plays back.
+    if (_pendingDiscard != null &&
+        !setup.tableStrictness.removesPlayerOnMistake &&
+        hand.length <= 2) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure(
+          'This exit would empty your hand — prove the Fifty or take plays '
+          'back.',
+        ),
+      );
+    }
+    final discardingSeat = _currentSeat;
+    final removal = _applyMistake(mistake);
+    _activeFiftyClaim = null;
+    if (removal != null) {
+      // Table tier removed the claimant. The attempted discard still lands on
+      // the pile (the unproven claimed card was already moved there by the
+      // mistake plan when it sat unused).
+      hand.removeWhere((candidate) => candidate.id == card.id);
+      _discardPile.add(card);
+      _roundMemory.onDiscard(discardingSeat, card);
+      _previousDiscardSeat = discardingSeat;
+      _lastReturnedPendingDiscard = null;
+      return _FiftyProofExitRemoved(removal);
+    }
+    // Strict: the claim was called off, so the unused claimed card goes back
+    // to the pile (owner-confirmed). It lands now, and the normal discard
+    // flow drops the exit card on top of it.
+    final unusedClaimedCard = _pendingDiscard;
+    if (unusedClaimedCard != null) {
+      hand.removeWhere((candidate) => candidate.id == unusedClaimedCard.id);
+      _discardPile.add(unusedClaimedCard);
+      _roundMemory.onReturnPendingDiscard(discardingSeat, unusedClaimedCard);
+      _pendingDiscard = null;
+      _turnJournal.clearConsumedPendingDiscard();
+    }
+    return _FiftyProofExitPenalized(mistake.message);
   }
 
   List<HareegCard> _handFor(PlayerSeat seat) {
@@ -1608,6 +1857,9 @@ class ClassicHareegGameController {
       return null;
     }
 
+    // Removal always takes the current seat out of the round; a Fifty proof
+    // in progress (if any) is abandoned with it.
+    _activeFiftyClaim = null;
     final removedSeat = plan.removedSeat!;
     final pending = _pendingDiscard;
     if (pending != null && plan.shouldMovePendingDiscardToDiscardPile) {
@@ -1657,6 +1909,7 @@ class ClassicHareegGameController {
   void _completeRound(RoundProgressResult result) {
     _roundOutcome = result.type;
     _roundResult = result;
+    _activeFiftyClaim = null;
     // The round is over: the winning turn's plays are permanently committed, so
     // there is no in-progress turn to resume. Clear the reversible turn journal
     // so a round-over `toSnapshot` reflects the true final state instead of
@@ -1723,38 +1976,152 @@ class ClassicHareegGameController {
     if (!plan.canApply) {
       return ApplyActionResult.failure(plan.message);
     }
-    final mistake = plan.mistakeResolution;
-    if (mistake != null) {
-      final removal = _applyMistake(_mistakeConsequencePlan(mistake));
-      return removal ?? ApplyActionResult.success(plan.message);
-    }
-
-    final finishPlan = plan.finishPlan;
-    final claim = plan.claimResult;
     final window = _fiftyWindow;
-    if (finishPlan == null || claim == null || window == null) {
+    if (window == null || _discardPile.isEmpty) {
       return const ApplyActionResult.failure('No active Fifty discard.');
     }
-    _discardPile.removeLast();
-    // Place the finishing melds on the table before clearing the hand. The melds
-    // consume the claimed discard plus every hand card except the final discard;
-    // without placing them those cards vanish from the table state (a card-
-    // conservation violation the full-game invariant sweep catches on a Fifty
-    // finish). Mirrors the normal meld-commit path.
-    _tableMelds
-        .putIfAbsent(_currentSeat, () => <PlacedMeld>[])
-        .addAll(finishPlan.melds);
-    _hands[_currentSeat] = const <HareegCard>[];
-    _discardPile.add(finishPlan.finalDiscard);
-    _pendingDiscard = null;
+
+    // Prove-it flow: claiming takes the thrown card into the hand and the
+    // claimant lays the proof down manually through the normal play surface.
+    // The play-out is untimed — the timer only races the call itself, so the
+    // window is consumed here. Blocking tiers reach this point only with a
+    // pre-validated finish plan; permissive tiers accept unproven claims and
+    // charge the tier consequence if the turn ends unproven.
+    final claimed = _discardPile.removeLast();
+    _handFor(_currentSeat).add(claimed);
+    _roundMemory.onTakePreviousDiscard(_currentSeat, claimed);
+    _pendingDiscard = claimed;
+    _previousDiscardSeat = window.discarder;
+    _phase = TurnPhase.action;
+    _fiftyWindow = null;
+    _fiftyWindowOpenedAt = null;
     _lastReturnedPendingDiscard = null;
-    _finishRound(
-      type: RoundOutcomeType.fiftyFinish,
-      winner: _currentSeat,
-      fiftyDiscarder: window.discarder,
-      firstRoundFiftyException: claim.firstRoundException,
+    _turnJournal.setSource(FinishCardSource.previousDiscard);
+    final finishPlan = plan.finishPlan;
+    _activeFiftyClaim = _ActiveFiftyClaim(
+      claimedCardId: claimed.id,
+      discarder: window.discarder,
+      isFirstDealtRound: window.isFirstDealtRound,
+      script: finishPlan == null ? null : _fiftyProofScript(finishPlan),
     );
-    return const ApplyActionResult.success('Fifty claimed.');
+    return ApplyActionResult.success(plan.message);
+  }
+
+  /// Builds the ordered proof action ids for a validated finish plan: fresh
+  /// melds first, then cover placements, then the final discard. CPU claims
+  /// replay this script through the normal apply flow so the proof plays out
+  /// visibly at normal pacing.
+  List<String> _fiftyProofScript(ClassicHareegFinishPlan plan) {
+    return List.unmodifiable([
+      for (final meld in plan.melds)
+        _playMeldActionIdFor(meld.cards.map((card) => card.id), [
+          for (final card in meld.cards)
+            if (card.isJoker && card.representedIdentity != null)
+              JokerMeldAssignment(
+                jokerId: card.id,
+                identity: card.representedIdentity!,
+              ),
+        ]),
+      for (final cover in plan.covers)
+        ClassicHareegActionIds.placeCoverActionId(
+          targetSeat: cover.targetSeat,
+          meldIndex: cover.meldIndex,
+          cardIds: cover.cards.map((card) => card.id),
+          jokerIdentities: {
+            for (final card in cover.cards)
+              if (card.isJoker && card.representedIdentity != null)
+                card.id: card.representedIdentity!,
+          },
+        ),
+      '${ClassicHareegActionIds.discardPrefix}${plan.finalDiscard.id}',
+    ]);
+  }
+
+  /// Next CPU proof step during an active Fifty claim, or null when no claim
+  /// is active (or no finish plan resolves — the surface then falls back to
+  /// the normal action ids, whose only exits are tier-priced).
+  String? _fiftyProofScriptActionFor(PlayerSeat seat) {
+    final claim = _activeFiftyClaim;
+    if (claim == null || seat != _currentSeat || _roundOutcome != null) {
+      return null;
+    }
+    var script = claim.script;
+    if (script == null || claim.scriptIndex >= script.length) {
+      final plan = _fiftyProofPlanForCurrentState(seat, claim);
+      if (plan == null) {
+        return null;
+      }
+      script = _fiftyProofScript(plan);
+      claim.script = script;
+      claim.scriptIndex = 0;
+    }
+    return script[claim.scriptIndex];
+  }
+
+  /// Resolves a finish plan for the proof turn from the LIVE state — used to
+  /// (re)build the CPU script lazily, e.g. after a snapshot restore.
+  ClassicHareegFinishPlan? _fiftyProofPlanForCurrentState(
+    PlayerSeat seat,
+    _ActiveFiftyClaim claim,
+  ) {
+    final hand = _handFor(seat);
+    final opened = _openingState.hasOpened(seat);
+    final claimedIndex = hand.indexWhere(
+      (card) => card.id == claim.claimedCardId,
+    );
+    if (claimedIndex != -1) {
+      final claimed = hand[claimedIndex];
+      return ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
+        hand: [
+          for (final card in hand)
+            if (card.id != claimed.id) card,
+        ],
+        discarded: claimed,
+        playerOpened: opened,
+        coverTargets: _finishCoverTargets(),
+        openingRequirement: _openingState.currentRequirement,
+      );
+    }
+    // The claimed card is already used; any full finish of the remaining
+    // hand completes the proof.
+    final planner = ClassicHareegFinishPlanner(
+      hand,
+      coverTargets: _finishCoverTargets(),
+      coverPlanMinimumMeldValue: opened
+          ? null
+          : _openingState.currentRequirement,
+    );
+    for (final candidate in hand) {
+      final parts = planner.planWithout(candidate);
+      if (parts != null) {
+        return ClassicHareegFinishPlan(
+          melds: parts.melds,
+          covers: parts.covers,
+          finalDiscard: candidate,
+        );
+      }
+    }
+    return null;
+  }
+
+  /// Advances the active proof script when its head action just applied; any
+  /// off-script action invalidates the script so the next poll re-plans from
+  /// the live state (the proof stays completable — every prefix of plays
+  /// leaves a plannable remainder, and retracts restore the planned shape).
+  void _onActionApplied(String actionId) {
+    final claim = _activeFiftyClaim;
+    final script = claim?.script;
+    if (claim == null || script == null) {
+      return;
+    }
+    if (claim.scriptIndex < script.length &&
+        script[claim.scriptIndex] == actionId) {
+      claim.scriptIndex += 1;
+      return;
+    }
+    claim
+      ..script = null
+      ..scriptIndex = 0;
   }
 
   bool _canFinishWithPreviousDiscard(PlayerSeat seat) {
@@ -1793,9 +2160,16 @@ class ClassicHareegGameController {
       }
     }
 
+    final playerOpened = _openingState.hasOpened(seat);
     final cards = [..._handFor(seat), discarded];
-    final planner = ClassicHareegFinishPlanner(cards);
-    if (!planner.hasValidMeldContaining(discarded.id)) {
+    final planner = ClassicHareegFinishPlanner(
+      cards,
+      coverTargets: _finishCoverTargets(),
+      coverPlanMinimumMeldValue: playerOpened
+          ? null
+          : _openingState.currentRequirement,
+    );
+    if (!planner.hasFinishUseContaining(discarded.id)) {
       _previousDiscardFinishCacheKey = cacheKey;
       _previousDiscardFinishCacheValue = false;
       _previousDiscardFinishPlanCacheValue = null;
@@ -1804,7 +2178,7 @@ class ClassicHareegGameController {
     final plan = ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
       hand: _handFor(seat),
       discarded: discarded,
-      playerOpened: _openingState.hasOpened(seat),
+      playerOpened: playerOpened,
       planner: planner,
     );
     _previousDiscardFinishCacheKey = cacheKey;
@@ -1813,8 +2187,30 @@ class ClassicHareegGameController {
     return plan;
   }
 
+  /// Every table meld as a cover target for cover-aware finish planning.
+  List<ClassicHareegFinishCoverTarget> _finishCoverTargets() {
+    return ClassicHareegFinishCoverTarget.allFrom(_tableMelds);
+  }
+
   String _previousDiscardFinishKey(PlayerSeat seat, HareegCard discarded) {
     final handIds = _handFor(seat).map(_cardCacheIdentity).toList()..sort();
+    // Cover-aware plans depend on the table state, so the cache key carries a
+    // table-melds signature — a cover target appearing or growing must
+    // invalidate a cached "no finish" verdict.
+    final tableSignature = StringBuffer();
+    for (final entry in _tableMelds.entries) {
+      for (final meld in entry.value) {
+        tableSignature
+          ..write(entry.key.name)
+          ..write(':');
+        for (final card in meld.cards) {
+          tableSignature
+            ..write(_cardCacheIdentity(card))
+            ..write(',');
+        }
+        tableSignature.write(';');
+      }
+    }
     return [
       seat.name,
       _cardCacheIdentity(discarded),
@@ -1822,7 +2218,9 @@ class ClassicHareegGameController {
       '${_stock.length}',
       '${_discardPile.length}',
       '${_openingState.hasOpened(seat)}',
+      '${_openingState.currentRequirement}',
       handIds.join(','),
+      tableSignature.toString(),
     ].join('|');
   }
 
@@ -2213,7 +2611,6 @@ class ClassicHareegGameController {
       playedMelds: melds,
       handCount: handCount,
       playedCardIds: playedCardIds,
-      pendingDiscardId: seat == _currentSeat ? _pendingDiscard?.id : null,
     );
   }
 
@@ -2299,6 +2696,21 @@ class ClassicHareegGameController {
         _turnOpeningMelds.isNotEmpty) {
       return const [];
     }
+    if (seat == _currentSeat) {
+      final claim = _activeFiftyClaim;
+      if (claim != null) {
+        return _fiftyProofDiscardActionIds(
+          claim: claim,
+          hand: hand,
+          isFinalDiscard: isFinalDiscard,
+        );
+      }
+      if (_pendingDiscard != null) {
+        // Relaxed taken-discard rule: the turn cannot end while the taken
+        // card sits unused, so no discard is on the surface.
+        return const [];
+      }
+    }
 
     final ids = <String>[];
     for (final card in hand) {
@@ -2313,6 +2725,49 @@ class ClassicHareegGameController {
       ids.add(eligibility.actionId);
     }
     return List.unmodifiable(ids);
+  }
+
+  /// Discard ids advertised during a Fifty proof turn.
+  ///
+  /// The only winning exit is the final discard of a completed proof. On the
+  /// mistake-allowing tiers, plain discards stay on the surface as the priced
+  /// unproven exit; blocking tiers advertise nothing until the proof closes.
+  List<String> _fiftyProofDiscardActionIds({
+    required _ActiveFiftyClaim claim,
+    required List<HareegCard> hand,
+    required bool isFinalDiscard,
+  }) {
+    final claimedCardUsed = _pendingDiscard == null;
+    if (isFinalDiscard && claimedCardUsed) {
+      final card = hand.single;
+      if (card.id != claim.claimedCardId && _provesFiftyFinish(card)) {
+        return List.unmodifiable([
+          '${ClassicHareegActionIds.discardPrefix}${card.id}',
+        ]);
+      }
+      return const [];
+    }
+    if (isFinalDiscard || setup.tableStrictness.blocksIllegalMoves) {
+      return const [];
+    }
+    // The Strict priced exit returns the unused claimed card to the pile, so
+    // it is off the surface when that return would empty the hand.
+    if (!claimedCardUsed &&
+        !setup.tableStrictness.removesPlayerOnMistake &&
+        hand.length <= 2) {
+      return const [];
+    }
+    return List.unmodifiable([
+      for (final card in hand)
+        if (card.id != claim.claimedCardId &&
+            _discardEligibilityFor(
+                  seat: _currentSeat,
+                  card: card,
+                  isFinalDiscard: false,
+                ).scenario ==
+                ClassicHareegDiscardScenario.normal)
+          '${ClassicHareegActionIds.discardPrefix}${card.id}',
+    ]);
   }
 }
 
@@ -2407,6 +2862,67 @@ int _compareCards(HareegCard left, HareegCard right) {
   return leftIdentity.rank.order.compareTo(rightIdentity.rank.order);
 }
 
+/// How a discard attempt exits an active Fifty proof turn.
+sealed class _FiftyProofExit {
+  const _FiftyProofExit();
+}
+
+/// The exit is refused outright; no state changed.
+class _FiftyProofExitRefused extends _FiftyProofExit {
+  const _FiftyProofExitRefused(this.result);
+
+  /// Failure to surface to the caller.
+  final ApplyActionResult result;
+}
+
+/// Table tier removed the claimant; the result is final.
+class _FiftyProofExitRemoved extends _FiftyProofExit {
+  const _FiftyProofExitRemoved(this.result);
+
+  /// Removal result to surface to the caller.
+  final ApplyActionResult result;
+}
+
+/// Strict tier charged the penalty; the discard proceeds normally.
+class _FiftyProofExitPenalized extends _FiftyProofExit {
+  const _FiftyProofExitPenalized(this.message);
+
+  /// Penalty toast carried into the discard success message.
+  final String message;
+}
+
+/// The discard completes a valid proof; the round ends as a Fifty finish.
+class _FiftyProofExitProven extends _FiftyProofExit {
+  const _FiftyProofExitProven();
+}
+
+/// Live state of a Fifty claim being proven by the claimant.
+class _ActiveFiftyClaim {
+  _ActiveFiftyClaim({
+    required this.claimedCardId,
+    required this.discarder,
+    required this.isFirstDealtRound,
+    this.script,
+  });
+
+  /// Physical id of the claimed card. It must end the turn used in a meld or
+  /// cover and can never leave as the turn's discard.
+  final String claimedCardId;
+
+  /// Seat whose discard was claimed — charged the Fifty penalty on success.
+  final PlayerSeat discarder;
+
+  /// Whether the claim window carried the first-dealt-round -1 exception.
+  final bool isFirstDealtRound;
+
+  /// Ordered proof action ids for CPU play-out. Null until resolved; rebuilt
+  /// lazily from the live state (e.g. after a snapshot restore).
+  List<String>? script;
+
+  /// Index of the next unplayed script step.
+  int scriptIndex = 0;
+}
+
 class _ResolvedMeldCards {
   const _ResolvedMeldCards({required this.cards, required this.result});
 
@@ -2477,6 +2993,11 @@ class _LiveActionSurfaceFacts implements ClassicHareegActionSurfaceFacts {
   @override
   bool canReturnOpeningMelds(PlayerSeat seat) {
     return _controller._tablePlayRetractionPlanFor(seat).shouldAdvertise;
+  }
+
+  @override
+  bool canReturnPendingDiscard(PlayerSeat seat) {
+    return _controller._canReturnPendingDiscard(seat);
   }
 
   @override
@@ -2561,6 +3082,11 @@ class _LoggingActionSurfaceFacts implements ClassicHareegActionSurfaceFacts {
   @override
   bool canReturnOpeningMelds(PlayerSeat seat) {
     return _inner.canReturnOpeningMelds(seat);
+  }
+
+  @override
+  bool canReturnPendingDiscard(PlayerSeat seat) {
+    return _inner.canReturnPendingDiscard(seat);
   }
 
   @override

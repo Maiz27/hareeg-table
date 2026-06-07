@@ -15,9 +15,6 @@ enum ClassicHareegMeldPlayScenario {
   /// Player has not opened yet, is below opening value, but keeps one discard.
   openingFinishCandidate,
 
-  /// The picked-up discard exists and is not part of this meld play.
-  missingPendingDiscard,
-
   /// This play would leave no card for the required final discard.
   noFinalDiscard,
 }
@@ -60,6 +57,11 @@ class ClassicHareegMeldPlayEligibility {
 /// Resolves meld play legality as one rich scenario.
 abstract final class ClassicHareegMeldPlayEligibilityPlanner {
   /// Evaluates a proposed table meld play after card-shape validation.
+  ///
+  /// A picked-up discard no longer constrains which melds may be played: the
+  /// relaxed taken-discard rule lets the pending card land in any play of the
+  /// turn, so melds that do not include it are legal. The controller blocks
+  /// the turn from ending while the pending card sits unused.
   static ClassicHareegMeldPlayEligibility evaluate({
     required OpeningState openingState,
     required PlayerSeat seat,
@@ -67,20 +69,7 @@ abstract final class ClassicHareegMeldPlayEligibilityPlanner {
     required Iterable<PlacedMeld> playedMelds,
     required int handCount,
     required Set<String> playedCardIds,
-    String? pendingDiscardId,
   }) {
-    if (pendingDiscardId != null && !playedCardIds.contains(pendingDiscardId)) {
-      return const ClassicHareegMeldPlayEligibility(
-        scenario: ClassicHareegMeldPlayScenario.missingPendingDiscard,
-        isAllowed: false,
-        shouldAdvertise: false,
-        message:
-            'The picked up discard must be used in a meld or returned first.',
-        opensPlayer: false,
-        leavesFinalDiscard: false,
-      );
-    }
-
     final remainingCards = handCount - playedCardIds.length;
     if (remainingCards <= 0) {
       return const ClassicHareegMeldPlayEligibility(

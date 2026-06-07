@@ -95,6 +95,19 @@ void main() {
     );
   }
 
+  // Drives the prove-it play-out after a successful claim: the engine serves
+  // the validated finish plan step by step on the CPU surface.
+  void driveProof(ClassicHareegGameController c) {
+    var safety = 0;
+    while (!c.isRoundOver && c.isFiftyProofTurn && safety < 24) {
+      final actions = c.cpuActionIdsFor(PlayerSeat.south);
+      expect(actions, isNotEmpty, reason: 'proof step must be offered');
+      final result = c.applyAction(actions.first);
+      expect(result.isSuccess, isTrue, reason: result.message);
+      safety += 1;
+    }
+  }
+
   group('Successful Fifty finish scoring', () {
     test(
       'successful Fifty finish applies the documented score deltas to the '
@@ -127,6 +140,7 @@ void main() {
           reason: 'claimFifty should succeed for a genuine finish; got: '
               '"${result.message}"',
         );
+        driveProof(c);
         expect(c.isRoundOver, isTrue);
         expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
 
@@ -157,6 +171,7 @@ void main() {
         final c = s.controller;
         final claim = s.south.claimFifty();
         expect(claim.isSuccess, isTrue, reason: claim.message);
+        driveProof(c);
 
         final displayed = Map<PlayerSeat, int>.from(c.scores);
 
@@ -199,6 +214,7 @@ void main() {
         final c = s.controller;
         final claim = s.south.claimFifty();
         expect(claim.isSuccess, isTrue, reason: claim.message);
+        driveProof(c);
         expect(c.isRoundOver, isTrue);
 
         final displayed = Map<PlayerSeat, int>.from(c.scores);
@@ -264,8 +280,20 @@ void main() {
 
       final priorSouth = c.scores[PlayerSeat.south] ?? 0;
       final result = s.south.claimFifty();
-      // The claim "succeeds" as an applied mistake (side effects happened).
+      // Prove-it flow: the claim is accepted unproven; the consequence fires
+      // when the turn ends without a proof.
       expect(result.isSuccess, isTrue, reason: result.message);
+      expect(c.isFiftyProofTurn, isTrue);
+      expect(
+        (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
+        0,
+        reason: 'no claim-time fee in the prove-it flow',
+      );
+
+      final exit = c.applyAction(
+        'discard:${southStuckHand.first.id}',
+      );
+      expect(exit.isSuccess, isTrue, reason: exit.message);
 
       expect(
         c.removedSeats.contains(PlayerSeat.south),
@@ -288,8 +316,15 @@ void main() {
       final priorSouth = c.scores[PlayerSeat.south] ?? 0;
       final result = s.south.claimFifty();
       expect(result.isSuccess, isTrue, reason: result.message);
+      expect(c.isFiftyProofTurn, isTrue);
 
-      // Strict tier penalizes but does NOT remove from the round.
+      final exit = c.applyAction(
+        'discard:${southStuckHand.first.id}',
+      );
+      expect(exit.isSuccess, isTrue, reason: exit.message);
+
+      // Strict tier penalizes at the unproven exit but does NOT remove from
+      // the round — the turn ends normally.
       expect(
         c.removedSeats.contains(PlayerSeat.south),
         isFalse,

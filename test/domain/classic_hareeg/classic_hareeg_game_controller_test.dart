@@ -243,7 +243,7 @@ void main() {
       );
     });
 
-    test('pending state limits legal actions to use or return', () {
+    test('pending state blocks ending the turn but keeps return legal', () {
       final controller = _freshControllerInActionPhase();
       final south = controller.handFor(PlayerSeat.south);
       final discardedByHuman = south.firstWhere((c) => !c.isJoker);
@@ -255,10 +255,29 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       expect(controller.pendingDiscard?.id, discardedByHuman.id);
+      // Relaxed taken-discard rule: table plays stay legal while the pending
+      // card is unused, but the turn cannot end — no discard ids surface and
+      // draw decisions are gone.
+      final legal = controller.legalActionIdsFor(PlayerSeat.east);
+      expect(legal, contains(ClassicHareegActionIds.returnPendingDiscard));
       expect(
-        controller.legalActionIdsFor(PlayerSeat.east),
-        equals([ClassicHareegActionIds.returnPendingDiscard]),
+        legal.where(
+          (id) => ClassicHareegActionIds.describe(id).isDiscard,
+        ),
+        isEmpty,
       );
+      expect(legal, isNot(contains(ClassicHareegActionIds.drawStock)));
+      expect(legal, isNot(contains(ClassicHareegActionIds.takeDiscard)));
+
+      // Ending the turn with the taken card unused is refused outright.
+      final eastHand = controller.handFor(PlayerSeat.east);
+      final otherCard = eastHand.firstWhere(
+        (c) => !c.isJoker && c.id != discardedByHuman.id,
+      );
+      final blockedDiscard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${otherCard.id}',
+      );
+      expect(blockedDiscard.isSuccess, isFalse);
     });
 
     test('returning a pending discard goes back to draw decision', () {
@@ -1793,12 +1812,16 @@ void main() {
       },
     );
 
-    test('pending discard must be part of the played meld', () {
+    test('pending discard may be used after an unrelated meld (relaxed)', () {
       final pending = _card(CardRank.eight, CardSuit.clubs, 21);
       final otherMeld = [
         _card(CardRank.seven, CardSuit.clubs, 22),
         _card(CardRank.seven, CardSuit.diamonds, 22),
         _card(CardRank.seven, CardSuit.hearts, 22),
+      ];
+      final pendingMeld = [
+        _card(CardRank.eight, CardSuit.diamonds, 23),
+        _card(CardRank.eight, CardSuit.hearts, 23),
       ];
       final controller = ClassicHareegGameController.fromSnapshot(
         _snapshot(
@@ -1807,25 +1830,50 @@ void main() {
             PlayerSeat.south: [
               pending,
               ...otherMeld,
+              ...pendingMeld,
               ...defaults[PlayerSeat.south]!,
             ],
           },
           currentSeat: PlayerSeat.south,
           turnPhase: TurnPhase.action,
           pendingDiscard: pending,
+          openingState: _opened(PlayerSeat.south),
         ),
       );
 
-      final result = controller.applyAction(
+      // An unrelated meld is legal while the taken card sits unused.
+      final unrelated = controller.applyAction(
         ClassicHareegActionIds.playMeldActionId(
           otherMeld.map((card) => card.id),
         ),
       );
-
-      expect(result.isSuccess, isFalse);
-      expect(result.message, contains('picked up discard'));
+      expect(unrelated.isSuccess, isTrue);
       expect(controller.pendingDiscard?.id, pending.id);
-      expect(controller.tableMeldsFor(PlayerSeat.south), isEmpty);
+
+      // But the turn cannot end while it is unused...
+      final hand = controller.handFor(PlayerSeat.south);
+      final blocked = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${hand.firstWhere((c) => !c.isJoker && c.id != pending.id).id}',
+      );
+      expect(blocked.isSuccess, isFalse);
+
+      // ...and the taken card itself can never be the closing discard.
+      final pendingDiscarded = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${pending.id}',
+      );
+      expect(pendingDiscarded.isSuccess, isFalse);
+
+      // Using it in a later meld clears the obligation.
+      final usesPending = controller.applyAction(
+        ClassicHareegActionIds.playMeldActionId([
+          pending.id,
+          ...pendingMeld.map((card) => card.id),
+        ]),
+      );
+      expect(usesPending.isSuccess, isTrue);
+      expect(controller.pendingDiscard, isNull);
+      expect(controller.tableMeldsFor(PlayerSeat.south), hasLength(2));
     });
   });
 
@@ -1920,10 +1968,36 @@ void main() {
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
 
+      // Prove-it flow: the claim is accepted without a claim-time fee; the
+      // claimed card joins the hand and the proof turn begins.
       expect(result.isSuccess, isTrue);
+      expect(controller.scores[PlayerSeat.east], 0);
+      expect(controller.isFiftyProofTurn, isTrue);
+      expect(controller.currentSeat, PlayerSeat.east);
+      expect(controller.cardCountFor(PlayerSeat.east), 4);
+
+      // The claimed card itself can never be the exit discard.
+      final claimedDiscard = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}${discarded.id}',
+      );
+      expect(claimedDiscard.isSuccess, isFalse);
+
+      // Ending the proof turn unproven charges +3, returns the unused
+      // claimed card to the pile (beneath the exit), and the turn ends
+      // normally.
+      final exit = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${_card(CardRank.two, CardSuit.hearts, 31).id}',
+      );
+      expect(exit.isSuccess, isTrue);
       expect(controller.scores[PlayerSeat.east], 3);
       expect(controller.isRoundOver, isFalse);
-      expect(controller.currentSeat, PlayerSeat.east);
+      expect(controller.isFiftyProofTurn, isFalse);
+      expect(controller.currentSeat, isNot(PlayerSeat.east));
+      expect(controller.cardCountFor(PlayerSeat.east), 2);
+      final pile = controller.discardPile;
+      expect(pile.length, greaterThanOrEqualTo(2));
+      expect(pile[pile.length - 2].id, discarded.id);
     });
 
     test('table tier wrong Fifty claims add +17 and can end the round', () {
@@ -1955,7 +2029,18 @@ void main() {
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
 
+      // Prove-it flow: the claim is accepted; removal fires at the unproven
+      // exit, not at claim time.
       expect(result.isSuccess, isTrue);
+      expect(controller.scores[PlayerSeat.east], 0);
+      expect(controller.isFiftyProofTurn, isTrue);
+
+      final exit = controller.applyAction(
+        '${ClassicHareegActionIds.discardPrefix}'
+        '${_card(CardRank.two, CardSuit.hearts, 231).id}',
+      );
+
+      expect(exit.isSuccess, isTrue);
       expect(controller.scoreView.previousScores[PlayerSeat.east], 17);
       expect(controller.roundOutcome, RoundOutcomeType.normalFinish);
       expect(controller.roundResult?.winner, PlayerSeat.south);
@@ -2062,10 +2147,11 @@ void main() {
       );
 
       final result = controller.applyAction(ClassicHareegActionIds.claimFifty);
+      expect(result.isSuccess, isTrue);
+      _driveFiftyProof(controller, PlayerSeat.east);
       final progress = controller.roundProgress;
       final next = controller.nextRoundSnapshot(savedAt: now);
 
-      expect(result.isSuccess, isTrue);
       expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
       expect(controller.scores[PlayerSeat.east], -3);
       expect(controller.scores[PlayerSeat.south], 14);
@@ -2110,6 +2196,8 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
+        _driveFiftyProof(controller, PlayerSeat.east);
+        expect(controller.roundOutcome, RoundOutcomeType.fiftyFinish);
         expect(controller.handFor(PlayerSeat.east), isEmpty);
         // The 7-8-9 of clubs run (using the claimed 9♣) is now on East's table.
         final tableCardIds = [
@@ -2121,6 +2209,59 @@ void main() {
         expect(tableCardIds, contains(eastFinishCards[1].id));
       },
     );
+
+    test('a mid-proof Fifty claim survives a snapshot round-trip', () {
+      final now = DateTime.utc(2026, 5, 19, 12);
+      final discarded = _card(CardRank.nine, CardSuit.clubs, 133);
+      final eastFinishCards = [
+        _card(CardRank.seven, CardSuit.clubs, 133),
+        _card(CardRank.eight, CardSuit.clubs, 133),
+        _card(CardRank.two, CardSuit.hearts, 133),
+      ];
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.east: eastFinishCards,
+          },
+          discardPile: [discarded],
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          roundNumber: 2,
+          savedAt: now,
+          fiftyWindowOpenedAt: now,
+        ),
+        now: () => now,
+      );
+      expect(
+        controller.applyAction(ClassicHareegActionIds.claimFifty).isSuccess,
+        isTrue,
+      );
+      // Play the first proof step so this-turn table plays exist, then save.
+      final step = controller.cpuActionIdsFor(PlayerSeat.east);
+      expect(controller.applyAction(step.first).isSuccess, isTrue);
+      expect(controller.isFiftyProofTurn, isTrue);
+
+      final restored = ClassicHareegGameController.fromSnapshot(
+        controller.toSnapshot(savedAt: now),
+        now: () => now,
+      );
+
+      // The checkpoint reverted the proof's table plays: the claimed card is
+      // back in the hand as the pending discard and the claim is live again.
+      expect(restored.isFiftyProofTurn, isTrue);
+      expect(restored.fiftyProofClaimedCardId, discarded.id);
+      expect(restored.pendingDiscard?.id, discarded.id);
+      expect(restored.cardCountFor(PlayerSeat.east), 4);
+      // No live window resurrects alongside the resumed proof.
+      expect(restored.fiftyClaimant, isNull);
+
+      // The resumed proof completes as a Fifty finish (script rebuilds
+      // lazily from the restored state).
+      _driveFiftyProof(restored, PlayerSeat.east);
+      expect(restored.roundOutcome, RoundOutcomeType.fiftyFinish);
+      expect(restored.scores[PlayerSeat.east], -3);
+    });
 
     test('table tier mistakes add +17 and remove the player from round', () {
       final meldCards = [
@@ -2937,6 +3078,27 @@ ClassicHareegMatchSnapshot _snapshot({
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 19),
   );
+}
+
+/// Replays the CPU proof surface until the active Fifty claim resolves.
+void _driveFiftyProof(
+  ClassicHareegGameController controller,
+  PlayerSeat seat,
+) {
+  var safety = 0;
+  while (!controller.isRoundOver &&
+      controller.isFiftyProofTurn &&
+      safety < 24) {
+    final actions = controller.cpuActionIdsFor(seat);
+    expect(
+      actions,
+      isNotEmpty,
+      reason: 'proof surface must offer the next step',
+    );
+    final result = controller.applyAction(actions.first);
+    expect(result.isSuccess, isTrue, reason: result.message);
+    safety += 1;
+  }
 }
 
 OpeningState _opened(PlayerSeat seat) {

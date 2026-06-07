@@ -439,9 +439,12 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 topDiscard: topDiscard,
                 pendingDiscard: pendingDiscard,
                 cardSize: tableCardSize,
-                canTake: isHumanTurn && canTakeDiscard,
+                canTake: isHumanTurn && (canTakeDiscard || canClaimFifty),
                 canReturn: isHumanTurn && canReturnDiscard,
-                onTake: onTakeDiscard,
+                // While the Fifty window is live, grabbing the thrown card IS
+                // the claim — the cue ring and the card share the tap area.
+                // A plain take returns as soon as the window closes.
+                onTake: canClaimFifty ? onClaimFifty : onTakeDiscard,
                 onReturn: onReturnDiscard,
                 onCardLongPress: onCardLongPress,
                 canAcceptDiscard: canDiscardCard,

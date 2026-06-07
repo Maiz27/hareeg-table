@@ -52,6 +52,15 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   final fiftyWindowIsFirstDealtRound = asJsonBool(
     json['fiftyWindowIsFirstDealtRound'],
   );
+  // Mid-proof Fifty claim state, v1-additive: absent in older saves (the
+  // auto-claim flow never persisted mid-claim).
+  final activeFiftyClaimCardId = asJsonString(json['activeFiftyClaimCardId']);
+  final activeFiftyClaimDiscarder = PlayerSeat.fromName(
+    asJsonString(json['activeFiftyClaimDiscarder']),
+  );
+  final activeFiftyClaimIsFirstDealtRound = asJsonBool(
+    json['activeFiftyClaimIsFirstDealtRound'],
+  );
   // roundNumber is hard-required: a missing or unparseable value used to
   // collapse to round 1 (`?? 1`), silently turning a later-round Fifty into
   // the first-dealt-round -1 scoring exception (and persisting the wrong
@@ -119,6 +128,9 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
     fiftyWindowDiscarder: fiftyWindowDiscarder,
     fiftyWindowIsFirstDealtRound: fiftyWindowIsFirstDealtRound,
+    activeFiftyClaimCardId: activeFiftyClaimCardId,
+    activeFiftyClaimDiscarder: activeFiftyClaimDiscarder,
+    activeFiftyClaimIsFirstDealtRound: activeFiftyClaimIsFirstDealtRound,
     savedAt: savedAt,
     discardHistoryEvents: discardHistoryEvents,
   );
@@ -153,6 +165,10 @@ Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) 
     'fiftyWindowOpenedAt': snapshot.fiftyWindowOpenedAt?.toIso8601String(),
     'fiftyWindowDiscarder': snapshot.fiftyWindowDiscarder?.name,
     'fiftyWindowIsFirstDealtRound': snapshot.fiftyWindowIsFirstDealtRound,
+    'activeFiftyClaimCardId': snapshot.activeFiftyClaimCardId,
+    'activeFiftyClaimDiscarder': snapshot.activeFiftyClaimDiscarder?.name,
+    'activeFiftyClaimIsFirstDealtRound':
+        snapshot.activeFiftyClaimIsFirstDealtRound,
     'savedAt': snapshot.savedAt.toIso8601String(),
     'discardHistory': {
       'events': [

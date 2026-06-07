@@ -723,6 +723,53 @@ void main() {
       expect(cueRect.center.dy, lessThan(discardRect.center.dy));
     });
 
+    testWidgets('tapping the thrown card claims while the window is live', (
+      tester,
+    ) async {
+      // The fifty cue and the card itself share the tap area: grabbing the
+      // thrown card IS the claim while the window is open.
+      final discard = _card(CardRank.nine, CardSuit.clubs, 93);
+      var claims = 0;
+      var takes = 0;
+      await _pumpPlayfield(
+        tester,
+        discardPile: [discard],
+        topDiscard: discard,
+        fiftySecondsRemaining: 4,
+        isHumanTurn: true,
+        currentSeat: PlayerSeat.south,
+        canTakeDiscard: true,
+        canClaimFifty: true,
+        onTakeDiscard: () => takes += 1,
+        onClaimFifty: () => claims += 1,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+      await tester.pump();
+
+      expect(claims, 1);
+      expect(takes, 0);
+
+      // Once the claim leaves the surface (window closed), the same tap is a
+      // plain take again.
+      await _pumpPlayfield(
+        tester,
+        discardPile: [discard],
+        topDiscard: discard,
+        isHumanTurn: true,
+        currentSeat: PlayerSeat.south,
+        canTakeDiscard: true,
+        onTakeDiscard: () => takes += 1,
+        onClaimFifty: () => claims += 1,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+      await tester.pump();
+
+      expect(claims, 1);
+      expect(takes, 1);
+    });
+
     testWidgets('pending discard can be returned from the discard pile', (
       tester,
     ) async {
@@ -1594,6 +1641,10 @@ Future<void> _pumpPlayfield(
   bool isHumanTurn = false,
   PlayerSeat currentSeat = PlayerSeat.south,
   Size size = const Size(900, 500),
+  bool canTakeDiscard = false,
+  bool canClaimFifty = false,
+  VoidCallback? onTakeDiscard,
+  VoidCallback? onClaimFifty,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -1634,14 +1685,14 @@ Future<void> _pumpPlayfield(
             onPlayCardOnMeld: (_, _) {},
             onRetractMeld: (_, _) {},
             canDrawStock: false,
-            canTakeDiscard: false,
+            canTakeDiscard: canTakeDiscard,
             canReturnDiscard: false,
-            canClaimFifty: false,
+            canClaimFifty: canClaimFifty,
             canReturnOpeningMelds: false,
             onDrawStock: () {},
-            onTakeDiscard: () {},
+            onTakeDiscard: onTakeDiscard ?? () {},
             onReturnDiscard: () {},
-            onClaimFifty: () {},
+            onClaimFifty: onClaimFifty ?? () {},
             onReturnOpeningMelds: () {},
             fiftySecondsRemaining: fiftySecondsRemaining,
             fiftyTotalSeconds: 50,

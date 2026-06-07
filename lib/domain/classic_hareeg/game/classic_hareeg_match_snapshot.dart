@@ -54,6 +54,9 @@ class ClassicHareegMatchSnapshot {
     this.fiftyWindowOpenedAt,
     this.fiftyWindowDiscarder,
     this.fiftyWindowIsFirstDealtRound,
+    this.activeFiftyClaimCardId,
+    this.activeFiftyClaimDiscarder,
+    this.activeFiftyClaimIsFirstDealtRound,
     this.discardHistoryEvents = const [],
   });
 
@@ -128,6 +131,19 @@ class ClassicHareegMatchSnapshot {
   /// instead of being re-derived from [roundNumber]. Older saves without this
   /// field fall back to the legacy `roundNumber == 1` derivation.
   final bool? fiftyWindowIsFirstDealtRound;
+
+  /// Physical id of the claimed card when a Fifty proof turn was active at
+  /// save time, or null. The checkpoint reverts the proof's table plays, so
+  /// the claimed card sits back in the claimant's hand as the pending
+  /// discard; restore resumes the proof turn from its start. v1-additive —
+  /// absent in older saves (no claim was ever mid-proof there).
+  final String? activeFiftyClaimCardId;
+
+  /// Seat whose discard was claimed during the active proof turn, or null.
+  final PlayerSeat? activeFiftyClaimDiscarder;
+
+  /// Whether the active proof claim carried the first-dealt-round exception.
+  final bool? activeFiftyClaimIsFirstDealtRound;
 
   /// Time the snapshot was saved.
   final DateTime savedAt;

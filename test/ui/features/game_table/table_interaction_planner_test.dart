@@ -181,18 +181,19 @@ void main() {
       expect(result.actionId, groupAction);
     });
 
-    test('pending discard must be included in table drops', () {
+    test('table drops without the pending discard stay legal (relaxed)', () {
+      // Relaxed taken-discard rule: a meld that does not include the pending
+      // card is a legal play; only ending the turn is gated on its use.
       final pending = _card(CardRank.queen, CardSuit.clubs, 7);
       final first = _card(CardRank.five, CardSuit.hearts, 7);
       final second = _card(CardRank.six, CardSuit.hearts, 7);
       final third = _card(CardRank.seven, CardSuit.hearts, 7);
       final ids = [first.id, second.id, third.id];
+      final meldAction = ClassicHareegActionIds.playMeldActionId(ids);
       final planner = _planner(
         reader: _FakeTableInteractionActionReader(
           pendingDiscard: pending,
-          selectedMeldActions: {
-            _key(ids): ClassicHareegActionIds.playMeldActionId(ids),
-          },
+          selectedMeldActions: {_key(ids): meldAction},
         ),
         selectedCardIds: ids,
         handCards: [pending, first, second, third],
@@ -200,9 +201,9 @@ void main() {
 
       final result = planner.resolveTableDrop(first);
 
-      expect(result.scenario, TableInteractionScenario.blockedTableDrop);
-      expect(result.isAction, isFalse);
-      expect(planner.canDropCardToTable(first), isFalse);
+      expect(result.scenario, TableInteractionScenario.tableMeld);
+      expect(result.actionId, meldAction);
+      expect(planner.canDropCardToTable(first), isTrue);
     });
 
     test('specific meld drops prioritize cover before joker replacement', () {

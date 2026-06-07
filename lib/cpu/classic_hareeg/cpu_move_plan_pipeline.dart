@@ -1,5 +1,6 @@
 import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart';
+import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import 'cpu_difficulty_profile.dart';
@@ -118,6 +119,17 @@ class CpuMovePlanPipeline {
       return const ClassicHareegCpuMovePlan(
         scenario: ClassicHareegCpuMoveScenario.noLegalActions,
         actionId: null,
+      );
+    }
+
+    // Mid-proof on a claimed Fifty the rules engine serves the next step of
+    // the validated finish plan as the single legal action. Take it verbatim:
+    // a tier's own partition ranking could pick a different meld and break
+    // the planned cover routing.
+    if (observation.ownIsFiftyProofTurn) {
+      return ClassicHareegCpuMovePlan(
+        scenario: ClassicHareegCpuMoveScenario.fiftyProof,
+        actionId: actions.first.actionId,
       );
     }
 
@@ -403,12 +415,13 @@ class CpuMovePlanPipeline {
 }
 
 /// True when the CPU seat owns the Fifty claim window and actually has a
-/// finishing partition — i.e. the claim would land on the success branch
+/// finishing plan — i.e. the claim would land on the success branch
 /// instead of the wrong-claim mistake branch.
 ///
 /// Shared across every tier: the rules engine advertises claim-fifty for any
 /// open window so humans can attempt wrong claims, and the CPU should never
-/// take that branch.
+/// take that branch. Cover-aware: a finish that routes through covers of
+/// existing table melds counts.
 bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
   if (!observation.ownIsFiftyClaimant) return false;
   final discarded = observation.topDiscard;
@@ -417,6 +430,10 @@ bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
           hand: observation.ownHand,
           discarded: discarded,
           playerOpened: observation.ownHasOpened(),
+          coverTargets: ClassicHareegFinishCoverTarget.allFrom(
+            observation.tableMelds,
+          ),
+          openingRequirement: observation.currentOpeningRequirement,
         ) !=
         null;
   }

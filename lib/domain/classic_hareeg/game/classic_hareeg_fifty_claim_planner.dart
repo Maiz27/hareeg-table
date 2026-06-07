@@ -35,8 +35,10 @@ enum ClassicHareegFiftyClaimScenario {
   /// The claim is not a finish and the active strictness blocks it.
   blockedWrongClaim,
 
-  /// The claim is not a finish and the active strictness penalizes it.
-  penalizedWrongClaim,
+  /// Penalty tiers accept the claim without proof; the claimant takes the
+  /// card and must prove the finish before the turn ends, or eat the
+  /// tier consequence at exit.
+  unprovenClaimAccepted,
 }
 
 /// Whether the caller is asking about action ids or applying the claim.
@@ -48,19 +50,45 @@ enum ClassicHareegFiftyClaimPurpose {
   apply,
 }
 
-/// Planned perfect-hand finish using the previous discard.
+/// Planned full-hand finish using the previous discard.
+///
+/// A finish may route through [covers] — extensions of existing table melds —
+/// in addition to fresh [melds]. Every hand card plus the claimed discard is
+/// consumed by exactly one meld or cover, except [finalDiscard].
 class ClassicHareegFinishPlan {
   /// Creates a finish plan.
   const ClassicHareegFinishPlan({
     required this.melds,
+    this.covers = const [],
     required this.finalDiscard,
   });
 
-  /// Melds that use every card except [finalDiscard].
+  /// Fresh melds in the plan.
   final List<PlacedMeld> melds;
+
+  /// Cover placements extending existing table melds.
+  final List<ClassicHareegFinishPlanCover> covers;
 
   /// Final discard that completes the finish.
   final HareegCard finalDiscard;
+
+  /// All played groups — fresh melds plus covers as value snapshots — in the
+  /// shape finish/claim validation consumes.
+  List<PlacedMeld> get allPlayedMelds {
+    if (covers.isEmpty) {
+      return melds;
+    }
+    return [
+      ...melds,
+      for (final cover in covers)
+        PlacedMeld(
+          cards: List.unmodifiable(cover.cards),
+          valueSnapshot: cover.cards.fold<int>(0, (total, card) {
+            return total + (card.effectiveIdentity?.rank.value ?? 0);
+          }),
+        ),
+    ];
+  }
 }
 
 /// Complete Fifty claim decision for one seat.
@@ -73,7 +101,6 @@ class ClassicHareegFiftyClaimPlan {
     required this.message,
     this.finishPlan,
     this.claimResult,
-    this.mistakeResolution,
   });
 
   /// Identified claim scenario.
@@ -93,12 +120,6 @@ class ClassicHareegFiftyClaimPlan {
 
   /// Pure Fifty validation result, when a finish plan was available.
   final FiftyClaimResult? claimResult;
-
-  /// Mistake behavior when a wrong claim is allowed by the active strictness.
-  final MistakeResolution? mistakeResolution;
-
-  /// Whether this claim proceeds as a mistake penalty instead of a finish.
-  bool get appliesMistake => mistakeResolution?.isAllowed ?? false;
 }
 
 /// Resolves Fifty visibility and claim application as one rich scenario.
@@ -180,7 +201,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       window: window,
       claimant: claimant,
       elapsedSeconds: elapsedSeconds,
-      finishingMelds: finishPlan.melds,
+      finishingMelds: finishPlan.allPlayedMelds,
       finalDiscard: finishPlan.finalDiscard,
     );
     if (!claim.isValid) {
@@ -195,45 +216,6 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       finishPlan: finishPlan,
       claimResult: claim,
     );
-  }
-
-  /// Finds a perfect-hand finish that must use [discarded].
-  static ClassicHareegFinishPlan? finishPlanForClaim({
-    required List<HareegCard> hand,
-    required HareegCard discarded,
-    required bool playerOpened,
-    ClassicHareegFinishPlanner? planner,
-  }) {
-    final cards = [...hand, discarded];
-    final finishPlanner = planner ?? ClassicHareegFinishPlanner(cards);
-    if (!finishPlanner.hasValidMeldContaining(discarded.id)) {
-      return null;
-    }
-
-    for (final finalDiscard in cards) {
-      if (finalDiscard.id == discarded.id) {
-        continue;
-      }
-      final melds = finishPlanner.partitionWithout(finalDiscard);
-      if (melds == null) {
-        continue;
-      }
-
-      final finish = ClassicHareegFinishRules.validateFinish(
-        playedMelds: melds,
-        finalDiscard: finalDiscard,
-        playerOpened: playerOpened,
-        source: FinishCardSource.previousDiscard,
-        perfectHandAttempt: true,
-      );
-      if (finish.isValid) {
-        return ClassicHareegFinishPlan(
-          melds: melds,
-          finalDiscard: finalDiscard,
-        );
-      }
-    }
-    return null;
   }
 
   static ClassicHareegFiftyClaimPlan _wrongClaimPlan({
@@ -253,12 +235,69 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       );
     }
 
-    return ClassicHareegFiftyClaimPlan(
-      scenario: ClassicHareegFiftyClaimScenario.penalizedWrongClaim,
+    // Prove-it flow: a wrong claim is no longer penalized at claim time. The
+    // permissive tiers accept the claim — the claimant takes the card and the
+    // tier consequence fires only if the turn ends unproven.
+    return const ClassicHareegFiftyClaimPlan(
+      scenario: ClassicHareegFiftyClaimScenario.unprovenClaimAccepted,
       shouldAdvertise: true,
       canApply: true,
-      message: resolution.message,
-      mistakeResolution: resolution,
+      message: 'Fifty claimed — prove the finish before ending the turn.',
     );
   }
+
+  /// Finds a full-hand finish that must use [discarded].
+  ///
+  /// With [coverTargets] supplied, finishes may route through covers of
+  /// existing table melds. For an unopened claimant a cover-routed plan is
+  /// only valid when its fresh melds independently reach
+  /// [openingRequirement]; melds-only perfect hands stay exempt.
+  static ClassicHareegFinishPlan? finishPlanForClaim({
+    required List<HareegCard> hand,
+    required HareegCard discarded,
+    required bool playerOpened,
+    List<ClassicHareegFinishCoverTarget> coverTargets = const [],
+    int? openingRequirement,
+    ClassicHareegFinishPlanner? planner,
+  }) {
+    final cards = [...hand, discarded];
+    final finishPlanner =
+        planner ??
+        ClassicHareegFinishPlanner(
+          cards,
+          coverTargets: coverTargets,
+          coverPlanMinimumMeldValue: playerOpened ? null : openingRequirement,
+        );
+    if (!finishPlanner.hasFinishUseContaining(discarded.id)) {
+      return null;
+    }
+
+    for (final finalDiscard in cards) {
+      if (finalDiscard.id == discarded.id) {
+        continue;
+      }
+      final parts = finishPlanner.planWithout(finalDiscard);
+      if (parts == null) {
+        continue;
+      }
+
+      final plan = ClassicHareegFinishPlan(
+        melds: parts.melds,
+        covers: parts.covers,
+        finalDiscard: finalDiscard,
+      );
+      final finish = ClassicHareegFinishRules.validateFinish(
+        playedMelds: plan.allPlayedMelds,
+        finalDiscard: finalDiscard,
+        playerOpened: playerOpened,
+        source: FinishCardSource.previousDiscard,
+        perfectHandAttempt: true,
+      );
+      if (finish.isValid) {
+        return plan;
+      }
+    }
+    return null;
+  }
+
 }

@@ -11,6 +11,16 @@ final class _ClassicHareegActionApplication {
   final ClassicHareegGameController _controller;
 
   ApplyActionResult apply(String actionId) {
+    final result = _applyRouted(actionId);
+    if (result.isSuccess && !result.wasReverted) {
+      // Keep the active Fifty proof script (if any) in step with what was
+      // just played, so the CPU surface serves the next proof action.
+      _controller._onActionApplied(actionId);
+    }
+    return result;
+  }
+
+  ApplyActionResult _applyRouted(String actionId) {
     if (_controller._roundOutcome != null) {
       return const ApplyActionResult.failure('Round has ended.');
     }

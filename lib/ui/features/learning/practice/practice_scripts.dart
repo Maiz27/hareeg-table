@@ -271,13 +271,17 @@ abstract final class PracticeScripts {
           // The pair the take completes rings alongside the pile.
           highlightCardIds: {for (final card in eightPair) card.id},
         ),
-        // The engine forces the pending eight into the first play, so any
-        // successful meld here is the eights — staged at 24.
-        PracticeStep.kinds(
+        // The relaxed taken-discard rule lets any meld hit the table while
+        // the eight sits pending, so the step pins the eights explicitly —
+        // the lesson teaches using the taken card in the meld it completes.
+        PracticeStep(
           prompt: (s) => s.practiceDiscardOpeningStep2,
           hint: (s) => s.practiceDiscardOpeningStep2Hint,
           successNote: (s) => s.practiceDiscardOpeningStep2Done,
-          kinds: const {ClassicHareegActionKind.playMeld},
+          allows: _playsExactly({
+            for (final card in eightPair) card.id,
+            eightDiamonds.id,
+          }),
           highlightCardIds: {
             for (final card in eightPair) card.id,
             eightDiamonds.id,
