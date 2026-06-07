@@ -27,8 +27,7 @@ class StrictnessExplainerScreen extends StatefulWidget {
       _StrictnessExplainerScreenState();
 }
 
-class _StrictnessExplainerScreenState
-    extends State<StrictnessExplainerScreen> {
+class _StrictnessExplainerScreenState extends State<StrictnessExplainerScreen> {
   @override
   void initState() {
     super.initState();
@@ -141,10 +140,7 @@ class _TierCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: LoungeTokens.space2),
-                Text(
-                  body,
-                  style: LoungeTokens.bodyMuted.copyWith(height: 1.4),
-                ),
+                Text(body, style: LoungeTokens.bodyMuted.copyWith(height: 1.4)),
               ],
             ),
           ),
