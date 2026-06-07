@@ -51,6 +51,17 @@ class PriorityCpuMovePlanner implements CpuMovePlanner {
 
   @override
   ClassicHareegCpuMovePlan plan(CpuObservation observation) {
+    // Mid-proof on a claimed Fifty the engine serves the next step of the
+    // validated finish plan as the single legal action — take it verbatim
+    // instead of re-deriving the move by kind priority.
+    if (observation.ownIsFiftyProofTurn &&
+        observation.legalActionIds.isNotEmpty) {
+      return ClassicHareegCpuMovePlan(
+        scenario: ClassicHareegCpuMoveScenario.fiftyProof,
+        actionId: observation.legalActionIds.first,
+      );
+    }
+
     // The rules engine advertises claim-fifty even for hopeless claims so
     // human players can attempt a wrong-claim (penalty) flow. CPU has no
     // upside in attempting one — it loops the priority pick until the

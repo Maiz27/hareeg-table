@@ -1982,7 +1982,9 @@ void main() {
       );
       expect(claimedDiscard.isSuccess, isFalse);
 
-      // Ending the proof turn unproven charges +3 and the turn ends normally.
+      // Ending the proof turn unproven charges +3, returns the unused
+      // claimed card to the pile (beneath the exit), and the turn ends
+      // normally.
       final exit = controller.applyAction(
         '${ClassicHareegActionIds.discardPrefix}'
         '${_card(CardRank.two, CardSuit.hearts, 31).id}',
@@ -1992,6 +1994,9 @@ void main() {
       expect(controller.isRoundOver, isFalse);
       expect(controller.isFiftyProofTurn, isFalse);
       expect(controller.currentSeat, isNot(PlayerSeat.east));
+      expect(controller.cardCountFor(PlayerSeat.east), 2);
+      final pile = controller.discardPile;
+      expect(pile[pile.length - 2].id, discarded.id);
     });
 
     test('table tier wrong Fifty claims add +17 and can end the round', () {

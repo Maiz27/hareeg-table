@@ -222,7 +222,9 @@ void main() {
             );
           } else {
             // Strict: South still around — the round continues with them
-            // still on the active list, and the turn ended normally.
+            // still on the active list, and the turn ended normally. The
+            // called-off claim hands the claimed card back to the pile,
+            // beneath the exit discard.
             final snapshot = controller.toSnapshot();
             expect(
               snapshot.removedSeats,
@@ -233,6 +235,20 @@ void main() {
               controller.topDiscard?.id,
               exitCard.id,
               reason: '${tier.name}: the exit discard lands normally',
+            );
+            final pile = controller.discardPile;
+            expect(
+              pile[pile.length - 2].id,
+              fixture.discard.id,
+              reason:
+                  '${tier.name}: the claimed card returns beneath the exit',
+            );
+            expect(
+              controller
+                  .handFor(PlayerSeat.south)
+                  .map((card) => card.id),
+              isNot(contains(fixture.discard.id)),
+              reason: '${tier.name}: the claimed card leaves the hand',
             );
           }
         });

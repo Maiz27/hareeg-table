@@ -357,12 +357,9 @@ abstract final class ClassicHareegCoachingAdvisor {
       }
     }
 
-    // Fallback: a pending discard must be resolved (used in a meld or returned)
-    // before any other meld can be played, so do not suggest an unrelated meld
-    // while one is pending — that play would be rejected by the rules engine.
-    if (controller.pendingDiscard != null) {
-      return;
-    }
+    // Relaxed taken-discard rule: melds that do not use the pending card are
+    // legal, so the fallback may suggest them — the turn simply cannot end
+    // while the taken card sits unused.
     final hand = analysis.hand;
     final partition = analysis.bestPartition;
     if (partition == null) {

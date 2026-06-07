@@ -430,28 +430,14 @@ bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
           hand: observation.ownHand,
           discarded: discarded,
           playerOpened: observation.ownHasOpened(),
-          coverTargets: coverTargetsForObservation(observation),
+          coverTargets: ClassicHareegFinishCoverTarget.allFrom(
+            observation.tableMelds,
+          ),
           openingRequirement: observation.currentOpeningRequirement,
         ) !=
         null;
   }
   return observation.finishingPartition() != null;
-}
-
-/// Every table meld in [observation] as a cover target for cover-aware
-/// finish planning.
-List<ClassicHareegFinishCoverTarget> coverTargetsForObservation(
-  CpuObservation observation,
-) {
-  return [
-    for (final entry in observation.tableMelds.entries)
-      for (var index = 0; index < entry.value.length; index += 1)
-        ClassicHareegFinishCoverTarget(
-          owner: entry.key,
-          meldIndex: index,
-          meldCards: entry.value[index].cards,
-        ),
-  ];
 }
 
 /// True when the CPU should actually take a valid Fifty claim.

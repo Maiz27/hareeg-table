@@ -13,6 +13,22 @@ class ClassicHareegFinishCoverTarget {
     required this.meldCards,
   });
 
+  /// Every meld in [tableMelds] as a cover target — the single way cover
+  /// targets are derived, shared by the controller and the CPU layer.
+  static List<ClassicHareegFinishCoverTarget> allFrom(
+    Map<PlayerSeat, List<PlacedMeld>> tableMelds,
+  ) {
+    return [
+      for (final entry in tableMelds.entries)
+        for (var index = 0; index < entry.value.length; index += 1)
+          ClassicHareegFinishCoverTarget(
+            owner: entry.key,
+            meldIndex: index,
+            meldCards: entry.value[index].cards,
+          ),
+    ];
+  }
+
   /// Seat that owns the table meld.
   final PlayerSeat owner;
 

@@ -1381,7 +1381,7 @@ class ClassicHareegGameController {
 
   ApplyActionResult _applyDiscard(String cardId) {
     final hand = _handFor(_currentSeat);
-    final index = hand.indexWhere((card) => card.id == cardId);
+    var index = hand.indexWhere((card) => card.id == cardId);
     if (index == -1) {
       return ApplyActionResult.failure('Card "$cardId" is not in the hand.');
     }
@@ -1406,8 +1406,10 @@ class ClassicHareegGameController {
           return result;
         case _FiftyProofExitPenalized(:final message):
           // Strict tier: the penalty is charged and the turn ends normally
-          // with this discard.
+          // with this discard. The gate may have returned the unused claimed
+          // card to the pile, shifting hand indices.
           fiftyExitMessage = message;
+          index = hand.indexWhere((candidate) => candidate.id == cardId);
         case _FiftyProofExitProven():
           fiftyProofComplete = true;
       }
@@ -1527,6 +1529,19 @@ class ClassicHareegGameController {
     return ApplyActionResult.success(successMessage);
   }
 
+  /// Whether discarding [finalDiscard] right now completes a valid finish —
+  /// the single proof-completion condition shared by the apply gate and the
+  /// proof-turn discard surface, so they can never disagree.
+  bool _provesFiftyFinish(HareegCard finalDiscard) {
+    return ClassicHareegFinishRules.validateFinish(
+      playedMelds: _turnFinishPlays,
+      finalDiscard: finalDiscard,
+      playerOpened: _openingState.hasOpened(_currentSeat),
+      source: _turnSource,
+      perfectHandAttempt: !_openingState.hasOpened(_currentSeat),
+    ).isValid;
+  }
+
   /// Resolves how a discard attempt exits an active Fifty proof turn.
   ///
   /// The claimed card can never be the discard. A final discard with the
@@ -1549,17 +1564,8 @@ class ClassicHareegGameController {
     }
 
     final claimedCardUsed = _pendingDiscard == null;
-    if (isFinalDiscard && claimedCardUsed) {
-      final finish = ClassicHareegFinishRules.validateFinish(
-        playedMelds: _turnFinishPlays,
-        finalDiscard: card,
-        playerOpened: _openingState.hasOpened(_currentSeat),
-        source: _turnSource,
-        perfectHandAttempt: !_openingState.hasOpened(_currentSeat),
-      );
-      if (finish.isValid) {
-        return const _FiftyProofExitProven();
-      }
+    if (isFinalDiscard && claimedCardUsed && _provesFiftyFinish(card)) {
+      return const _FiftyProofExitProven();
     }
 
     // The exit is unproven. It must ride a plain discard — blocked cards keep
@@ -1588,6 +1594,19 @@ class ClassicHareegGameController {
         ApplyActionResult.failure('Prove the Fifty before ending the turn.'),
       );
     }
+    // The priced exit hands the unused claimed card back to the pile, so an
+    // exit that would empty the hand (claimed + exit are the last two cards)
+    // cannot end the turn — the claimant must prove or take plays back.
+    if (_pendingDiscard != null &&
+        !setup.tableStrictness.removesPlayerOnMistake &&
+        hand.length <= 2) {
+      return const _FiftyProofExitRefused(
+        ApplyActionResult.failure(
+          'This exit would empty your hand — prove the Fifty or take plays '
+          'back.',
+        ),
+      );
+    }
     final discardingSeat = _currentSeat;
     final removal = _applyMistake(mistake);
     _activeFiftyClaim = null;
@@ -1601,6 +1620,17 @@ class ClassicHareegGameController {
       _previousDiscardSeat = discardingSeat;
       _lastReturnedPendingDiscard = null;
       return _FiftyProofExitRemoved(removal);
+    }
+    // Strict: the claim was called off, so the unused claimed card goes back
+    // to the pile (owner-confirmed). It lands now, and the normal discard
+    // flow drops the exit card on top of it.
+    final unusedClaimedCard = _pendingDiscard;
+    if (unusedClaimedCard != null) {
+      hand.removeWhere((candidate) => candidate.id == unusedClaimedCard.id);
+      _discardPile.add(unusedClaimedCard);
+      _roundMemory.onReturnPendingDiscard(discardingSeat, unusedClaimedCard);
+      _pendingDiscard = null;
+      _turnJournal.clearConsumedPendingDiscard();
     }
     return _FiftyProofExitPenalized(mistake.message);
   }
@@ -2153,15 +2183,7 @@ class ClassicHareegGameController {
 
   /// Every table meld as a cover target for cover-aware finish planning.
   List<ClassicHareegFinishCoverTarget> _finishCoverTargets() {
-    return [
-      for (final entry in _tableMelds.entries)
-        for (var index = 0; index < entry.value.length; index += 1)
-          ClassicHareegFinishCoverTarget(
-            owner: entry.key,
-            meldIndex: index,
-            meldCards: entry.value[index].cards,
-          ),
-    ];
+    return ClassicHareegFinishCoverTarget.allFrom(_tableMelds);
   }
 
   String _previousDiscardFinishKey(PlayerSeat seat, HareegCard discarded) {
@@ -2712,23 +2734,21 @@ class ClassicHareegGameController {
     final claimedCardUsed = _pendingDiscard == null;
     if (isFinalDiscard && claimedCardUsed) {
       final card = hand.single;
-      if (card.id != claim.claimedCardId) {
-        final finish = ClassicHareegFinishRules.validateFinish(
-          playedMelds: _turnFinishPlays,
-          finalDiscard: card,
-          playerOpened: _openingState.hasOpened(_currentSeat),
-          source: _turnSource,
-          perfectHandAttempt: !_openingState.hasOpened(_currentSeat),
-        );
-        if (finish.isValid) {
-          return List.unmodifiable([
-            '${ClassicHareegActionIds.discardPrefix}${card.id}',
-          ]);
-        }
+      if (card.id != claim.claimedCardId && _provesFiftyFinish(card)) {
+        return List.unmodifiable([
+          '${ClassicHareegActionIds.discardPrefix}${card.id}',
+        ]);
       }
       return const [];
     }
     if (isFinalDiscard || setup.tableStrictness.blocksIllegalMoves) {
+      return const [];
+    }
+    // The Strict priced exit returns the unused claimed card to the pile, so
+    // it is off the surface when that return would empty the hand.
+    if (!claimedCardUsed &&
+        !setup.tableStrictness.removesPlayerOnMistake &&
+        hand.length <= 2) {
       return const [];
     }
     return List.unmodifiable([
