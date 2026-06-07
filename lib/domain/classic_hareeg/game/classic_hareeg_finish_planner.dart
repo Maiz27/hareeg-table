@@ -1,6 +1,52 @@
+import '../models/player_seat.dart';
 import '../models/playing_card.dart';
+import '../rules/cover_rules.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_table_play_planner.dart';
+
+/// One table meld a finish plan may extend with covers.
+class ClassicHareegFinishCoverTarget {
+  /// Creates a cover target for an existing table meld.
+  const ClassicHareegFinishCoverTarget({
+    required this.owner,
+    required this.meldIndex,
+    required this.meldCards,
+  });
+
+  /// Seat that owns the table meld.
+  final PlayerSeat owner;
+
+  /// Index of the meld in the owner's table lane.
+  final int meldIndex;
+
+  /// Cards currently forming the table meld.
+  final List<HareegCard> meldCards;
+}
+
+/// One planned cover placement inside a finish plan.
+class ClassicHareegFinishPlanCover {
+  /// Creates a planned cover placement.
+  const ClassicHareegFinishPlanCover({
+    required this.targetSeat,
+    required this.meldIndex,
+    required this.cards,
+  });
+
+  /// Seat that owns the meld being extended.
+  final PlayerSeat targetSeat;
+
+  /// Index of the meld in the owner's table lane at plan time.
+  final int meldIndex;
+
+  /// Cover cards in legal application order, jokers resolved.
+  final List<HareegCard> cards;
+}
+
+/// Melds plus cover placements proving one final-discard choice.
+typedef ClassicHareegFinishPlanParts = ({
+  List<PlacedMeld> melds,
+  List<ClassicHareegFinishPlanCover> covers,
+});
 
 /// Exact-cover helper for proving whether a hand can finish.
 ///
@@ -9,23 +55,38 @@ import 'classic_hareeg_table_play_planner.dart';
 /// this card is the final discard?" up to fourteen times; this planner builds
 /// valid meld candidates once, then reuses subset memoization across those
 /// final-discard attempts.
+///
+/// When [coverTargets] are supplied the planner also routes finishes through
+/// covers: cards that legally extend existing table melds (including
+/// cover-after-cover chains on the same meld) count as used. Cover-routed
+/// plans for an unopened seat are only valid when the plan's fresh melds
+/// independently reach [coverPlanMinimumMeldValue] (the table's current
+/// opening requirement) — a melds-only perfect hand stays exempt.
 class ClassicHareegFinishPlanner {
   /// Creates a finish planner for one candidate card set.
-  ClassicHareegFinishPlanner(List<HareegCard> cards)
-    : _cards = List.unmodifiable(cards),
-      _fullMask = cards.isEmpty ? 0 : (1 << cards.length) - 1 {
+  ClassicHareegFinishPlanner(
+    List<HareegCard> cards, {
+    List<ClassicHareegFinishCoverTarget> coverTargets = const [],
+    int? coverPlanMinimumMeldValue,
+  }) : _cards = List.unmodifiable(cards),
+       _fullMask = cards.isEmpty ? 0 : (1 << cards.length) - 1,
+       _coverPlanMinimumMeldValue = coverPlanMinimumMeldValue {
     for (var index = 0; index < _cards.length; index += 1) {
       _bitByCardId[_cards[index].id] = 1 << index;
     }
     _buildMeldCandidates();
+    _buildCoverExtensions(coverTargets);
   }
 
   final List<HareegCard> _cards;
   final int _fullMask;
+  final int? _coverPlanMinimumMeldValue;
   final Map<String, int> _bitByCardId = {};
   final Map<int, List<_FinishMeldCandidate>> _candidatesByFirstBit = {};
   final Map<int, List<PlacedMeld>?> _partitionMemo = {};
   final Set<int> _candidateMasks = {};
+  final List<_CoverTargetExtensions> _extensionsByTarget = [];
+  int _extensionUnionMask = 0;
 
   /// Whether any valid single meld can contain [cardId].
   bool hasValidMeldContaining(String cardId) {
@@ -41,6 +102,16 @@ class ClassicHareegFinishPlanner {
     return false;
   }
 
+  /// Whether [cardId] can be used by any finish route — a fresh meld or a
+  /// cover extension of a table meld.
+  bool hasFinishUseContaining(String cardId) {
+    if (hasValidMeldContaining(cardId)) {
+      return true;
+    }
+    final bit = _bitByCardId[cardId];
+    return bit != null && (_extensionUnionMask & bit) != 0;
+  }
+
   /// Partitions every card except [finalDiscard] into legal melds.
   List<PlacedMeld>? partitionWithout(HareegCard finalDiscard) {
     final discardBit = _bitByCardId[finalDiscard.id];
@@ -48,6 +119,150 @@ class ClassicHareegFinishPlanner {
       return null;
     }
     return _partition(_fullMask ^ discardBit);
+  }
+
+  /// Plans melds plus covers using every card except [finalDiscard].
+  ///
+  /// Prefers a melds-only partition (the perfect-hand shape, exempt from the
+  /// opening constraint); otherwise searches cover-routed plans where each
+  /// cover target receives at most one extension chain.
+  ClassicHareegFinishPlanParts? planWithout(HareegCard finalDiscard) {
+    final discardBit = _bitByCardId[finalDiscard.id];
+    if (discardBit == null) {
+      return null;
+    }
+    final targetMask = _fullMask ^ discardBit;
+    final meldsOnly = _partition(targetMask);
+    if (meldsOnly != null) {
+      return (melds: meldsOnly, covers: const []);
+    }
+    if (_extensionsByTarget.isEmpty) {
+      return null;
+    }
+    return _searchCoverPlan(targetMask);
+  }
+
+  ClassicHareegFinishPlanParts? _searchCoverPlan(int targetMask) {
+    final chosen = <ClassicHareegFinishPlanCover>[];
+    final visitedFailures = <int>{};
+    ClassicHareegFinishPlanParts? found;
+
+    bool dfs(int targetIndex, int remainingMask) {
+      if (found != null) {
+        return true;
+      }
+      if (targetIndex == _extensionsByTarget.length) {
+        if (chosen.isEmpty) {
+          // Melds-only was already attempted by the caller.
+          return false;
+        }
+        final melds = _partition(remainingMask);
+        if (melds == null) {
+          return false;
+        }
+        if (_coverPlanMinimumMeldValue != null) {
+          final meldValue = melds.fold<int>(
+            0,
+            (total, meld) => total + meld.totalValue,
+          );
+          if (meldValue < _coverPlanMinimumMeldValue) {
+            return false;
+          }
+        }
+        found = (
+          melds: melds,
+          covers: List<ClassicHareegFinishPlanCover>.unmodifiable(chosen),
+        );
+        return true;
+      }
+
+      final failureKey = (targetIndex << _cards.length) | remainingMask;
+      if (visitedFailures.contains(failureKey)) {
+        return false;
+      }
+
+      // Option 1: leave this target uncovered.
+      if (dfs(targetIndex + 1, remainingMask)) {
+        return true;
+      }
+
+      final target = _extensionsByTarget[targetIndex];
+      for (final extension in target.extensions) {
+        if ((extension.mask & remainingMask) != extension.mask) {
+          continue;
+        }
+        chosen.add(
+          ClassicHareegFinishPlanCover(
+            targetSeat: target.owner,
+            meldIndex: target.meldIndex,
+            cards: extension.orderedCards,
+          ),
+        );
+        if (dfs(targetIndex + 1, remainingMask ^ extension.mask)) {
+          return true;
+        }
+        chosen.removeLast();
+      }
+
+      visitedFailures.add(failureKey);
+      return false;
+    }
+
+    dfs(0, targetMask);
+    return found;
+  }
+
+  void _buildCoverExtensions(List<ClassicHareegFinishCoverTarget> targets) {
+    for (final target in targets) {
+      final extensions = <int, List<HareegCard>>{};
+
+      void grow(List<HareegCard> meld, int usedMask, List<HareegCard> ordered) {
+        if (extensions.length >= _maxExtensionsPerTarget) {
+          return;
+        }
+        for (var index = 0; index < _cards.length; index += 1) {
+          final bit = 1 << index;
+          if ((usedMask & bit) != 0) {
+            continue;
+          }
+          final extension = ClassicHareegCoverRules.resolveCoverExtension(
+            tableMeld: meld,
+            candidate: _cards[index],
+          );
+          if (extension == null) {
+            continue;
+          }
+          final nextMask = usedMask | bit;
+          if (extensions.containsKey(nextMask)) {
+            continue;
+          }
+          final nextOrdered = [...ordered, extension.card];
+          extensions[nextMask] = nextOrdered;
+          grow(extension.extendedMeld, nextMask, nextOrdered);
+        }
+      }
+
+      grow(target.meldCards, 0, const []);
+      if (extensions.isEmpty) {
+        continue;
+      }
+      _extensionsByTarget.add(
+        _CoverTargetExtensions(
+          owner: target.owner,
+          meldIndex: target.meldIndex,
+          extensions: [
+            for (final entry in extensions.entries)
+              _CoverExtensionCandidate(
+                mask: entry.key,
+                orderedCards: List.unmodifiable(entry.value),
+              ),
+          ],
+        ),
+      );
+      for (final mask in extensions.keys) {
+        _extensionUnionMask |= mask;
+      }
+    }
   }
 
   void _buildMeldCandidates() {
@@ -259,6 +474,11 @@ class ClassicHareegFinishPlanner {
   }
 }
 
+// Cap on enumerated extension chains per table meld. Run extensions grow from
+// both sequence ends and joker covers fan out, so an uncapped walk could
+// explode on joker-heavy hands; real chains stay far below this.
+const _maxExtensionsPerTarget = 64;
+
 class _FinishMeldCandidate {
   const _FinishMeldCandidate({
     required this.mask,
@@ -269,4 +489,26 @@ class _FinishMeldCandidate {
   final int mask;
   final PlacedMeld meld;
   final int cardCount;
+}
+
+class _CoverTargetExtensions {
+  const _CoverTargetExtensions({
+    required this.owner,
+    required this.meldIndex,
+    required this.extensions,
+  });
+
+  final PlayerSeat owner;
+  final int meldIndex;
+  final List<_CoverExtensionCandidate> extensions;
+}
+
+class _CoverExtensionCandidate {
+  const _CoverExtensionCandidate({
+    required this.mask,
+    required this.orderedCards,
+  });
+
+  final int mask;
+  final List<HareegCard> orderedCards;
 }

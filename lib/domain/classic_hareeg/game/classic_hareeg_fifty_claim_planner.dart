@@ -48,19 +48,45 @@ enum ClassicHareegFiftyClaimPurpose {
   apply,
 }
 
-/// Planned perfect-hand finish using the previous discard.
+/// Planned full-hand finish using the previous discard.
+///
+/// A finish may route through [covers] — extensions of existing table melds —
+/// in addition to fresh [melds]. Every hand card plus the claimed discard is
+/// consumed by exactly one meld or cover, except [finalDiscard].
 class ClassicHareegFinishPlan {
   /// Creates a finish plan.
   const ClassicHareegFinishPlan({
     required this.melds,
+    this.covers = const [],
     required this.finalDiscard,
   });
 
-  /// Melds that use every card except [finalDiscard].
+  /// Fresh melds in the plan.
   final List<PlacedMeld> melds;
+
+  /// Cover placements extending existing table melds.
+  final List<ClassicHareegFinishPlanCover> covers;
 
   /// Final discard that completes the finish.
   final HareegCard finalDiscard;
+
+  /// All played groups — fresh melds plus covers as value snapshots — in the
+  /// shape finish/claim validation consumes.
+  List<PlacedMeld> get allPlayedMelds {
+    if (covers.isEmpty) {
+      return melds;
+    }
+    return [
+      ...melds,
+      for (final cover in covers)
+        PlacedMeld(
+          cards: List.unmodifiable(cover.cards),
+          valueSnapshot: cover.cards.fold<int>(0, (total, card) {
+            return total + (card.effectiveIdentity?.rank.value ?? 0);
+          }),
+        ),
+    ];
+  }
 }
 
 /// Complete Fifty claim decision for one seat.
@@ -180,7 +206,7 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       window: window,
       claimant: claimant,
       elapsedSeconds: elapsedSeconds,
-      finishingMelds: finishPlan.melds,
+      finishingMelds: finishPlan.allPlayedMelds,
       finalDiscard: finishPlan.finalDiscard,
     );
     if (!claim.isValid) {
@@ -197,16 +223,29 @@ abstract final class ClassicHareegFiftyClaimPlanner {
     );
   }
 
-  /// Finds a perfect-hand finish that must use [discarded].
+  /// Finds a full-hand finish that must use [discarded].
+  ///
+  /// With [coverTargets] supplied, finishes may route through covers of
+  /// existing table melds. For an unopened claimant a cover-routed plan is
+  /// only valid when its fresh melds independently reach
+  /// [openingRequirement]; melds-only perfect hands stay exempt.
   static ClassicHareegFinishPlan? finishPlanForClaim({
     required List<HareegCard> hand,
     required HareegCard discarded,
     required bool playerOpened,
+    List<ClassicHareegFinishCoverTarget> coverTargets = const [],
+    int? openingRequirement,
     ClassicHareegFinishPlanner? planner,
   }) {
     final cards = [...hand, discarded];
-    final finishPlanner = planner ?? ClassicHareegFinishPlanner(cards);
-    if (!finishPlanner.hasValidMeldContaining(discarded.id)) {
+    final finishPlanner =
+        planner ??
+        ClassicHareegFinishPlanner(
+          cards,
+          coverTargets: coverTargets,
+          coverPlanMinimumMeldValue: playerOpened ? null : openingRequirement,
+        );
+    if (!finishPlanner.hasFinishUseContaining(discarded.id)) {
       return null;
     }
 
@@ -214,23 +253,25 @@ abstract final class ClassicHareegFiftyClaimPlanner {
       if (finalDiscard.id == discarded.id) {
         continue;
       }
-      final melds = finishPlanner.partitionWithout(finalDiscard);
-      if (melds == null) {
+      final parts = finishPlanner.planWithout(finalDiscard);
+      if (parts == null) {
         continue;
       }
 
+      final plan = ClassicHareegFinishPlan(
+        melds: parts.melds,
+        covers: parts.covers,
+        finalDiscard: finalDiscard,
+      );
       final finish = ClassicHareegFinishRules.validateFinish(
-        playedMelds: melds,
+        playedMelds: plan.allPlayedMelds,
         finalDiscard: finalDiscard,
         playerOpened: playerOpened,
         source: FinishCardSource.previousDiscard,
         perfectHandAttempt: true,
       );
       if (finish.isValid) {
-        return ClassicHareegFinishPlan(
-          melds: melds,
-          finalDiscard: finalDiscard,
-        );
+        return plan;
       }
     }
     return null;

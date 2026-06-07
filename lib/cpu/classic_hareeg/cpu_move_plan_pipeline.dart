@@ -1,5 +1,6 @@
 import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart';
+import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import 'cpu_difficulty_profile.dart';
@@ -403,12 +404,13 @@ class CpuMovePlanPipeline {
 }
 
 /// True when the CPU seat owns the Fifty claim window and actually has a
-/// finishing partition — i.e. the claim would land on the success branch
+/// finishing plan — i.e. the claim would land on the success branch
 /// instead of the wrong-claim mistake branch.
 ///
 /// Shared across every tier: the rules engine advertises claim-fifty for any
 /// open window so humans can attempt wrong claims, and the CPU should never
-/// take that branch.
+/// take that branch. Cover-aware: a finish that routes through covers of
+/// existing table melds counts.
 bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
   if (!observation.ownIsFiftyClaimant) return false;
   final discarded = observation.topDiscard;
@@ -417,10 +419,28 @@ bool canSuccessfullyClaimFiftyFor(CpuObservation observation) {
           hand: observation.ownHand,
           discarded: discarded,
           playerOpened: observation.ownHasOpened(),
+          coverTargets: coverTargetsForObservation(observation),
+          openingRequirement: observation.currentOpeningRequirement,
         ) !=
         null;
   }
   return observation.finishingPartition() != null;
+}
+
+/// Every table meld in [observation] as a cover target for cover-aware
+/// finish planning.
+List<ClassicHareegFinishCoverTarget> coverTargetsForObservation(
+  CpuObservation observation,
+) {
+  return [
+    for (final entry in observation.tableMelds.entries)
+      for (var index = 0; index < entry.value.length; index += 1)
+        ClassicHareegFinishCoverTarget(
+          owner: entry.key,
+          meldIndex: index,
+          meldCards: entry.value[index].cards,
+        ),
+  ];
 }
 
 /// True when the CPU should actually take a valid Fifty claim.

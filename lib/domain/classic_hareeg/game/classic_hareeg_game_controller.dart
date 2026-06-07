@@ -1781,14 +1781,24 @@ class ClassicHareegGameController {
       return const ApplyActionResult.failure('No active Fifty discard.');
     }
     _discardPile.removeLast();
-    // Place the finishing melds on the table before clearing the hand. The melds
-    // consume the claimed discard plus every hand card except the final discard;
-    // without placing them those cards vanish from the table state (a card-
-    // conservation violation the full-game invariant sweep catches on a Fifty
-    // finish). Mirrors the normal meld-commit path.
+    // Place the finishing melds on the table before clearing the hand. The
+    // plan consumes the claimed discard plus every hand card except the final
+    // discard; without placing them those cards vanish from the table state
+    // (a card-conservation violation the full-game invariant sweep catches on
+    // a Fifty finish). Mirrors the normal meld-commit path. Cover-routed plan
+    // steps extend their target melds the same way the cover path does.
     _tableMelds
         .putIfAbsent(_currentSeat, () => <PlacedMeld>[])
         .addAll(finishPlan.melds);
+    for (final cover in finishPlan.covers) {
+      final targetMelds = _tableMelds[cover.targetSeat];
+      if (targetMelds != null &&
+          cover.meldIndex >= 0 &&
+          cover.meldIndex < targetMelds.length) {
+        targetMelds[cover.meldIndex] = targetMelds[cover.meldIndex]
+            .addCoverCards(cover.cards);
+      }
+    }
     _hands[_currentSeat] = const <HareegCard>[];
     _discardPile.add(finishPlan.finalDiscard);
     _pendingDiscard = null;
@@ -1838,9 +1848,16 @@ class ClassicHareegGameController {
       }
     }
 
+    final playerOpened = _openingState.hasOpened(seat);
     final cards = [..._handFor(seat), discarded];
-    final planner = ClassicHareegFinishPlanner(cards);
-    if (!planner.hasValidMeldContaining(discarded.id)) {
+    final planner = ClassicHareegFinishPlanner(
+      cards,
+      coverTargets: _finishCoverTargets(),
+      coverPlanMinimumMeldValue: playerOpened
+          ? null
+          : _openingState.currentRequirement,
+    );
+    if (!planner.hasFinishUseContaining(discarded.id)) {
       _previousDiscardFinishCacheKey = cacheKey;
       _previousDiscardFinishCacheValue = false;
       _previousDiscardFinishPlanCacheValue = null;
@@ -1849,7 +1866,7 @@ class ClassicHareegGameController {
     final plan = ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
       hand: _handFor(seat),
       discarded: discarded,
-      playerOpened: _openingState.hasOpened(seat),
+      playerOpened: playerOpened,
       planner: planner,
     );
     _previousDiscardFinishCacheKey = cacheKey;
@@ -1858,8 +1875,38 @@ class ClassicHareegGameController {
     return plan;
   }
 
+  /// Every table meld as a cover target for cover-aware finish planning.
+  List<ClassicHareegFinishCoverTarget> _finishCoverTargets() {
+    return [
+      for (final entry in _tableMelds.entries)
+        for (var index = 0; index < entry.value.length; index += 1)
+          ClassicHareegFinishCoverTarget(
+            owner: entry.key,
+            meldIndex: index,
+            meldCards: entry.value[index].cards,
+          ),
+    ];
+  }
+
   String _previousDiscardFinishKey(PlayerSeat seat, HareegCard discarded) {
     final handIds = _handFor(seat).map(_cardCacheIdentity).toList()..sort();
+    // Cover-aware plans depend on the table state, so the cache key carries a
+    // table-melds signature — a cover target appearing or growing must
+    // invalidate a cached "no finish" verdict.
+    final tableSignature = StringBuffer();
+    for (final entry in _tableMelds.entries) {
+      for (final meld in entry.value) {
+        tableSignature
+          ..write(entry.key.name)
+          ..write(':');
+        for (final card in meld.cards) {
+          tableSignature
+            ..write(_cardCacheIdentity(card))
+            ..write(',');
+        }
+        tableSignature.write(';');
+      }
+    }
     return [
       seat.name,
       _cardCacheIdentity(discarded),
@@ -1867,7 +1914,9 @@ class ClassicHareegGameController {
       '${_stock.length}',
       '${_discardPile.length}',
       '${_openingState.hasOpened(seat)}',
+      '${_openingState.currentRequirement}',
       handIds.join(','),
+      tableSignature.toString(),
     ].join('|');
   }
 
