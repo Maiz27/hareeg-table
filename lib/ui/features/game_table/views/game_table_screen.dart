@@ -685,16 +685,9 @@ class _GameTableScreenState extends State<GameTableScreen>
               canDrawStock: controlActions.contains(
                 ClassicHareegActionIds.drawStock,
               ),
-              // During a practice claim step the thrown card itself is the
-              // natural target — a learner reaches for the eight, not the
-              // ring — so the pile-take affordance lights up and routes to
-              // the claim. Real matches keep take and claim distinct.
-              canTakeDiscard:
-                  controlActions.contains(ClassicHareegActionIds.takeDiscard) ||
-                  (_isPractice &&
-                      controlActions.contains(
-                        ClassicHareegActionIds.claimFifty,
-                      )),
+              canTakeDiscard: controlActions.contains(
+                ClassicHareegActionIds.takeDiscard,
+              ),
               canReturnDiscard: controlActions.contains(
                 ClassicHareegActionIds.returnPendingDiscard,
               ),
@@ -707,12 +700,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               onDrawStock: () =>
                   unawaited(_runHumanAction(ClassicHareegActionIds.drawStock)),
               onTakeDiscard: () => unawaited(
-                _isPractice &&
-                        controlActions.contains(
-                          ClassicHareegActionIds.claimFifty,
-                        )
-                    ? _claimFifty()
-                    : _runHumanAction(ClassicHareegActionIds.takeDiscard),
+                _runHumanAction(ClassicHareegActionIds.takeDiscard),
               ),
               onReturnDiscard: () => unawaited(
                 _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),

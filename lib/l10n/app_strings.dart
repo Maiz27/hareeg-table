@@ -412,8 +412,17 @@ class AppStrings {
   // Fifty lessons.
   String get practiceFiftyClaimStep1 => _v('practiceFiftyClaimStep1');
   String get practiceFiftyClaimStep1Hint => _v('practiceFiftyClaimStep1Hint');
+  String get practiceFiftyClaimStep2 => _v('practiceFiftyClaimStep2');
+  String get practiceFiftyClaimStep2Hint => _v('practiceFiftyClaimStep2Hint');
+  String get practiceFiftyClaimStep2Done => _v('practiceFiftyClaimStep2Done');
+  String get practiceFiftyClaimStep3 => _v('practiceFiftyClaimStep3');
+  String get practiceFiftyClaimStep4 => _v('practiceFiftyClaimStep4');
   String get practiceFiftyClaimCompletion => _v('practiceFiftyClaimCompletion');
   String get practiceFiftyScoringStep1 => _v('practiceFiftyScoringStep1');
+  String get practiceFiftyScoringStep2 => _v('practiceFiftyScoringStep2');
+  String get practiceFiftyScoringStep2Hint =>
+      _v('practiceFiftyScoringStep2Hint');
+  String get practiceFiftyScoringStep3 => _v('practiceFiftyScoringStep3');
   String get practiceFiftyMissed => _v('practiceFiftyMissed');
   String get practiceRestartLesson => _v('practiceRestartLesson');
 
@@ -989,7 +998,7 @@ class AppStrings {
       'Prove the Fifty before ending the turn.' =>
         'أثبت الخمسين قبل إنهاء الدور.',
       'The claimed card cannot be returned — prove the Fifty or end the '
-              'turn.' =>
+          'turn.' =>
         'لا يمكن إرجاع الورقة المعلنة — أثبت الخمسين أو أنهِ الدور.',
       'The taken card cannot be discarded — use it in a meld or cover.' =>
         'لا يمكن رمي الورقة المأخوذة — استخدمها في مجموعة أو تكميلة.',
@@ -1478,10 +1487,25 @@ const _englishValues = {
       'West just threw the 8 of diamonds — your eights meet it, your twos follow, and the queen stays back to throw. That discard is claimable: call Fifty before the timer runs out.',
   'practiceFiftyClaimStep1Hint':
       'Tap the thrown card or the flame ring. Practice holds the ring at 3 — a real table never waits.',
+  'practiceFiftyClaimStep2':
+      'Claimed — the eight is in your hand and the clock is gone. Now prove the call: meld the three eights.',
+  'practiceFiftyClaimStep2Hint':
+      'Tap both eights and the claimed 8♦, then the gold meld chip. The claimed card must end the turn on the table.',
+  'practiceFiftyClaimStep2Done':
+      'The claimed card found its meld — half the proof is down.',
+  'practiceFiftyClaimStep3': 'Keep laying it down: the twos.',
+  'practiceFiftyClaimStep4':
+      'Seal the Fifty: throw the queen and take the round.',
   'practiceFiftyClaimCompletion':
-      'Claimed in time: the finish played itself out and the round is yours.',
+      'Claimed and proven — you laid the finish down yourself, and the round is yours.',
   'practiceFiftyScoringStep1':
       'Same claim, new lens: watch what Fifty does to the score sheet. Claim West\'s 5 of hearts before the timer dies.',
+  'practiceFiftyScoringStep2':
+      'Prove it: meld the three fives — the claimed card leads them.',
+  'practiceFiftyScoringStep2Hint':
+      'Tap both fives and the claimed 5♥, then the gold meld chip.',
+  'practiceFiftyScoringStep3':
+      'Throw the king — and watch what it does to the score sheet.',
   'practiceFiftyScoringCompletion':
       'Fifty pays double-edged: you score -3, and West — who threw the card — adds their leftover cards plus 3. (First dealt round is the exception: the winner takes -1 there.)\nThis round: You {south} · West {west}.',
   'practiceFiftyMissed':
@@ -1893,10 +1917,23 @@ const _arabicValues = {
       'الغرب رمى للتو 8 الديناري — ثمانياتك تكتمل بها، وثنائياتك تتبعها، والملكة تبقى للرمي. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
   'practiceFiftyClaimStep1Hint':
       'اضغط الورقة المرمية أو حلقة اللهب. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
+  'practiceFiftyClaimStep2':
+      'طالبت — الثمانية في يدك والمؤقت اختفى. الآن أثبت النداء: العب الثمانيات الثلاث.',
+  'practiceFiftyClaimStep2Hint':
+      'اضغط الثمانيتين و8 الديناري المطالَب بها ثم شريحة المجموعة الذهبية. الورقة المطالَب بها يجب أن تنهي الدور على الطاولة.',
+  'practiceFiftyClaimStep2Done':
+      'الورقة المطالَب بها وجدت مجموعتها — نصف الإثبات نزل.',
+  'practiceFiftyClaimStep3': 'واصل الإنزال: الثنائيات.',
+  'practiceFiftyClaimStep4': 'اختم الخمسين: ارم الملكة وخذ الجولة.',
   'practiceFiftyClaimCompletion':
-      'طالبت في الوقت: الإنهاء لعب نفسه والجولة لك.',
+      'طالبت وأثبتّ — أنزلت الإنهاء بيدك، والجولة لك.',
   'practiceFiftyScoringStep1':
       'نفس المطالبة بعدسة جديدة: راقب ما يفعله الخمسين بورقة النتائج. طالب بـ 5 الكُبّة من الغرب قبل موت المؤقت.',
+  'practiceFiftyScoringStep2':
+      'أثبتها: العب الخمسات الثلاث — الورقة المطالَب بها تتقدمها.',
+  'practiceFiftyScoringStep2Hint':
+      'اضغط الخمستين و5 الكُبّة المطالَب بها ثم شريحة المجموعة الذهبية.',
+  'practiceFiftyScoringStep3': 'ارم الملك — وراقب ما يفعله ذلك بورقة النتائج.',
   'practiceFiftyScoringCompletion':
       'الخمسين سلاح ذو حدين: تسجل -3، والغرب — من رمى الورقة — يضيف ما بقي في يده زائد 3. (الجولة الأولى الموزعة استثناء: الفائز يأخذ -1 فيها.)\nهذه الجولة: أنت {south} · الغرب {west}.',
   'practiceFiftyMissed':

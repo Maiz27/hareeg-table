@@ -1325,15 +1325,16 @@ abstract final class PracticeScripts {
     );
   }
 
-  /// Fifty timing: claim the previous discard before the window closes.
+  /// Fifty timing: claim the previous discard before the window closes,
+  /// then prove the finish by hand.
   ///
   /// West's scripted turn throws the eight the player's hand can finish
   /// around, and the throw itself opens the real claim window — the flame
   /// ring counts down for real, then holds at three so reading the prompt
   /// is never punished (a match gives four uninterrupted seconds; the hint
-  /// says the table is waiting). The claim consumes the whole hand: the
-  /// thrown eight completes the pair, the twos follow, the queen leaves as
-  /// the finishing throw.
+  /// says the table is waiting). The claim only takes the card; the proof
+  /// is the player's to lay down, untimed: the eights the claimed card
+  /// completes, the twos, and the queen leaves as the finishing throw.
   static PracticeLessonScript fiftyClaim({bool pauseTimer = true}) {
     final priorSevens = [
       PracticeBoard.card(CardRank.seven, CardSuit.clubs),
@@ -1357,16 +1358,15 @@ abstract final class PracticeScripts {
       PracticeBoard.card(CardRank.two, CardSuit.hearts),
     ];
     final eightDiamonds = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
+    final eightsIds = {for (final card in eightPair) card.id, eightDiamonds.id};
+    final twosIds = {for (final card in twos) card.id};
+    final queenSpades = PracticeBoard.card(CardRank.queen, CardSuit.spades);
     return PracticeLessonScript(
       lessonId: 'fifty-claim',
       buildSnapshot: () => PracticeBoard.build(
         // Turn-start accounting: 8 table cards + 6 in hand = the dealt 14
         // (the claim happens instead of this turn's draw).
-        southHand: [
-          ...eightPair,
-          ...twos,
-          PracticeBoard.card(CardRank.queen, CardSuit.spades),
-        ],
+        southHand: [...eightPair, ...twos, queenSpades],
         priorDiscards: [
           PracticeBoard.card(CardRank.three, CardSuit.hearts),
           PracticeBoard.card(CardRank.jack, CardSuit.diamonds),
@@ -1401,16 +1401,40 @@ abstract final class PracticeScripts {
           hint: (s) => s.practiceFiftyClaimStep1Hint,
           deadEndNote: (s) => s.practiceFiftyMissed,
           kinds: const {ClassicHareegActionKind.claimFifty},
-          highlightCardIds: {
-            for (final card in eightPair) card.id,
-            for (final card in twos) card.id,
-          },
+          highlightCardIds: {for (final card in eightPair) card.id},
           // The claim leaves the rules surface for good when the window
           // dies on the player's turn; only a fresh board restores it.
           // Unreachable while the timer holds — kept as the safety net.
+          // (Once the claim applies the step advances, so the predicate
+          // never sees the proof turn's window-less board.)
           isDeadEnd: (controller) =>
               controller.currentSeat == PlayerSeat.south &&
               controller.fiftySecondsRemaining == null,
+        ),
+        // The proof, one meld per step: the claimed card's meld first —
+        // any order is legal under the engine, but the taught line starts
+        // where the claim points.
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyClaimStep2,
+          hint: (s) => s.practiceFiftyClaimStep2Hint,
+          successNote: (s) => s.practiceFiftyClaimStep2Done,
+          allows: _playsExactly(eightsIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, eightsIds),
+          highlightCardIds: eightsIds,
+        ),
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyClaimStep3,
+          hint: (s) => s.practicePendingStep4Hint,
+          allows: _playsExactly(twosIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, twosIds),
+          highlightCardIds: twosIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyClaimStep4,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {queenSpades.id},
+          isSatisfied: (context) => context.controller.isRoundOver,
         ),
       ],
       completionNote: (s, _) => s.practiceFiftyClaimCompletion,
@@ -1445,14 +1469,13 @@ abstract final class PracticeScripts {
       PracticeBoard.card(CardRank.five, CardSuit.spades),
     ];
     final fiveHearts = PracticeBoard.card(CardRank.five, CardSuit.hearts);
+    final fivesIds = {for (final card in fivePair) card.id, fiveHearts.id};
+    final kingClubs = PracticeBoard.card(CardRank.king, CardSuit.clubs);
     return PracticeLessonScript(
       lessonId: 'fifty-scoring',
       buildSnapshot: () => PracticeBoard.build(
         // Turn-start accounting: 11 table cards + 3 in hand = the dealt 14.
-        southHand: [
-          ...fivePair,
-          PracticeBoard.card(CardRank.king, CardSuit.clubs),
-        ],
+        southHand: [...fivePair, kingClubs],
         priorDiscards: [
           PracticeBoard.card(CardRank.two, CardSuit.clubs),
           PracticeBoard.card(CardRank.nine, CardSuit.hearts),
@@ -1490,6 +1513,21 @@ abstract final class PracticeScripts {
           isDeadEnd: (controller) =>
               controller.currentSeat == PlayerSeat.south &&
               controller.fiftySecondsRemaining == null,
+        ),
+        // The short proof: one set, then the throw the score sheet reads.
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyScoringStep2,
+          hint: (s) => s.practiceFiftyScoringStep2Hint,
+          allows: _playsExactly(fivesIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, fivesIds),
+          highlightCardIds: fivesIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyScoringStep3,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {kingClubs.id},
+          isSatisfied: (context) => context.controller.isRoundOver,
         ),
       ],
       completionNote: (s, controller) {
