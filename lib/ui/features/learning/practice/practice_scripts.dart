@@ -1,4 +1,6 @@
-import '../../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
+import '../../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
+import '../../../../domain/classic_hareeg/game/classic_hareeg_round.dart';
+import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart';
@@ -24,6 +26,11 @@ import 'practice_lesson_script.dart';
 /// scripted intro plays that seat's turn visibly; the player's own opened
 /// status is the one piece of staged prior state — their earlier opening
 /// sits on the table, totalling exactly the benchmark it implies.
+///
+/// The finish & Fifty pack plays end states: boards open mid-endgame (small
+/// hands, a dressed discard pile carrying the shed-card story, short CPU
+/// hands on the seat badges) and the round genuinely ends — the engine
+/// applies the real scoring the completion panel reads back.
 abstract final class PracticeScripts {
   /// Script for [lessonId], or null while the lesson's pack has not shipped.
   static PracticeLessonScript? byId(String lessonId) {
@@ -40,6 +47,10 @@ abstract final class PracticeScripts {
       'cover-discard-block' => coverDiscardBlock(),
       'joker-identity' => jokerIdentity(),
       'joker-replacement' => jokerReplacement(),
+      'final-discard' => finalDiscard(),
+      'normal-finish' => normalFinish(),
+      'fifty-claim' => fiftyClaim(),
+      'fifty-scoring' => fiftyScoring(),
       _ => null,
     };
   }
@@ -66,6 +77,25 @@ abstract final class PracticeScripts {
         action.kind == ClassicHareegActionKind.playMeldWithJoker &&
         action.cardIds.length == cardIds.length &&
         cardIds.containsAll(action.cardIds);
+  }
+
+  /// Board-state proof that some meld on [seat]'s table holds every card in
+  /// [cardIds] — superset, not equality, so a meld that later grows a cover
+  /// still counts as demonstrated. The take-back regression and forward
+  /// auto-skip both re-check steps through this.
+  static bool Function(ClassicHareegGameController controller) _tableHolds(
+    PlayerSeat seat,
+    Set<String> cardIds,
+  ) {
+    return (controller) {
+      for (final meld in controller.tableMeldsFor(seat)) {
+        final ids = {for (final card in meld.cards) card.id};
+        if (ids.containsAll(cardIds)) {
+          return true;
+        }
+      }
+      return false;
+    };
   }
 
   /// Script for the lesson after [lessonId] within the same practice pack.
@@ -167,10 +197,10 @@ abstract final class PracticeScripts {
           kinds: const {ClassicHareegActionKind.playMeld},
           highlightCardIds: {for (final card in heartRun) card.id},
           // Staging below the benchmark applies but does not demonstrate the
-          // opening; the step holds until the table is actually open.
-          isSatisfied: (context) => context.controller.openingState.hasOpened(
-            PlayerSeat.south,
-          ),
+          // opening; the step holds until the table is actually open — and
+          // a take-back that un-opens it walks the lesson back here.
+          isDemonstrated: (controller) =>
+              controller.openingState.hasOpened(PlayerSeat.south),
         ),
         PracticeStep.kinds(
           prompt: (s) => s.practiceFirstMeldStep3,
@@ -202,10 +232,7 @@ abstract final class PracticeScripts {
       PracticeBoard.card(CardRank.eight, CardSuit.clubs),
       PracticeBoard.card(CardRank.eight, CardSuit.hearts),
     ];
-    final eightDiamonds = PracticeBoard.card(
-      CardRank.eight,
-      CardSuit.diamonds,
-    );
+    final eightDiamonds = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
     return PracticeLessonScript(
       lessonId: 'discard-opening',
       buildSnapshot: () => PracticeBoard.build(
@@ -265,9 +292,8 @@ abstract final class PracticeScripts {
           successNote: (s) => s.practiceDiscardOpeningStep3Done,
           kinds: const {ClassicHareegActionKind.playMeld},
           highlightCardIds: {for (final card in queens) card.id},
-          isSatisfied: (context) => context.controller.openingState.hasOpened(
-            PlayerSeat.south,
-          ),
+          isDemonstrated: (controller) =>
+              controller.openingState.hasOpened(PlayerSeat.south),
         ),
         PracticeStep.kinds(
           prompt: (s) => s.practiceDiscardOpeningStep4,
@@ -406,9 +432,8 @@ abstract final class PracticeScripts {
           successNote: (s) => s.practiceOpeningStep2Done,
           allows: _playsExactly({for (final card in jacks) card.id}),
           highlightCardIds: {for (final card in jacks) card.id},
-          isSatisfied: (context) => context.controller.openingState.hasOpened(
-            PlayerSeat.south,
-          ),
+          isDemonstrated: (controller) =>
+              controller.openingState.hasOpened(PlayerSeat.south),
         ),
         PracticeStep.kinds(
           prompt: (s) => s.practiceOpeningStep3,
@@ -509,6 +534,9 @@ abstract final class PracticeScripts {
           hint: (s) => s.practicePendingStep4Hint,
           successNote: (s) => s.practicePendingStep4Done,
           allows: _playsExactly({for (final card in twos) card.id}),
+          isDemonstrated: _tableHolds(PlayerSeat.south, {
+            for (final card in twos) card.id,
+          }),
           highlightCardIds: {for (final card in twos) card.id},
         ),
         PracticeStep.kinds(
@@ -657,10 +685,7 @@ abstract final class PracticeScripts {
     ];
     final westThrow = PracticeBoard.card(CardRank.four, CardSuit.hearts);
     final jackDiamonds = PracticeBoard.card(CardRank.jack, CardSuit.diamonds);
-    final queenDiamonds = PracticeBoard.card(
-      CardRank.queen,
-      CardSuit.diamonds,
-    );
+    final queenDiamonds = PracticeBoard.card(CardRank.queen, CardSuit.diamonds);
     final eightDiamonds = PracticeBoard.card(
       CardRank.eight,
       CardSuit.diamonds,
@@ -724,12 +749,10 @@ abstract final class PracticeScripts {
               action.cardIds.every(
                 (id) => id == jackDiamonds.id || id == queenDiamonds.id,
               ),
-          isSatisfied: (context) {
-            final run = context.controller.tableMeldsFor(PlayerSeat.west)[1];
-            final ids = {for (final card in run.cards) card.id};
-            return ids.contains(jackDiamonds.id) &&
-                ids.contains(queenDiamonds.id);
-          },
+          isDemonstrated: _tableHolds(PlayerSeat.west, {
+            jackDiamonds.id,
+            queenDiamonds.id,
+          }),
           highlightCardIds: {
             jackDiamonds.id,
             queenDiamonds.id,
@@ -744,6 +767,7 @@ abstract final class PracticeScripts {
               action.kind == ClassicHareegActionKind.placeCover &&
               action.cardIds.length == 1 &&
               action.cardIds.single == eightDiamonds.id,
+          isDemonstrated: _tableHolds(PlayerSeat.west, {eightDiamonds.id}),
           highlightCardIds: {
             eightDiamonds.id,
             for (final card in westEights) card.id,
@@ -843,6 +867,7 @@ abstract final class PracticeScripts {
               action.kind == ClassicHareegActionKind.placeCover &&
               action.cardIds.length == 1 &&
               action.cardIds.single == kingClubs.id,
+          isDemonstrated: _tableHolds(PlayerSeat.west, {kingClubs.id}),
           highlightCardIds: {
             kingClubs.id,
             for (final card in westKings) card.id,
@@ -996,6 +1021,11 @@ abstract final class PracticeScripts {
             sevenHearts.id,
             joker.id,
           }),
+          isDemonstrated: _tableHolds(PlayerSeat.south, {
+            sevenClubs.id,
+            sevenHearts.id,
+            joker.id,
+          }),
           highlightCardIds: {sevenClubs.id, sevenHearts.id, joker.id},
         ),
         PracticeStep.kinds(
@@ -1036,10 +1066,7 @@ abstract final class PracticeScripts {
       PracticeBoard.card(CardRank.ace, CardSuit.hearts),
     ];
     final westThrow = PracticeBoard.card(CardRank.three, CardSuit.spades);
-    final sevenDiamonds = PracticeBoard.card(
-      CardRank.seven,
-      CardSuit.diamonds,
-    );
+    final sevenDiamonds = PracticeBoard.card(CardRank.seven, CardSuit.diamonds);
     final eightHearts = PracticeBoard.card(CardRank.eight, CardSuit.hearts);
     final tenHearts = PracticeBoard.card(CardRank.ten, CardSuit.hearts);
     return PracticeLessonScript(
@@ -1069,7 +1096,13 @@ abstract final class PracticeScripts {
         },
         openingState: PracticeBoard.openedFor(PlayerSeat.south),
         cpuSeedCards: {
-          PlayerSeat.west: [sevenClubs, sevenHearts, joker, ...westAces, westThrow],
+          PlayerSeat.west: [
+            sevenClubs,
+            sevenHearts,
+            joker,
+            ...westAces,
+            westThrow,
+          ],
         },
         currentSeat: PlayerSeat.west,
       ),
@@ -1114,20 +1147,395 @@ abstract final class PracticeScripts {
           holdNote: (s) => s.practiceJokerReplaceStep2Hold,
           allows: (action) =>
               action.kind == ClassicHareegActionKind.discard ||
-              _playsExactly({
-                eightHearts.id,
-                tenHearts.id,
-                joker.id,
-              })(action) ||
-              _playsJokerMeldExactly({
-                eightHearts.id,
-                tenHearts.id,
-                joker.id,
-              })(action),
+              _playsExactly({eightHearts.id, tenHearts.id, joker.id})(action) ||
+              _playsJokerMeldExactly({eightHearts.id, tenHearts.id, joker.id})(
+                action,
+              ),
           isSatisfied: (context) => context.action.isDiscard,
           highlightCardIds: {eightHearts.id, tenHearts.id, joker.id},
         ),
       ],
+    );
+  }
+
+  /// The final discard: a finish always keeps one last card to throw.
+  ///
+  /// A deep-endgame board mid-turn: every played turn pairs its draw with
+  /// its discard, so the player's hand plus their own table cards must read
+  /// as one dealt 14 — plus the card just drawn. Here the table carries
+  /// three earlier melds at exactly 51 (eleven cards) and the hand is down
+  /// to four. Meld the nines, and the rules leave exactly one legal way
+  /// out: the last card leaves as a discard, never a play. The engine
+  /// genuinely ends the round.
+  static PracticeLessonScript finalDiscard() {
+    final priorThrees = [
+      PracticeBoard.card(CardRank.three, CardSuit.spades),
+      PracticeBoard.card(CardRank.three, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.three, CardSuit.hearts),
+    ];
+    final priorFours = [
+      PracticeBoard.card(CardRank.four, CardSuit.spades),
+      PracticeBoard.card(CardRank.four, CardSuit.hearts),
+      PracticeBoard.card(CardRank.four, CardSuit.clubs),
+    ];
+    // The diamond run keeps the 5 of spades the lesson holds back for the
+    // throw safely outside every cover.
+    final priorRun = [
+      PracticeBoard.card(CardRank.four, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.five, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.six, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.seven, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
+    ];
+    final nines = [
+      PracticeBoard.card(CardRank.nine, CardSuit.clubs),
+      PracticeBoard.card(CardRank.nine, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+    ];
+    final ninesIds = {for (final card in nines) card.id};
+    final fiveSpades = PracticeBoard.card(CardRank.five, CardSuit.spades);
+    return PracticeLessonScript(
+      lessonId: 'final-discard',
+      buildSnapshot: () => PracticeBoard.build(
+        // Mid-turn accounting: 11 table cards + 4 in hand = 14 dealt plus
+        // the card this turn's draw just added.
+        southHand: [...nines, fiveSpades],
+        // The round's discard history: every turn before this one ended
+        // with a throw.
+        priorDiscards: [
+          PracticeBoard.card(CardRank.jack, CardSuit.clubs),
+          PracticeBoard.card(CardRank.ten, CardSuit.clubs),
+          PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.six, CardSuit.spades),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.hearts),
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards(priorThrees),
+            PlacedMeld.fromCards(priorFours),
+            PlacedMeld.fromCards(priorRun),
+          ],
+        },
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        // Mid-turn: the draw already happened, the finish is the lesson.
+        turnPhase: TurnPhase.action,
+      ),
+      steps: [
+        PracticeStep(
+          prompt: (s) => s.practiceFinalDiscardStep1,
+          hint: (s) => s.practiceFinalDiscardStep1Hint,
+          successNote: (s) => s.practiceFinalDiscardStep1Done,
+          allows: _playsExactly(ninesIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, ninesIds),
+          highlightCardIds: ninesIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFinalDiscardStep2,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {fiveSpades.id},
+          // Only the round actually ending proves the finish.
+          isSatisfied: (context) => context.controller.isRoundOver,
+        ),
+      ],
+      completionNote: (s, _) => s.practiceFinalDiscardCompletion,
+    );
+  }
+
+  /// A clean normal finish: empty the hand through melds, go out on the
+  /// last discard, and read the score consequence off the completion panel.
+  ///
+  /// Mid-turn accounting again: the earlier opening (aces plus a club run,
+  /// exactly 51) plus nine hand cards = 14 dealt plus this turn's draw. The
+  /// hand finishes in two plays — the queens, then a five-card heart run —
+  /// with the spare seven left to throw.
+  static PracticeLessonScript normalFinish() {
+    final priorAces = [
+      PracticeBoard.card(CardRank.ace, CardSuit.spades),
+      PracticeBoard.card(CardRank.ace, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.ace, CardSuit.hearts),
+    ];
+    final priorRun = [
+      PracticeBoard.card(CardRank.six, CardSuit.clubs),
+      PracticeBoard.card(CardRank.seven, CardSuit.clubs),
+      PracticeBoard.card(CardRank.eight, CardSuit.clubs),
+    ];
+    final queens = [
+      PracticeBoard.card(CardRank.queen, CardSuit.clubs),
+      PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.queen, CardSuit.hearts),
+    ];
+    final queenIds = {for (final card in queens) card.id};
+    final heartRun = [
+      PracticeBoard.card(CardRank.four, CardSuit.hearts),
+      PracticeBoard.card(CardRank.five, CardSuit.hearts),
+      PracticeBoard.card(CardRank.six, CardSuit.hearts),
+      PracticeBoard.card(CardRank.seven, CardSuit.hearts),
+      PracticeBoard.card(CardRank.eight, CardSuit.hearts),
+    ];
+    final heartRunIds = {for (final card in heartRun) card.id};
+    final sevenSpades = PracticeBoard.card(CardRank.seven, CardSuit.spades);
+    return PracticeLessonScript(
+      lessonId: 'normal-finish',
+      buildSnapshot: () => PracticeBoard.build(
+        // Mid-turn accounting: 6 table cards + 9 in hand = 14 dealt plus
+        // the card this turn's draw just added.
+        southHand: [...queens, ...heartRun, sevenSpades],
+        priorDiscards: [
+          PracticeBoard.card(CardRank.ten, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.jack, CardSuit.hearts),
+          PracticeBoard.card(CardRank.two, CardSuit.diamonds),
+        ],
+        topDiscard: PracticeBoard.card(CardRank.two, CardSuit.spades),
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards(priorAces),
+            PlacedMeld.fromCards(priorRun),
+          ],
+        },
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        turnPhase: TurnPhase.action,
+      ),
+      steps: [
+        // One meld per step, each ringing only its own cards (the
+        // stepwise-highlighting rule).
+        PracticeStep(
+          prompt: (s) => s.practiceNormalFinishStep1,
+          successNote: (s) => s.practiceNormalFinishStep1Done,
+          allows: _playsExactly(queenIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, queenIds),
+          highlightCardIds: queenIds,
+        ),
+        PracticeStep(
+          prompt: (s) => s.practiceNormalFinishStep2,
+          hint: (s) => s.practiceNormalFinishStep2Hint,
+          allows: _playsExactly(heartRunIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, heartRunIds),
+          highlightCardIds: heartRunIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceNormalFinishStep3,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {sevenSpades.id},
+          isSatisfied: (context) => context.controller.isRoundOver,
+        ),
+      ],
+      completionNote: (s, _) => s.practiceNormalFinishCompletion,
+    );
+  }
+
+  /// Fifty timing: claim the previous discard before the window closes,
+  /// then prove the finish by hand.
+  ///
+  /// West's scripted turn throws the eight the player's hand can finish
+  /// around, and the throw itself opens the real claim window — the flame
+  /// ring counts down for real, then holds at three so reading the prompt
+  /// is never punished (a match gives four uninterrupted seconds; the hint
+  /// says the table is waiting). The claim only takes the card; the proof
+  /// is the player's to lay down, untimed: the eights the claimed card
+  /// completes, the twos, and the queen leaves as the finishing throw.
+  static PracticeLessonScript fiftyClaim({bool pauseTimer = true}) {
+    final priorSevens = [
+      PracticeBoard.card(CardRank.seven, CardSuit.clubs),
+      PracticeBoard.card(CardRank.seven, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.seven, CardSuit.hearts),
+    ];
+    final priorRun = [
+      PracticeBoard.card(CardRank.four, CardSuit.spades),
+      PracticeBoard.card(CardRank.five, CardSuit.spades),
+      PracticeBoard.card(CardRank.six, CardSuit.spades),
+      PracticeBoard.card(CardRank.seven, CardSuit.spades),
+      PracticeBoard.card(CardRank.eight, CardSuit.spades),
+    ];
+    final eightPair = [
+      PracticeBoard.card(CardRank.eight, CardSuit.clubs),
+      PracticeBoard.card(CardRank.eight, CardSuit.hearts),
+    ];
+    final twos = [
+      PracticeBoard.card(CardRank.two, CardSuit.spades),
+      PracticeBoard.card(CardRank.two, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.two, CardSuit.hearts),
+    ];
+    final eightDiamonds = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
+    final eightsIds = {for (final card in eightPair) card.id, eightDiamonds.id};
+    final twosIds = {for (final card in twos) card.id};
+    final queenSpades = PracticeBoard.card(CardRank.queen, CardSuit.spades);
+    return PracticeLessonScript(
+      lessonId: 'fifty-claim',
+      buildSnapshot: () => PracticeBoard.build(
+        // Turn-start accounting: 8 table cards + 6 in hand = the dealt 14
+        // (the claim happens instead of this turn's draw).
+        southHand: [...eightPair, ...twos, queenSpades],
+        priorDiscards: [
+          PracticeBoard.card(CardRank.three, CardSuit.hearts),
+          PracticeBoard.card(CardRank.jack, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.ten, CardSuit.hearts),
+          PracticeBoard.card(CardRank.king, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.six, CardSuit.hearts),
+        ],
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards(priorSevens),
+            PlacedMeld.fromCards(priorRun),
+          ],
+        },
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        cpuSeedCards: {
+          PlayerSeat.west: [eightDiamonds],
+        },
+        currentSeat: PlayerSeat.west,
+        // The window math is real, so the lesson dodges the first-dealt-
+        // round -1/-3 exception by playing a later round.
+        roundNumber: 2,
+        setup: ClassicHareegSetup.defaults().copyWith(fiftyTimerSeconds: 8),
+      ),
+      introActionIds: [
+        ClassicHareegActionIds.drawStock,
+        '${ClassicHareegActionIds.discardPrefix}${eightDiamonds.id}',
+      ],
+      fiftyTimerPausesAtSeconds: pauseTimer ? 3 : null,
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyClaimStep1,
+          hint: (s) => s.practiceFiftyClaimStep1Hint,
+          deadEndNote: (s) => s.practiceFiftyMissed,
+          kinds: const {ClassicHareegActionKind.claimFifty},
+          highlightCardIds: {for (final card in eightPair) card.id},
+          // The claim leaves the rules surface for good when the window
+          // dies on the player's turn; only a fresh board restores it.
+          // Unreachable while the timer holds — kept as the safety net.
+          // (Once the claim applies the step advances, so the predicate
+          // never sees the proof turn's window-less board.)
+          isDeadEnd: (controller) =>
+              controller.currentSeat == PlayerSeat.south &&
+              controller.fiftySecondsRemaining == null,
+        ),
+        // The proof, one meld per step: the claimed card's meld first —
+        // any order is legal under the engine, but the taught line starts
+        // where the claim points.
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyClaimStep2,
+          hint: (s) => s.practiceFiftyClaimStep2Hint,
+          successNote: (s) => s.practiceFiftyClaimStep2Done,
+          allows: _playsExactly(eightsIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, eightsIds),
+          highlightCardIds: eightsIds,
+        ),
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyClaimStep3,
+          hint: (s) => s.practicePendingStep4Hint,
+          allows: _playsExactly(twosIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, twosIds),
+          highlightCardIds: twosIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyClaimStep4,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {queenSpades.id},
+          isSatisfied: (context) => context.controller.isRoundOver,
+        ),
+      ],
+      completionNote: (s, _) => s.practiceFiftyClaimCompletion,
+    );
+  }
+
+  /// Fifty scoring: the same claim, watched through the score sheet.
+  ///
+  /// Scores start from zero so the sheet reads as the round's own effect:
+  /// the claimant's -3, and the discarder's full unopened hand plus 3 —
+  /// the punishment is the lesson. The REAL score sheet opens over the
+  /// finished board before the completion panel, so the numbers are read
+  /// where a match would show them.
+  static PracticeLessonScript fiftyScoring({bool pauseTimer = true}) {
+    final priorThrees = [
+      PracticeBoard.card(CardRank.three, CardSuit.spades),
+      PracticeBoard.card(CardRank.three, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.three, CardSuit.hearts),
+    ];
+    final priorFours = [
+      PracticeBoard.card(CardRank.four, CardSuit.spades),
+      PracticeBoard.card(CardRank.four, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.four, CardSuit.hearts),
+    ];
+    final priorRun = [
+      PracticeBoard.card(CardRank.four, CardSuit.clubs),
+      PracticeBoard.card(CardRank.five, CardSuit.clubs),
+      PracticeBoard.card(CardRank.six, CardSuit.clubs),
+      PracticeBoard.card(CardRank.seven, CardSuit.clubs),
+      PracticeBoard.card(CardRank.eight, CardSuit.clubs),
+    ];
+    final fivePair = [
+      PracticeBoard.card(CardRank.five, CardSuit.diamonds),
+      PracticeBoard.card(CardRank.five, CardSuit.spades),
+    ];
+    final fiveHearts = PracticeBoard.card(CardRank.five, CardSuit.hearts);
+    final fivesIds = {for (final card in fivePair) card.id, fiveHearts.id};
+    final kingClubs = PracticeBoard.card(CardRank.king, CardSuit.clubs);
+    return PracticeLessonScript(
+      lessonId: 'fifty-scoring',
+      buildSnapshot: () => PracticeBoard.build(
+        // Turn-start accounting: 11 table cards + 3 in hand = the dealt 14.
+        southHand: [...fivePair, kingClubs],
+        priorDiscards: [
+          PracticeBoard.card(CardRank.two, CardSuit.clubs),
+          PracticeBoard.card(CardRank.nine, CardSuit.hearts),
+          PracticeBoard.card(CardRank.jack, CardSuit.spades),
+          PracticeBoard.card(CardRank.six, CardSuit.diamonds),
+          PracticeBoard.card(CardRank.ten, CardSuit.spades),
+        ],
+        tableMelds: {
+          PlayerSeat.south: [
+            PlacedMeld.fromCards(priorThrees),
+            PlacedMeld.fromCards(priorFours),
+            PlacedMeld.fromCards(priorRun),
+          ],
+        },
+        openingState: PracticeBoard.openedFor(PlayerSeat.south),
+        cpuSeedCards: {
+          PlayerSeat.west: [fiveHearts],
+        },
+        currentSeat: PlayerSeat.west,
+        roundNumber: 2,
+        setup: ClassicHareegSetup.defaults().copyWith(fiftyTimerSeconds: 8),
+      ),
+      introActionIds: [
+        ClassicHareegActionIds.drawStock,
+        '${ClassicHareegActionIds.discardPrefix}${fiveHearts.id}',
+      ],
+      fiftyTimerPausesAtSeconds: pauseTimer ? 3 : null,
+      steps: [
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyScoringStep1,
+          hint: (s) => s.practiceFiftyClaimStep1Hint,
+          deadEndNote: (s) => s.practiceFiftyMissed,
+          kinds: const {ClassicHareegActionKind.claimFifty},
+          highlightCardIds: {for (final card in fivePair) card.id},
+          isDeadEnd: (controller) =>
+              controller.currentSeat == PlayerSeat.south &&
+              controller.fiftySecondsRemaining == null,
+        ),
+        // The short proof: one set, then the throw the score sheet reads.
+        PracticeStep(
+          prompt: (s) => s.practiceFiftyScoringStep2,
+          hint: (s) => s.practiceFiftyScoringStep2Hint,
+          allows: _playsExactly(fivesIds),
+          isDemonstrated: _tableHolds(PlayerSeat.south, fivesIds),
+          highlightCardIds: fivesIds,
+        ),
+        PracticeStep.kinds(
+          prompt: (s) => s.practiceFiftyScoringStep3,
+          hint: (s) => s.practiceTurnRhythmStep2Hint,
+          kinds: const {ClassicHareegActionKind.discard},
+          highlightCardIds: {kingClubs.id},
+          isSatisfied: (context) => context.controller.isRoundOver,
+        ),
+      ],
+      // The numbers live on the score sheet the lesson opens first; the
+      // panel keeps only the rule behind them.
+      completionNote: (s, _) => s.practiceFiftyScoringCompletion,
+      showScoresOnCompletion: true,
     );
   }
 }

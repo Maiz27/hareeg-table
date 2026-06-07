@@ -46,6 +46,7 @@ import '../../learning/practice/practice_lesson_script.dart';
 import '../../learning/practice/practice_session.dart';
 import '../../learning/practice/practice_table_interaction_reader.dart';
 import '../../learning/widgets/practice_completion_overlay.dart';
+import '../../learning/widgets/practice_missed_overlay.dart';
 import '../../learning/widgets/practice_step_banner.dart';
 import '../widgets/coach_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
@@ -184,6 +185,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   // completion overlay instead of the match round-result pipeline.
   bool _practiceComplete = false;
 
+  // Scoring lessons open the real score sheet over the finished board
+  // before the completion overlay; true only between the final step
+  // landing and the sheet being dismissed.
+  bool _practiceScoreReveal = false;
+
   /// Banner-level reaction to the player's last practice move — a stalled
   /// step's [PracticeStep.holdNote], or the just-completed step's
   /// [PracticeStep.successNote]: persists in the step banner's guidance slot
@@ -197,6 +203,18 @@ class _GameTableScreenState extends State<GameTableScreen>
   PracticeSession? _practiceSession;
 
   bool get _isPractice => _practiceSession != null;
+
+  /// Whether the active lesson run can no longer demonstrate its step (a
+  /// Fifty window expired before the claim). Suppressed while the scripted
+  /// intro still owns the turn — the step's predicate is meaningless before
+  /// the board reaches the player. Drives the missed-lesson overlay.
+  bool get _practiceDeadEnd {
+    final session = _practiceSession;
+    return session != null &&
+        !_practiceComplete &&
+        !_isCpuRunning &&
+        session.isDeadEnd;
+  }
 
   @override
   void initState() {
@@ -852,9 +870,11 @@ class _GameTableScreenState extends State<GameTableScreen>
             // Practice step prompt: persistent through the player's own card
             // flights (unlike the coach), hidden only under blocking overlays
             // and while a scripted intro still owns the turn — the prompt
-            // narrates the player's move, not the seat they are watching.
+            // narrates the player's move, not the seat they are watching. A
+            // dead-ended run hands narration to the missed-lesson overlay.
             if (_isPractice &&
                 !_practiceComplete &&
+                !_practiceDeadEnd &&
                 !_pauseOpen &&
                 _inspectedCard == null &&
                 _controller.currentSeat == PlayerSeat.south)
@@ -900,7 +920,15 @@ class _GameTableScreenState extends State<GameTableScreen>
                 starter: _controller.starter,
                 currentSeat: _controller.currentSeat,
                 roundNumber: _controller.roundNumber,
-                onClose: () => setState(() => _scoreOpen = false),
+                onClose: () => setState(() {
+                  _scoreOpen = false;
+                  // A scoring lesson's reveal hands off to the completion
+                  // overlay once the sheet is read.
+                  if (_practiceScoreReveal) {
+                    _practiceScoreReveal = false;
+                    _practiceComplete = true;
+                  }
+                }),
               ),
             ),
             _AnimatedOverlaySlot(
@@ -953,11 +981,32 @@ class _GameTableScreenState extends State<GameTableScreen>
               child: !_practiceComplete
                   ? const SizedBox.shrink()
                   : PracticeCompletionOverlay(
+                      note: _practiceSession!.script.completionNote?.call(
+                        strings,
+                        _controller,
+                      ),
                       onReplay: () =>
                           _startPracticeLesson(_practiceSession!.script),
                       onNext: _nextPracticeScript() == null
                           ? null
                           : () => _startPracticeLesson(_nextPracticeScript()!),
+                      onDone: () => Navigator.of(context).pop(),
+                    ),
+            ),
+            _AnimatedOverlaySlot(
+              visible: _practiceDeadEnd,
+              overlayKey: 'practice-missed-overlay-slot',
+              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              child: !_practiceDeadEnd
+                  ? const SizedBox.shrink()
+                  : PracticeMissedOverlay(
+                      note:
+                          _practiceSession!.currentStep?.deadEndNote?.call(
+                            strings,
+                          ) ??
+                          strings.practiceFiftyMissed,
+                      onRestart: () =>
+                          _startPracticeLesson(_practiceSession!.script),
                       onDone: () => Navigator.of(context).pop(),
                     ),
             ),
@@ -1035,6 +1084,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _roundResultPresentation = null;
       _practiceReaction = null;
       _practiceComplete = false;
+      _practiceScoreReveal = false;
     });
     _ensureFiftyTicker();
     unawaited(_runPracticeIntro());
@@ -1062,9 +1112,15 @@ class _GameTableScreenState extends State<GameTableScreen>
       return CoachHighlighting.none;
     }
     final topDiscard = _controller.topDiscard;
-    final allowsTake = step.allows(
-      ClassicHareegActionIds.describe(ClassicHareegActionIds.takeDiscard),
-    );
+    // The pile card rings for a take and for a Fifty claim alike — the
+    // claim's target IS the thrown card, so it must light up as one.
+    final allowsTake =
+        step.allows(
+          ClassicHareegActionIds.describe(ClassicHareegActionIds.takeDiscard),
+        ) ||
+        step.allows(
+          ClassicHareegActionIds.describe(ClassicHareegActionIds.claimFifty),
+        );
     return CoachHighlighting(
       highlightIds: {
         ...step.highlightCardIds,
@@ -1888,11 +1944,18 @@ class _GameTableScreenState extends State<GameTableScreen>
               }),
         );
         setState(() {
-          _scoreOpen = false;
           _pauseOpen = false;
           _inspectedCard = null;
           _practiceReaction = null;
-          _practiceComplete = true;
+          // A scoring lesson shows its consequence on the real score sheet
+          // first; the completion overlay waits for the sheet to close.
+          if (_practiceSession!.script.showScoresOnCompletion) {
+            _practiceScoreReveal = true;
+            _scoreOpen = true;
+          } else {
+            _scoreOpen = false;
+            _practiceComplete = true;
+          }
         });
     }
   }

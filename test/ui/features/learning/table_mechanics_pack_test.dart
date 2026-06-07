@@ -34,8 +34,11 @@ void _runIntro(PracticeSession session) {
       reason: 'intro action $actionId must be legal: ${result.message}',
     );
   }
-  expect(session.controller.currentSeat, PlayerSeat.south,
-      reason: 'the intro must hand the turn to the player');
+  expect(
+    session.controller.currentSeat,
+    PlayerSeat.south,
+    reason: 'the intro must hand the turn to the player',
+  );
 }
 
 void main() {
@@ -87,8 +90,11 @@ void main() {
       );
       expect(handBack.status, PracticeSubmitStatus.stepCompleted);
       expect(session.controller.pendingDiscard, isNull);
-      expect(session.controller.topDiscard?.id, fourClubs.id,
-          reason: 'the returned four lands back on top of the pile');
+      expect(
+        session.controller.topDiscard?.id,
+        fourClubs.id,
+        reason: 'the returned four lands back on top of the pile',
+      );
 
       // The real anti-stall rule the copy leans on: a returned card cannot
       // be re-taken this turn.
@@ -151,8 +157,11 @@ void main() {
         script: PracticeScripts.benchmarkPressure(),
       );
 
-      expect(session.controller.openingState.currentRequirement, 51,
-          reason: 'the raise must happen on screen, not pre-baked');
+      expect(
+        session.controller.openingState.currentRequirement,
+        51,
+        reason: 'the raise must happen on screen, not pre-baked',
+      );
 
       _runIntro(session);
 
@@ -179,8 +188,11 @@ void main() {
       expect(draw.status, PracticeSubmitStatus.stepCompleted);
 
       final stage = session.submit(_meldId(heartRun));
-      expect(stage.status, PracticeSubmitStatus.stepCompleted,
-          reason: 'staging is the taught move; the react is the next step');
+      expect(
+        stage.status,
+        PracticeSubmitStatus.stepCompleted,
+        reason: 'staging is the taught move; the react is the next step',
+      );
       expect(session.controller.tableMeldsFor(PlayerSeat.south), hasLength(1));
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -194,9 +206,7 @@ void main() {
         session.offersActionId(ClassicHareegActionIds.returnOpeningMelds),
         isTrue,
       );
-      final retract = session.submit(
-        ClassicHareegActionIds.returnOpeningMelds,
-      );
+      final retract = session.submit(ClassicHareegActionIds.returnOpeningMelds);
       expect(retract.status, PracticeSubmitStatus.stepCompleted);
       expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
 
@@ -284,8 +294,11 @@ void main() {
       // West staged the eights first, so the diamond run is meld index 1.
       // The jack alone applies but leaves the step holding for the queen.
       final jack = session.submit(coverId(1, [jackDiamonds]));
-      expect(jack.status, PracticeSubmitStatus.accepted,
-          reason: 'the step holds until both stacked covers land');
+      expect(
+        jack.status,
+        PracticeSubmitStatus.accepted,
+        reason: 'the step holds until both stacked covers land',
+      );
       final queen = session.submit(coverId(1, [queenDiamonds]));
       expect(queen.status, PracticeSubmitStatus.stepCompleted);
       final run = session.controller.tableMeldsFor(PlayerSeat.west)[1];
@@ -429,10 +442,7 @@ void main() {
 
       // The picker's two real choices both pass the step gate — the open
       // choice IS the lesson.
-      expect(
-        session.offersActionId(identityMeldId(CardSuit.diamonds)),
-        isTrue,
-      );
+      expect(session.offersActionId(identityMeldId(CardSuit.diamonds)), isTrue);
       expect(session.offersActionId(identityMeldId(CardSuit.spades)), isTrue);
 
       final declared = session.submit(identityMeldId(CardSuit.diamonds));
@@ -464,7 +474,10 @@ void main() {
             _joker.id,
           ],
           jokerId: _joker.id,
-          identity: const CardIdentity(rank: CardRank.two, suit: CardSuit.clubs),
+          identity: const CardIdentity(
+            rank: CardRank.two,
+            suit: CardSuit.clubs,
+          ),
         ),
       );
       expect(offScript.status, PracticeSubmitStatus.notAllowed);
@@ -482,7 +495,10 @@ void main() {
       return ClassicHareegActionIds.playMeldWithJokerIdentityActionId(
         cardIds: [eightHearts.id, tenHearts.id, _joker.id],
         jokerId: _joker.id,
-        identity: const CardIdentity(rank: CardRank.nine, suit: CardSuit.hearts),
+        identity: const CardIdentity(
+          rank: CardRank.nine,
+          suit: CardSuit.hearts,
+        ),
       );
     }
 
@@ -523,8 +539,11 @@ void main() {
     test('swap the real seven in, then bank the joker and close', () {
       final session = swappedSession();
       final sevens = session.controller.tableMeldsFor(PlayerSeat.west).first;
-      expect(sevens.cards.any((card) => card.isJoker), isFalse,
-          reason: 'the real seven replaced the joker in the table set');
+      expect(
+        sevens.cards.any((card) => card.isJoker),
+        isFalse,
+        reason: 'the real seven replaced the joker in the table set',
+      );
       expect(
         session.controller
             .handFor(PlayerSeat.south)
@@ -582,30 +601,32 @@ void main() {
       }
     });
 
-    test('a pre-opened player holds the dealt hand minus their table cards',
-        () {
-      // A playtest flagged the giveaway: six of "your" cards on the table
-      // while the hand still fans the full fourteen. Hand plus placed cards
-      // must always account for exactly one deal.
-      for (final id in [
-        'pending-discard',
-        'benchmark-pressure',
-        'sequence-cover',
-        'set-cover',
-        'cover-discard-block',
-        'joker-identity',
-        'joker-replacement',
-      ]) {
-        final snapshot = PracticeScripts.byId(id)!.buildSnapshot();
-        final placed = (snapshot.tableMelds[PlayerSeat.south] ?? const [])
-            .fold<int>(0, (sum, meld) => sum + meld.cards.length);
-        expect(
-          snapshot.hands[PlayerSeat.south]!.length + placed,
-          14,
-          reason: '$id must deal a hand that accounts for its table cards',
-        );
-      }
-    });
+    test(
+      'a pre-opened player holds the dealt hand minus their table cards',
+      () {
+        // A playtest flagged the giveaway: six of "your" cards on the table
+        // while the hand still fans the full fourteen. Hand plus placed cards
+        // must always account for exactly one deal.
+        for (final id in [
+          'pending-discard',
+          'benchmark-pressure',
+          'sequence-cover',
+          'set-cover',
+          'cover-discard-block',
+          'joker-identity',
+          'joker-replacement',
+        ]) {
+          final snapshot = PracticeScripts.byId(id)!.buildSnapshot();
+          final placed = (snapshot.tableMelds[PlayerSeat.south] ?? const [])
+              .fold<int>(0, (sum, meld) => sum + meld.cards.length);
+          expect(
+            snapshot.hands[PlayerSeat.south]!.length + placed,
+            14,
+            reason: '$id must deal a hand that accounts for its table cards',
+          );
+        }
+      },
+    );
 
     test('every pack-two script replays an identical deterministic board', () {
       for (final id in [

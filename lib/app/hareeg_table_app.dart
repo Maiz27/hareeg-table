@@ -24,6 +24,7 @@ import '../ui/features/learning/practice/practice_scripts.dart';
 import '../ui/features/learning/practice/practice_session.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
+import '../ui/features/learning/views/strictness_explainer_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
@@ -258,6 +259,8 @@ class _HareegTableAppState extends State<HareegTableApp> {
             OnboardingScreen(learningRepository: _learning),
         AppRoutes.practice: (context) =>
             PracticeChecklistScreen(learningRepository: _learning),
+        AppRoutes.strictnessExplainer: (context) =>
+            StrictnessExplainerScreen(learningRepository: _learning),
       },
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.settings) {

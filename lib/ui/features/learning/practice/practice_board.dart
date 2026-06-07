@@ -22,21 +22,32 @@ abstract final class PracticeBoard {
   /// Builds a deterministic lesson snapshot.
   ///
   /// [southHand] is the exact teaching hand. [topDiscard] (if given) becomes
-  /// the only discard-pile card. [tableMelds] are pre-placed melds keyed by
-  /// owner seat. [openingState] defaults to a fresh benchmark at the setup's
-  /// opening requirement. [cpuSeedCards] pins named cards into a CPU seat's
-  /// hand for scripted intro turns (the rest of that hand pads with dummies).
-  /// [currentSeat] defaults to the south lesson seat; boards with a scripted
-  /// intro start on the acting CPU seat instead.
+  /// the top discard-pile card; [priorDiscards] dress the pile beneath it
+  /// with the table's discard history (every played turn ends with a throw,
+  /// so a late-round pile is never one card deep). [tableMelds] are
+  /// pre-placed melds keyed by owner seat. Every turn pairs its draw with
+  /// its discard, so a seat's hand plus its own placed cards must equal one
+  /// dealt 14 at turn start (15 mid-turn, after the draw) — lessons size
+  /// their hands and melds to that rule. [openingState] defaults to a fresh
+  /// benchmark at the setup's opening requirement. [cpuSeedCards] pins named
+  /// cards into a CPU seat's hand for scripted intro turns (the rest of that
+  /// hand pads with dummies). [currentSeat] defaults to the south lesson
+  /// seat; boards with a scripted intro start on the acting CPU seat
+  /// instead.
   static ClassicHareegMatchSnapshot build({
     required List<HareegCard> southHand,
     HareegCard? topDiscard,
+    List<HareegCard> priorDiscards = const [],
     Map<PlayerSeat, List<PlacedMeld>> tableMelds = const {},
     Map<PlayerSeat, List<HareegCard>> cpuSeedCards = const {},
     OpeningState? openingState,
     PlayerSeat currentSeat = PlayerSeat.south,
     TurnPhase turnPhase = TurnPhase.draw,
     ClassicHareegSetup? setup,
+    Map<PlayerSeat, int> scores = const {},
+    int roundNumber = 1,
+    DateTime? fiftyWindowOpenedAt,
+    PlayerSeat? fiftyWindowDiscarder,
     int seed = 404,
   }) {
     final effectiveSetup = setup ?? ClassicHareegSetup.defaults();
@@ -68,6 +79,7 @@ abstract final class PracticeBoard {
     if (topDiscard != null) {
       claim(topDiscard);
     }
+    priorDiscards.forEach(claim);
     for (final melds in tableMelds.values) {
       for (final meld in melds) {
         meld.cards.forEach(claim);
@@ -144,12 +156,19 @@ abstract final class PracticeBoard {
       setup: effectiveSetup,
       hands: hands,
       stock: stock,
-      discardPile: [?topDiscard],
+      discardPile: [...priorDiscards, ?topDiscard],
       tableMelds: tableMelds,
       starter: PlayerSeat.east,
       currentSeat: currentSeat,
       turnPhase: turnPhase,
       openingState: openingState,
+      scores: scores,
+      roundNumber: roundNumber,
+      // Restoration falls back to savedAt (deliberately ancient) when no
+      // window time is given, so boards without an explicit Fifty window
+      // never restore a live claim.
+      fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+      fiftyWindowDiscarder: fiftyWindowDiscarder,
       savedAt: _savedAt,
     );
   }

@@ -387,6 +387,12 @@ class ClassicHareegGameController {
   /// window is active.
   PlayerSeat? get fiftyClaimant => _fiftyWindow?.claimant;
 
+  /// Clock reading stamped when the live Fifty window opened, or null when
+  /// no window is active. Practice freezes its lesson clock relative to
+  /// this instant so a teaching window can hold instead of expiring.
+  DateTime? get fiftyWindowOpenedAt =>
+      _fiftyWindow == null ? null : _fiftyWindowOpenedAt;
+
   /// Whether the current turn is a Fifty proof turn — the claimant took the
   /// thrown card and must lay the full finish down before the turn ends.
   bool get isFiftyProofTurn => _activeFiftyClaim != null;

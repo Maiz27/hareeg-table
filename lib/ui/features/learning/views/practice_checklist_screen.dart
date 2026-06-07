@@ -11,6 +11,7 @@ import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_catalog.dart';
 import '../practice/practice_scripts.dart';
 import 'onboarding_screen.dart';
+import 'strictness_explainer_screen.dart';
 
 /// Guided practice checklist hub.
 ///
@@ -77,7 +78,9 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   }
 
   Future<void> _startLesson(PracticeLesson lesson) async {
-    if (PracticeScripts.byId(lesson.id) == null) {
+    // The strictness lesson is a reading panel, not a scripted hand.
+    final isExplainer = lesson.id == StrictnessExplainerScreen.lessonId;
+    if (!isExplainer && PracticeScripts.byId(lesson.id) == null) {
       // The lesson's practice pack has not shipped yet.
       final strings = context.strings;
       ScaffoldMessenger.of(context)
@@ -86,9 +89,13 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
       return;
     }
     try {
-      await Navigator.of(
-        context,
-      ).pushNamed(AppRoutes.practiceLesson, arguments: lesson.id);
+      if (isExplainer) {
+        await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
+      } else {
+        await Navigator.of(
+          context,
+        ).pushNamed(AppRoutes.practiceLesson, arguments: lesson.id);
+      }
     } finally {
       if (mounted) {
         await _loadProgress();

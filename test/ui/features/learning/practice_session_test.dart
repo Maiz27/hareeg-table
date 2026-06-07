@@ -82,6 +82,41 @@ void main() {
       );
     });
 
+    test('dresses the pile under the top discard and conserves the cards', () {
+      final under = [
+        PracticeBoard.card(CardRank.jack, CardSuit.clubs),
+        PracticeBoard.card(CardRank.four, CardSuit.diamonds),
+      ];
+      final top = PracticeBoard.card(CardRank.two, CardSuit.hearts);
+      final snapshot = PracticeBoard.build(
+        southHand: [PracticeBoard.card(CardRank.three, CardSuit.clubs)],
+        priorDiscards: under,
+        topDiscard: top,
+      );
+
+      expect(
+        [for (final card in snapshot.discardPile) card.id],
+        [...under.map((c) => c.id), top.id],
+        reason: 'dressing sits beneath the top discard, in order',
+      );
+      final allIds = [
+        for (final hand in snapshot.hands.values)
+          for (final card in hand) card.id,
+        for (final card in snapshot.stock) card.id,
+        for (final card in snapshot.discardPile) card.id,
+      ];
+      expect(allIds, hasLength(106));
+      expect(allIds.toSet(), hasLength(106));
+    });
+
+    test('rejects pile dressing that re-claims a named card', () {
+      final five = PracticeBoard.card(CardRank.five, CardSuit.spades);
+      expect(
+        () => PracticeBoard.build(southHand: [five], priorDiscards: [five]),
+        throwsArgumentError,
+      );
+    });
+
     test('builds identical boards on every call', () {
       final first = PracticeScripts.turnRhythm().buildSnapshot();
       final second = PracticeScripts.turnRhythm().buildSnapshot();

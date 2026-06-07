@@ -80,34 +80,9 @@ void main() {
     expect(find.text('Skipped'), findsNothing);
   });
 
-  testWidgets('starting a lesson whose pack has not shipped shows the notice', (
-    tester,
-  ) async {
-    // Tall surface so the unscripted tile is on-screen without scrolling.
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
-    await tester.pumpAndSettle();
-
-    // Final-discard has no script until HT-48.
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('practice-lesson-tile-final-discard'),
-        ),
-        matching: find.text('Start'),
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.text('This practice hand arrives in an upcoming update.'),
-      findsOneWidget,
-    );
-  });
+  // The coming-soon notice path became defensive-only once HT-48 shipped the
+  // final pack: every catalog lesson now has a script (or the explainer
+  // route), which the scripts-registry test asserts catalog-wide.
 
   testWidgets('replay intro from the hub opens onboarding and pops back', (
     tester,

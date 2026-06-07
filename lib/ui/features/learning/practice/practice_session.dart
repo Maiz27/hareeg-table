@@ -53,10 +53,68 @@ class PracticeSubmitResult {
 /// demonstrated.
 class PracticeSession {
   /// Starts (or restarts) a lesson run.
-  PracticeSession({required this.script})
-    : controller = ClassicHareegGameController.fromSnapshot(
-        script.buildSnapshot(),
-      );
+  ///
+  /// [now] overrides the base clock; Fifty lessons inject it in tests to
+  /// walk the claim window deterministically. When the script pauses the
+  /// Fifty timer, the controller reads the base clock through a cap that
+  /// freezes once the window counts down to the script's hold point.
+  PracticeSession({required this.script, DateTime Function()? now})
+    : _baseNow = now ?? DateTime.now {
+    _controller = ClassicHareegGameController.fromSnapshot(
+      script.buildSnapshot(),
+      now: _lessonNow,
+    );
+  }
+
+  final DateTime Function() _baseNow;
+
+  /// Window stamp the hold has blessed: it was seen while genuinely live,
+  /// so the clock caps for it.
+  DateTime? _heldWindowOpenedAt;
+
+  /// Window stamp the hold refuses: it was already expired at first sight
+  /// (snapshot restore stamps a deliberately ancient time precisely so a
+  /// dressed pile never restores a live claim) — capping it would resurrect
+  /// a window the board never offered.
+  DateTime? _ignoredWindowOpenedAt;
+
+  /// The lesson clock: real time, capped so a live Fifty window never
+  /// counts below the script's hold point. The cap re-derives from the
+  /// controller's own window stamp, so every freshly opened window (replay,
+  /// restart, the intro's throw) gets its own running-then-held countdown.
+  /// The null check covers the controller's own construction, which may
+  /// read the clock before the backing field is assigned.
+  DateTime _lessonNow() {
+    final base = _baseNow();
+    final pauseAt = script.fiftyTimerPausesAtSeconds;
+    final controller = _controller;
+    if (pauseAt == null || controller == null) {
+      return base;
+    }
+    final openedAt = controller.fiftyWindowOpenedAt;
+    if (openedAt == null) {
+      return base;
+    }
+    if (openedAt == _ignoredWindowOpenedAt) {
+      return base;
+    }
+    if (openedAt != _heldWindowOpenedAt) {
+      // First sight of this window decides its fate: only a stamp that is
+      // still inside its own countdown is held; anything older (or oddly
+      // in the future) stays on the real clock and expires as it should.
+      final age = base.difference(openedAt);
+      if (age.isNegative ||
+          age.inSeconds >= controller.setup.fiftyTimerSeconds) {
+        _ignoredWindowOpenedAt = openedAt;
+        return base;
+      }
+      _heldWindowOpenedAt = openedAt;
+    }
+    final cap = openedAt.add(
+      Duration(seconds: controller.setup.fiftyTimerSeconds - pauseAt),
+    );
+    return base.isAfter(cap) ? cap : base;
+  }
 
   /// Action kinds that take a staged play back rather than make a move.
   ///
@@ -75,9 +133,11 @@ class PracticeSession {
   /// Script being taught.
   final PracticeLessonScript script;
 
+  ClassicHareegGameController? _controller;
+
   /// Live lesson controller. Read-only access for the teaching surface;
   /// mutations must go through [submit] so step progress stays in sync.
-  final ClassicHareegGameController controller;
+  ClassicHareegGameController get controller => _controller!;
 
   var _stepIndex = 0;
 
@@ -100,6 +160,11 @@ class PracticeSession {
 
   /// Active step, or null once the lesson is complete.
   PracticeStep? get currentStep => isComplete ? null : script.steps[_stepIndex];
+
+  /// Whether the active step can no longer be demonstrated on this board
+  /// (e.g. the Fifty window expired while the lesson taught the claim). A
+  /// dead-ended run only recovers by restarting on a fresh board.
+  bool get isDeadEnd => currentStep?.isDeadEnd(controller) ?? false;
 
   /// Legal engine actions the current step offers, as parsed descriptors.
   ///
@@ -193,6 +258,16 @@ class PracticeSession {
     }
 
     _stepIndex += 1;
+    // A step whose outcome already stands is not re-taught: replaying the
+    // queens after a deep retract must not ask for the still-placed run
+    // again (its only legal "play" would be a card no longer in hand).
+    while (!isComplete) {
+      final next = script.steps[_stepIndex];
+      if (!next.hasDemonstrationCheck || !next.isDemonstrated(controller)) {
+        break;
+      }
+      _stepIndex += 1;
+    }
     return PracticeSubmitResult._(
       isComplete
           ? PracticeSubmitStatus.lessonCompleted
@@ -203,6 +278,12 @@ class PracticeSession {
 
   /// Applies a take-back through the real engine without touching step
   /// progress — the step's move still has to be demonstrated afterwards.
+  ///
+  /// A take-back can also un-demonstrate an already-completed step (the
+  /// nines retracted off the table while the lesson asks for the closing
+  /// discard), so completed steps re-verify their board-state proof and the
+  /// lesson walks back to the first one that no longer holds — the prompt
+  /// follows the player instead of pointing at a move the board lost.
   PracticeSubmitResult _applyCorrection(String actionId) {
     final result = controller.applyAction(actionId);
     if (!result.isSuccess) {
@@ -212,6 +293,13 @@ class PracticeSession {
       );
     }
     _allowedActionsCache = null;
+    for (var i = 0; i < _stepIndex; i++) {
+      final step = script.steps[i];
+      if (step.hasDemonstrationCheck && !step.isDemonstrated(controller)) {
+        _stepIndex = i;
+        break;
+      }
+    }
     return const PracticeSubmitResult._(PracticeSubmitStatus.corrected, '');
   }
 }

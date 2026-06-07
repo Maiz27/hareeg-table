@@ -153,8 +153,7 @@ class PracticeStepBanner extends StatelessWidget {
       },
       child: Semantics(
         liveRegion: true,
-        label:
-            '$stepLabel. $prompt.${guidance == null ? '' : ' $guidance'}',
+        label: '$stepLabel. $prompt.${guidance == null ? '' : ' $guidance'}',
         child: panel,
       ),
     );
