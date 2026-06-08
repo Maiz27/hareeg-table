@@ -103,6 +103,21 @@ class _SuggestionGroup extends StatelessWidget {
     final cards = suggestion.cards;
     final gap = cardSize.width * 0.50;
     final width = cardSize.width + math.max(0, cards.length - 1) * gap;
+    // Cards fan right (each at left: i*gap), so a card's right half is covered
+    // by its neighbour. The joker carries a bottom-centred represented-identity
+    // badge, so it must paint on top of its neighbours to stay readable. We
+    // paint in reverse index order — making each card sit above its right
+    // neighbour — and float any represented joker to the very top so its badge
+    // is never clipped, even from an interior slot. Offsets and overall width
+    // are unchanged, so the rack's centred layout stays identical.
+    final paintOrder = [for (var i = cards.length - 1; i >= 0; i--) i];
+    paintOrder.sort((a, b) {
+      final aJoker = cards[a].isJoker;
+      final bJoker = cards[b].isJoker;
+      if (aJoker != bJoker) return aJoker ? 1 : -1;
+      // Stable within the same priority: leftmost paints last (on top).
+      return b.compareTo(a);
+    });
     return Tooltip(
       message: context.strings.playMeld,
       child: GestureDetector(
@@ -115,7 +130,7 @@ class _SuggestionGroup extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              for (var i = 0; i < cards.length; i++)
+              for (final i in paintOrder)
                 Positioned(
                   left: i * gap,
                   child: GestureDetector(
