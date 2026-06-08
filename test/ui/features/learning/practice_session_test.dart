@@ -2,8 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/ui/features/learning/models/practice_lesson_registry.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_board.dart';
-import 'package:hareeg_table/ui/features/learning/practice/practice_scripts.dart';
+import 'package:hareeg_table/ui/features/learning/practice/practice_board_grammar.dart';
+import 'package:hareeg_table/ui/features/learning/practice/core_turn_practice_pack.dart';
+import 'package:hareeg_table/ui/features/learning/practice/table_mechanics_practice_pack.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
 
 void main() {
@@ -118,8 +121,8 @@ void main() {
     });
 
     test('builds identical boards on every call', () {
-      final first = PracticeScripts.turnRhythm().buildSnapshot();
-      final second = PracticeScripts.turnRhythm().buildSnapshot();
+      final first = CoreTurnPracticePack.turnRhythm().buildSnapshot();
+      final second = CoreTurnPracticePack.turnRhythm().buildSnapshot();
 
       expect(
         [for (final c in first.hands[PlayerSeat.south]!) c.id],
@@ -131,11 +134,37 @@ void main() {
       );
       expect(first.discardPile.single.id, second.discardPile.single.id);
     });
+
+    test('pre-opened practice boards read as one dealt hand', () {
+      final snapshot = TableMechanicsPracticePack.pendingDiscard().buildSnapshot();
+
+      expect(
+        PracticeBoardGrammar.handAndTableReadAsOneDeal(
+          snapshot,
+          PlayerSeat.south,
+        ),
+        isTrue,
+      );
+    });
+
+    test('board audit reports declared grammar failures', () {
+      final snapshot = TableMechanicsPracticePack.pendingDiscard().buildSnapshot();
+      final audit = PracticeBoardGrammar.auditSnapshot(
+        snapshot,
+        const PracticeBoardAuditSpec(
+          handAndTableSeats: {PlayerSeat.south},
+          expectedTableValues: {PlayerSeat.south: 75},
+        ),
+      );
+
+      expect(audit.passed, isFalse);
+      expect(audit.failures, contains(contains('expected 75')));
+    });
   });
 
   group('PracticeSession (turn rhythm)', () {
     test('offers only the step-allowed engine actions', () {
-      final session = PracticeSession(script: PracticeScripts.turnRhythm());
+      final session = PracticeSession(script: CoreTurnPracticePack.turnRhythm());
 
       // Step 1 narrows the real draw-phase surface (draw or take-discard)
       // down to the taught move.
@@ -146,7 +175,7 @@ void main() {
     });
 
     test('draw then discard completes the lesson through the real engine', () {
-      final session = PracticeSession(script: PracticeScripts.turnRhythm());
+      final session = PracticeSession(script: CoreTurnPracticePack.turnRhythm());
       final handBefore = session.controller.handFor(PlayerSeat.south).length;
 
       final draw = session.submit(ClassicHareegActionIds.drawStock);
@@ -172,7 +201,7 @@ void main() {
     });
 
     test('actions outside the step are not applied', () {
-      final session = PracticeSession(script: PracticeScripts.turnRhythm());
+      final session = PracticeSession(script: CoreTurnPracticePack.turnRhythm());
 
       // Taking the discard is legal at the engine but not taught here.
       final result = session.submit(ClassicHareegActionIds.takeDiscard);
@@ -184,7 +213,7 @@ void main() {
     });
 
     test('real engine rejections surface with their rules message', () {
-      final session = PracticeSession(script: PracticeScripts.turnRhythm());
+      final session = PracticeSession(script: CoreTurnPracticePack.turnRhythm());
       session.submit(ClassicHareegActionIds.drawStock);
 
       // A discard for a card south does not hold: allowed kind, rejected by
@@ -200,51 +229,53 @@ void main() {
     });
   });
 
-  group('PracticeScripts.nextScriptInPack', () {
+  group('PracticeLessonRegistry.nextScriptInPack', () {
     test('chains the scripted core turn pack lessons in order', () {
       expect(
-        PracticeScripts.nextScriptInPack('turn-rhythm')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('turn-rhythm')?.lessonId,
         'first-meld',
       );
       expect(
-        PracticeScripts.nextScriptInPack('first-meld')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('first-meld')?.lessonId,
         'discard-opening',
       );
       expect(
-        PracticeScripts.nextScriptInPack('discard-opening')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('discard-opening')?.lessonId,
         'bait-discard',
       );
       expect(
-        PracticeScripts.nextScriptInPack('bait-discard')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('bait-discard')?.lessonId,
         'opening-51',
       );
     });
 
     test('chains the scripted table mechanics lessons in order', () {
       expect(
-        PracticeScripts.nextScriptInPack('pending-discard')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('pending-discard')?.lessonId,
         'benchmark-pressure',
       );
       // The single-card cover lesson teaches the rule before the stacked
       // one widens it.
       expect(
-        PracticeScripts.nextScriptInPack('benchmark-pressure')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('benchmark-pressure')?.lessonId,
         'set-cover',
       );
       expect(
-        PracticeScripts.nextScriptInPack('set-cover')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('set-cover')?.lessonId,
         'sequence-cover',
       );
       expect(
-        PracticeScripts.nextScriptInPack('sequence-cover')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('sequence-cover')?.lessonId,
         'cover-discard-block',
       );
       expect(
-        PracticeScripts.nextScriptInPack('cover-discard-block')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack(
+          'cover-discard-block',
+        )?.lessonId,
         'joker-identity',
       );
       expect(
-        PracticeScripts.nextScriptInPack('joker-identity')?.lessonId,
+        PracticeLessonRegistry.nextScriptInPack('joker-identity')?.lessonId,
         'joker-replacement',
       );
     });
@@ -252,12 +283,15 @@ void main() {
     test('stops at the pack boundary', () {
       // Finishing a pack is a deliberate stopping point; the continuation
       // never crosses into the next pack.
-      expect(PracticeScripts.nextScriptInPack('opening-51'), isNull);
-      expect(PracticeScripts.nextScriptInPack('joker-replacement'), isNull);
+      expect(PracticeLessonRegistry.nextScriptInPack('opening-51'), isNull);
+      expect(
+        PracticeLessonRegistry.nextScriptInPack('joker-replacement'),
+        isNull,
+      );
     });
 
     test('returns null for unknown lessons', () {
-      expect(PracticeScripts.nextScriptInPack('not-a-lesson'), isNull);
+      expect(PracticeLessonRegistry.nextScriptInPack('not-a-lesson'), isNull);
     });
   });
 }

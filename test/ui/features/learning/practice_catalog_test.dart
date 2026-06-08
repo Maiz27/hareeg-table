@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/ui/features/learning/models/practice_catalog.dart';
+import 'package:hareeg_table/ui/features/learning/models/practice_lesson_registry.dart';
 
 void main() {
   group('PracticeCatalog', () {
@@ -45,6 +46,45 @@ void main() {
         expect(PracticeCatalog.byId(id)?.id, id);
       }
       expect(PracticeCatalog.byId('unknown-lesson'), isNull);
+    });
+
+    test('registry delivers every catalog lesson', () {
+      for (final lesson in PracticeCatalog.lessons) {
+        final delivery = PracticeLessonRegistry.deliveryFor(lesson.id);
+        expect(delivery, same(lesson.delivery), reason: lesson.id);
+        expect(delivery.isAvailable, isTrue, reason: lesson.id);
+      }
+      expect(
+        PracticeLessonRegistry.deliveryFor(
+          PracticeLessonRegistry.strictnessTiersLessonId,
+        ).kind,
+        PracticeLessonDeliveryKind.readingPanel,
+      );
+      expect(
+        PracticeLessonRegistry.scriptFor('turn-rhythm')?.lessonId,
+        'turn-rhythm',
+      );
+      expect(PracticeLessonRegistry.scriptFor('strictness-tiers'), isNull);
+      expect(
+        PracticeLessonRegistry.deliveryFor('not-a-lesson').kind,
+        PracticeLessonDeliveryKind.unavailable,
+      );
+    });
+
+    test('every scripted lesson declares and passes a board audit', () {
+      for (final lesson in PracticeCatalog.lessons) {
+        final script = PracticeLessonRegistry.scriptFor(lesson.id);
+        if (script == null) {
+          continue;
+        }
+
+        expect(script.boardAuditSpec, isNotNull, reason: lesson.id);
+        expect(
+          script.auditInitialBoard()?.failures,
+          isEmpty,
+          reason: lesson.id,
+        );
+      }
     });
   });
 }
