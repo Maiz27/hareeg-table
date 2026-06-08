@@ -41,10 +41,10 @@ import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
 import '../table_interaction_planner.dart';
 import '../table_persistence_planner.dart';
+import '../practice_table_run.dart';
 import '../table_session_flow_planner.dart';
 import '../../learning/practice/practice_lesson_script.dart';
 import '../../learning/practice/practice_session.dart';
-import '../../learning/practice/practice_table_interaction_reader.dart';
 import '../../learning/widgets/practice_completion_overlay.dart';
 import '../../learning/widgets/practice_missed_overlay.dart';
 import '../../learning/widgets/practice_step_banner.dart';
@@ -181,47 +181,36 @@ class _GameTableScreenState extends State<GameTableScreen>
   String? _coachInsightCacheKey;
   List<CoachingInsight> _coachInsights = const [];
 
-  // Set once the practice lesson's final step is demonstrated; drives the
-  // completion overlay instead of the match round-result pipeline.
-  bool _practiceComplete = false;
-
-  // Scoring lessons open the real score sheet over the finished board
-  // before the completion overlay; true only between the final step
-  // landing and the sheet being dismissed.
-  bool _practiceScoreReveal = false;
-
-  /// Banner-level reaction to the player's last practice move — a stalled
-  /// step's [PracticeStep.holdNote], or the just-completed step's
-  /// [PracticeStep.successNote]: persists in the step banner's guidance slot
-  /// until the situation changes. The lesson banner is the sole narrator in
-  /// practice; the table's transient feedback chip stays error-only.
-  String Function(AppStrings strings)? _practiceReaction;
-
   // State-owned so replay / next-lesson swap sessions in place. A route swap
   // would build the replacement table (landscape) and then dispose this one,
   // whose dispose() restores portrait — flipping the live lesson upright.
-  PracticeSession? _practiceSession;
+  PracticeTableRun? _practiceRun;
 
-  bool get _isPractice => _practiceSession != null;
+  PracticeSession? get _practiceSession => _practiceRun?.session;
+
+  bool get _isPractice => _practiceRun != null;
+
+  bool get _practiceComplete => _practiceRun?.isComplete ?? false;
+
+  bool get _practiceScoreReveal => _practiceRun?.isScoreReveal ?? false;
 
   /// Whether the active lesson run can no longer demonstrate its step (a
   /// Fifty window expired before the claim). Suppressed while the scripted
   /// intro still owns the turn — the step's predicate is meaningless before
   /// the board reaches the player. Drives the missed-lesson overlay.
   bool get _practiceDeadEnd {
-    final session = _practiceSession;
-    return session != null &&
-        !_practiceComplete &&
-        !_isCpuRunning &&
-        session.isDeadEnd;
+    return _practiceRun?.isDeadEnd(scriptedIntroRunning: _isCpuRunning) ??
+        false;
   }
 
   @override
   void initState() {
     super.initState();
     AppOrientation.useLandscape();
-    _practiceSession = widget.practiceSession;
-    final practice = _practiceSession;
+    _practiceRun = widget.practiceSession == null
+        ? null
+        : PracticeTableRun(widget.practiceSession!);
+    final practice = _practiceRun;
     final snapshot = widget.initialSnapshot;
     _controller = practice != null
         ? practice.controller
@@ -571,17 +560,14 @@ class _GameTableScreenState extends State<GameTableScreen>
     final humanSeat = PlayerSeat.south;
     final isHumanTurn =
         _controller.currentSeat == humanSeat && _canAcceptHumanInput;
-    final practiceGate = isHumanTurn && !_practiceComplete
-        ? _practiceSession
-        : null;
-    final controlActions = !isHumanTurn || _practiceComplete
-        ? const <String>[]
-        : practiceGate == null
+    final actionGate = _tableActionGate(isHumanTurn: isHumanTurn);
+    final baseControlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
-        : [
-            for (final id in _controller.controlActionIdsFor(humanSeat))
-              if (practiceGate.offersActionId(id)) id,
-          ];
+        : const <String>[];
+    final controlActions = [
+      for (final id in baseControlActions)
+        if (actionGate.allows(id)) id,
+    ];
     final pending = _controller.pendingDiscard;
     final theme = CardThemeScope.of(context);
     final strictness = _controller.setup.tableStrictness;
@@ -606,7 +592,10 @@ class _GameTableScreenState extends State<GameTableScreen>
         };
     final visibleStockCount =
         openingDealFrame?.stockCount ?? _controller.stockCount;
-    final tableInteraction = _tableInteraction(southHand);
+    final tableInteraction = _tableInteraction(
+      southHand,
+      actionGate: actionGate,
+    );
     final meldSuggestions = _meldSuggestions(tableInteraction);
     final meldValidation = isHumanTurn && southHand.hasSelection
         ? _controller.singleMeldValidationFor(
@@ -645,6 +634,13 @@ class _GameTableScreenState extends State<GameTableScreen>
     final coachHighlighting = _isPractice
         ? _practiceStepHighlighting(isHumanTurn: isHumanTurn)
         : CoachHighlighting.fromHint(coachHint);
+    final practiceBanner = _practiceRun?.bannerState(
+      blockedByOverlay: _pauseOpen || _inspectedCard != null,
+      scriptedIntroRunning: _isCpuRunning,
+    );
+    final nextPracticeScript = _practiceRun?.nextScript(
+      widget.nextPracticeScript,
+    );
 
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
@@ -872,13 +868,8 @@ class _GameTableScreenState extends State<GameTableScreen>
             // and while a scripted intro still owns the turn — the prompt
             // narrates the player's move, not the seat they are watching. A
             // dead-ended run hands narration to the missed-lesson overlay.
-            if (_isPractice &&
-                !_practiceComplete &&
-                !_practiceDeadEnd &&
-                !_pauseOpen &&
-                _inspectedCard == null &&
-                _controller.currentSeat == PlayerSeat.south)
-              _buildPracticeStepBanner(strings),
+            if (practiceBanner != null)
+              _buildPracticeStepBanner(strings, practiceBanner),
             for (final flight in _activeFlights)
               Positioned.fill(
                 key: ValueKey('flight-${flight.serial}'),
@@ -925,8 +916,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                   // A scoring lesson's reveal hands off to the completion
                   // overlay once the sheet is read.
                   if (_practiceScoreReveal) {
-                    _practiceScoreReveal = false;
-                    _practiceComplete = true;
+                    _practiceRun?.finishScoreReveal();
                   }
                 }),
               ),
@@ -981,15 +971,12 @@ class _GameTableScreenState extends State<GameTableScreen>
               child: !_practiceComplete
                   ? const SizedBox.shrink()
                   : PracticeCompletionOverlay(
-                      note: _practiceSession!.script.completionNote?.call(
-                        strings,
-                        _controller,
-                      ),
+                      note: _practiceRun!.completionNote(strings),
                       onReplay: () =>
-                          _startPracticeLesson(_practiceSession!.script),
-                      onNext: _nextPracticeScript() == null
+                          _startPracticeLesson(_practiceRun!.script),
+                      onNext: nextPracticeScript == null
                           ? null
-                          : () => _startPracticeLesson(_nextPracticeScript()!),
+                          : () => _startPracticeLesson(nextPracticeScript),
                       onDone: () => Navigator.of(context).pop(),
                     ),
             ),
@@ -1000,13 +987,12 @@ class _GameTableScreenState extends State<GameTableScreen>
               child: !_practiceDeadEnd
                   ? const SizedBox.shrink()
                   : PracticeMissedOverlay(
-                      note:
-                          _practiceSession!.currentStep?.deadEndNote?.call(
-                            strings,
-                          ) ??
-                          strings.practiceFiftyMissed,
+                      note: _practiceRun!.missedNote(
+                        strings,
+                        fallback: strings.practiceFiftyMissed,
+                      ),
                       onRestart: () =>
-                          _startPracticeLesson(_practiceSession!.script),
+                          _startPracticeLesson(_practiceRun!.script),
                       onDone: () => Navigator.of(context).pop(),
                     ),
             ),
@@ -1040,19 +1026,17 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   /// Builds the persistent step prompt for the active practice lesson.
-  Widget _buildPracticeStepBanner(AppStrings strings) {
-    final session = _practiceSession!;
-    final step = session.currentStep;
-    if (step == null) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildPracticeStepBanner(
+    AppStrings strings,
+    PracticeTableBannerState banner,
+  ) {
     return PracticeStepBanner(
       key: const ValueKey('practice-step-banner'),
-      stepIndex: session.stepIndex,
-      stepCount: session.stepCount,
-      prompt: step.prompt(strings),
-      hint: step.hint?.call(strings),
-      reaction: _practiceReaction?.call(strings),
+      stepIndex: banner.stepIndex,
+      stepCount: banner.stepCount,
+      prompt: banner.prompt(strings),
+      hint: banner.hint?.call(strings),
+      reaction: banner.reaction?.call(strings),
       highContrast: widget.preferences.highContrastCards,
     );
   }
@@ -1063,14 +1047,17 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// overlay's next-lesson continuation; swapping routes instead would let
   /// the replaced table's dispose() flip a live landscape lesson to portrait.
   void _startPracticeLesson(PracticeLessonScript script) {
-    final session = PracticeSession(script: script);
+    final run = _practiceRun;
+    if (run == null) {
+      return;
+    }
+    run.restart(script);
     // Drain every cue timer + the fifty ticker before swapping controllers
     // so no stale dwell can fire against the fresh lesson board.
     _cues.resetAll();
     _cues.stopFiftyTicker();
     setState(() {
-      _practiceSession = session;
-      _controller = session.controller;
+      _controller = run.controller;
       _coachInsightCacheKey = null;
       _coachInsights = const [];
       _resetHandInteraction();
@@ -1082,21 +1069,9 @@ class _GameTableScreenState extends State<GameTableScreen>
       _meldFlight.clear();
       _inspectedCard = null;
       _roundResultPresentation = null;
-      _practiceReaction = null;
-      _practiceComplete = false;
-      _practiceScoreReveal = false;
     });
     _ensureFiftyTicker();
     unawaited(_runPracticeIntro());
-  }
-
-  /// Script continuing the active lesson's pack, when the shell offers one.
-  PracticeLessonScript? _nextPracticeScript() {
-    final session = _practiceSession;
-    if (session == null) {
-      return null;
-    }
-    return widget.nextPracticeScript?.call(session.script.lessonId);
   }
 
   /// Projects the active practice step onto the coach's highlight language,
@@ -1105,31 +1080,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// the step allows rings its pile. Steps that deliberately leave the choice
   /// open (pick any discard) ring nothing.
   CoachHighlighting _practiceStepHighlighting({required bool isHumanTurn}) {
-    final step = !isHumanTurn || _practiceComplete
-        ? null
-        : _practiceSession?.currentStep;
-    if (step == null) {
-      return CoachHighlighting.none;
-    }
-    final topDiscard = _controller.topDiscard;
-    // The pile card rings for a take and for a Fifty claim alike — the
-    // claim's target IS the thrown card, so it must light up as one.
-    final allowsTake =
-        step.allows(
-          ClassicHareegActionIds.describe(ClassicHareegActionIds.takeDiscard),
-        ) ||
-        step.allows(
-          ClassicHareegActionIds.describe(ClassicHareegActionIds.claimFifty),
-        );
-    return CoachHighlighting(
-      highlightIds: {
-        ...step.highlightCardIds,
-        if (allowsTake && topDiscard != null) topDiscard.id,
-      },
-      highlightStock: step.allows(
-        ClassicHareegActionIds.describe(ClassicHareegActionIds.drawStock),
-      ),
-    );
+    return _practiceRun?.highlighting(
+          isHumanTurn: isHumanTurn,
+          topDiscard: _controller.topDiscard,
+        ) ??
+        CoachHighlighting.none;
   }
 
   /// Builds the coaching hint to surface this frame, or null when none should
@@ -1246,38 +1201,41 @@ class _GameTableScreenState extends State<GameTableScreen>
     setState(() {});
   }
 
-  ClassicHareegTableInteractionPlanner _tableInteraction([
-    TableHandInteractionSnapshot? southHand,
-  ]) {
+  ClassicHareegTableInteractionPlanner _tableInteraction(
+    TableHandInteractionSnapshot? southHand, {
+    TableInteractionActionGate? actionGate,
+  }) {
     final hand = southHand ?? _southHandInteraction();
     final controllerReader = ClassicHareegControllerTableInteractionReader(
       _controller,
     );
-    final practice = _practiceSession;
+    final isHumanTurn =
+        _controller.currentSeat == PlayerSeat.south && _canAcceptHumanInput;
     return ClassicHareegTableInteractionPlanner(
       // Practice narrows every gesture affordance to the step being taught;
       // a finished lesson locks the board under the completion overlay.
-      reader: practice == null
-          ? controllerReader
-          : PracticeTableInteractionReader(
-              inner: controllerReader,
-              session: practice,
-            ),
+      reader: controllerReader,
       seat: PlayerSeat.south,
       selectedCardIds: hand.selectedCardIds,
       handCards: hand.orderedCards,
       inputLocked: !_canAcceptHumanInput || _practiceComplete,
+      actionGate: actionGate ?? _tableActionGate(isHumanTurn: isHumanTurn),
     );
+  }
+
+  TableInteractionActionGate _tableActionGate({required bool isHumanTurn}) {
+    return _practiceRun?.actionGate(isHumanTurn: isHumanTurn) ??
+        const AllowAllTableInteractionActionGate();
   }
 
   Future<void> _dropCardToDiscard(HareegCard card) async {
     if (!_canAcceptHumanInput) return;
-    await _runTableInteraction(_tableInteraction().resolveDiscard(card));
+    await _runTableInteraction(_tableInteraction(null).resolveDiscard(card));
   }
 
   Future<void> _dropCardToTable(HareegCard card) async {
     if (!_canAcceptHumanInput) return;
-    await _runTableInteraction(_tableInteraction().resolveTableDrop(card));
+    await _runTableInteraction(_tableInteraction(null).resolveTableDrop(card));
   }
 
   Future<void> _dropCardToMeld(
@@ -1286,7 +1244,7 @@ class _GameTableScreenState extends State<GameTableScreen>
   ) async {
     if (!_canAcceptHumanInput) return;
     await _runTableInteraction(
-      _tableInteraction().resolveMeldDropTarget(card, target),
+      _tableInteraction(null).resolveMeldDropTarget(card, target),
     );
   }
 
@@ -1305,7 +1263,9 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   Future<void> _playSelectedMeld(String fallbackActionId) async {
     final cardIds = _southHandInteraction().selectedCardIds;
-    final jokerChoices = _tableInteraction().jokerChoicesForCardIds(cardIds);
+    final jokerChoices = _tableInteraction(
+      null,
+    ).jokerChoicesForCardIds(cardIds);
     if (jokerChoices.length > 1) {
       final choice = await _showJokerChoiceDialog(jokerChoices);
       if (!mounted || choice == null) return;
@@ -1784,10 +1744,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     final applyWatch = Stopwatch()..start();
     // Practice routes the apply through the session so the lesson step gates
     // and observes the same engine mutation the table would make directly.
-    final practice = _practiceSession;
-    final completedPracticeStep = practice?.currentStep;
-    final practiceResult = practice?.submit(actionId);
-    if (practiceResult?.status == PracticeSubmitStatus.notAllowed) {
+    final practice = _practiceRun;
+    final practiceSubmission = practice?.submitTableAction(actionId);
+    if (practiceSubmission?.isOffScript ?? false) {
       // Legal engine action, but off-script for this step. Affordance gating
       // makes this near-unreachable; keep a gentle nudge as the backstop.
       _placedJokerSnapshot = null;
@@ -1799,9 +1758,9 @@ class _GameTableScreenState extends State<GameTableScreen>
       });
       return;
     }
-    final result = practiceResult == null
+    final result = practiceSubmission == null
         ? _controller.applyAction(actionId)
-        : _adaptPracticeResult(practiceResult);
+        : practiceSubmission.tableResult;
     applyWatch.stop();
     if (!result.isSuccess) {
       _placedJokerSnapshot = null;
@@ -1854,10 +1813,10 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (flowPlan.shouldEnsureFiftyTicker) {
       _ensureFiftyTicker();
     }
-    if (practiceResult != null) {
+    if (practiceSubmission != null) {
       // Lesson flow replaces the match pipeline: no persistence, no CPU
       // turns, no round-result overlay.
-      _handlePracticeProgress(practiceResult, completedPracticeStep);
+      _handlePracticeProgress(practiceSubmission);
       return;
     }
     if (flowPlan.shouldPersist) {
@@ -1880,84 +1839,50 @@ class _GameTableScreenState extends State<GameTableScreen>
     await _audio.play(event);
   }
 
-  /// Maps a session outcome onto the [ApplyActionResult] shape the table's
-  /// post-apply flow consumes. `notAllowed` is intercepted before this
-  /// adapter runs; reverted actions surface as rejections (the session never
-  /// advances a step on a penalty-only non-move).
-  ApplyActionResult _adaptPracticeResult(PracticeSubmitResult result) {
-    return switch (result.status) {
-      PracticeSubmitStatus.rejected || PracticeSubmitStatus.notAllowed =>
-        ApplyActionResult.failure(result.message),
-      PracticeSubmitStatus.accepted ||
-      PracticeSubmitStatus.corrected ||
-      PracticeSubmitStatus.stepCompleted ||
-      PracticeSubmitStatus.lessonCompleted => const ApplyActionResult.success(),
-    };
-  }
-
   /// Advances the lesson presentation after a successfully applied practice
   /// action: surfaces the completed step's confirmation on the feedback chip
   /// and raises the completion overlay when the final step lands.
-  void _handlePracticeProgress(
-    PracticeSubmitResult result,
-    PracticeStep? completedStep,
-  ) {
-    switch (result.status) {
-      case PracticeSubmitStatus.rejected:
-      case PracticeSubmitStatus.notAllowed:
-        return;
-      case PracticeSubmitStatus.corrected:
-        // The take-back resolved whatever the banner was reacting to.
-        if (_practiceReaction != null) {
-          setState(() => _practiceReaction = null);
-        }
-      case PracticeSubmitStatus.accepted:
-        // The move applied but the step still holds (e.g. a valid partial
-        // run staged below the benchmark): the banner reacts with the way
-        // out instead of leaving the static prompt to repeat itself. The
-        // reaction always mirrors the step's hold note — including null, so
-        // a holdNote-less step can never show a stale earlier reaction.
-        final note = completedStep?.holdNote;
-        if (_practiceReaction != note) {
-          setState(() => _practiceReaction = note);
-        }
-      case PracticeSubmitStatus.stepCompleted:
-        // The completed step's confirmation rides the banner's guidance
-        // slot, not the table's action chip — the lesson banner is the only
-        // narrator during practice (a playtest flagged the chip peeking out
-        // behind it).
-        final note = completedStep?.successNote;
-        setState(() {
-          _practiceReaction = note;
-        });
-      case PracticeSubmitStatus.lessonCompleted:
+  void _handlePracticeProgress(PracticeTableActionSubmission submission) {
+    final run = _practiceRun;
+    if (run == null) {
+      return;
+    }
+    final result = submission.result;
+    final effect = run.applyProgress(result, submission.completedStep);
+    if (effect.shouldPersistCompletion) {
+      final lessonId = effect.lessonId;
+      if (lessonId != null) {
         // Persistence stays non-blocking so the completion overlay raises
         // immediately; the catchError guard keeps a throwing handler from
         // stranding an unhandled async error (the shell's own handler logs
         // its failures, this covers any other callback).
         unawaited(
-          widget.onPracticeFinished
-              ?.call(_practiceSession!.script.lessonId)
-              .catchError((Object error, StackTrace stackTrace) {
-                debugPrint('Failed to record practice completion: $error');
-                debugPrintStack(stackTrace: stackTrace);
-              }),
+          widget.onPracticeFinished?.call(lessonId).catchError((
+            Object error,
+            StackTrace stackTrace,
+          ) {
+            debugPrint('Failed to record practice completion: $error');
+            debugPrintStack(stackTrace: stackTrace);
+          }),
         );
-        setState(() {
-          _pauseOpen = false;
-          _inspectedCard = null;
-          _practiceReaction = null;
-          // A scoring lesson shows its consequence on the real score sheet
-          // first; the completion overlay waits for the sheet to close.
-          if (_practiceSession!.script.showScoresOnCompletion) {
-            _practiceScoreReveal = true;
-            _scoreOpen = true;
-          } else {
-            _scoreOpen = false;
-            _practiceComplete = true;
-          }
-        });
+      }
     }
+    if (!effect.shouldRebuild) {
+      return;
+    }
+    setState(() {
+      if (result.status == PracticeSubmitStatus.lessonCompleted) {
+        _pauseOpen = false;
+        _inspectedCard = null;
+        // A scoring lesson shows its consequence on the real score sheet
+        // first; the completion overlay waits for the sheet to close.
+        if (effect.shouldOpenScoreReveal) {
+          _scoreOpen = true;
+        } else {
+          _scoreOpen = false;
+        }
+      }
+    });
   }
 
   /// Whether the Table-tier "skip to next round" chrome button should show.
@@ -2059,14 +1984,14 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// use, so the flights, pacing, and sounds match a real match. No-ops for
   /// lessons whose board already starts on the player's turn.
   Future<void> _runPracticeIntro() async {
-    final session = _practiceSession;
-    final intro = session?.script.introActionIds ?? const <String>[];
-    if (session == null ||
-        intro.isEmpty ||
-        _controller.currentSeat == PlayerSeat.south ||
-        _isCpuRunning) {
+    final practice = _practiceRun;
+    final session = practice?.session;
+    if (practice == null ||
+        session == null ||
+        !practice.shouldRunScriptedIntro(isCpuRunning: _isCpuRunning)) {
       return;
     }
+    final intro = practice.introActionIds;
     setState(() => _isCpuRunning = true);
     // Resolve the lead-in before the first await: MotionScope is an
     // inherited read that needs a live context.
@@ -2079,7 +2004,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         return;
       }
       await _cpuTurnPresenter(
-        strategy: _PracticeIntroStrategy(intro),
+        strategy: PracticeIntroStrategy(intro),
         actionLimit: intro.length + 1,
         isMounted: stillThisLesson,
       ).runVisible();
@@ -2379,30 +2304,6 @@ class _GameTableScreenState extends State<GameTableScreen>
 /// (charcoal fill, hairline border, soft shadow) so the corner controls read
 /// as part of the same chrome family across every table theme rather than
 /// floating dark blobs.
-/// Replays a lesson's scripted intro actions in order through the CPU turn
-/// runner. The runner stops on its own once the turn reaches the human seat,
-/// so a well-formed script never exhausts the queue; exhausting it means the
-/// lesson board and intro disagree, which the StateError surfaces loudly.
-class _PracticeIntroStrategy implements CpuStrategy {
-  _PracticeIntroStrategy(this._actionIds);
-
-  final List<String> _actionIds;
-  var _index = 0;
-
-  @override
-  CpuMoveIntent chooseMove(
-    CpuTurnSnapshot snapshot, {
-    CpuObservation? observation,
-  }) {
-    if (_index >= _actionIds.length) {
-      throw StateError(
-        'Practice intro script exhausted at ${snapshot.seat.name}.',
-      );
-    }
-    return CpuMoveIntent(actionId: _actionIds[_index++]);
-  }
-}
-
 class _TableChromeButton extends StatelessWidget {
   const _TableChromeButton({
     required this.tooltip,

@@ -503,6 +503,12 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                             )
                             ? CardVisualState.coachHighlight
                             : CardVisualState.normal,
+                        // A grouped cover-target meld rings in its own palette
+                        // hue (a cover lesson's group 1, or the live coach's
+                        // cover hint) instead of the default teal.
+                        coachRingColor: widget.coachHighlighting.ringColorFor(
+                          cards[i].id,
+                        ),
                       ),
                     ),
                   ),

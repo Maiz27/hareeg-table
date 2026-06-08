@@ -60,8 +60,16 @@ class PracticeSession {
   /// freezes once the window counts down to the script's hold point.
   PracticeSession({required this.script, DateTime Function()? now})
     : _baseNow = now ?? DateTime.now {
+    final snapshot = script.buildSnapshot();
+    final boardAudit = script.auditSnapshot(snapshot);
+    if (boardAudit != null && !boardAudit.passed) {
+      throw StateError(
+        'Practice lesson ${script.lessonId} board grammar failed:\n'
+        '${boardAudit.failures.join('\n')}',
+      );
+    }
     _controller = ClassicHareegGameController.fromSnapshot(
-      script.buildSnapshot(),
+      snapshot,
       now: _lessonNow,
     );
   }
@@ -239,9 +247,19 @@ class PracticeSession {
     if (result.isSuccess) {
       _allowedActionsCache = null;
     }
-    if (!result.isSuccess || result.revertedCardId != null) {
-      // A reverted action (stricter tiers) only applied a penalty — the move
-      // itself was taken back, so the step was not demonstrated.
+    if (!result.isSuccess) {
+      return PracticeSubmitResult._(
+        PracticeSubmitStatus.rejected,
+        result.message,
+      );
+    }
+    // A reverted action (stricter tiers) only applied a penalty — the move
+    // itself was taken back. By default the step was not demonstrated, so the
+    // session reports a non-advancing rejection. A Strict lesson that teaches
+    // the penalty opts in via `completesOnPenalty`: there the reverted throw
+    // IS the taught move, so it falls through to the normal completion check
+    // and the +N completes the step like any accepted action.
+    if (result.revertedCardId != null && !step.completesOnPenalty) {
       return PracticeSubmitResult._(
         PracticeSubmitStatus.rejected,
         result.message,

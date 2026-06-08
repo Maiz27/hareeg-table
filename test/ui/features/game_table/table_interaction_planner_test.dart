@@ -260,6 +260,86 @@ void main() {
       );
       expect(result.actionId, replacementAction);
     });
+
+    test('action gate filters every table offer shape', () {
+      final first = _card(CardRank.four, CardSuit.clubs, 12);
+      final second = _card(CardRank.five, CardSuit.clubs, 12);
+      final third = _card(CardRank.six, CardSuit.clubs, 12);
+      final ids = [first.id, second.id, third.id];
+      final discardAction =
+          '${ClassicHareegActionIds.discardPrefix}${first.id}';
+      final meldAction = ClassicHareegActionIds.playMeldActionId(ids);
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        cardIds: ids,
+      );
+      final replacementAction = ClassicHareegActionIds.replaceJokerActionId(
+        targetSeat: PlayerSeat.west,
+        meldIndex: 1,
+        cardId: first.id,
+      );
+      final targetCoverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.north,
+        meldIndex: 2,
+        cardIds: [first.id],
+      );
+      final jokerChoiceA = JokerMeldActionChoice(
+        jokerId: third.id,
+        identity: const CardIdentity(rank: CardRank.six, suit: CardSuit.clubs),
+        cardIds: ids,
+      );
+      final jokerChoiceB = JokerMeldActionChoice(
+        jokerId: third.id,
+        identity: const CardIdentity(
+          rank: CardRank.seven,
+          suit: CardSuit.clubs,
+        ),
+        cardIds: ids,
+      );
+      final blocked = {
+        discardAction,
+        meldAction,
+        coverAction,
+        replacementAction,
+        targetCoverAction,
+        jokerChoiceA.actionId,
+        jokerChoiceB.actionId,
+      };
+      final planner = _planner(
+        reader: _FakeTableInteractionActionReader(
+          controlActions: [discardAction],
+          selectedMeldActions: {_key(ids): meldAction},
+          coverActions: {_key(ids): coverAction},
+          replacementActions: {_key(ids): replacementAction},
+          targetCoverActions: {
+            _targetKey(PlayerSeat.north, 2, [first.id]): targetCoverAction,
+          },
+          meldSuggestions: [
+            ClassicHareegMeldSuggestion(
+              actionId: meldAction,
+              cards: [first, second, third],
+            ),
+          ],
+          jokerChoices: [jokerChoiceA, jokerChoiceB],
+        ),
+        selectedCardIds: ids,
+        handCards: [first, second, third],
+        actionGate: PredicateTableInteractionActionGate(
+          (actionId) => !blocked.contains(actionId),
+        ),
+      );
+
+      expect(planner.resolveDiscard(first).isAction, isFalse);
+      expect(planner.selectedMeldActionId(), isNull);
+      expect(planner.resolveTableDrop(second).isAction, isFalse);
+      expect(
+        planner.resolveMeldDrop(first, PlayerSeat.north, 2).isAction,
+        isFalse,
+      );
+      expect(planner.meldSuggestions(), isEmpty);
+      expect(planner.jokerChoicesForCardIds(ids), isEmpty);
+    });
   });
 }
 
@@ -268,6 +348,8 @@ ClassicHareegTableInteractionPlanner _planner({
   Iterable<String> selectedCardIds = const [],
   Iterable<HareegCard> handCards = const [],
   bool inputLocked = false,
+  TableInteractionActionGate actionGate =
+      const AllowAllTableInteractionActionGate(),
 }) {
   return ClassicHareegTableInteractionPlanner(
     reader: reader,
@@ -275,6 +357,7 @@ ClassicHareegTableInteractionPlanner _planner({
     selectedCardIds: selectedCardIds,
     handCards: handCards,
     inputLocked: inputLocked,
+    actionGate: actionGate,
   );
 }
 
@@ -299,6 +382,8 @@ class _FakeTableInteractionActionReader
     this.replacementActions = const {},
     this.targetCoverActions = const {},
     this.targetReplacementActions = const {},
+    this.meldSuggestions = const [],
+    this.jokerChoices = const [],
   });
 
   @override
@@ -313,6 +398,8 @@ class _FakeTableInteractionActionReader
   final Map<String, String> replacementActions;
   final Map<String, String> targetCoverActions;
   final Map<String, String> targetReplacementActions;
+  final List<ClassicHareegMeldSuggestion> meldSuggestions;
+  final List<JokerMeldActionChoice> jokerChoices;
 
   @override
   List<String> controlActionIdsFor(PlayerSeat seat) => controlActions;
@@ -335,7 +422,7 @@ class _FakeTableInteractionActionReader
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    return const [];
+    return jokerChoices;
   }
 
   @override
@@ -344,7 +431,7 @@ class _FakeTableInteractionActionReader
     List<String> selectedCardIds, {
     int limit = 5,
   }) {
-    return const [];
+    return meldSuggestions;
   }
 
   @override
