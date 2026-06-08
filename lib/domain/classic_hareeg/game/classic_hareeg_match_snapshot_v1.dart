@@ -61,6 +61,15 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   final activeFiftyClaimIsFirstDealtRound = asJsonBool(
     json['activeFiftyClaimIsFirstDealtRound'],
   );
+  // Windowed take-discard provenance, v1-additive: absent in older saves (the
+  // take path never persisted Fifty provenance, which was the -1 bug).
+  final windowedTakeCardId = asJsonString(json['windowedTakeCardId']);
+  final windowedTakeDiscarder = PlayerSeat.fromName(
+    asJsonString(json['windowedTakeDiscarder']),
+  );
+  final windowedTakeIsFirstDealtRound = asJsonBool(
+    json['windowedTakeIsFirstDealtRound'],
+  );
   // roundNumber is hard-required: a missing or unparseable value used to
   // collapse to round 1 (`?? 1`), silently turning a later-round Fifty into
   // the first-dealt-round -1 scoring exception (and persisting the wrong
@@ -131,6 +140,9 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
     activeFiftyClaimCardId: activeFiftyClaimCardId,
     activeFiftyClaimDiscarder: activeFiftyClaimDiscarder,
     activeFiftyClaimIsFirstDealtRound: activeFiftyClaimIsFirstDealtRound,
+    windowedTakeCardId: windowedTakeCardId,
+    windowedTakeDiscarder: windowedTakeDiscarder,
+    windowedTakeIsFirstDealtRound: windowedTakeIsFirstDealtRound,
     savedAt: savedAt,
     discardHistoryEvents: discardHistoryEvents,
   );
@@ -169,6 +181,9 @@ Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) 
     'activeFiftyClaimDiscarder': snapshot.activeFiftyClaimDiscarder?.name,
     'activeFiftyClaimIsFirstDealtRound':
         snapshot.activeFiftyClaimIsFirstDealtRound,
+    'windowedTakeCardId': snapshot.windowedTakeCardId,
+    'windowedTakeDiscarder': snapshot.windowedTakeDiscarder?.name,
+    'windowedTakeIsFirstDealtRound': snapshot.windowedTakeIsFirstDealtRound,
     'savedAt': snapshot.savedAt.toIso8601String(),
     'discardHistory': {
       'events': [

@@ -57,6 +57,9 @@ class ClassicHareegMatchSnapshot {
     this.activeFiftyClaimCardId,
     this.activeFiftyClaimDiscarder,
     this.activeFiftyClaimIsFirstDealtRound,
+    this.windowedTakeCardId,
+    this.windowedTakeDiscarder,
+    this.windowedTakeIsFirstDealtRound,
     this.discardHistoryEvents = const [],
   });
 
@@ -144,6 +147,21 @@ class ClassicHareegMatchSnapshot {
 
   /// Whether the active proof claim carried the first-dealt-round exception.
   final bool? activeFiftyClaimIsFirstDealtRound;
+
+  /// Physical id of a windowed discard the current seat took via plain
+  /// take-discard (not claim-fifty) while the Fifty window was open, or null.
+  ///
+  /// Persisted so a mid-turn save/restore keeps the Fifty provenance: without
+  /// it, a finish on the taken card after restore would silently score a normal
+  /// -1 instead of the -3 Fifty. v1-additive — absent in older saves.
+  final String? windowedTakeCardId;
+
+  /// Seat whose discard the windowed take lifted, or null. Charged the Fifty
+  /// penalty when the take-discard turn finishes on that card.
+  final PlayerSeat? windowedTakeDiscarder;
+
+  /// Whether the windowed take carried the first-dealt-round -1 exception.
+  final bool? windowedTakeIsFirstDealtRound;
 
   /// Time the snapshot was saved.
   final DateTime savedAt;
