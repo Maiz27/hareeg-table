@@ -377,14 +377,19 @@ void main() {
     test(
       'after the window expires, the same take-discard finish is a normal -1',
       () {
-        // Over-broad-fix guard. Reading the clock past the 4s timer means the
-        // card was NOT taken within the window, so the finish is an ordinary
-        // normalFinish (-1 winner) — Fifty scoring must NOT leak past expiry.
-        final expiredClock = fixedClock.add(const Duration(seconds: 5));
+        // Over-broad-fix guard. Reading the clock just past the configured
+        // timer means the card was NOT taken within the window, so the finish
+        // is an ordinary normalFinish (-1 winner) — Fifty scoring must NOT leak
+        // past expiry. Derive the offset from the setup so a changed default
+        // timer keeps this test honest.
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.table,
+        );
+        final expiredClock = fixedClock.add(
+          Duration(seconds: setup.fiftyTimerSeconds + 1),
+        );
         final s = ClassicHareegScenario.deal(
-          setup: ClassicHareegSetup.defaults().copyWith(
-            tableStrictness: TableStrictness.table,
-          ),
+          setup: setup,
           southHand: southWinningHand,
           eastHand: eastHand,
           northHand: northHand,
