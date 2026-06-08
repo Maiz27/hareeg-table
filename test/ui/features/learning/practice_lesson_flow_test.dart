@@ -68,8 +68,17 @@ void main() {
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
 
-    expect(find.text('1 of 21 completed'), findsOneWidget);
-    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('1 of 24 completed'), findsOneWidget);
+    // turn-rhythm now sits below the Fundamentals pack; scroll its tile in to
+    // confirm it reads as completed.
+    final completedTile = find.byKey(
+      const ValueKey('practice-lesson-tile-turn-rhythm'),
+    );
+    await tester.scrollUntilVisible(completedTile, 150);
+    expect(
+      find.descendant(of: completedTile, matching: find.text('Completed')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('replay restarts the lesson in place on a fresh board', (
@@ -169,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
 
-    expect(find.text('0 of 21 completed'), findsOneWidget);
+    expect(find.text('0 of 24 completed'), findsOneWidget);
     expect(matches.saved, same(savedMatch));
     expect(
       learning.progress.statusFor('turn-rhythm'),
@@ -253,7 +262,7 @@ void main() {
     await tester.tap(find.text('Back to practice'));
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
-    expect(find.text('1 of 21 completed'), findsOneWidget);
+    expect(find.text('1 of 24 completed'), findsOneWidget);
   });
 
   testWidgets('discard-opening lesson: take the eight, open with both sets', (

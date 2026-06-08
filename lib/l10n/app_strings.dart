@@ -231,6 +231,8 @@ class AppStrings {
 
   /// Completion overlay: continue into the pack's next lesson.
   String get practiceNextLesson => _v('practiceNextLesson');
+  String get practicePackFundamentalsTitle =>
+      _v('practicePackFundamentalsTitle');
   String get practicePackCoreTitle => _v('practicePackCoreTitle');
   String get practicePackTableTitle => _v('practicePackTableTitle');
   String get practicePackFinishTitle => _v('practicePackFinishTitle');
@@ -243,6 +245,13 @@ class AppStrings {
   ).replaceFirst('{completed}', '$completed').replaceFirst('{total}', '$total');
 
   // Guided practice lesson catalog.
+  // Fundamentals pack: conceptual reference panels.
+  String get practiceCardValuesTitle => _v('practiceCardValuesTitle');
+  String get practiceCardValuesSummary => _v('practiceCardValuesSummary');
+  String get practiceMeldShapesTitle => _v('practiceMeldShapesTitle');
+  String get practiceMeldShapesSummary => _v('practiceMeldShapesSummary');
+  String get practiceTheAceTitle => _v('practiceTheAceTitle');
+  String get practiceTheAceSummary => _v('practiceTheAceSummary');
   String get practiceTurnRhythmTitle => _v('practiceTurnRhythmTitle');
   String get practiceTurnRhythmSummary => _v('practiceTurnRhythmSummary');
   String get practiceFirstMeldTitle => _v('practiceFirstMeldTitle');
@@ -290,6 +299,47 @@ class AppStrings {
       _v('practiceStrictPenaltySummary');
   String get practiceTablePenaltyTitle => _v('practiceTablePenaltyTitle');
   String get practiceTablePenaltySummary => _v('practiceTablePenaltySummary');
+
+  // Fundamentals reading-panel content.
+  String get practiceCardValuesPanelTitle => _v('practiceCardValuesPanelTitle');
+  String get practiceCardValuesIntro => _v('practiceCardValuesIntro');
+  String get practiceCardValuesNumberHeading =>
+      _v('practiceCardValuesNumberHeading');
+  String get practiceCardValuesNumberLine =>
+      _v('practiceCardValuesNumberLine');
+  String get practiceCardValuesFaceHeading =>
+      _v('practiceCardValuesFaceHeading');
+  String get practiceCardValuesFaceLine => _v('practiceCardValuesFaceLine');
+  String get practiceCardValuesOutro => _v('practiceCardValuesOutro');
+  String get practiceCardValue2 => _v('practiceCardValue2');
+  String get practiceCardValue5 => _v('practiceCardValue5');
+  String get practiceCardValue9 => _v('practiceCardValue9');
+  String get practiceCardValue10Each => _v('practiceCardValue10Each');
+
+  String get practiceMeldShapesPanelTitle => _v('practiceMeldShapesPanelTitle');
+  String get practiceMeldShapesIntro => _v('practiceMeldShapesIntro');
+  String get practiceMeldShapesSetHeading => _v('practiceMeldShapesSetHeading');
+  String get practiceMeldShapesSetLine => _v('practiceMeldShapesSetLine');
+  String get practiceMeldShapesRunHeading => _v('practiceMeldShapesRunHeading');
+  String get practiceMeldShapesRunLine => _v('practiceMeldShapesRunLine');
+  String get practiceMeldShapesOutro => _v('practiceMeldShapesOutro');
+  String get practiceMeldShapesSetCaption =>
+      _v('practiceMeldShapesSetCaption');
+  String get practiceMeldShapesRunCaption =>
+      _v('practiceMeldShapesRunCaption');
+
+  String get practiceTheAcePanelTitle => _v('practiceTheAcePanelTitle');
+  String get practiceTheAceIntro => _v('practiceTheAceIntro');
+  String get practiceTheAceHighHeading => _v('practiceTheAceHighHeading');
+  String get practiceTheAceHighLine => _v('practiceTheAceHighLine');
+  String get practiceTheAceLowHeading => _v('practiceTheAceLowHeading');
+  String get practiceTheAceLowLine => _v('practiceTheAceLowLine');
+  String get practiceTheAceFlipHeading => _v('practiceTheAceFlipHeading');
+  String get practiceTheAceFlipLine => _v('practiceTheAceFlipLine');
+  String get practiceTheAceOutro => _v('practiceTheAceOutro');
+  String get practiceTheAceHighCaption => _v('practiceTheAceHighCaption');
+  String get practiceTheAceLowCaption => _v('practiceTheAceLowCaption');
+  String get practiceTheAceFlipCaption => _v('practiceTheAceFlipCaption');
 
   // Rules/Help learning entry points.
   String get helpLearningTitle => _v('helpLearningTitle');
@@ -1338,11 +1388,22 @@ const _englishValues = {
   'practiceComingSoon': 'This practice hand arrives in an upcoming update.',
   'practiceFollowStep': 'Good instinct — but follow the current step first.',
   'practiceNextLesson': 'Next lesson',
+  'practicePackFundamentalsTitle': 'Fundamentals',
   'practicePackCoreTitle': 'Core turn basics',
   'practicePackTableTitle': 'Table mechanics',
   'practicePackFinishTitle': 'Finishing & Fifty',
   'practicePackTableStrictnessTitle': 'Table strictness',
   'practiceProgress': '{completed} of {total} completed',
+  'practiceCardValuesTitle': 'What your cards are worth',
+  'practiceCardValuesSummary':
+      'Face cards and the ace are 10; number cards are their number.',
+  'practiceMeldShapesTitle': 'Sets and runs',
+  'practiceMeldShapesSummary':
+      'The two meld shapes: same-rank sets and same-suit runs.',
+  'practiceTheAceTitle': 'The Ace',
+  'practiceTheAceSummary':
+      'The ace runs high or low — and a low run that reaches a five flips '
+      'it to 1.',
   'practiceTurnRhythmTitle': 'Turn rhythm',
   'practiceTurnRhythmSummary':
       'Draw, play if you can, then discard to end your turn.',
@@ -1406,6 +1467,54 @@ const _englishValues = {
   'practiceTablePenaltyTitle': 'Table: +17 and out',
   'practiceTablePenaltySummary':
       'On a Table table, the same throw costs +17 and ends your round.',
+  'practiceCardValuesPanelTitle': 'What your cards are worth',
+  'practiceCardValuesIntro':
+      'Opening and scoring both add up card values — here is what each card '
+      'is worth.',
+  'practiceCardValuesNumberHeading': 'Number cards (2–10)',
+  'practiceCardValuesNumberLine':
+      'Worth the number on the card. A 7 is 7 points.',
+  'practiceCardValuesFaceHeading': 'Ace, Jack, Queen, King',
+  'practiceCardValuesFaceLine': 'Each worth 10 points.',
+  'practiceCardValuesOutro': 'So three kings are 30, and a six is 6.',
+  'practiceCardValue2': '= 2',
+  'practiceCardValue5': '= 5',
+  'practiceCardValue9': '= 9',
+  'practiceCardValue10Each': 'Each = 10',
+  'practiceMeldShapesPanelTitle': 'Sets and runs',
+  'practiceMeldShapesIntro':
+      'A meld is three or more cards in one of two shapes.',
+  'practiceMeldShapesSetHeading': 'Set',
+  'practiceMeldShapesSetLine':
+      'Same rank, all different suits — like 7♠ 7♥ 7♦. Three or four cards.',
+  'practiceMeldShapesRunHeading': 'Run',
+  'practiceMeldShapesRunLine':
+      'Same suit, in a row — like 5♥ 6♥ 7♥. Three or more cards.',
+  'practiceMeldShapesOutro':
+      'A set never repeats a suit; a run is one suit and must be consecutive.',
+  'practiceMeldShapesSetCaption': 'Set — same rank',
+  'practiceMeldShapesRunCaption': 'Run — same suit, in sequence',
+  'practiceTheAcePanelTitle': 'The Ace',
+  'practiceTheAceIntro':
+      'The ace is the trickiest card to value. In a run it plays two ways.',
+  'practiceTheAceHighHeading': 'High',
+  'practiceTheAceHighLine':
+      'After the king — J♣ Q♣ K♣ A♣ — the ace counts 10. That run is worth '
+      '40.',
+  'practiceTheAceLowHeading': 'Low',
+  'practiceTheAceLowLine':
+      'Before the two — A♠ 2♠ 3♠ 4♠ — the ace still counts 10, so the run '
+      'is 19.',
+  'practiceTheAceFlipHeading': 'The flip',
+  'practiceTheAceFlipLine':
+      'But once a low run reaches a five, the ace drops to 1. A♠ 2♠ 3♠ 4♠ 5♠ '
+      'is worth 15, not 25.',
+  'practiceTheAceOutro':
+      'This is decided as the run is formed. Adding a 5 to a run already on '
+      'the table does not change the ace.',
+  'practiceTheAceHighCaption': 'Ace = 10 → worth 40',
+  'practiceTheAceLowCaption': 'Ace = 10 → worth 19',
+  'practiceTheAceFlipCaption': 'Ace drops to 1 → worth 15',
   'helpLearningTitle': 'New to Hareeg?',
   'helpLearningBody':
       'Step through short guided practice hands, or replay the first-run intro.',
@@ -1847,11 +1956,22 @@ const _arabicValues = {
   'practiceComingSoon': 'هذا التدريب سيتوفر في تحديث قادم.',
   'practiceFollowStep': 'حدس جيد — لكن اتبع الخطوة الحالية أولاً.',
   'practiceNextLesson': 'الدرس التالي',
+  'practicePackFundamentalsTitle': 'الأساسيات',
   'practicePackCoreTitle': 'أساسيات الدور',
   'practicePackTableTitle': 'آليات الطاولة',
   'practicePackFinishTitle': 'الإنهاء والخمسين',
   'practicePackTableStrictnessTitle': 'صرامة الطاولة',
   'practiceProgress': 'اكتمل {completed} من {total}',
+  'practiceCardValuesTitle': 'قيمة أوراقك',
+  'practiceCardValuesSummary':
+      'الأوراق الملوّنة والآص بـ10؛ والأوراق الرقمية بقيمة رقمها.',
+  'practiceMeldShapesTitle': 'المجموعات والتسلسلات',
+  'practiceMeldShapesSummary':
+      'شكلا المجموعة: مجموعات بنفس الرتبة وتسلسلات بنفس النوع.',
+  'practiceTheAceTitle': 'الآص',
+  'practiceTheAceSummary':
+      'الآص يكون عاليًا أو منخفضًا — والتسلسل المنخفض الذي يبلغ الخمسة يقلبه '
+      'إلى 1.',
   'practiceTurnRhythmTitle': 'إيقاع الدور',
   'practiceTurnRhythmSummary': 'اسحب، العب إن استطعت، ثم ارم لإنهاء دورك.',
   'practiceFirstMeldTitle': 'أول مجموعة لك',
@@ -1903,6 +2023,51 @@ const _arabicValues = {
   'practiceStrictnessTitle': 'مستويات صرامة الطاولة',
   'practiceStrictnessSummary':
       'ما تتوقعه منك مستويات التدريب والقياسي والصارم والطاولة.',
+  'practiceCardValuesPanelTitle': 'قيمة أوراقك',
+  'practiceCardValuesIntro':
+      'الافتتاح والتسجيل كلاهما يجمع قيم الأوراق — وهذه قيمة كل ورقة.',
+  'practiceCardValuesNumberHeading': 'الأوراق الرقمية (2–10)',
+  'practiceCardValuesNumberLine':
+      'تساوي الرقم المكتوب عليها. الـ7 يساوي 7 نقاط.',
+  'practiceCardValuesFaceHeading': 'الآص والولد والبنت والشايب',
+  'practiceCardValuesFaceLine': 'كل منها يساوي 10 نقاط.',
+  'practiceCardValuesOutro': 'فثلاثة شيوب تساوي 30، والستة تساوي 6.',
+  'practiceCardValue2': '= 2',
+  'practiceCardValue5': '= 5',
+  'practiceCardValue9': '= 9',
+  'practiceCardValue10Each': 'كلٌّ = 10',
+  'practiceMeldShapesPanelTitle': 'المجموعات والتسلسلات',
+  'practiceMeldShapesIntro':
+      'المجموعة هي ثلاث أوراق أو أكثر في أحد شكلين.',
+  'practiceMeldShapesSetHeading': 'مجموعة',
+  'practiceMeldShapesSetLine':
+      'نفس الرتبة بأنواع مختلفة — مثل 7♠ 7♥ 7♦. ثلاث أو أربع أوراق.',
+  'practiceMeldShapesRunHeading': 'تسلسل',
+  'practiceMeldShapesRunLine':
+      'نفس النوع بترتيب متتابع — مثل 5♥ 6♥ 7♥. ثلاث أوراق أو أكثر.',
+  'practiceMeldShapesOutro':
+      'المجموعة لا تكرّر نوعًا؛ والتسلسل نوع واحد ويجب أن يكون متتابعًا.',
+  'practiceMeldShapesSetCaption': 'مجموعة — نفس الرتبة',
+  'practiceMeldShapesRunCaption': 'تسلسل — نفس النوع، بالترتيب',
+  'practiceTheAcePanelTitle': 'الآص',
+  'practiceTheAceIntro':
+      'الآص أصعب ورقة في تقييمها. في التسلسل يلعب بطريقتين.',
+  'practiceTheAceHighHeading': 'عالٍ',
+  'practiceTheAceHighLine':
+      'بعد الشايب — J♣ Q♣ K♣ A♣ — يُحسب الآص 10. ذلك التسلسل يساوي 40.',
+  'practiceTheAceLowHeading': 'منخفض',
+  'practiceTheAceLowLine':
+      'قبل الاثنين — A♠ 2♠ 3♠ 4♠ — يبقى الآص يُحسب 10، فيساوي التسلسل 19.',
+  'practiceTheAceFlipHeading': 'الانقلاب',
+  'practiceTheAceFlipLine':
+      'لكن متى بلغ التسلسل المنخفض الخمسة، يهبط الآص إلى 1. فـA♠ 2♠ 3♠ 4♠ 5♠ '
+      'يساوي 15 لا 25.',
+  'practiceTheAceOutro':
+      'يُحسم هذا أثناء تكوين التسلسل. إضافة 5 إلى تسلسل موجود على الطاولة '
+      'لا يغيّر الآص.',
+  'practiceTheAceHighCaption': 'الآص = 10 ← يساوي 40',
+  'practiceTheAceLowCaption': 'الآص = 10 ← يساوي 19',
+  'practiceTheAceFlipCaption': 'الآص يهبط إلى 1 ← يساوي 15',
   'helpLearningTitle': 'جديد على حريق؟',
   'helpLearningBody':
       'تدرّب عبر أيادٍ موجهة قصيرة، أو أعد مقدمة التشغيل الأول.',

@@ -66,8 +66,11 @@ Future<void> openLesson(WidgetTester tester, String lessonId) async {
 }
 
 /// Scrolls the checklist back to its header after a lesson pops to the list.
+///
+/// Drags far enough to clear the catalog's tallest return position so the
+/// progress header sits in view regardless of which pack the lesson lives in.
 Future<void> scrollChecklistToTop(WidgetTester tester) async {
-  await tester.drag(find.byType(ListView), const Offset(0, 600));
+  await tester.drag(find.byType(ListView), const Offset(0, 2000));
   await tester.pumpAndSettle();
 }
 
@@ -156,7 +159,7 @@ Color? ringColorOf(
   int deckIndex = 0,
 }) {
   final id = HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex).id;
-  final view = tester
+  final matches = tester
       .widgetList<HareegCardView>(
         find.byWidgetPredicate(
           (widget) =>
@@ -165,6 +168,12 @@ Color? ringColorOf(
               widget.visualState == CardVisualState.coachHighlight,
         ),
       )
-      .first;
-  return view.coachRingColor;
+      .toList();
+  assert(
+    matches.isNotEmpty,
+    'No HareegCardView found for card "$id" in '
+    'CardVisualState.coachHighlight (deckIndex: $deckIndex). '
+    'Expected a coach-highlighted card matching widget.card.id == "$id".',
+  );
+  return matches.first.coachRingColor;
 }

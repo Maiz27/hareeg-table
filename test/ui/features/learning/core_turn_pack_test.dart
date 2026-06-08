@@ -371,10 +371,9 @@ void main() {
       }
     });
 
-    test('every planned lesson is playable: scripted, or the strictness '
-        'explainer panel', () {
+    test('every planned lesson is playable: scripted, or a reading panel', () {
       for (final lesson in PracticeCatalog.lessons) {
-        if (lesson.id == 'strictness-tiers') {
+        if (lesson.delivery.isReadingPanel) {
           // A reading panel with its own route, not a scripted hand.
           expect(PracticeLessonRegistry.scriptFor(lesson.id), isNull);
           continue;

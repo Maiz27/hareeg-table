@@ -7,6 +7,10 @@ import 'practice_lesson_delivery.dart';
 
 /// Guided practice packs, in teaching order.
 enum PracticePackId {
+  /// Vocabulary a brand-new player needs before the Core turn: card values,
+  /// meld shapes, and the ace. Conceptual reading panels, no board.
+  fundamentals,
+
   /// Core turn basics every new player needs before normal matches feel fair.
   coreTurn,
 
@@ -22,6 +26,7 @@ enum PracticePackId {
   /// Localized pack title.
   String title(AppStrings strings) {
     return switch (this) {
+      PracticePackId.fundamentals => strings.practicePackFundamentalsTitle,
       PracticePackId.coreTurn => strings.practicePackCoreTitle,
       PracticePackId.tableMechanics => strings.practicePackTableTitle,
       PracticePackId.finishAndFifty => strings.practicePackFinishTitle,
@@ -67,6 +72,30 @@ class PracticeLesson {
 abstract final class PracticeCatalog {
   /// All lessons in checklist display order.
   static final List<PracticeLesson> lessons = List.unmodifiable([
+    // Fundamentals: conceptual reference panels that teach the vocabulary a
+    // brand-new player needs before the Core turn. No board, no turn — each
+    // is delivered as a reading panel.
+    PracticeLesson(
+      id: 'card-values',
+      pack: PracticePackId.fundamentals,
+      title: (s) => s.practiceCardValuesTitle,
+      summary: (s) => s.practiceCardValuesSummary,
+      delivery: PracticeLessonDelivery.readingPanel(),
+    ),
+    PracticeLesson(
+      id: 'meld-shapes',
+      pack: PracticePackId.fundamentals,
+      title: (s) => s.practiceMeldShapesTitle,
+      summary: (s) => s.practiceMeldShapesSummary,
+      delivery: PracticeLessonDelivery.readingPanel(),
+    ),
+    PracticeLesson(
+      id: 'the-ace',
+      pack: PracticePackId.fundamentals,
+      title: (s) => s.practiceTheAceTitle,
+      summary: (s) => s.practiceTheAceSummary,
+      delivery: PracticeLessonDelivery.readingPanel(),
+    ),
     // Core turn basics, in strict teaching order: the loop, then a first
     // opening that needs nothing but your own hand, then openings that lean
     // on the discard pile, then judging when the pile is a trap, and finally

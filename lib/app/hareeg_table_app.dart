@@ -25,6 +25,7 @@ import '../ui/features/learning/practice/practice_session.dart';
 import '../ui/features/learning/progress/learning_progress_workflow.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
+import '../ui/features/learning/views/practice_reading_panel_screen.dart';
 import '../ui/features/learning/views/strictness_explainer_screen.dart';
 import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
@@ -321,6 +322,20 @@ class _HareegTableAppState extends State<HareegTableApp> {
               practiceSession: session,
               onPracticeFinished: _persistPracticeCompletion,
               nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
+            ),
+            settings: settings,
+          );
+        }
+
+        if (settings.name == AppRoutes.practiceReadingPanel) {
+          final lessonId = settings.arguments;
+          if (lessonId is! String) {
+            return null;
+          }
+          return MaterialPageRoute<void>(
+            builder: (context) => PracticeReadingPanelScreen(
+              lessonId: lessonId,
+              learningRepository: _learning,
             ),
             settings: settings,
           );

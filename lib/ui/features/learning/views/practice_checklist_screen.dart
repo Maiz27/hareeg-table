@@ -81,7 +81,17 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
     }
     try {
       if (delivery.isReadingPanel) {
-        await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
+        // Reading panels dispatch by lesson id: the bespoke strictness-tiers
+        // panel keeps its hand-built tier screen; every other reading panel
+        // renders through the generic reference-panel screen.
+        if (lesson.id == PracticeLessonRegistry.strictnessTiersLessonId) {
+          await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
+        } else {
+          await Navigator.of(context).pushNamed(
+            AppRoutes.practiceReadingPanel,
+            arguments: lesson.id,
+          );
+        }
       } else {
         await Navigator.of(
           context,
