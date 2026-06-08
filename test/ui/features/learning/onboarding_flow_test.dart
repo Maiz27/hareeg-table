@@ -189,7 +189,7 @@ void main() {
     await tester.tap(find.text('Guided practice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 17 completed'), findsOneWidget);
+    expect(find.text('0 of 21 completed'), findsOneWidget);
   });
 
   testWidgets('rules/help exposes the guided practice entry', (tester) async {
@@ -204,7 +204,7 @@ void main() {
     await tester.tap(find.text('Guided practice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 17 completed'), findsOneWidget);
+    expect(find.text('0 of 21 completed'), findsOneWidget);
   });
 }
 

@@ -1,13 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/app/app_routes.dart';
-import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
 import 'package:hareeg_table/l10n/app_strings.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/learning/models/practice_catalog.dart';
 import 'package:hareeg_table/ui/features/learning/views/onboarding_screen.dart';
 
+import '../../../support/practice_widget_harness.dart';
 import '../../../support/test_fixtures.dart';
 
 void main() {
@@ -16,11 +14,13 @@ void main() {
   testWidgets('checklist lists every planned lesson grouped by pack', (
     tester,
   ) async {
-    await tester.pumpWidget(_practiceApp(MemoryLearningProgressRepository()));
+    await tester.pumpWidget(
+      practiceApp(learning: MemoryLearningProgressRepository()),
+    );
     await tester.pumpAndSettle();
 
-    expect(PracticeCatalog.lessons, hasLength(17));
-    expect(find.text('0 of 17 completed'), findsOneWidget);
+    expect(PracticeCatalog.lessons, hasLength(21));
+    expect(find.text('0 of 21 completed'), findsOneWidget);
     // The checklist builds lazily; walk it top to bottom, checking each pack
     // header followed by its lessons.
     for (final pack in PracticePackId.values) {
@@ -45,10 +45,10 @@ void main() {
           .withLessonStatus('turn-rhythm', PracticeLessonStatus.completed)
           .withLessonStatus('first-meld', PracticeLessonStatus.skipped),
     );
-    await tester.pumpWidget(_practiceApp(learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 of 17 completed'), findsOneWidget);
+    expect(find.text('1 of 21 completed'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Skipped'), findsOneWidget);
     // Completed lessons offer replay instead of start.
@@ -58,7 +58,7 @@ void main() {
 
   testWidgets('skipping and unskipping a lesson persists', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Skip').first);
@@ -90,7 +90,7 @@ void main() {
     final learning = MemoryLearningProgressRepository(
       progress: LearningProgress.defaults().copyWith(onboardingCompleted: true),
     );
-    await tester.pumpWidget(_practiceApp(learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Replay intro'));
@@ -100,15 +100,6 @@ void main() {
     await tester.tap(find.text('Skip intro'));
     await tester.pumpAndSettle();
 
-    expect(find.text('0 of 17 completed'), findsOneWidget);
+    expect(find.text('0 of 21 completed'), findsOneWidget);
   });
-}
-
-Widget _practiceApp(MemoryLearningProgressRepository learning) {
-  return HareegTableApp(
-    preferencesRepository: MemoryPreferencesRepository(),
-    matchRepository: MemoryMatchRepository(),
-    learningProgressRepository: learning,
-    initialRouteOverride: AppRoutes.practice,
-  );
 }

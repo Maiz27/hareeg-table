@@ -1,133 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/app/app_routes.dart';
-import 'package:hareeg_table/app/hareeg_table_app.dart';
 import 'package:hareeg_table/data/persistence/learning_progress_repository.dart';
-import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
-import 'package:hareeg_table/ui/core/cards/card_state.dart';
-import 'package:hareeg_table/ui/core/cards/card_view.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
+import 'package:hareeg_table/ui/core/theme/lounge_tokens.dart';
 import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart';
-import 'package:hareeg_table/ui/features/learning/practice/practice_scripts.dart';
+import 'package:hareeg_table/ui/features/learning/practice/finish_fifty_practice_pack.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
 
+import '../../../support/practice_widget_harness.dart';
 import '../../../support/test_fixtures.dart';
 
 void main() {
   ShowcaseCardFan.disableLoopingMotionForTesting = true;
 
-  // The checklist is a lazy ListView, so a lower lesson tile may not be built
-  // until the list scrolls; target tiles by key, then tap their start button.
-  Future<void> openLesson(WidgetTester tester, String lessonId) async {
-    final tile = find.byKey(ValueKey('practice-lesson-tile-$lessonId'));
-    if (tile.evaluate().isEmpty) {
-      await tester.scrollUntilVisible(
-        tile,
-        160,
-        scrollable: find.byType(Scrollable).first,
-      );
-    }
-    await tester.ensureVisible(tile);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: tile, matching: find.byType(OutlinedButton)),
-    );
-    await tester.pumpAndSettle();
-  }
-
-  // Scrolls the checklist back to its header (the completed-count line) after
-  // a lesson opened from a scrolled position pops back to the list.
-  Future<void> scrollChecklistToTop(WidgetTester tester) async {
-    await tester.drag(find.byType(ListView), const Offset(0, 600));
-    await tester.pumpAndSettle();
-  }
-
-  Rect handCardRect(WidgetTester tester, CardRank rank, CardSuit suit) {
-    final id = HareegCard.standard(rank: rank, suit: suit, deckIndex: 0).id;
-    return tester.getRect(find.byKey(ValueKey('south-hand-drag-$id')));
-  }
-
-  /// Drags a south-hand card onto the discard pile, gripping the card just
-  /// inside its left edge: fanned cards overlap to the right, so the left
-  /// sliver is the only region guaranteed to belong to this card on the
-  /// full 14-card opening hands.
-  Future<void> dragToDiscard(
-    WidgetTester tester,
-    CardRank rank,
-    CardSuit suit,
-  ) async {
-    final rect = handCardRect(tester, rank, suit);
-    final grip = Offset(rect.left + 6, rect.center.dy);
-    final target = tester.getCenter(
-      find.byKey(const ValueKey('discard-pile-drop-target')),
-    );
-    await tester.dragFrom(grip, target - grip);
-    await tester.pumpAndSettle();
-  }
-
-  /// Toggles a south-hand card's selection via the hand fan's drag key, so a
-  /// card that also renders elsewhere (a pending discard shows on the pile
-  /// too) cannot be hit by mistake.
-  Future<void> toggleHandCard(
-    WidgetTester tester,
-    CardRank rank,
-    CardSuit suit,
-  ) async {
-    final rect = handCardRect(tester, rank, suit);
-    await tester.tapAt(Offset(rect.left + 6, rect.center.dy));
-    await tester.pump();
-  }
-
-  Future<void> playSelectedMeld(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Play selected meld'));
-    await tester.pumpAndSettle();
-  }
-
-  Future<void> tapDiscardPile(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
-    await tester.pumpAndSettle();
-  }
-
-  /// Pumps through a lesson's scripted intro — the lead-in pause plus the
-  /// other seat's animated turn — until the step banner hands control to
-  /// the player.
-  Future<void> pumpThroughIntro(WidgetTester tester) async {
-    for (var i = 0; i < 30; i++) {
-      await tester.pump(const Duration(milliseconds: 400));
-      if (find
-          .byKey(const ValueKey('practice-step-banner'))
-          .evaluate()
-          .isNotEmpty) {
-        break;
-      }
-    }
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('practice-step-banner')),
-      findsOneWidget,
-      reason: 'the scripted intro must hand the turn to the player',
-    );
-  }
-
-  /// A card rendered with the coach-highlight ring — the same visual the
-  /// live coaching tier uses, reused by practice steps to point at the
-  /// specific cards being taught.
-  Finder ringedCard(CardRank rank, CardSuit suit) {
-    final id = HareegCard.standard(rank: rank, suit: suit, deckIndex: 0).id;
-    return find.byWidgetPredicate(
-      (widget) =>
-          widget is HareegCardView &&
-          widget.card.id == id &&
-          widget.visualState == CardVisualState.coachHighlight,
-    );
-  }
-
   testWidgets('checklist launches the turn-rhythm lesson on the real table', (
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
 
     await openLesson(tester, 'turn-rhythm');
@@ -148,7 +39,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'turn-rhythm');
 
@@ -177,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
 
-    expect(find.text('1 of 17 completed'), findsOneWidget);
+    expect(find.text('1 of 21 completed'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
   });
 
@@ -185,7 +76,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'turn-rhythm');
 
@@ -211,7 +102,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'turn-rhythm');
 
@@ -243,7 +134,7 @@ void main() {
 
   testWidgets('off-script affordances stay dark during a step', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'turn-rhythm');
 
@@ -266,7 +157,7 @@ void main() {
     final savedMatch = snapshotWithSouthHand(const []);
     final matches = MemoryMatchRepository(saved: savedMatch);
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning, matches: matches));
+    await tester.pumpWidget(practiceApp(learning: learning, matches: matches));
     await tester.pumpAndSettle();
     await openLesson(tester, 'turn-rhythm');
 
@@ -278,7 +169,7 @@ void main() {
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
 
-    expect(find.text('0 of 17 completed'), findsOneWidget);
+    expect(find.text('0 of 21 completed'), findsOneWidget);
     expect(matches.saved, same(savedMatch));
     expect(
       learning.progress.statusFor('turn-rhythm'),
@@ -290,7 +181,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'first-meld');
 
@@ -362,14 +253,14 @@ void main() {
     await tester.tap(find.text('Back to practice'));
     await tester.pumpAndSettle();
     await scrollChecklistToTop(tester);
-    expect(find.text('1 of 17 completed'), findsOneWidget);
+    expect(find.text('1 of 21 completed'), findsOneWidget);
   });
 
   testWidgets('discard-opening lesson: take the eight, open with both sets', (
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'discard-opening');
 
@@ -428,7 +319,7 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'bait-discard');
 
@@ -472,7 +363,7 @@ void main() {
     'opening-51 lesson: draw, stage kings, open with jacks, discard',
     (tester) async {
       final learning = MemoryLearningProgressRepository();
-      await tester.pumpWidget(_practiceApp(learning: learning));
+      await tester.pumpWidget(practiceApp(learning: learning));
       await tester.pumpAndSettle();
       await openLesson(tester, 'opening-51');
 
@@ -536,7 +427,7 @@ void main() {
   testWidgets('pending-discard lesson: take, hand back, draw, free meld, '
       'and the overlay chains into benchmark-pressure', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'pending-discard');
 
@@ -599,7 +490,7 @@ void main() {
   testWidgets('benchmark-pressure lesson: west raises the bar on screen; '
       'staging, the taught retract, and the closing discard', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'benchmark-pressure');
 
@@ -645,7 +536,7 @@ void main() {
   testWidgets('sequence-cover lesson: stack the jack and queen on west\'s '
       'run, then fill the eights with the twin diamond', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'sequence-cover');
 
@@ -707,13 +598,26 @@ void main() {
     tester,
   ) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'set-cover');
 
     await pumpThroughIntro(tester);
     await tester.tap(find.byTooltip('Draw Stock'));
     await tester.pumpAndSettle();
+
+    // Cross-zone highlight groups ring in distinct palette hues: the held
+    // cover (group 0 = teal) versus west's target set on the table (group 1).
+    // The two must not share a colour, so the relationship reads at a glance.
+    final heldRing = ringColorOf(tester, CardRank.king, CardSuit.clubs);
+    final targetRing = ringColorOf(tester, CardRank.king, CardSuit.spades);
+    expect(heldRing, LoungeTokens.coachRingPalette[0]);
+    expect(targetRing, LoungeTokens.coachRingPalette[1]);
+    expect(
+      heldRing,
+      isNot(targetRing),
+      reason: 'the held cover and its target meld must ring different colours',
+    );
 
     await dragToMeld(
       tester,
@@ -736,7 +640,7 @@ void main() {
   testWidgets('cover-discard-block lesson: the trapped ten bounces off the '
       'pile; any other card ends the turn', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'cover-discard-block');
 
@@ -768,7 +672,7 @@ void main() {
   testWidgets('joker-identity lesson: the picker offers both sevens and the '
       'declaration completes the meld', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'joker-identity');
 
@@ -812,7 +716,7 @@ void main() {
   testWidgets('joker-replacement lesson: swap the real seven in; the freed '
       'joker bounces off the pile', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'joker-replacement');
 
@@ -831,7 +735,7 @@ void main() {
       meldIndex: 0,
     );
     expect(
-      find.textContaining('a joker never leaves as a discard'),
+      find.textContaining('a joker cannot be thrown away mid-round'),
       findsOneWidget,
     );
 
@@ -878,7 +782,7 @@ void main() {
   testWidgets('final-discard lesson: meld the nines, go out on the last '
       'card, and the completion panel cites the outcome', (tester) async {
     final learning = MemoryLearningProgressRepository();
-    await tester.pumpWidget(_practiceApp(learning: learning));
+    await tester.pumpWidget(practiceApp(learning: learning));
     await tester.pumpAndSettle();
     await openLesson(tester, 'final-discard');
 
@@ -900,9 +804,13 @@ void main() {
     await dragToDiscard(tester, CardRank.five, CardSuit.spades);
 
     expect(find.text('Lesson complete!'), findsOneWidget);
-    // The script's completion note rides the panel: the finish rule plus
-    // the real -1 the engine just scored.
-    expect(find.textContaining('The winner scores -1'), findsOneWidget);
+    // The script's completion note rides the panel: final-discard owns only
+    // its rule (the last card must leave as a discard), no score talk —
+    // that beat belongs to normal-finish.
+    expect(
+      find.textContaining('the last card always leaves as a discard'),
+      findsOneWidget,
+    );
     expect(
       learning.progress.statusFor('final-discard'),
       PracticeLessonStatus.completed,
@@ -912,13 +820,13 @@ void main() {
   testWidgets('fifty-scoring lesson: west\'s throw opens the flame ring, the '
       'thrown card itself claims, and the note cites the engine\'s real '
       'scores', (tester) async {
-    final clock = _PracticeClock();
+    final clock = PracticeTestClock();
     final session = PracticeSession(
-      script: PracticeScripts.fiftyScoring(),
+      script: FinishFiftyPracticePack.fiftyScoring(),
       now: clock.now,
     );
     final finished = <String>[];
-    await tester.pumpWidget(_practiceTable(session, onFinished: finished.add));
+    await tester.pumpWidget(practiceTable(session, onFinished: finished.add));
     await pumpThroughIntro(tester);
 
     // West's scripted throw opened the real window on the lesson clock; the
@@ -969,13 +877,13 @@ void main() {
       'dead-ends into the missed overlay, and restart lands a fresh board', (
     tester,
   ) async {
-    final clock = _PracticeClock();
+    final clock = PracticeTestClock();
     final session = PracticeSession(
-      script: PracticeScripts.fiftyClaim(pauseTimer: false),
+      script: FinishFiftyPracticePack.fiftyClaim(pauseTimer: false),
       now: clock.now,
     );
     final finished = <String>[];
-    await tester.pumpWidget(_practiceTable(session, onFinished: finished.add));
+    await tester.pumpWidget(practiceTable(session, onFinished: finished.add));
     await pumpThroughIntro(tester);
     expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
 
@@ -1010,47 +918,4 @@ void main() {
       reason: 'a dead-ended run never records completion',
     );
   });
-}
-
-/// A manually advanced clock for walking a Fifty lesson's claim window
-/// deterministically in widget tests: the intro's discard stamps the
-/// window-open time through the same injected `now` the expiry check reads.
-class _PracticeClock {
-  DateTime current = DateTime.utc(2026, 1, 1, 12);
-
-  DateTime now() => current;
-
-  void advance(Duration delta) => current = current.add(delta);
-}
-
-/// Hosts a practice session on a directly constructed table (every scope the
-/// screen reads has a test fallback), so a lesson clock can be injected —
-/// the app shell's route always builds real-clock sessions.
-Widget _practiceTable(
-  PracticeSession session, {
-  required void Function(String lessonId) onFinished,
-}) {
-  return MaterialApp(
-    home: GameTableScreen(
-      setup: session.controller.setup,
-      matchRepository: MemoryMatchRepository(),
-      preferences: GamePreferences.defaults(),
-      onPreferencesChanged: (_) {},
-      practiceSession: session,
-      onPracticeFinished: (lessonId) async => onFinished(lessonId),
-      nextPracticeScript: PracticeScripts.nextScriptInPack,
-    ),
-  );
-}
-
-Widget _practiceApp({
-  required MemoryLearningProgressRepository learning,
-  MemoryMatchRepository? matches,
-}) {
-  return HareegTableApp(
-    preferencesRepository: MemoryPreferencesRepository(),
-    matchRepository: matches ?? MemoryMatchRepository(),
-    learningProgressRepository: learning,
-    initialRouteOverride: AppRoutes.practice,
-  );
 }
