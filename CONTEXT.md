@@ -23,7 +23,10 @@ observation and planning ([cpu-observation.md](docs/design/cpu-observation.md),
 [meld-partition-enumerator.md](docs/design/meld-partition-enumerator.md),
 [opponents-ladder.md](docs/design/opponents-ladder.md)). Phase C added the
 strictness-specific joker memory mechanic. Phase D added the end-of-match screen
-([end-of-match-screen.md](docs/design/end-of-match-screen.md)).
+([end-of-match-screen.md](docs/design/end-of-match-screen.md)). The guided
+practice layer (PRD #64) added a 21-lesson teaching curriculum that runs on the
+real table in practice mode
+([guided-practice.md](docs/design/guided-practice.md)).
 
 ## Domain Vocabulary
 
@@ -73,6 +76,51 @@ load-bearing and pinned by a test. "Keep vs. shed" decisions (the discard
 keep-score and the cover-gate's "isolated card") both derive from one disjoint
 best-grouping model (`handKeepScores` / `cardsCanMeldTogether` in
 `cpu_move_plan_pipeline.dart`), shared with the Expert CPU.
+
+### Guided practice
+
+Guided practice is an optional teaching layer for Classic Hareeg mechanics: a
+checklist of 21 lessons across 4 packs that run deterministic boards on the real
+`GameTableScreen` in practice mode, so lesson gestures transfer directly to
+normal matches. Full design: [guided-practice.md](docs/design/guided-practice.md).
+
+`PracticeSession` is the runtime for one lesson. It owns a private deterministic
+`ClassicHareegGameController`, filters legal engine actions through the active
+step, applies actions through the real rules engine, handles take-back
+corrections and step regression, and never writes to the active-match store. A
+Strict-tier penalty step opts into **`completesOnPenalty`** so a reverted +3
+mistake counts as the demonstrated move instead of collapsing to a rejection.
+
+`PracticeTableRun` is the table-hosted practice run module. It owns
+practice-mode presentation state after a session mutation: banner reactions,
+completion, score-reveal hand-off, dead-end detection, and coach-style
+highlighting. `GameTableScreen` still owns rendering, gesture plumbing, motion,
+audio, haptics, and shell callbacks. Every gesture affordance crosses one
+`TableInteractionActionGate` (AllowAll on the live table, a step-backed Predicate
+in practice).
+
+`PracticeLessonRegistry` joins the static `PracticeCatalog` lesson ids to their
+`PracticeLessonDelivery`: scripted table lessons from the four per-pack script
+modules (`CoreTurnPracticePack`, `TableMechanicsPracticePack`,
+`FinishFiftyPracticePack`, `TableStrictnessPracticePack`, which share
+`PracticeScriptAuthoring` helpers), the strictness reading panel, or unavailable
+lessons. Next-lesson chaining lives in this registry, not in the table or
+checklist.
+
+`PracticeBoardGrammar` captures executable board-design rules for lesson boards:
+visible openings total what they imply, hand + table cards read as one deal
+unless a lesson intentionally uses a mini hand. It also audits **hand
+composition** — a script names its `taughtMelds`, and the audit reuses the real
+meld enumerator to prove the remaining filler cards form no unintended meld. This
+replaces the per-lesson "Fillers: no meld" comment discipline with a checked
+claim. A grouped highlight step rings one meld per step in its own palette hue
+(`highlightGroups` → `CoachHighlighting.groupOf`: group 0 teal = cards you
+hold/play, group 1 blue = the target meld on the table).
+
+`LearningProgressWorkflow` is the command surface for onboarding and practice
+progress mutations. Screens delegate onboarding completion, lesson completion,
+skip, and unskip through it; `LearningProgressRepository` remains only the
+storage adapter and owns write serialization.
 
 ### `DiscardHistory`
 
