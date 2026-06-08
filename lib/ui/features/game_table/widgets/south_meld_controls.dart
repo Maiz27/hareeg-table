@@ -104,19 +104,20 @@ class _SuggestionGroup extends StatelessWidget {
     final gap = cardSize.width * 0.50;
     final width = cardSize.width + math.max(0, cards.length - 1) * gap;
     // Cards fan right (each at left: i*gap), so a card's right half is covered
-    // by its neighbour. The joker carries a bottom-centred represented-identity
-    // badge, so it must paint on top of its neighbours to stay readable. We
-    // paint in reverse index order — making each card sit above its right
-    // neighbour — and float any represented joker to the very top so its badge
-    // is never clipped, even from an interior slot. Offsets and overall width
-    // are unchanged, so the rack's centred layout stays identical.
-    final paintOrder = [for (var i = cards.length - 1; i >= 0; i--) i];
+    // by its neighbour. The natural fan keeps ascending index order — each card
+    // paints above its LEFT neighbour, so every card's top-left rank corner
+    // stays visible (rightmost on top). The joker carries a bottom-centred
+    // represented-identity badge, so it alone must float to the very top to
+    // keep that badge readable even from an interior slot. We therefore keep
+    // ascending order for everything and only lift jokers to the end. Offsets
+    // and overall width are unchanged, so the rack's centred layout is identical.
+    final paintOrder = [for (var i = 0; i < cards.length; i++) i];
     paintOrder.sort((a, b) {
       final aJoker = cards[a].isJoker;
       final bJoker = cards[b].isJoker;
       if (aJoker != bJoker) return aJoker ? 1 : -1;
-      // Stable within the same priority: leftmost paints last (on top).
-      return b.compareTo(a);
+      // Preserve natural left→right fan within the same priority.
+      return a.compareTo(b);
     });
     return Tooltip(
       message: context.strings.playMeld,
