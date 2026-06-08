@@ -20,8 +20,9 @@ import '../ui/features/game_setup/views/new_game_setup_screen.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
-import '../ui/features/learning/practice/practice_scripts.dart';
+import '../ui/features/learning/models/practice_lesson_registry.dart';
 import '../ui/features/learning/practice/practice_session.dart';
+import '../ui/features/learning/progress/learning_progress_workflow.dart';
 import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
 import '../ui/features/learning/views/strictness_explainer_screen.dart';
@@ -69,6 +70,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
   late final PreferencesRepository _preferences;
   late final MatchRepository _matches;
   late final LearningProgressRepository _learning;
+  late final LearningProgressWorkflow _learningWorkflow;
   late final Future<LearningProgress> _learningFuture;
   late final TableHaptics _haptics;
   late final TableAudio _audio;
@@ -80,10 +82,11 @@ class _HareegTableAppState extends State<HareegTableApp> {
     _preferences = widget.preferencesRepository ?? AppRepositories.preferences;
     _matches = widget.matchRepository ?? AppRepositories.matches;
     _learning = widget.learningProgressRepository ?? AppRepositories.learning;
+    _learningWorkflow = LearningProgressWorkflow(_learning);
     // Kicked off at startup so the splash hand-off can decide between home
     // and first-run onboarding without a visible wait. Errors fall back to
     // defaults; failing to read progress must never block the menu.
-    _learningFuture = _learning.loadProgress().catchError((
+    _learningFuture = _learningWorkflow.load().catchError((
       Object error,
       StackTrace stackTrace,
     ) {
@@ -156,10 +159,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
   /// progress; failures only log — a lost write must never block the lesson.
   Future<void> _persistPracticeCompletion(String lessonId) async {
     try {
-      final progress = await _learning.loadProgress();
-      await _learning.saveProgress(
-        progress.withLessonStatus(lessonId, PracticeLessonStatus.completed),
-      );
+      await _learningWorkflow.completeLesson(lessonId);
     } catch (error, stackTrace) {
       debugPrint('Failed to save practice completion: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -303,7 +303,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         if (settings.name == AppRoutes.practiceLesson) {
           final lessonId = settings.arguments;
           final script = lessonId is String
-              ? PracticeScripts.byId(lessonId)
+              ? PracticeLessonRegistry.scriptFor(lessonId)
               : null;
           if (script == null) {
             return null;
@@ -320,7 +320,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
               onPreferencesChanged: _updatePreferences,
               practiceSession: session,
               onPracticeFinished: _persistPracticeCompletion,
-              nextPracticeScript: PracticeScripts.nextScriptInPack,
+              nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
             ),
             settings: settings,
           );

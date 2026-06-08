@@ -9,6 +9,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/showcase_card_fan.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../progress/learning_progress_workflow.dart';
 
 /// First-launch onboarding flow.
 ///
@@ -63,10 +64,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _persistCompletion() async {
     try {
-      final progress = await widget.learningRepository.loadProgress();
-      await widget.learningRepository.saveProgress(
-        progress.copyWith(onboardingCompleted: true),
-      );
+      await LearningProgressWorkflow(
+        widget.learningRepository,
+      ).completeOnboarding();
     } catch (error, stackTrace) {
       debugPrint('Failed to save onboarding completion: $error');
       debugPrintStack(stackTrace: stackTrace);

@@ -138,12 +138,53 @@ abstract interface class LearningProgressRepository {
 
   /// Persists the player's learning progress.
   Future<void> saveProgress(LearningProgress progress);
+
+  /// Atomically loads, [mutate]s, and saves progress under a per-repository
+  /// serialization lock, returning the saved value.
+  ///
+  /// All updates against the same repository instance run one at a time, so
+  /// concurrent load-modify-save commands from different screens that share
+  /// the instance can never interleave and lose a write.
+  Future<LearningProgress> update(
+    LearningProgress Function(LearningProgress current) mutate,
+  );
+}
+
+/// Serializes [LearningProgressRepository.update] over [loadProgress] and
+/// [saveProgress] using a per-instance future chain.
+///
+/// Mixing this in gives any repository correct write ordering: the
+/// serialization boundary is the repository instance shared across screens,
+/// not a per-screen caller. Implementations supply the storage primitives;
+/// this mixin only adds ordering.
+mixin SerializedLearningProgressUpdate implements LearningProgressRepository {
+  Future<LearningProgress> _pendingUpdate = Future<LearningProgress>.value(
+    LearningProgress.defaults(),
+  );
+
+  @override
+  Future<LearningProgress> update(
+    LearningProgress Function(LearningProgress current) mutate,
+  ) {
+    final next = _pendingUpdate
+        .catchError((Object _) => LearningProgress.defaults())
+        .then((_) async {
+          final current = await loadProgress();
+          final mutated = mutate(current);
+          await saveProgress(mutated);
+          return mutated;
+        });
+    _pendingUpdate = next;
+    return next;
+  }
 }
 
 /// JSON-backed learning progress repository.
-class LocalLearningProgressRepository implements LearningProgressRepository {
+class LocalLearningProgressRepository
+    with SerializedLearningProgressUpdate
+    implements LearningProgressRepository {
   /// Creates a repository from a key/value store.
-  const LocalLearningProgressRepository({required KeyValueStore store})
+  LocalLearningProgressRepository({required KeyValueStore store})
     : _store = store;
 
   static const _key = 'learning_progress.v1';
