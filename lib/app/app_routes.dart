@@ -36,4 +36,7 @@ abstract final class AppRoutes {
 
   /// Strictness tier explainer reached from the practice checklist.
   static const strictnessExplainer = '/practice-tiers';
+
+  /// Generic Fundamentals reading panel (arguments: catalog lesson id string).
+  static const practiceReadingPanel = '/practice-reading-panel';
 }

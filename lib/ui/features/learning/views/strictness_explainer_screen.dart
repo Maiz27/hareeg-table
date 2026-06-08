@@ -5,6 +5,8 @@ import '../../../../data/persistence/learning_progress_repository.dart';
 import '../../../../domain/classic_hareeg/models/table_strictness.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../models/practice_lesson_registry.dart';
+import '../progress/learning_progress_workflow.dart';
 
 /// Concise strictness-tier explainer: the practice checklist's
 /// `strictness-tiers` entry, presented as a reading panel rather than a
@@ -17,7 +19,7 @@ class StrictnessExplainerScreen extends StatefulWidget {
   });
 
   /// Stable checklist lesson id this panel completes.
-  static const lessonId = 'strictness-tiers';
+  static const lessonId = PracticeLessonRegistry.strictnessTiersLessonId;
 
   /// Practice progress persistence.
   final LearningProgressRepository learningRepository;
@@ -37,13 +39,9 @@ class _StrictnessExplainerScreenState extends State<StrictnessExplainerScreen> {
   Future<void> _gotIt() async {
     final navigator = Navigator.of(context);
     try {
-      final progress = await widget.learningRepository.loadProgress();
-      await widget.learningRepository.saveProgress(
-        progress.withLessonStatus(
-          StrictnessExplainerScreen.lessonId,
-          PracticeLessonStatus.completed,
-        ),
-      );
+      await LearningProgressWorkflow(
+        widget.learningRepository,
+      ).completeLesson(StrictnessExplainerScreen.lessonId);
     } catch (error, stackTrace) {
       debugPrint('Failed to save explainer completion: $error');
       debugPrintStack(stackTrace: stackTrace);

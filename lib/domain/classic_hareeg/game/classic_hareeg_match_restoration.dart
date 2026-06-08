@@ -100,12 +100,36 @@ abstract final class ClassicHareegMatchRestoration {
           _resumesFiftyClaim(snapshot) &&
           (snapshot.activeFiftyClaimIsFirstDealtRound ??
               (snapshot.roundNumber == 1)),
+      // Resume a windowed take-discard's Fifty provenance. Like the proof, the
+      // taken card sits back in the hand as the pending discard after the
+      // checkpoint reverts the turn's table plays, so finishing on it again
+      // scores the Fifty rather than a normal -1. The three fields restore as a
+      // unit so a partial save never leaks a discarder/exception without its id.
+      windowedTakeCardId: _resumesWindowedTake(snapshot)
+          ? snapshot.windowedTakeCardId
+          : null,
+      windowedTakeDiscarder: _resumesWindowedTake(snapshot)
+          ? snapshot.windowedTakeDiscarder
+          : null,
+      windowedTakeIsFirstDealtRound:
+          _resumesWindowedTake(snapshot) &&
+          (snapshot.windowedTakeIsFirstDealtRound ??
+              (snapshot.roundNumber == 1)),
       turnSource: snapshot.pendingDiscard == null
           ? FinishCardSource.stock
           : FinishCardSource.previousDiscard,
       discardHistory: discardHistory,
     );
   }
+}
+
+/// Whether [snapshot] carries a resumable windowed take-discard: the take
+/// provenance is complete and the saved turn is mid-action (the take always
+/// leaves the seat in action phase with the card pending).
+bool _resumesWindowedTake(ClassicHareegMatchSnapshot snapshot) {
+  return snapshot.turnPhase == TurnPhase.action &&
+      snapshot.windowedTakeCardId != null &&
+      snapshot.windowedTakeDiscarder != null;
 }
 
 /// Whether [snapshot] carries a resumable mid-proof Fifty claim: the claim
@@ -144,6 +168,9 @@ class ClassicHareegRestoredMatchState {
     this.activeFiftyClaimCardId,
     this.activeFiftyClaimDiscarder,
     this.activeFiftyClaimIsFirstDealtRound = false,
+    this.windowedTakeCardId,
+    this.windowedTakeDiscarder,
+    this.windowedTakeIsFirstDealtRound = false,
   }) : discardHistory = discardHistory ?? DiscardHistory();
 
   /// Restored setup.
@@ -209,6 +236,17 @@ class ClassicHareegRestoredMatchState {
   /// Whether the restored proof claim carries the first-dealt-round
   /// exception.
   final bool activeFiftyClaimIsFirstDealtRound;
+
+  /// Physical id of a windowed discard taken via plain take-discard during an
+  /// open window at save time, or null. Lets the resumed turn's finish score as
+  /// a Fifty even though claim-fifty was never pressed.
+  final String? windowedTakeCardId;
+
+  /// Discarder charged when a resumed windowed take-discard turn finishes.
+  final PlayerSeat? windowedTakeDiscarder;
+
+  /// Whether the resumed windowed take carries the first-dealt-round exception.
+  final bool windowedTakeIsFirstDealtRound;
 
   /// Source of the turn card for finish validation.
   final FinishCardSource turnSource;

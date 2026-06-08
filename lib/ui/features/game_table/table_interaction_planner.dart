@@ -63,6 +63,49 @@ abstract interface class TableInteractionActionReader {
   });
 }
 
+/// Action-id gate applied after the table reader resolves legal engine offers.
+///
+/// The live table uses [AllowAllTableInteractionActionGate]. Practice supplies
+/// a predicate gate backed by the active lesson step, so every control,
+/// suggestion, cover, joker replacement, and meld affordance crosses one
+/// interface before it reaches the surface.
+abstract interface class TableInteractionActionGate {
+  /// Whether [actionId] can be exposed by the table interaction planner.
+  bool allows(String actionId);
+}
+
+/// Gate that exposes every legal engine action.
+final class AllowAllTableInteractionActionGate
+    implements TableInteractionActionGate {
+  /// Creates an allow-all action gate.
+  const AllowAllTableInteractionActionGate();
+
+  @override
+  bool allows(String actionId) => true;
+}
+
+/// Gate that hides every legal engine action.
+final class BlockAllTableInteractionActionGate
+    implements TableInteractionActionGate {
+  /// Creates a block-all action gate.
+  const BlockAllTableInteractionActionGate();
+
+  @override
+  bool allows(String actionId) => false;
+}
+
+/// Gate backed by a predicate.
+final class PredicateTableInteractionActionGate
+    implements TableInteractionActionGate {
+  /// Creates a predicate-backed action gate.
+  const PredicateTableInteractionActionGate(this._allows);
+
+  final bool Function(String actionId) _allows;
+
+  @override
+  bool allows(String actionId) => _allows(actionId);
+}
+
 /// Adapter from a live controller to the table interaction action reader.
 class ClassicHareegControllerTableInteractionReader
     implements TableInteractionActionReader {
@@ -276,6 +319,7 @@ class ClassicHareegTableInteractionPlanner {
     required Iterable<String> selectedCardIds,
     required Iterable<HareegCard> handCards,
     this.inputLocked = false,
+    this.actionGate = const AllowAllTableInteractionActionGate(),
   }) : selectedCardIds = List.unmodifiable(selectedCardIds),
        handCards = List.unmodifiable(handCards);
 
@@ -294,6 +338,9 @@ class ClassicHareegTableInteractionPlanner {
   /// Whether table input is temporarily locked by CPU flow or animation.
   final bool inputLocked;
 
+  /// Gate that can hide otherwise legal engine action ids.
+  final TableInteractionActionGate actionGate;
+
   bool get _canInteract => !inputLocked && reader.currentSeat == seat;
 
   /// Whether [card] can be dropped onto the discard pile.
@@ -310,7 +357,7 @@ class ClassicHareegTableInteractionPlanner {
       );
     }
 
-    final legal = reader.controlActionIdsFor(seat);
+    final legal = _controlActionIdsFor(seat);
     final pending = reader.pendingDiscard;
     if (pending?.id == card.id &&
         legal.contains(ClassicHareegActionIds.returnPendingDiscard)) {
@@ -458,10 +505,11 @@ class ClassicHareegTableInteractionPlanner {
     );
     return [
       for (final suggestion in domainSuggestions)
-        TableInteractionMeldSuggestion(
-          actionId: suggestion.actionId,
-          cards: suggestion.cards,
-        ),
+        if (_allowsActionId(suggestion.actionId))
+          TableInteractionMeldSuggestion(
+            actionId: suggestion.actionId,
+            cards: suggestion.cards,
+          ),
     ];
   }
 
@@ -476,7 +524,10 @@ class ClassicHareegTableInteractionPlanner {
     List<String> cardIds, {
     required bool includeDeterministic,
   }) {
-    final choices = reader.jokerMeldChoicesFor(seat, cardIds);
+    final choices = [
+      for (final choice in reader.jokerMeldChoicesFor(seat, cardIds))
+        if (_allowsActionId(choice.actionId)) choice,
+    ];
     if (!includeDeterministic && choices.length <= 1) {
       return const [];
     }
@@ -520,7 +571,9 @@ class ClassicHareegTableInteractionPlanner {
     // are legal — the rules engine validates the drop, and the turn simply
     // cannot end while the taken (or claimed) card sits unused.
 
-    final coverActionId = reader.coverActionIdFor(seat, cardIds);
+    final coverActionId = _allowedOrNull(
+      reader.coverActionIdFor(seat, cardIds),
+    );
     if (coverActionId != null) {
       return _ResolvedTableInteractionAction(
         actionId: coverActionId,
@@ -528,7 +581,9 @@ class ClassicHareegTableInteractionPlanner {
       );
     }
 
-    final replaceActionId = reader.jokerReplacementActionIdFor(seat, cardIds);
+    final replaceActionId = _allowedOrNull(
+      reader.jokerReplacementActionIdFor(seat, cardIds),
+    );
     if (replaceActionId != null) {
       return _ResolvedTableInteractionAction(
         actionId: replaceActionId,
@@ -556,12 +611,14 @@ class ClassicHareegTableInteractionPlanner {
     // Relaxed taken-discard rule: see _tableActionForCardIds — covers and
     // joker replacements without the pending card are legal plays.
 
-    final coverActionId = reader.coverActionIdForMeldTarget(
-      seat: seat,
-      cardIds: cardIds,
-      targetSeat: owner,
-      meldIndex: meldIndex,
-      coverPlacement: coverPlacement,
+    final coverActionId = _allowedOrNull(
+      reader.coverActionIdForMeldTarget(
+        seat: seat,
+        cardIds: cardIds,
+        targetSeat: owner,
+        meldIndex: meldIndex,
+        coverPlacement: coverPlacement,
+      ),
     );
     if (coverActionId != null) {
       return _ResolvedTableInteractionAction(
@@ -570,11 +627,13 @@ class ClassicHareegTableInteractionPlanner {
       );
     }
 
-    final replacementActionId = reader.jokerReplacementActionIdForMeldTarget(
-      seat: seat,
-      cardIds: cardIds,
-      targetSeat: owner,
-      meldIndex: meldIndex,
+    final replacementActionId = _allowedOrNull(
+      reader.jokerReplacementActionIdForMeldTarget(
+        seat: seat,
+        cardIds: cardIds,
+        targetSeat: owner,
+        meldIndex: meldIndex,
+      ),
     );
     if (replacementActionId == null) {
       return null;
@@ -586,10 +645,27 @@ class ClassicHareegTableInteractionPlanner {
   }
 
   String? _legalMeldActionForCardIds(Iterable<String> cardIds) {
-    return reader.selectedMeldActionIdFor(
-      seat,
-      cardIds.toList(growable: false),
+    return _allowedOrNull(
+      reader.selectedMeldActionIdFor(seat, cardIds.toList(growable: false)),
     );
+  }
+
+  List<String> _controlActionIdsFor(PlayerSeat seat) {
+    return [
+      for (final id in reader.controlActionIdsFor(seat))
+        if (_allowsActionId(id)) id,
+    ];
+  }
+
+  bool _allowsActionId(String actionId) {
+    return actionGate.allows(actionId);
+  }
+
+  String? _allowedOrNull(String? actionId) {
+    if (actionId == null) {
+      return null;
+    }
+    return _allowsActionId(actionId) ? actionId : null;
   }
 
   Iterable<List<String>> _dropCardIdCandidatesForMeld(HareegCard card) sync* {

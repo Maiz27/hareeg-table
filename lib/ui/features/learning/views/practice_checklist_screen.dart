@@ -9,9 +9,9 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_catalog.dart';
-import '../practice/practice_scripts.dart';
+import '../models/practice_lesson_registry.dart';
+import '../progress/learning_progress_workflow.dart';
 import 'onboarding_screen.dart';
-import 'strictness_explainer_screen.dart';
 
 /// Guided practice checklist hub.
 ///
@@ -31,22 +31,20 @@ class PracticeChecklistScreen extends StatefulWidget {
 }
 
 class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
+  late final LearningProgressWorkflow _learningWorkflow;
   LearningProgress _progress = LearningProgress.defaults();
-
-  /// Serializes progress writes so rapid skip/unskip taps cannot land their
-  /// repository saves out of order.
-  Future<void> _pendingSave = Future<void>.value();
 
   @override
   void initState() {
     super.initState();
+    _learningWorkflow = LearningProgressWorkflow(widget.learningRepository);
     AppOrientation.usePortrait();
     _loadProgress();
   }
 
   Future<void> _loadProgress() async {
     try {
-      final progress = await widget.learningRepository.loadProgress();
+      final progress = await _learningWorkflow.load();
       if (!mounted) {
         return;
       }
@@ -63,14 +61,8 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   ) async {
     final next = _progress.withLessonStatus(lesson.id, status);
     setState(() => _progress = next);
-    // Chain onto the previous write (absorbing its already-logged failure)
-    // so saves land in tap order.
-    final save = _pendingSave
-        .catchError((Object _) {})
-        .then((_) => widget.learningRepository.saveProgress(next));
-    _pendingSave = save;
     try {
-      await save;
+      await _learningWorkflow.setLessonStatus(lesson.id, status);
     } catch (error, stackTrace) {
       debugPrint('Failed to save practice progress: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -78,9 +70,8 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   }
 
   Future<void> _startLesson(PracticeLesson lesson) async {
-    // The strictness lesson is a reading panel, not a scripted hand.
-    final isExplainer = lesson.id == StrictnessExplainerScreen.lessonId;
-    if (!isExplainer && PracticeScripts.byId(lesson.id) == null) {
+    final delivery = PracticeLessonRegistry.deliveryFor(lesson.id);
+    if (!delivery.isAvailable) {
       // The lesson's practice pack has not shipped yet.
       final strings = context.strings;
       ScaffoldMessenger.of(context)
@@ -89,8 +80,18 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
       return;
     }
     try {
-      if (isExplainer) {
-        await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
+      if (delivery.isReadingPanel) {
+        // Reading panels dispatch by lesson id: the bespoke strictness-tiers
+        // panel keeps its hand-built tier screen; every other reading panel
+        // renders through the generic reference-panel screen.
+        if (lesson.id == PracticeLessonRegistry.strictnessTiersLessonId) {
+          await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
+        } else {
+          await Navigator.of(context).pushNamed(
+            AppRoutes.practiceReadingPanel,
+            arguments: lesson.id,
+          );
+        }
       } else {
         await Navigator.of(
           context,
@@ -104,15 +105,11 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
   }
 
   Future<void> _replayIntro() async {
-    final navigator = Navigator.of(context);
-    // Let queued status writes land before onboarding runs its own
-    // load-modify-save on the same key, so a just-tapped skip cannot be lost.
-    await _pendingSave.catchError((Object _) {});
-    if (!mounted) {
-      return;
-    }
+    // The shared repository serializes its own load-modify-save updates, so a
+    // just-tapped skip can no longer be lost when onboarding writes the same
+    // key. No manual settle is needed before navigating.
     unawaited(
-      navigator.pushNamed(
+      Navigator.of(context).pushNamed(
         AppRoutes.onboarding,
         arguments: OnboardingScreen.fromPracticeArgument,
       ),

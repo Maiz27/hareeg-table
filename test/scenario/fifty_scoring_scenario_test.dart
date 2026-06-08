@@ -239,6 +239,188 @@ void main() {
     );
   });
 
+  group('Windowed take-discard finish scores as a Fifty', () {
+    // The user's long-standing "Fifty scored -1 in a real game" bug. During an
+    // open Fifty window the player can take the very card they finish with via
+    // plain take-discard instead of the claim-fifty button (the natural move:
+    // "the card I need is on top — tap it, lay down, go out"). The exit planner
+    // used to score that finish as a normal -1 because only the claim path set
+    // the Fifty provenance. Every prior Fifty test called claimFifty() directly,
+    // so this organic path was never exercised. These tests drive the real
+    // take → meld → final-discard sequence through the controller.
+    //
+    // The winning hand partitions hand + taken 3C into two sets plus one final
+    // discard: {3C,3D,3H} + {KS,KD,KH}, discard 9S. The taken 3C is melded, so
+    // the finish genuinely uses the windowed card.
+    final threeDiamonds =
+        ScenarioCards.card(CardRank.three, CardSuit.diamonds, deckIndex: 1);
+    final threeHearts =
+        ScenarioCards.card(CardRank.three, CardSuit.hearts, deckIndex: 1);
+    final kingSpades =
+        ScenarioCards.card(CardRank.king, CardSuit.spades, deckIndex: 1);
+    final kingDiamonds =
+        ScenarioCards.card(CardRank.king, CardSuit.diamonds, deckIndex: 1);
+    final kingHearts =
+        ScenarioCards.card(CardRank.king, CardSuit.hearts, deckIndex: 1);
+    final nineSpades =
+        ScenarioCards.card(CardRank.nine, CardSuit.spades, deckIndex: 1);
+
+    void driveTakeAndFinish(ClassicHareegScenario s) {
+      expect(s.south.takeDiscard().isSuccess, isTrue);
+      expect(
+        s.south.playMeld([topDiscardThreeClubs, threeDiamonds, threeHearts])
+            .isSuccess,
+        isTrue,
+      );
+      expect(
+        s.south.playMeld([kingSpades, kingDiamonds, kingHearts]).isSuccess,
+        isTrue,
+      );
+      expect(s.south.discard(nineSpades).isSuccess, isTrue);
+    }
+
+    test(
+      'take-discard then finish scores -3 with the documented deltas',
+      () {
+        final s = dealSouthFiftyClaim(roundNumber: 2);
+        final c = s.controller;
+        expect(c.fiftyClaimant, PlayerSeat.south);
+        final westCount = c.cardCountFor(PlayerSeat.west);
+
+        driveTakeAndFinish(s);
+
+        expect(c.isRoundOver, isTrue);
+        expect(
+          c.roundOutcome,
+          RoundOutcomeType.fiftyFinish,
+          reason: 'finishing on the windowed discard is a Fifty even when the '
+              'card was taken via take-discard rather than claim-fifty',
+        );
+        expect(
+          c.scores[PlayerSeat.south],
+          -3,
+          reason: 'winner delta is the -3 Fifty, never a normal -1',
+        );
+        expect(
+          c.scores[PlayerSeat.west],
+          westCount + 3,
+          reason: 'the windowed discarder (west) still eats remaining + 3',
+        );
+        expect(c.scores[PlayerSeat.east], c.cardCountFor(PlayerSeat.east));
+        expect(c.scores[PlayerSeat.north], c.cardCountFor(PlayerSeat.north));
+      },
+    );
+
+    test(
+      'round 1 take-discard finish uses the first-round -1 exception',
+      () {
+        // The exception must ride the take path exactly as it does the claim
+        // path: a round-1 Fifty scores the winner -1, not -3.
+        final s = dealSouthFiftyClaim(roundNumber: 1);
+        final c = s.controller;
+
+        driveTakeAndFinish(s);
+
+        expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
+        expect(
+          c.scores[PlayerSeat.south],
+          -1,
+          reason: 'first dealt round Fifty exception applies to the take path',
+        );
+      },
+    );
+
+    test(
+      'windowed take provenance survives a mid-turn save/restore',
+      () {
+        // The user's "Fifty never sticks in a real game" history: the app
+        // autosaves after every action, so a take-discard can be persisted
+        // mid-turn before the finish. Restore must keep the Fifty provenance or
+        // the resumed finish silently reverts to -1.
+        final s = dealSouthFiftyClaim(roundNumber: 2);
+        final c = s.controller;
+        expect(s.south.takeDiscard().isSuccess, isTrue);
+
+        // Save mid-turn (card taken, not yet melded) and restore a fresh engine.
+        final restored = ClassicHareegGameController.fromSnapshot(
+          c.toSnapshot(savedAt: fixedClock),
+          now: now,
+        );
+        final r = ClassicHareegScenario.fromController(restored);
+
+        // Finish on the restored controller using the taken card.
+        expect(
+          r.south.playMeld([topDiscardThreeClubs, threeDiamonds, threeHearts])
+              .isSuccess,
+          isTrue,
+        );
+        expect(
+          r.south.playMeld([kingSpades, kingDiamonds, kingHearts]).isSuccess,
+          isTrue,
+        );
+        expect(r.south.discard(nineSpades).isSuccess, isTrue);
+
+        expect(restored.isRoundOver, isTrue);
+        expect(
+          restored.roundOutcome,
+          RoundOutcomeType.fiftyFinish,
+          reason: 'a windowed take resumed from a snapshot still finishes Fifty',
+        );
+        expect(
+          restored.scores[PlayerSeat.south],
+          -3,
+          reason: 'restored windowed finish scores -3, not a dropped -1',
+        );
+      },
+    );
+
+    test(
+      'after the window expires, the same take-discard finish is a normal -1',
+      () {
+        // Over-broad-fix guard. Reading the clock just past the configured
+        // timer means the card was NOT taken within the window, so the finish
+        // is an ordinary normalFinish (-1 winner) — Fifty scoring must NOT leak
+        // past expiry. Derive the offset from the setup so a changed default
+        // timer keeps this test honest.
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.table,
+        );
+        final expiredClock = fixedClock.add(
+          Duration(seconds: setup.fiftyTimerSeconds + 1),
+        );
+        final s = ClassicHareegScenario.deal(
+          setup: setup,
+          southHand: southWinningHand,
+          eastHand: eastHand,
+          northHand: northHand,
+          westHand: westHand,
+          discardPile: [topDiscardThreeClubs],
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          openingState: ScenarioCards.openedFor(PlayerSeat.south),
+          roundNumber: 2,
+          fiftyWindowOpenedAt: fixedClock,
+          now: () => expiredClock,
+        );
+        final c = s.controller;
+
+        driveTakeAndFinish(s);
+
+        expect(c.isRoundOver, isTrue);
+        expect(
+          c.roundOutcome,
+          RoundOutcomeType.normalFinish,
+          reason: 'a pickup after the window closed is a normal finish',
+        );
+        expect(
+          c.scores[PlayerSeat.south],
+          -1,
+          reason: 'normal finish winner delta is -1, not the -3 Fifty',
+        );
+      },
+    );
+  });
+
   group('Wrong Fifty claim penalties', () {
     // South claims Fifty but holds a hand that cannot finish with the top
     // discard. Top discard = 2 of spades; south's hand has no meld using it

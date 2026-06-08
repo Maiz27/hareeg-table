@@ -40,7 +40,9 @@ class MemoryPreferencesRepository implements PreferencesRepository {
 }
 
 /// In-memory learning progress repository.
-class MemoryLearningProgressRepository implements LearningProgressRepository {
+class MemoryLearningProgressRepository
+    with SerializedLearningProgressUpdate
+    implements LearningProgressRepository {
   MemoryLearningProgressRepository({LearningProgress? progress})
     : progress = progress ?? LearningProgress.defaults();
 

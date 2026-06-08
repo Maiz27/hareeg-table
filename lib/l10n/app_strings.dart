@@ -231,9 +231,13 @@ class AppStrings {
 
   /// Completion overlay: continue into the pack's next lesson.
   String get practiceNextLesson => _v('practiceNextLesson');
+  String get practicePackFundamentalsTitle =>
+      _v('practicePackFundamentalsTitle');
   String get practicePackCoreTitle => _v('practicePackCoreTitle');
   String get practicePackTableTitle => _v('practicePackTableTitle');
   String get practicePackFinishTitle => _v('practicePackFinishTitle');
+  String get practicePackTableStrictnessTitle =>
+      _v('practicePackTableStrictnessTitle');
 
   /// Checklist progress summary, e.g. "3 of 15 completed".
   String practiceProgress(int completed, int total) => _v(
@@ -241,6 +245,13 @@ class AppStrings {
   ).replaceFirst('{completed}', '$completed').replaceFirst('{total}', '$total');
 
   // Guided practice lesson catalog.
+  // Fundamentals pack: conceptual reference panels.
+  String get practiceCardValuesTitle => _v('practiceCardValuesTitle');
+  String get practiceCardValuesSummary => _v('practiceCardValuesSummary');
+  String get practiceMeldShapesTitle => _v('practiceMeldShapesTitle');
+  String get practiceMeldShapesSummary => _v('practiceMeldShapesSummary');
+  String get practiceTheAceTitle => _v('practiceTheAceTitle');
+  String get practiceTheAceSummary => _v('practiceTheAceSummary');
   String get practiceTurnRhythmTitle => _v('practiceTurnRhythmTitle');
   String get practiceTurnRhythmSummary => _v('practiceTurnRhythmSummary');
   String get practiceFirstMeldTitle => _v('practiceFirstMeldTitle');
@@ -273,12 +284,62 @@ class AppStrings {
   String get practiceFinalDiscardSummary => _v('practiceFinalDiscardSummary');
   String get practiceNormalFinishTitle => _v('practiceNormalFinishTitle');
   String get practiceNormalFinishSummary => _v('practiceNormalFinishSummary');
+  String get practicePerfectHandTitle => _v('practicePerfectHandTitle');
+  String get practicePerfectHandSummary => _v('practicePerfectHandSummary');
+  String get practiceJokerOutTitle => _v('practiceJokerOutTitle');
+  String get practiceJokerOutSummary => _v('practiceJokerOutSummary');
   String get practiceFiftyClaimTitle => _v('practiceFiftyClaimTitle');
   String get practiceFiftyClaimSummary => _v('practiceFiftyClaimSummary');
   String get practiceFiftyScoringTitle => _v('practiceFiftyScoringTitle');
   String get practiceFiftyScoringSummary => _v('practiceFiftyScoringSummary');
   String get practiceStrictnessTitle => _v('practiceStrictnessTitle');
   String get practiceStrictnessSummary => _v('practiceStrictnessSummary');
+  String get practiceStrictPenaltyTitle => _v('practiceStrictPenaltyTitle');
+  String get practiceStrictPenaltySummary =>
+      _v('practiceStrictPenaltySummary');
+  String get practiceTablePenaltyTitle => _v('practiceTablePenaltyTitle');
+  String get practiceTablePenaltySummary => _v('practiceTablePenaltySummary');
+
+  // Fundamentals reading-panel content.
+  String get practiceCardValuesPanelTitle => _v('practiceCardValuesPanelTitle');
+  String get practiceCardValuesIntro => _v('practiceCardValuesIntro');
+  String get practiceCardValuesNumberHeading =>
+      _v('practiceCardValuesNumberHeading');
+  String get practiceCardValuesNumberLine =>
+      _v('practiceCardValuesNumberLine');
+  String get practiceCardValuesFaceHeading =>
+      _v('practiceCardValuesFaceHeading');
+  String get practiceCardValuesFaceLine => _v('practiceCardValuesFaceLine');
+  String get practiceCardValuesOutro => _v('practiceCardValuesOutro');
+  String get practiceCardValue2 => _v('practiceCardValue2');
+  String get practiceCardValue5 => _v('practiceCardValue5');
+  String get practiceCardValue9 => _v('practiceCardValue9');
+  String get practiceCardValue10Each => _v('practiceCardValue10Each');
+
+  String get practiceMeldShapesPanelTitle => _v('practiceMeldShapesPanelTitle');
+  String get practiceMeldShapesIntro => _v('practiceMeldShapesIntro');
+  String get practiceMeldShapesSetHeading => _v('practiceMeldShapesSetHeading');
+  String get practiceMeldShapesSetLine => _v('practiceMeldShapesSetLine');
+  String get practiceMeldShapesRunHeading => _v('practiceMeldShapesRunHeading');
+  String get practiceMeldShapesRunLine => _v('practiceMeldShapesRunLine');
+  String get practiceMeldShapesOutro => _v('practiceMeldShapesOutro');
+  String get practiceMeldShapesSetCaption =>
+      _v('practiceMeldShapesSetCaption');
+  String get practiceMeldShapesRunCaption =>
+      _v('practiceMeldShapesRunCaption');
+
+  String get practiceTheAcePanelTitle => _v('practiceTheAcePanelTitle');
+  String get practiceTheAceIntro => _v('practiceTheAceIntro');
+  String get practiceTheAceHighHeading => _v('practiceTheAceHighHeading');
+  String get practiceTheAceHighLine => _v('practiceTheAceHighLine');
+  String get practiceTheAceLowHeading => _v('practiceTheAceLowHeading');
+  String get practiceTheAceLowLine => _v('practiceTheAceLowLine');
+  String get practiceTheAceFlipHeading => _v('practiceTheAceFlipHeading');
+  String get practiceTheAceFlipLine => _v('practiceTheAceFlipLine');
+  String get practiceTheAceOutro => _v('practiceTheAceOutro');
+  String get practiceTheAceHighCaption => _v('practiceTheAceHighCaption');
+  String get practiceTheAceLowCaption => _v('practiceTheAceLowCaption');
+  String get practiceTheAceFlipCaption => _v('practiceTheAceFlipCaption');
 
   // Rules/Help learning entry points.
   String get helpLearningTitle => _v('helpLearningTitle');
@@ -409,6 +470,34 @@ class AppStrings {
   String get practiceNormalFinishCompletion =>
       _v('practiceNormalFinishCompletion');
 
+  // Perfect-hand finish lesson. The hand stages every set without ever
+  // reaching the 51 opening; laying the whole hand finishes outright.
+  String get practicePerfectHandTwos => _v('practicePerfectHandTwos');
+  String get practicePerfectHandTwosHint => _v('practicePerfectHandTwosHint');
+  String get practicePerfectHandTwosDone => _v('practicePerfectHandTwosDone');
+  String get practicePerfectHandThrees => _v('practicePerfectHandThrees');
+  String get practicePerfectHandThreesHint =>
+      _v('practicePerfectHandThreesHint');
+  String get practicePerfectHandThreesDone =>
+      _v('practicePerfectHandThreesDone');
+  String get practicePerfectHandFours => _v('practicePerfectHandFours');
+  String get practicePerfectHandFoursHint => _v('practicePerfectHandFoursHint');
+  String get practicePerfectHandFoursDone => _v('practicePerfectHandFoursDone');
+  String get practicePerfectHandFives => _v('practicePerfectHandFives');
+  String get practicePerfectHandFivesHint => _v('practicePerfectHandFivesHint');
+  String get practicePerfectHandFivesDone => _v('practicePerfectHandFivesDone');
+  String get practicePerfectHandStep2 => _v('practicePerfectHandStep2');
+  String get practicePerfectHandCompletion =>
+      _v('practicePerfectHandCompletion');
+
+  // Joker final-discard lesson.
+  String get practiceJokerOutStep1 => _v('practiceJokerOutStep1');
+  String get practiceJokerOutStep1Hint => _v('practiceJokerOutStep1Hint');
+  String get practiceJokerOutStep1Done => _v('practiceJokerOutStep1Done');
+  String get practiceJokerOutStep2 => _v('practiceJokerOutStep2');
+  String get practiceJokerOutStep2Hint => _v('practiceJokerOutStep2Hint');
+  String get practiceJokerOutCompletion => _v('practiceJokerOutCompletion');
+
   // Fifty lessons.
   String get practiceFiftyClaimStep1 => _v('practiceFiftyClaimStep1');
   String get practiceFiftyClaimStep1Hint => _v('practiceFiftyClaimStep1Hint');
@@ -436,6 +525,24 @@ class AppStrings {
   String get practiceTierStandardBody => _v('practiceTierStandardBody');
   String get practiceTierStrictBody => _v('practiceTierStrictBody');
   String get practiceTierTableBody => _v('practiceTierTableBody');
+
+  // Strict / Table penalty demos. The same trapped-cover throw the table
+  // mechanics pack blocked, now offered as a paid mistake on the stricter
+  // tiers.
+  String get practiceStrictPenaltyStep1 => _v('practiceStrictPenaltyStep1');
+  String get practiceStrictPenaltyStep1Hint =>
+      _v('practiceStrictPenaltyStep1Hint');
+  String get practiceStrictPenaltyStep1Done =>
+      _v('practiceStrictPenaltyStep1Done');
+  String get practiceStrictPenaltyCompletion =>
+      _v('practiceStrictPenaltyCompletion');
+  String get practiceTablePenaltyStep1 => _v('practiceTablePenaltyStep1');
+  String get practiceTablePenaltyStep1Hint =>
+      _v('practiceTablePenaltyStep1Hint');
+  String get practiceTablePenaltyStep1Done =>
+      _v('practiceTablePenaltyStep1Done');
+  String get practiceTablePenaltyCompletion =>
+      _v('practiceTablePenaltyCompletion');
 
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
@@ -1281,10 +1388,22 @@ const _englishValues = {
   'practiceComingSoon': 'This practice hand arrives in an upcoming update.',
   'practiceFollowStep': 'Good instinct — but follow the current step first.',
   'practiceNextLesson': 'Next lesson',
+  'practicePackFundamentalsTitle': 'Fundamentals',
   'practicePackCoreTitle': 'Core turn basics',
   'practicePackTableTitle': 'Table mechanics',
   'practicePackFinishTitle': 'Finishing & Fifty',
+  'practicePackTableStrictnessTitle': 'Table strictness',
   'practiceProgress': '{completed} of {total} completed',
+  'practiceCardValuesTitle': 'What your cards are worth',
+  'practiceCardValuesSummary':
+      'Face cards and the ace are 10; number cards are their number.',
+  'practiceMeldShapesTitle': 'Sets and runs',
+  'practiceMeldShapesSummary':
+      'The two meld shapes: same-rank sets and same-suit runs.',
+  'practiceTheAceTitle': 'The Ace',
+  'practiceTheAceSummary':
+      'The ace runs high or low — and a low run that reaches a five flips '
+      'it to 1.',
   'practiceTurnRhythmTitle': 'Turn rhythm',
   'practiceTurnRhythmSummary':
       'Draw, play if you can, then discard to end your turn.',
@@ -1327,6 +1446,12 @@ const _englishValues = {
   'practiceNormalFinishTitle': 'Finishing a round',
   'practiceNormalFinishSummary':
       'Go out cleanly and see how the round is scored.',
+  'practicePerfectHandTitle': 'The perfect hand',
+  'practicePerfectHandSummary':
+      'A whole hand of melds finishes without ever opening.',
+  'practiceJokerOutTitle': 'A joker as your last card',
+  'practiceJokerOutSummary':
+      'A joker cannot be thrown in play — but it can be your closing throw.',
   'practiceFiftyClaimTitle': 'Fifty timing',
   'practiceFiftyClaimSummary':
       'Claim Khamsin from the discard before the window closes.',
@@ -1336,6 +1461,60 @@ const _englishValues = {
   'practiceStrictnessTitle': 'Table strictness tiers',
   'practiceStrictnessSummary':
       'What Coaching, Standard, Strict, and Table expect from you.',
+  'practiceStrictPenaltyTitle': 'Strict: the +3 throw',
+  'practiceStrictPenaltySummary':
+      'On a Strict table, throwing a card the table can use costs +3.',
+  'practiceTablePenaltyTitle': 'Table: +17 and out',
+  'practiceTablePenaltySummary':
+      'On a Table table, the same throw costs +17 and ends your round.',
+  'practiceCardValuesPanelTitle': 'What your cards are worth',
+  'practiceCardValuesIntro':
+      'Opening and scoring both add up card values — here is what each card '
+      'is worth.',
+  'practiceCardValuesNumberHeading': 'Number cards (2–10)',
+  'practiceCardValuesNumberLine':
+      'Worth the number on the card. A 7 is 7 points.',
+  'practiceCardValuesFaceHeading': 'Ace, Jack, Queen, King',
+  'practiceCardValuesFaceLine': 'Each worth 10 points.',
+  'practiceCardValuesOutro': 'So three kings are 30, and a six is 6.',
+  'practiceCardValue2': '= 2',
+  'practiceCardValue5': '= 5',
+  'practiceCardValue9': '= 9',
+  'practiceCardValue10Each': 'Each = 10',
+  'practiceMeldShapesPanelTitle': 'Sets and runs',
+  'practiceMeldShapesIntro':
+      'A meld is three or more cards in one of two shapes.',
+  'practiceMeldShapesSetHeading': 'Set',
+  'practiceMeldShapesSetLine':
+      'Same rank, all different suits — like 7♠ 7♥ 7♦. Three or four cards.',
+  'practiceMeldShapesRunHeading': 'Run',
+  'practiceMeldShapesRunLine':
+      'Same suit, in a row — like 5♥ 6♥ 7♥. Three or more cards.',
+  'practiceMeldShapesOutro':
+      'A set never repeats a suit; a run is one suit and must be consecutive.',
+  'practiceMeldShapesSetCaption': 'Set — same rank',
+  'practiceMeldShapesRunCaption': 'Run — same suit, in sequence',
+  'practiceTheAcePanelTitle': 'The Ace',
+  'practiceTheAceIntro':
+      'The ace is the trickiest card to value. In a run it plays two ways.',
+  'practiceTheAceHighHeading': 'High',
+  'practiceTheAceHighLine':
+      'After the king — J♣ Q♣ K♣ A♣ — the ace counts 10. That run is worth '
+      '40.',
+  'practiceTheAceLowHeading': 'Low',
+  'practiceTheAceLowLine':
+      'Before the two — A♠ 2♠ 3♠ 4♠ — the ace still counts 10, so the run '
+      'is 19.',
+  'practiceTheAceFlipHeading': 'The flip',
+  'practiceTheAceFlipLine':
+      'But once a low run reaches a five, the ace drops to 1. A♠ 2♠ 3♠ 4♠ 5♠ '
+      'is worth 15, not 25.',
+  'practiceTheAceOutro':
+      'This is decided as the run is formed. Adding a 5 to a run already on '
+      'the table does not change the ace.',
+  'practiceTheAceHighCaption': 'Ace = 10 → worth 40',
+  'practiceTheAceLowCaption': 'Ace = 10 → worth 19',
+  'practiceTheAceFlipCaption': 'Ace drops to 1 → worth 15',
   'helpLearningTitle': 'New to Hareeg?',
   'helpLearningBody':
       'Step through short guided practice hands, or replay the first-run intro.',
@@ -1455,7 +1634,7 @@ const _englishValues = {
   'practiceJokerReplaceStep1Done':
       'Reclaimed — and look at your hearts: the 8 and 10 are one nine apart.',
   'practiceJokerReplaceStep2':
-      'Your call: bridge the 8 and 10 of hearts with the joker as a nine, or bank it for later. Either way, a joker never leaves as a discard — end with a plain card.',
+      'Your call: bridge the 8 and 10 of hearts with the joker as a nine, or bank it for later. Either way, a joker cannot be thrown away mid-round — end with a plain card.',
   'practiceJokerReplaceStep2Hint':
       'Tap the 8♥, 10♥ and joker, then the gold meld chip — or just drag a plain card to the pile.',
   'practiceJokerReplaceStep2Hold':
@@ -1469,7 +1648,7 @@ const _englishValues = {
   'practiceFinalDiscardStep2':
       'Finishing always ends with a throw: discard the 5 of spades to go out.',
   'practiceFinalDiscardCompletion':
-      'Round won — the last card always leaves your hand as a discard, never a play. The winner scores -1.',
+      'Round won — you can never meld your hand all the way to empty: the last card always leaves as a discard, never a play.',
   'practiceNormalFinishStep1':
       'Two melds and a spare card: this hand can finish cleanly. Play the queens.',
   'practiceNormalFinishStep1Done':
@@ -1480,7 +1659,41 @@ const _englishValues = {
   'practiceNormalFinishStep3':
       'Go out: discard the 7 of spades and end the round.',
   'practiceNormalFinishCompletion':
-      'Winner scores -1; every other seat adds the cards still in its hand. Going out early is defense for you and damage for them.',
+      'The winner takes -1; every seat that never opened adds the full count of cards left in its hand — the number of cards, not their pip value. Going out early is defense for you and damage for them.',
+  'practicePerfectHandTwos':
+      'Your whole hand melds, yet totals only 47 — below the 51 you would need to open. Stage it set by set anyway: play the four twos.',
+  'practicePerfectHandTwosHint':
+      'Tap the four twos, then the gold meld chip.',
+  'practicePerfectHandTwosDone': 'Twos staged — 8 so far, still short of 51.',
+  'practicePerfectHandThrees': 'Add the four threes to the staged opening.',
+  'practicePerfectHandThreesHint':
+      'Tap the four threes, then the gold meld chip.',
+  'practicePerfectHandThreesDone': 'Threes staged — 20 now, still below 51.',
+  'practicePerfectHandFours': 'Add the three fours.',
+  'practicePerfectHandFoursHint':
+      'Tap the three fours, then the gold meld chip.',
+  'practicePerfectHandFoursDone': 'Fours staged — 32, the bar is still out of reach.',
+  'practicePerfectHandFives': 'Add the three fives — your last set.',
+  'practicePerfectHandFivesHint':
+      'Tap the three fives, then the gold meld chip.',
+  'practicePerfectHandFivesDone':
+      'Every set is staged at 47 — you never reached 51, yet only the king is left.',
+  'practicePerfectHandStep2':
+      'Finishing still ends with a throw: discard the king to go out.',
+  'practicePerfectHandCompletion':
+      'Round won — you staged every set and never reached 51, but laying your whole hand finishes the round outright, bypassing the opening you never needed. The seats that never opened still pay their full hand.',
+  'practiceJokerOutStep1':
+      'You are one play from the end: your eights complete the set, leaving only the joker. Play the three eights.',
+  'practiceJokerOutStep1Hint':
+      'Tap the three eights, then the gold meld chip.',
+  'practiceJokerOutStep1Done':
+      'Eights down — only the joker is left in your hand.',
+  'practiceJokerOutStep2':
+      'A joker can never be thrown away during play — but this is the close, and a closing throw is the one exception. Discard the joker to go out.',
+  'practiceJokerOutStep2Hint':
+      'Drag the joker to the pile — the only time the pile accepts it.',
+  'practiceJokerOutCompletion':
+      'Round won — a joker cannot be discarded while the round runs, but the finishing throw may be a joker. The last card always leaves your hand.',
   'practiceFiftyClaimStep1':
       'West just threw the 8 of diamonds — your eights meet it, your twos follow, and the queen stays back to throw. That discard is claimable: call Fifty before the timer runs out.',
   'practiceFiftyClaimStep1Hint':
@@ -1520,6 +1733,22 @@ const _englishValues = {
       'Selected mistakes go through and cost +3 — you stay in the round, and memory rules apply.',
   'practiceTierTableBody':
       'House rules: mistakes cost +17 and you sit out the rest of the round.',
+  'practiceStrictPenaltyStep1':
+      'Same trapped ten — but this is a Strict table. Standard blocked this throw; Strict lets it land as a paid mistake. Throw the 10♥ on purpose and watch what it costs.',
+  'practiceStrictPenaltyStep1Hint':
+      'Drag the 10♥ to the pile — it lands, then snaps back and adds +3 to your score. That penalty finishes the lesson.',
+  'practiceStrictPenaltyStep1Done':
+      'Felt it — +3 and the ten bounced back. Strict charges the mistake but keeps you in the round.',
+  'practiceStrictPenaltyCompletion':
+      'On a Strict table, throwing a card the table can use is allowed — but it costs +3 instead of being blocked. The card came back to your hand, yet the points stuck. Standard would have refused the throw outright; Strict makes you pay for it.',
+  'practiceTablePenaltyStep1':
+      'The same throw, one table harsher. On a Table table it is allowed too — throw the 10♥ on purpose and watch the full price land.',
+  'practiceTablePenaltyStep1Hint':
+      'Drag the 10♥ to the pile — it goes through, adds +17, and takes you out of the round.',
+  'practiceTablePenaltyStep1Done':
+      'There it is — +17 and you are out of the round. The harshest table charges everything at once.',
+  'practiceTablePenaltyCompletion':
+      'On a Table table the same throw costs +17 and you are out of the round — the harshest table. The card leaves your hand for good and your seat sits out the rest of the round.',
 };
 
 const _arabicValues = {
@@ -1727,10 +1956,22 @@ const _arabicValues = {
   'practiceComingSoon': 'هذا التدريب سيتوفر في تحديث قادم.',
   'practiceFollowStep': 'حدس جيد — لكن اتبع الخطوة الحالية أولاً.',
   'practiceNextLesson': 'الدرس التالي',
+  'practicePackFundamentalsTitle': 'الأساسيات',
   'practicePackCoreTitle': 'أساسيات الدور',
   'practicePackTableTitle': 'آليات الطاولة',
   'practicePackFinishTitle': 'الإنهاء والخمسين',
+  'practicePackTableStrictnessTitle': 'صرامة الطاولة',
   'practiceProgress': 'اكتمل {completed} من {total}',
+  'practiceCardValuesTitle': 'قيمة أوراقك',
+  'practiceCardValuesSummary':
+      'الأوراق الملوّنة والآص بـ10؛ والأوراق الرقمية بقيمة رقمها.',
+  'practiceMeldShapesTitle': 'المجموعات والتسلسلات',
+  'practiceMeldShapesSummary':
+      'شكلا المجموعة: مجموعات بنفس الرتبة وتسلسلات بنفس النوع.',
+  'practiceTheAceTitle': 'الآص',
+  'practiceTheAceSummary':
+      'الآص يكون عاليًا أو منخفضًا — والتسلسل المنخفض الذي يبلغ الخمسة يقلبه '
+      'إلى 1.',
   'practiceTurnRhythmTitle': 'إيقاع الدور',
   'practiceTurnRhythmSummary': 'اسحب، العب إن استطعت، ثم ارم لإنهاء دورك.',
   'practiceFirstMeldTitle': 'أول مجموعة لك',
@@ -1764,13 +2005,69 @@ const _arabicValues = {
   'practiceFinalDiscardSummary': 'الإنهاء يحتفظ دائما بورقة أخيرة للرمي.',
   'practiceNormalFinishTitle': 'إنهاء الجولة',
   'practiceNormalFinishSummary': 'أنهِ أوراقك وشاهد كيف تحسب الجولة.',
+  'practicePerfectHandTitle': 'اليد المثالية',
+  'practicePerfectHandSummary': 'يد كاملة من المجموعات تنهي دون أي افتتاح.',
+  'practiceJokerOutTitle': 'الجوكر ورقتك الأخيرة',
+  'practiceJokerOutSummary':
+      'الجوكر لا يُرمى أثناء اللعب — لكنه قد يكون رميتك الختامية.',
   'practiceFiftyClaimTitle': 'توقيت الخمسين',
   'practiceFiftyClaimSummary': 'اطلب الخمسين من الرمية قبل انتهاء المهلة.',
   'practiceFiftyScoringTitle': 'حساب الخمسين',
   'practiceFiftyScoringSummary': 'مكافأة الفائز وعقوبة من رمى الورقة.',
+  'practiceStrictPenaltyTitle': 'الصارمة: رمية الـ +3',
+  'practiceStrictPenaltySummary':
+      'على طاولة صارمة، رمي ورقة تصلح للطاولة يكلف +3.',
+  'practiceTablePenaltyTitle': 'طاولة البيت: +17 وخروج',
+  'practiceTablePenaltySummary':
+      'على طاولة البيت، نفس الرمية تكلف +17 وتنهي جولتك.',
   'practiceStrictnessTitle': 'مستويات صرامة الطاولة',
   'practiceStrictnessSummary':
       'ما تتوقعه منك مستويات التدريب والقياسي والصارم والطاولة.',
+  'practiceCardValuesPanelTitle': 'قيمة أوراقك',
+  'practiceCardValuesIntro':
+      'الافتتاح والتسجيل كلاهما يجمع قيم الأوراق — وهذه قيمة كل ورقة.',
+  'practiceCardValuesNumberHeading': 'الأوراق الرقمية (2–10)',
+  'practiceCardValuesNumberLine':
+      'تساوي الرقم المكتوب عليها. الـ7 يساوي 7 نقاط.',
+  'practiceCardValuesFaceHeading': 'الآص والولد والبنت والشايب',
+  'practiceCardValuesFaceLine': 'كل منها يساوي 10 نقاط.',
+  'practiceCardValuesOutro': 'فثلاثة شيوب تساوي 30، والستة تساوي 6.',
+  'practiceCardValue2': '= 2',
+  'practiceCardValue5': '= 5',
+  'practiceCardValue9': '= 9',
+  'practiceCardValue10Each': 'كلٌّ = 10',
+  'practiceMeldShapesPanelTitle': 'المجموعات والتسلسلات',
+  'practiceMeldShapesIntro':
+      'المجموعة هي ثلاث أوراق أو أكثر في أحد شكلين.',
+  'practiceMeldShapesSetHeading': 'مجموعة',
+  'practiceMeldShapesSetLine':
+      'نفس الرتبة بأنواع مختلفة — مثل 7♠ 7♥ 7♦. ثلاث أو أربع أوراق.',
+  'practiceMeldShapesRunHeading': 'تسلسل',
+  'practiceMeldShapesRunLine':
+      'نفس النوع بترتيب متتابع — مثل 5♥ 6♥ 7♥. ثلاث أوراق أو أكثر.',
+  'practiceMeldShapesOutro':
+      'المجموعة لا تكرّر نوعًا؛ والتسلسل نوع واحد ويجب أن يكون متتابعًا.',
+  'practiceMeldShapesSetCaption': 'مجموعة — نفس الرتبة',
+  'practiceMeldShapesRunCaption': 'تسلسل — نفس النوع، بالترتيب',
+  'practiceTheAcePanelTitle': 'الآص',
+  'practiceTheAceIntro':
+      'الآص أصعب ورقة في تقييمها. في التسلسل يلعب بطريقتين.',
+  'practiceTheAceHighHeading': 'عالٍ',
+  'practiceTheAceHighLine':
+      'بعد الشايب — J♣ Q♣ K♣ A♣ — يُحسب الآص 10. ذلك التسلسل يساوي 40.',
+  'practiceTheAceLowHeading': 'منخفض',
+  'practiceTheAceLowLine':
+      'قبل الاثنين — A♠ 2♠ 3♠ 4♠ — يبقى الآص يُحسب 10، فيساوي التسلسل 19.',
+  'practiceTheAceFlipHeading': 'الانقلاب',
+  'practiceTheAceFlipLine':
+      'لكن متى بلغ التسلسل المنخفض الخمسة، يهبط الآص إلى 1. فـA♠ 2♠ 3♠ 4♠ 5♠ '
+      'يساوي 15 لا 25.',
+  'practiceTheAceOutro':
+      'يُحسم هذا أثناء تكوين التسلسل. إضافة 5 إلى تسلسل موجود على الطاولة '
+      'لا يغيّر الآص.',
+  'practiceTheAceHighCaption': 'الآص = 10 ← يساوي 40',
+  'practiceTheAceLowCaption': 'الآص = 10 ← يساوي 19',
+  'practiceTheAceFlipCaption': 'الآص يهبط إلى 1 ← يساوي 15',
   'helpLearningTitle': 'جديد على حريق؟',
   'helpLearningBody':
       'تدرّب عبر أيادٍ موجهة قصيرة، أو أعد مقدمة التشغيل الأول.',
@@ -1887,7 +2184,7 @@ const _arabicValues = {
   'practiceJokerReplaceStep1Done':
       'استرجعته — وانظر إلى كُبّاتك: الثمانية والعشرة بينهما تسعة واحدة.',
   'practiceJokerReplaceStep2':
-      'القرار لك: اجسر بين 8 و10 الكُبّة بالجوكر كتسعة، أو احتفظ به. في الحالين، الجوكر لا يُرمى أبدا — أنهِ بورقة عادية.',
+      'القرار لك: اجسر بين 8 و10 الكُبّة بالجوكر كتسعة، أو احتفظ به. في الحالين، الجوكر لا يُرمى أثناء الجولة — أنهِ بورقة عادية.',
   'practiceJokerReplaceStep2Hint':
       'اضغط على 8♥ و10♥ والجوكر ثم شريحة المجموعة الذهبية — أو اسحب ورقة عادية إلى الكومة مباشرة.',
   'practiceJokerReplaceStep2Hold':
@@ -1900,7 +2197,7 @@ const _arabicValues = {
   'practiceFinalDiscardStep2':
       'الإنهاء ينتهي دائما برمية: ارم 5 البستوني لتخرج.',
   'practiceFinalDiscardCompletion':
-      'فزت بالجولة — الورقة الأخيرة تغادر يدك رمية دائما، لا لعبة. الفائز يسجل -1.',
+      'فزت بالجولة — لا يمكنك أبدا تنزيل يدك كلها مجموعات حتى تفرغ: الورقة الأخيرة تغادر رمية دائما، لا لعبة.',
   'practiceNormalFinishStep1':
       'مجموعتان وورقة فائضة: هذه اليد تنهي بنظافة. العب الملكات.',
   'practiceNormalFinishStep1Done':
@@ -1910,7 +2207,41 @@ const _arabicValues = {
       'اضغط أوراق الكُبّة الخمس ثم شريحة المجموعة الذهبية.',
   'practiceNormalFinishStep3': 'اخرج: ارم 7 البستوني وأنهِ الجولة.',
   'practiceNormalFinishCompletion':
-      'الفائز يسجل -1؛ وكل مقعد آخر يضيف ما بقي في يده. الخروج المبكر دفاع لك وضرر عليهم.',
+      'الفائز يأخذ -1؛ وكل مقعد لم يفتتح يضيف عدد الأوراق الباقية في يده كاملا — عدد الأوراق لا قيمتها. الخروج المبكر دفاع لك وضرر عليهم.',
+  'practicePerfectHandTwos':
+      'يدك كلها مجموعات، لكن مجموعها 47 فقط — دون 51 التي تلزمك للافتتاح. انزلها مجموعة مجموعة رغم ذلك: العب الثنائيات الأربع.',
+  'practicePerfectHandTwosHint':
+      'اضغط الثنائيات الأربع ثم شريحة المجموعة الذهبية.',
+  'practicePerfectHandTwosDone': 'نزلت الثنائيات — 8 حتى الآن، ما زلت دون 51.',
+  'practicePerfectHandThrees': 'أضف الثلاثيات الأربع إلى الافتتاح المرحلي.',
+  'practicePerfectHandThreesHint':
+      'اضغط الثلاثيات الأربع ثم شريحة المجموعة الذهبية.',
+  'practicePerfectHandThreesDone': 'نزلت الثلاثيات — 20 الآن، لا تزال دون 51.',
+  'practicePerfectHandFours': 'أضف الرباعيات الثلاث.',
+  'practicePerfectHandFoursHint':
+      'اضغط الرباعيات الثلاث ثم شريحة المجموعة الذهبية.',
+  'practicePerfectHandFoursDone': 'نزلت الرباعيات — 32، والحد ما زال بعيدا.',
+  'practicePerfectHandFives': 'أضف الخماسيات الثلاث — مجموعتك الأخيرة.',
+  'practicePerfectHandFivesHint':
+      'اضغط الخماسيات الثلاث ثم شريحة المجموعة الذهبية.',
+  'practicePerfectHandFivesDone':
+      'كل المجموعات نزلت عند 47 — لم تبلغ 51 قط، ومع ذلك لم يبق إلا الملك.',
+  'practicePerfectHandStep2':
+      'الإنهاء ينتهي دائما برمية: ارم الملك لتخرج.',
+  'practicePerfectHandCompletion':
+      'فزت بالجولة — نزّلت كل مجموعة ولم تبلغ 51 قط، لكن إنزال يدك كلها ينهي الجولة مباشرة، متجاوزا الافتتاح الذي لم تحتجه. والمقاعد التي لم تفتتح تدفع يدها كاملة.',
+  'practiceJokerOutStep1':
+      'أنت على بعد لعبة من النهاية: ثمانياتك تكمل المجموعة ولا يبقى إلا الجوكر. العب الثمانيات الثلاث.',
+  'practiceJokerOutStep1Hint':
+      'اضغط الثمانيات الثلاث ثم شريحة المجموعة الذهبية.',
+  'practiceJokerOutStep1Done':
+      'نزلت الثمانيات — لم يبق في يدك إلا الجوكر.',
+  'practiceJokerOutStep2':
+      'الجوكر لا يُرمى أبدا أثناء اللعب — لكن هذا هو الختام، والرمية الختامية هي الاستثناء الوحيد. ارم الجوكر لتخرج.',
+  'practiceJokerOutStep2Hint':
+      'اسحب الجوكر إلى الكومة — المرة الوحيدة التي تقبله فيها الكومة.',
+  'practiceJokerOutCompletion':
+      'فزت بالجولة — الجوكر لا يُرمى ما دامت الجولة جارية، لكن الرمية الختامية قد تكون جوكرا. الورقة الأخيرة تغادر يدك دائما.',
   'practiceFiftyClaimStep1':
       'الغرب رمى للتو 8 الديناري — ثمانياتك تكتمل بها، وثنائياتك تتبعها، والملكة تبقى للرمي. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
   'practiceFiftyClaimStep1Hint':
@@ -1947,4 +2278,20 @@ const _arabicValues = {
       'أخطاء مختارة تمر وتكلف +3 — تبقى في الجولة، وقواعد الذاكرة تنطبق.',
   'practiceTierTableBody':
       'قواعد البيت: الأخطاء تكلف +17 وتجلس خارج بقية الجولة.',
+  'practiceStrictPenaltyStep1':
+      'نفس العشرة المحاصرة — لكن هذه طاولة صارمة. القياسية حجبت هذه الرمية؛ الصارمة تجعلها تنزل كخطأ مدفوع. ارمِ 10 الكُبّة عمدا وراقب كلفتها.',
+  'practiceStrictPenaltyStep1Hint':
+      'اسحب 10 الكُبّة إلى الكومة — تنزل ثم ترتد وتضيف +3 إلى نتيجتك. هذه العقوبة تنهي الدرس.',
+  'practiceStrictPenaltyStep1Done':
+      'شعرت بها — +3 والعشرة ارتدت. الصارمة تحاسب على الخطأ لكنها تبقيك في الجولة.',
+  'practiceStrictPenaltyCompletion':
+      'على طاولة صارمة، رمي ورقة تصلح للطاولة مسموح — لكنه يكلف +3 بدلا من أن يُحجب. عادت الورقة إلى يدك، لكن النقاط بقيت. القياسية كانت سترفض الرمية تماما؛ الصارمة تجعلك تدفع ثمنها.',
+  'practiceTablePenaltyStep1':
+      'نفس الرمية، طاولة أقسى. على طاولة البيت هي مسموحة أيضا — ارمِ 10 الكُبّة عمدا وراقب الثمن الكامل ينزل.',
+  'practiceTablePenaltyStep1Hint':
+      'اسحب 10 الكُبّة إلى الكومة — تمر، تضيف +17، وتخرجك من الجولة.',
+  'practiceTablePenaltyStep1Done':
+      'ها هي — +17 وأنت خارج الجولة. أقسى طاولة تحاسب على كل شيء دفعة واحدة.',
+  'practiceTablePenaltyCompletion':
+      'على طاولة البيت نفس الرمية تكلف +17 وتخرج من الجولة — أقسى طاولة. تغادر الورقة يدك للأبد ويجلس مقعدك خارج بقية الجولة.',
 };

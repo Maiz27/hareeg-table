@@ -3,51 +3,26 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.da
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/features/learning/models/practice_catalog.dart';
-import 'package:hareeg_table/ui/features/learning/practice/practice_scripts.dart';
+import 'package:hareeg_table/ui/features/learning/models/practice_lesson_registry.dart';
+import 'package:hareeg_table/ui/features/learning/practice/core_turn_practice_pack.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
 
-HareegCard _card(CardRank rank, CardSuit suit) =>
-    HareegCard.standard(rank: rank, suit: suit, deckIndex: 0);
-
-String _discardId(HareegCard card) =>
-    '${ClassicHareegActionIds.discardPrefix}${card.id}';
-
-String _meldId(List<HareegCard> cards) =>
-    ClassicHareegActionIds.playMeldActionId(cards.map((c) => c.id));
-
-/// Applies the script's intro the way the table's scripted CPU presenter
-/// does: straight through the controller, in order, expecting every action
-/// to be legal and the turn to land on the player.
-void _runIntro(PracticeSession session) {
-  for (final actionId in session.script.introActionIds) {
-    final result = session.controller.applyAction(actionId);
-    expect(
-      result.isSuccess,
-      isTrue,
-      reason: 'intro action $actionId must be legal: ${result.message}',
-    );
-  }
-  expect(
-    session.controller.currentSeat,
-    PlayerSeat.south,
-    reason: 'the intro must hand the turn to the player',
-  );
-}
+import '../../../support/practice_lesson_harness.dart';
 
 void main() {
   group('first-meld lesson', () {
     final heartRun = [
-      _card(CardRank.nine, CardSuit.hearts),
-      _card(CardRank.ten, CardSuit.hearts),
-      _card(CardRank.jack, CardSuit.hearts),
-      _card(CardRank.queen, CardSuit.hearts),
-      _card(CardRank.king, CardSuit.hearts),
-      _card(CardRank.ace, CardSuit.hearts),
+      practiceCard(CardRank.nine, CardSuit.hearts),
+      practiceCard(CardRank.ten, CardSuit.hearts),
+      practiceCard(CardRank.jack, CardSuit.hearts),
+      practiceCard(CardRank.queen, CardSuit.hearts),
+      practiceCard(CardRank.king, CardSuit.hearts),
+      practiceCard(CardRank.ace, CardSuit.hearts),
     ];
-    final twoClubs = _card(CardRank.two, CardSuit.clubs);
+    final twoClubs = practiceCard(CardRank.two, CardSuit.clubs);
 
     test('draw, open with the 59 run, discard', () {
-      final session = PracticeSession(script: PracticeScripts.firstMeld());
+      final session = PracticeSession(script: CoreTurnPracticePack.firstMeld());
 
       expect(
         session.controller.handFor(PlayerSeat.south),
@@ -63,7 +38,7 @@ void main() {
       final draw = session.submit(ClassicHareegActionIds.drawStock);
       expect(draw.status, PracticeSubmitStatus.stepCompleted);
 
-      final meld = session.submit(_meldId(heartRun));
+      final meld = session.submit(practiceMeldId(heartRun));
       expect(meld.status, PracticeSubmitStatus.stepCompleted);
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -71,24 +46,24 @@ void main() {
         reason: '59 clears the 51 benchmark in a single play',
       );
 
-      final done = session.submit(_discardId(twoClubs));
+      final done = session.submit(practiceDiscardId(twoClubs));
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
 
     test('wrong path: melding before the draw is not offered', () {
-      final session = PracticeSession(script: PracticeScripts.firstMeld());
+      final session = PracticeSession(script: CoreTurnPracticePack.firstMeld());
 
-      final result = session.submit(_meldId(heartRun));
+      final result = session.submit(practiceMeldId(heartRun));
 
       expect(result.status, PracticeSubmitStatus.notAllowed);
       expect(session.stepIndex, 0);
     });
 
     test('wrong path: an extra card breaks the run at the validator', () {
-      final session = PracticeSession(script: PracticeScripts.firstMeld());
+      final session = PracticeSession(script: CoreTurnPracticePack.firstMeld());
       session.submit(ClassicHareegActionIds.drawStock);
 
-      final result = session.submit(_meldId([...heartRun, twoClubs]));
+      final result = session.submit(practiceMeldId([...heartRun, twoClubs]));
 
       expect(result.status, PracticeSubmitStatus.rejected);
       expect(result.message, isNotEmpty);
@@ -100,11 +75,11 @@ void main() {
       // The trap a real playtest hit: K-Q-J of hearts is itself a legal run,
       // but it stages at 30 and the leftover 9-10-A can never meld — without
       // a take-back the lesson would strand.
-      final session = PracticeSession(script: PracticeScripts.firstMeld());
+      final session = PracticeSession(script: CoreTurnPracticePack.firstMeld());
       session.submit(ClassicHareegActionIds.drawStock);
 
       final partial = session.submit(
-        _meldId([heartRun[4], heartRun[3], heartRun[2]]),
+        practiceMeldId([heartRun[4], heartRun[3], heartRun[2]]),
       );
       expect(
         partial.status,
@@ -119,26 +94,26 @@ void main() {
       expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
       expect(session.stepIndex, 1, reason: 'still on the meld step');
 
-      final meld = session.submit(_meldId(heartRun));
+      final meld = session.submit(practiceMeldId(heartRun));
       expect(meld.status, PracticeSubmitStatus.stepCompleted);
-      final done = session.submit(_discardId(twoClubs));
+      final done = session.submit(practiceDiscardId(twoClubs));
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
   });
 
   group('discard-opening lesson', () {
     final queens = [
-      _card(CardRank.queen, CardSuit.spades),
-      _card(CardRank.queen, CardSuit.diamonds),
-      _card(CardRank.queen, CardSuit.hearts),
+      practiceCard(CardRank.queen, CardSuit.spades),
+      practiceCard(CardRank.queen, CardSuit.diamonds),
+      practiceCard(CardRank.queen, CardSuit.hearts),
     ];
-    final eightClubs = _card(CardRank.eight, CardSuit.clubs);
-    final eightHearts = _card(CardRank.eight, CardSuit.hearts);
-    final eightDiamonds = _card(CardRank.eight, CardSuit.diamonds);
-    final twoHearts = _card(CardRank.two, CardSuit.hearts);
+    final eightClubs = practiceCard(CardRank.eight, CardSuit.clubs);
+    final eightHearts = practiceCard(CardRank.eight, CardSuit.hearts);
+    final eightDiamonds = practiceCard(CardRank.eight, CardSuit.diamonds);
+    final twoHearts = practiceCard(CardRank.two, CardSuit.hearts);
 
     test('the intro plays west throwing the eight onto an empty pile', () {
-      final session = PracticeSession(script: PracticeScripts.discardOpening());
+      final session = PracticeSession(script: CoreTurnPracticePack.discardOpening());
 
       expect(session.controller.currentSeat, PlayerSeat.west);
       expect(
@@ -147,14 +122,14 @@ void main() {
         reason: 'the player watches the eight land, not finds it pre-baked',
       );
 
-      _runIntro(session);
+      runPracticeIntro(session);
 
       expect(session.controller.topDiscard?.id, eightDiamonds.id);
     });
 
     test('take the eight, open with both sets, discard', () {
-      final session = PracticeSession(script: PracticeScripts.discardOpening());
-      _runIntro(session);
+      final session = PracticeSession(script: CoreTurnPracticePack.discardOpening());
+      runPracticeIntro(session);
 
       expect(
         [for (final a in session.allowedActions) a.kind],
@@ -169,7 +144,7 @@ void main() {
       // The eights stage at 24: pending resolved, opening not yet — the
       // lesson moves to its dedicated queens step.
       final eights = session.submit(
-        _meldId([eightClubs, eightHearts, eightDiamonds]),
+        practiceMeldId([eightClubs, eightHearts, eightDiamonds]),
       );
       expect(eights.status, PracticeSubmitStatus.stepCompleted);
       expect(session.controller.pendingDiscard, isNull);
@@ -179,7 +154,7 @@ void main() {
         reason: '24 staged is below the 51 requirement',
       );
 
-      final queensMeld = session.submit(_meldId(queens));
+      final queensMeld = session.submit(practiceMeldId(queens));
       expect(queensMeld.status, PracticeSubmitStatus.stepCompleted);
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -187,13 +162,13 @@ void main() {
         reason: '24 + 30 = 54, past the benchmark',
       );
 
-      final done = session.submit(_discardId(twoHearts));
+      final done = session.submit(practiceDiscardId(twoHearts));
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
 
     test('wrong path: drawing in step 1 is not offered', () {
-      final session = PracticeSession(script: PracticeScripts.discardOpening());
-      _runIntro(session);
+      final session = PracticeSession(script: CoreTurnPracticePack.discardOpening());
+      runPracticeIntro(session);
 
       final result = session.submit(ClassicHareegActionIds.drawStock);
 
@@ -203,14 +178,14 @@ void main() {
 
     test('wrong path: the queens stay off-step until the taken eight is '
         'melded', () {
-      final session = PracticeSession(script: PracticeScripts.discardOpening());
-      _runIntro(session);
+      final session = PracticeSession(script: CoreTurnPracticePack.discardOpening());
+      runPracticeIntro(session);
       session.submit(ClassicHareegActionIds.takeDiscard);
 
       // Under the relaxed taken-discard rule the queens are LEGAL here, but
       // the lesson pins this step to the eights — the taught move is using
       // the taken card in the meld it completes.
-      final result = session.submit(_meldId(queens));
+      final result = session.submit(practiceMeldId(queens));
 
       expect(result.status, PracticeSubmitStatus.notAllowed);
       expect(session.stepIndex, 1, reason: 'step must not advance');
@@ -218,16 +193,16 @@ void main() {
   });
 
   group('bait-discard lesson', () {
-    final queenSpades = _card(CardRank.queen, CardSuit.spades);
+    final queenSpades = practiceCard(CardRank.queen, CardSuit.spades);
     final sevens = [
-      _card(CardRank.seven, CardSuit.spades),
-      _card(CardRank.seven, CardSuit.clubs),
-      _card(CardRank.seven, CardSuit.hearts),
+      practiceCard(CardRank.seven, CardSuit.spades),
+      practiceCard(CardRank.seven, CardSuit.clubs),
+      practiceCard(CardRank.seven, CardSuit.hearts),
     ];
 
     test('the intro plays west genuinely opening at exactly the 51 '
         'benchmark, then throwing the bait', () {
-      final session = PracticeSession(script: PracticeScripts.baitDiscard());
+      final session = PracticeSession(script: CoreTurnPracticePack.baitDiscard());
 
       expect(session.controller.currentSeat, PlayerSeat.west);
       expect(
@@ -236,7 +211,7 @@ void main() {
         reason: 'the opening happens on screen, not pre-baked',
       );
 
-      _runIntro(session);
+      runPracticeIntro(session);
 
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.west),
@@ -251,13 +226,13 @@ void main() {
       );
       expect(
         session.controller.topDiscard?.id,
-        _card(CardRank.seven, CardSuit.hearts).id,
+        practiceCard(CardRank.seven, CardSuit.hearts).id,
       );
     });
 
     test('the bait stays dark: only the draw is offered, then a discard', () {
-      final session = PracticeSession(script: PracticeScripts.baitDiscard());
-      _runIntro(session);
+      final session = PracticeSession(script: CoreTurnPracticePack.baitDiscard());
+      runPracticeIntro(session);
 
       expect(
         [for (final a in session.allowedActions) a.kind],
@@ -272,18 +247,18 @@ void main() {
       final draw = session.submit(ClassicHareegActionIds.drawStock);
       expect(draw.status, PracticeSubmitStatus.stepCompleted);
 
-      final done = session.submit(_discardId(queenSpades));
+      final done = session.submit(practiceDiscardId(queenSpades));
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
 
     test('wrong path: staging the sevens mid-lesson is not offered', () {
-      final session = PracticeSession(script: PracticeScripts.baitDiscard());
-      _runIntro(session);
+      final session = PracticeSession(script: CoreTurnPracticePack.baitDiscard());
+      runPracticeIntro(session);
       session.submit(ClassicHareegActionIds.drawStock);
 
       // Even engine-legal staging (21 below the benchmark) is off-script:
       // the lesson teaches the discard, and the sevens are short anyway.
-      final result = session.submit(_meldId(sevens));
+      final result = session.submit(practiceMeldId(sevens));
 
       expect(result.status, PracticeSubmitStatus.notAllowed);
       expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
@@ -292,25 +267,25 @@ void main() {
 
   group('opening-51 lesson', () {
     final kings = [
-      _card(CardRank.king, CardSuit.spades),
-      _card(CardRank.king, CardSuit.diamonds),
-      _card(CardRank.king, CardSuit.hearts),
+      practiceCard(CardRank.king, CardSuit.spades),
+      practiceCard(CardRank.king, CardSuit.diamonds),
+      practiceCard(CardRank.king, CardSuit.hearts),
     ];
     final jacks = [
-      _card(CardRank.jack, CardSuit.clubs),
-      _card(CardRank.jack, CardSuit.diamonds),
-      _card(CardRank.jack, CardSuit.hearts),
+      practiceCard(CardRank.jack, CardSuit.clubs),
+      practiceCard(CardRank.jack, CardSuit.diamonds),
+      practiceCard(CardRank.jack, CardSuit.hearts),
     ];
-    final threeClubs = _card(CardRank.three, CardSuit.clubs);
+    final threeClubs = practiceCard(CardRank.three, CardSuit.clubs);
 
     test('draw, stage 30, reach 60, discard', () {
-      final session = PracticeSession(script: PracticeScripts.openingTo51());
+      final session = PracticeSession(script: CoreTurnPracticePack.openingTo51());
 
       expect(session.controller.handFor(PlayerSeat.south), hasLength(14));
       final draw = session.submit(ClassicHareegActionIds.drawStock);
       expect(draw.status, PracticeSubmitStatus.stepCompleted);
 
-      final first = session.submit(_meldId(kings));
+      final first = session.submit(practiceMeldId(kings));
       expect(first.status, PracticeSubmitStatus.stepCompleted);
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -318,7 +293,7 @@ void main() {
         reason: '30 staged is below the 51 requirement',
       );
 
-      final second = session.submit(_meldId(jacks));
+      final second = session.submit(practiceMeldId(jacks));
       expect(second.status, PracticeSubmitStatus.stepCompleted);
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -326,7 +301,7 @@ void main() {
         reason: '60 total satisfies the benchmark',
       );
 
-      final done = session.submit(_discardId(threeClubs));
+      final done = session.submit(practiceDiscardId(threeClubs));
       expect(done.status, PracticeSubmitStatus.lessonCompleted);
     });
 
@@ -342,11 +317,11 @@ void main() {
     }
 
     test('wrong path: discarding below the benchmark is not offered', () {
-      final session = PracticeSession(script: PracticeScripts.openingTo51());
+      final session = PracticeSession(script: CoreTurnPracticePack.openingTo51());
       advance(session, ClassicHareegActionIds.drawStock);
-      advance(session, _meldId(kings));
+      advance(session, practiceMeldId(kings));
 
-      final result = session.submit(_discardId(threeClubs));
+      final result = session.submit(practiceDiscardId(threeClubs));
 
       expect(result.status, PracticeSubmitStatus.notAllowed);
       expect(
@@ -356,19 +331,21 @@ void main() {
     });
 
     test('wrong path: each staging step offers exactly its own meld', () {
-      final session = PracticeSession(script: PracticeScripts.openingTo51());
+      final session = PracticeSession(script: CoreTurnPracticePack.openingTo51());
       advance(session, ClassicHareegActionIds.drawStock);
 
       // Jacks first would complete a step whose copy and rings describe the
       // kings — the step gate keeps the order the lesson narrates.
-      final jacksFirst = session.submit(_meldId(jacks));
+      final jacksFirst = session.submit(practiceMeldId(jacks));
       expect(jacksFirst.status, PracticeSubmitStatus.notAllowed);
       expect(session.controller.tableMeldsFor(PlayerSeat.south), isEmpty);
 
-      advance(session, _meldId(kings));
+      advance(session, practiceMeldId(kings));
 
       // A selection that is not exactly the jacks stays off the surface.
-      final mixed = session.submit(_meldId([jacks[0], jacks[1], threeClubs]));
+      final mixed = session.submit(
+        practiceMeldId([jacks[0], jacks[1], threeClubs]),
+      );
       expect(mixed.status, PracticeSubmitStatus.notAllowed);
       expect(
         session.controller.openingState.hasOpened(PlayerSeat.south),
@@ -387,23 +364,22 @@ void main() {
         'opening-51',
       ]) {
         expect(
-          PracticeScripts.byId(id),
+          PracticeLessonRegistry.scriptFor(id),
           isNotNull,
           reason: '$id must be playable',
         );
       }
     });
 
-    test('every planned lesson is playable: scripted, or the strictness '
-        'explainer panel', () {
+    test('every planned lesson is playable: scripted, or a reading panel', () {
       for (final lesson in PracticeCatalog.lessons) {
-        if (lesson.id == 'strictness-tiers') {
+        if (lesson.delivery.isReadingPanel) {
           // A reading panel with its own route, not a scripted hand.
-          expect(PracticeScripts.byId(lesson.id), isNull);
+          expect(PracticeLessonRegistry.scriptFor(lesson.id), isNull);
           continue;
         }
         expect(
-          PracticeScripts.byId(lesson.id),
+          PracticeLessonRegistry.scriptFor(lesson.id),
           isNotNull,
           reason: '${lesson.id} must be playable',
         );
@@ -417,8 +393,8 @@ void main() {
         'bait-discard',
         'opening-51',
       ]) {
-        final first = PracticeScripts.byId(id)!.buildSnapshot();
-        final second = PracticeScripts.byId(id)!.buildSnapshot();
+        final first = PracticeLessonRegistry.scriptFor(id)!.buildSnapshot();
+        final second = PracticeLessonRegistry.scriptFor(id)!.buildSnapshot();
         expect(
           [for (final c in first.hands[PlayerSeat.south]!) c.id],
           [for (final c in second.hands[PlayerSeat.south]!) c.id],

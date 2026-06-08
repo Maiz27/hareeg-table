@@ -2,6 +2,7 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_game_controller.da
 import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../l10n/app_strings.dart';
+import 'practice_board_grammar.dart';
 
 /// Declarative definition of one guided practice lesson.
 ///
@@ -17,6 +18,8 @@ class PracticeLessonScript {
     required this.lessonId,
     required this.buildSnapshot,
     required this.steps,
+    this.boardAuditSpec,
+    this.taughtMelds,
     this.introActionIds = const [],
     this.seat = PlayerSeat.south,
     this.completionNote,
@@ -29,6 +32,21 @@ class PracticeLessonScript {
 
   /// Builds the deterministic starting board. Called once per run/replay.
   final ClassicHareegMatchSnapshot Function() buildSnapshot;
+
+  /// Declared board-design proof for this lesson's starting board.
+  ///
+  /// Null means the lesson deliberately has no grammar claim yet. Scripted
+  /// lesson packs should prefer declaring this so the board-design rules live
+  /// with the deterministic board instead of only in tests.
+  final PracticeBoardAuditSpec? boardAuditSpec;
+
+  /// Declared teaching-card groups in the player's hand — the cards each step
+  /// asks the player to use. Everything else in the starting hand is a filler,
+  /// and the board grammar proves the fillers form no unintended meld (the
+  /// executable form of the per-lesson "Fillers: no meld" comment). An empty
+  /// list claims the whole hand is meld-free (bait / trapped-card lessons);
+  /// null makes no hand-cleanliness claim.
+  final List<Set<String>>? taughtMelds;
 
   /// Teaching steps in order. Must not be empty.
   final List<PracticeStep> steps;
@@ -66,6 +84,25 @@ class PracticeLessonScript {
   /// then holds so reading the prompt is never punished. Null lets the
   /// window expire like a match (the dead-end restart path).
   final int? fiftyTimerPausesAtSeconds;
+
+  /// Audits [snapshot] against this script's declared board grammar.
+  PracticeBoardAuditResult? auditSnapshot(ClassicHareegMatchSnapshot snapshot) {
+    final spec = boardAuditSpec;
+    if (spec == null) {
+      return null;
+    }
+    return PracticeBoardGrammar.auditSnapshot(
+      snapshot,
+      spec,
+      compositionSeat: seat,
+      taughtMelds: taughtMelds,
+    );
+  }
+
+  /// Builds and audits the initial board.
+  PracticeBoardAuditResult? auditInitialBoard() {
+    return auditSnapshot(buildSnapshot());
+  }
 }
 
 /// Everything a step predicate can inspect after a successful action.
@@ -98,6 +135,8 @@ class PracticeStep {
     this.holdNote,
     this.deadEndNote,
     this.highlightCardIds = const {},
+    this.highlightGroups = const [],
+    this.completesOnPenalty = false,
     bool Function(ClassicHareegActionDescriptor action)? allows,
     bool Function(PracticeStepContext context)? isSatisfied,
     bool Function(ClassicHareegGameController controller)? isDemonstrated,
@@ -117,6 +156,8 @@ class PracticeStep {
     this.holdNote,
     this.deadEndNote,
     this.highlightCardIds = const {},
+    this.highlightGroups = const [],
+    this.completesOnPenalty = false,
     bool Function(PracticeStepContext context)? isSatisfied,
     bool Function(ClassicHareegGameController controller)? isDemonstrated,
     bool Function(ClassicHareegGameController controller)? isDeadEnd,
@@ -152,6 +193,28 @@ class PracticeStep {
   /// Stock and pile-take rings are derived from the step's allowed kinds,
   /// not listed here.
   final Set<String> highlightCardIds;
+
+  /// Ordered highlight groups for cross-zone steps that ring two distinct
+  /// things at once — the palette index is the group's position
+  /// ([LoungeTokens.coachRingPalette], the same hues the live coach uses).
+  /// Group 0 is "the card(s) you play or hold"; group 1 is "the target meld
+  /// already on the table". When empty, [highlightCardIds] is the single-group
+  /// shorthand and every ring is the default teal; when non-empty, the table
+  /// rings each group in its own colour.
+  final List<Set<String>> highlightGroups;
+
+  /// Whether a reverted (penalised) allowed action can complete this step.
+  ///
+  /// Default false: the session collapses a reverted engine result (a Strict
+  /// paid mistake, where the score is charged but the card snaps back and the
+  /// turn does not advance) into a non-advancing rejection, so a take-back or
+  /// an unintended penalty never counts as progress. A Strict lesson that
+  /// teaches the penalty itself opts in here: the reverted throw is the taught
+  /// move, so the session evaluates [isSatisfied] on it the same way it would
+  /// an accepted action and the lesson can complete on the +N. Only reachable
+  /// from `TableStrictness.strict` lessons — every other tier blocks the
+  /// mistake before it can revert.
+  final bool completesOnPenalty;
 
   final bool Function(ClassicHareegActionDescriptor action)? _allows;
   final bool Function(PracticeStepContext context)? _isSatisfied;

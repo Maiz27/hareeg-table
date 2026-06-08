@@ -196,6 +196,17 @@ class ClassicHareegGameController {
         isFirstDealtRound: restored.activeFiftyClaimIsFirstDealtRound,
       );
     }
+    final windowedTakeCardId = restored.windowedTakeCardId;
+    final windowedTakeDiscarder = restored.windowedTakeDiscarder;
+    if (windowedTakeCardId != null && windowedTakeDiscarder != null) {
+      // Resume the Fifty provenance of a plain windowed take so the finish
+      // after restore still scores -3, not a normal -1.
+      _windowedDiscardTake = _WindowedDiscardTake(
+        cardId: windowedTakeCardId,
+        discarder: windowedTakeDiscarder,
+        isFirstDealtRound: restored.windowedTakeIsFirstDealtRound,
+      );
+    }
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
   }
@@ -231,6 +242,14 @@ class ClassicHareegGameController {
   FiftyClaimWindow? _fiftyWindow;
   DateTime? _fiftyWindowOpenedAt;
   _ActiveFiftyClaim? _activeFiftyClaim;
+  // Provenance of a windowed discard the current seat took via plain
+  // `take-discard` (not `claim-fifty`) while the Fifty window was still open.
+  // If that same turn finishes using the taken card, the round is a Fifty —
+  // identical to a claim — so this carries the discarder and the first-dealt-
+  // round exception forward to the finish, which would otherwise score a plain
+  // -1 normalFinish. Set on the windowed take, cleared on any other draw-phase
+  // entry (draw-stock / claim-fifty / return) and when the turn advances.
+  _WindowedDiscardTake? _windowedDiscardTake;
   RoundOutcomeType? _roundOutcome;
   RoundProgressResult? _roundResult;
   final DiscardHistory _discardHistory;
@@ -469,6 +488,13 @@ class ClassicHareegGameController {
       activeFiftyClaimCardId: _activeFiftyClaim?.claimedCardId,
       activeFiftyClaimDiscarder: _activeFiftyClaim?.discarder,
       activeFiftyClaimIsFirstDealtRound: _activeFiftyClaim?.isFirstDealtRound,
+      // A plain windowed take-discard mid-turn is persistent Fifty provenance:
+      // the checkpoint reverts the turn's plays and the taken card lands back as
+      // the pending discard, so these let restore re-tag the finish as a Fifty
+      // (instead of a normal -1) when the resumed turn closes on that card.
+      windowedTakeCardId: _windowedDiscardTake?.cardId,
+      windowedTakeDiscarder: _windowedDiscardTake?.discarder,
+      windowedTakeIsFirstDealtRound: _windowedDiscardTake?.isFirstDealtRound,
       savedAt: effectiveSavedAt,
       discardHistoryEvents: _discardHistory.events.toList(growable: false),
     );
@@ -744,6 +770,7 @@ class ClassicHareegGameController {
   ApplyActionResult _applyDrawStock() {
     final next = ClassicHareegTurnFlowRules.drawStock(_turnFlowState());
     _applyTurnFlowState(next);
+    _windowedDiscardTake = null;
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
     // Do NOT reset the turn journal here: the journal resets at turn exits
@@ -764,6 +791,23 @@ class ClassicHareegGameController {
     if (takenCard != null) {
       _roundMemory.onTakePreviousDiscard(_currentSeat, takenCard);
     }
+    // If the seat took the windowed discard while the Fifty window was still
+    // open, finishing on it this turn is a Fifty — record its provenance so the
+    // final discard scores fiftyFinish (-3) instead of a normal -1. The window's
+    // discardedCard is the pile top, which is exactly the card take-discard
+    // lifts, so an open, unexpired window owned by this seat means the taken
+    // card IS the windowed one.
+    final window = _fiftyWindow;
+    _windowedDiscardTake =
+        window != null &&
+            window.claimant == _currentSeat &&
+            !window.isExpired(_fiftyElapsedSeconds())
+        ? _WindowedDiscardTake(
+            cardId: window.discardedCard.id,
+            discarder: window.discarder,
+            isFirstDealtRound: window.isFirstDealtRound,
+          )
+        : null;
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
     // See _applyDrawStock: the journal is turn-scoped and resets at turn
@@ -828,6 +872,8 @@ class ClassicHareegGameController {
       _roundMemory.onReturnPendingDiscard(returningSeat, pending);
       _lastReturnedPendingDiscard = (seat: returningSeat, cardId: pending.id);
     }
+    // The taken card went back to the pile, so it can no longer carry a Fifty.
+    _windowedDiscardTake = null;
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
     // Keep the journal: plays committed earlier this turn stay reversible and
@@ -1496,21 +1542,42 @@ class ClassicHareegGameController {
     // A new card now sits on top of the discard pile, so the previous
     // return-pending-discard memory no longer matters.
     _lastReturnedPendingDiscard = null;
-    if (fiftyProofComplete) {
-      // The claimant laid the full finish down and closed with a valid final
-      // discard: the round ends as a proven Fifty.
+    // A plain take-discard of the windowed card that now finishes the round is a
+    // Fifty too — the rules score on whether the finishing card came from the
+    // previous player's discard within the window, not on which button was used.
+    // (The taken card can never be the closing discard, so reaching a valid
+    // finish means it was melded; the explicit check guards the retract-then-
+    // discard edge where it left the finishing melds.)
+    final windowedTake = _windowedDiscardTake;
+    final windowedFiftyFinish =
+        fiftyProofComplete == false &&
+        isFinalDiscard &&
+        windowedTake != null &&
+        _turnSource == FinishCardSource.previousDiscard &&
+        _turnFinishPlays.any(
+          (meld) => meld.cards.any((c) => c.id == windowedTake.cardId),
+        );
+    if (fiftyProofComplete || windowedFiftyFinish) {
+      // Either the claimant proved a claimed Fifty, or a windowed take-discard
+      // finished on the thrown card: both end the round as a Fifty.
+      final fiftyDiscarder = claim?.discarder ?? windowedTake!.discarder;
+      final firstRound = claim?.isFirstDealtRound ?? windowedTake!.isFirstDealtRound;
       _activeFiftyClaim = null;
+      _windowedDiscardTake = null;
       _fiftyWindow = null;
       _fiftyWindowOpenedAt = null;
       _finishRound(
         type: RoundOutcomeType.fiftyFinish,
         winner: _currentSeat,
-        fiftyDiscarder: claim!.discarder,
-        firstRoundFiftyException: claim.isFirstDealtRound,
+        fiftyDiscarder: fiftyDiscarder,
+        firstRoundFiftyException: firstRound,
       );
-      return const ApplyActionResult.success('Fifty proven.');
+      return ApplyActionResult.success(
+        fiftyProofComplete ? 'Fifty proven.' : 'Fifty.',
+      );
     }
     _activeFiftyClaim = null;
+    _windowedDiscardTake = null;
     final exit = ClassicHareegTurnExitPlanner.afterDiscard(
       discarder: _currentSeat,
       discardedCard: card,
@@ -1993,6 +2060,9 @@ class ClassicHareegGameController {
     _pendingDiscard = claimed;
     _previousDiscardSeat = window.discarder;
     _phase = TurnPhase.action;
+    // The explicit claim owns the Fifty provenance from here; drop any plain
+    // take marker so the two paths cannot both fire at the finish.
+    _windowedDiscardTake = null;
     _fiftyWindow = null;
     _fiftyWindowOpenedAt = null;
     _lastReturnedPendingDiscard = null;
@@ -2921,6 +2991,27 @@ class _ActiveFiftyClaim {
 
   /// Index of the next unplayed script step.
   int scriptIndex = 0;
+}
+
+/// Provenance of a windowed discard taken via plain `take-discard` during an
+/// open Fifty window. Lets the turn's finish be scored as a Fifty even though
+/// the player never pressed `claim-fifty`.
+class _WindowedDiscardTake {
+  const _WindowedDiscardTake({
+    required this.cardId,
+    required this.discarder,
+    required this.isFirstDealtRound,
+  });
+
+  /// Physical id of the taken windowed card. The finish counts as a Fifty only
+  /// when this card is actually used in one of the finishing melds.
+  final String cardId;
+
+  /// Seat that discarded the windowed card — charged the Fifty penalty.
+  final PlayerSeat discarder;
+
+  /// Whether the window carried the first-dealt-round -1 exception.
+  final bool isFirstDealtRound;
 }
 
 class _ResolvedMeldCards {
