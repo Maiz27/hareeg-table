@@ -202,13 +202,15 @@ class LoungePanelAction {
 ///
 /// The [primary] action renders as a gold filled button and the [secondary]
 /// action as an outlined button tinted by its tone (sand for neutral, deep
-/// red for danger).
+/// red for danger). When [tertiary] is supplied, it renders as a full-width
+/// outlined action above the standard two-button row.
 class LoungePanelActions extends StatelessWidget {
   /// Creates a lounge panel actions row.
   const LoungePanelActions({
     super.key,
     required this.primary,
     required this.secondary,
+    this.tertiary,
   });
 
   /// Primary (filled) action.
@@ -217,13 +219,28 @@ class LoungePanelActions extends StatelessWidget {
   /// Secondary (outlined) action.
   final LoungePanelAction secondary;
 
+  /// Optional tertiary action.
+  final LoungePanelAction? tertiary;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final actionRow = Row(
       children: [
         Expanded(child: _buildAction(primary, isPrimary: true)),
         const SizedBox(width: LoungeTokens.space3),
         Expanded(child: _buildAction(secondary, isPrimary: false)),
+      ],
+    );
+    final tertiaryAction = tertiary;
+    if (tertiaryAction == null) {
+      return actionRow;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildAction(tertiaryAction, isPrimary: false),
+        const SizedBox(height: LoungeTokens.space3),
+        actionRow,
       ],
     );
   }

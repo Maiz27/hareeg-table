@@ -39,6 +39,7 @@ class ClassicHareegMatchSnapshot {
     required this.currentSeat,
     required this.turnPhase,
     required this.savedAt,
+    this.seed,
     this.tableMelds = const {},
     this.pendingDiscard,
     this.openingState,
@@ -81,6 +82,12 @@ class ClassicHareegMatchSnapshot {
 
   /// Cards held by each seat.
   final Map<PlayerSeat, List<HareegCard>> hands;
+
+  /// Seed used to shuffle the current dealt round, when known.
+  ///
+  /// This is v1-additive. Older saves do not contain the seed, so reports for
+  /// those restored matches include a null seed instead of inventing one.
+  final int? seed;
 
   /// Face-down stock cards.
   final List<HareegCard> stock;

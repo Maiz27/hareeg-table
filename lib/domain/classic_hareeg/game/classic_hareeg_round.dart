@@ -35,6 +35,7 @@ class ClassicHareegRound {
   const ClassicHareegRound({
     required this.rules,
     required this.setup,
+    required this.seed,
     required this.hands,
     required this.stock,
     required this.discardPile,
@@ -65,7 +66,8 @@ class ClassicHareegRound {
       activeRules,
       activeSeatCount: activeSeatList.length,
     );
-    final random = seed == null ? Random() : Random(seed);
+    final effectiveSeed = seed ?? Random().nextInt(0x7FFFFFFF);
+    final random = Random(effectiveSeed);
     deck.shuffle(random);
 
     final starter = _chooseStarter(
@@ -90,6 +92,7 @@ class ClassicHareegRound {
     return ClassicHareegRound(
       rules: activeRules,
       setup: setup,
+      seed: effectiveSeed,
       hands: Map.unmodifiable(hands),
       stock: List.unmodifiable(deck.skip(cursor)),
       discardPile: const [],
@@ -105,6 +108,9 @@ class ClassicHareegRound {
 
   /// Setup values used to deal this round.
   final ClassicHareegSetup setup;
+
+  /// Seed used to shuffle this round.
+  final int seed;
 
   /// Cards held by each active seat.
   final Map<PlayerSeat, List<HareegCard>> hands;

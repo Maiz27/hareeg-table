@@ -2,17 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/app_metadata.dart';
 import '../../../../app/app_routes.dart';
+import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
+import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/audio/table_audio.dart';
+import '../../../core/feedback/lounge_toast.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../match_reports/match_report_exporter.dart';
 
 /// Route payload for [MatchOverScreen].
 class MatchOverArguments {
@@ -23,6 +28,7 @@ class MatchOverArguments {
     required this.previousScores,
     required this.roundsPlayed,
     required this.setup,
+    required this.finalSnapshot,
     this.eliminatedRound = const {},
   });
 
@@ -41,6 +47,9 @@ class MatchOverArguments {
   /// Setup reused by the rematch action.
   final ClassicHareegSetup setup;
 
+  /// Final match snapshot exported from the match-over flow.
+  final ClassicHareegMatchSnapshot finalSnapshot;
+
   /// Round number in which each seat was eliminated, when known.
   final Map<PlayerSeat, int> eliminatedRound;
 }
@@ -48,10 +57,17 @@ class MatchOverArguments {
 /// Final match summary and rematch surface.
 class MatchOverScreen extends StatefulWidget {
   /// Creates a match-over screen.
-  const MatchOverScreen({required this.arguments, super.key});
+  const MatchOverScreen({
+    required this.arguments,
+    this.reportExporter = const MatchReportExporter(),
+    super.key,
+  });
 
   /// Route payload.
   final MatchOverArguments arguments;
+
+  /// Report exporter used by the export action.
+  final MatchReportExporter reportExporter;
 
   @override
   State<MatchOverScreen> createState() => _MatchOverScreenState();
@@ -132,6 +148,75 @@ class _MatchOverScreenState extends State<MatchOverScreen>
     return winner == PlayerSeat.south && strictness != TableStrictness.table;
   }
 
+  Future<void> _exportCompletedMatchReport() async {
+    final args = widget.arguments;
+    final generatedAt = DateTime.now().toUtc();
+    final report = ClassicHareegMatchReport.completed(
+      app: HareegAppMetadata.reportMetadata,
+      platform: currentMatchReportPlatform(),
+      generatedAt: generatedAt,
+      snapshot: args.finalSnapshot,
+      roundResult: args.result,
+      matchProgress: args.progress,
+    );
+    await _shareOrOfferCopy(report);
+  }
+
+  Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {
+    final strings = context.strings;
+    final attempt = await widget.reportExporter.share(report);
+    if (!mounted) {
+      return;
+    }
+    if (attempt.shared) {
+      showLoungeToast(
+        context,
+        message: strings.matchReportShareReady,
+        actionLabel: strings.copyReport,
+        onActionPressed: () {
+          unawaited(_copyMatchReport(report));
+        },
+      );
+      return;
+    }
+    showLoungeToast(
+      context,
+      message: strings.matchReportCopyFallback,
+      icon: Icons.error_outline,
+      isError: true,
+      actionLabel: strings.copyReport,
+      onActionPressed: () {
+        unawaited(_copyMatchReport(report));
+      },
+    );
+  }
+
+  Future<void> _copyMatchReport(ClassicHareegMatchReport report) async {
+    final strings = context.strings;
+    try {
+      await widget.reportExporter.copy(report);
+      if (!mounted) {
+        return;
+      }
+      showLoungeToast(context, message: strings.matchReportCopied);
+    } on Exception catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to copy match report: $error');
+      debugPrintStack(
+        label: '[hareeg:reports] Match report copy failure stack.',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) {
+        return;
+      }
+      showLoungeToast(
+        context,
+        message: strings.matchReportCopyFailed,
+        icon: Icons.error_outline,
+        isError: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
@@ -194,7 +279,12 @@ class _MatchOverScreenState extends State<MatchOverScreen>
                           animation: _entryController,
                           begin: 0.68,
                           end: 1.0,
-                          child: _MatchOverActions(setup: args.setup),
+                          child: _MatchOverActions(
+                            setup: args.setup,
+                            onExportReport: () {
+                              unawaited(_exportCompletedMatchReport());
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -519,9 +609,10 @@ class _StandingRow extends StatelessWidget {
 }
 
 class _MatchOverActions extends StatelessWidget {
-  const _MatchOverActions({required this.setup});
+  const _MatchOverActions({required this.setup, required this.onExportReport});
 
   final ClassicHareegSetup setup;
+  final VoidCallback onExportReport;
 
   @override
   Widget build(BuildContext context) {
@@ -538,6 +629,13 @@ class _MatchOverActions extends StatelessWidget {
           },
           icon: const Icon(Icons.home_outlined),
           label: Text(strings.returnToMenu),
+        ),
+        const SizedBox(height: LoungeTokens.space3),
+        OutlinedButton.icon(
+          key: const ValueKey('match-over-export-report'),
+          onPressed: onExportReport,
+          icon: const Icon(Icons.file_upload_outlined),
+          label: Text(strings.exportMatchReport),
         ),
         const SizedBox(height: LoungeTokens.space3),
         OutlinedButton.icon(

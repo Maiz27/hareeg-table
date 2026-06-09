@@ -79,6 +79,7 @@ class ClassicHareegMatchFlow {
     return ClassicHareegMatchSnapshot(
       setup: setup,
       hands: round.hands,
+      seed: round.seed,
       stock: round.stock,
       discardPile: round.discardPile,
       tableMelds: {
