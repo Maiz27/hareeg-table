@@ -220,6 +220,7 @@ class ClassicHareegGameController {
     }
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
+    _concludeRoundIfHumanEliminated();
     _recorder?.captureInitialState(toSnapshot(savedAt: _now()));
   }
 
@@ -2069,6 +2070,42 @@ class ClassicHareegGameController {
     }
   }
 
+  /// Concludes an open round when the human ([PlayerSeat.south]) is out of the
+  /// match by score (>= the elimination threshold).
+  ///
+  /// A mid-round Table penalty can push the human past the threshold. Per the
+  /// rules the remaining seats would keep playing the round out, but the human
+  /// is eliminated from the match — and the table short-circuits to match-over
+  /// once the human is eliminated rather than make them watch the CPUs finish
+  /// (see [isHumanEliminated]). That short-circuit only runs off a produced
+  /// round result, so the round is concluded here as a draw, which leaves the
+  /// standings exactly as scoring left them; match progression then drops the
+  /// human and the table opens match-over. Invoked from the action seam and the
+  /// constructors, so resuming a match already saved in this stuck state
+  /// recovers to match-over instead of a frozen table.
+  void _concludeRoundIfHumanEliminated() {
+    if (_roundOutcome != null) {
+      return;
+    }
+    // Only short-circuit while the human is still a match participant whose
+    // score just crossed the threshold mid-round. Once a prior round has
+    // already pruned them, a freshly dealt CPU-only round legitimately omits
+    // them from [_activeSeats] — concluding those would loop the headless match
+    // driver (which drives every seat) on a round that should play out.
+    if (!_activeSeats.contains(PlayerSeat.south)) {
+      return;
+    }
+    if ((_scores[PlayerSeat.south] ?? 0) < rules.eliminationScore) {
+      return;
+    }
+    _completeRound(
+      ClassicHareegTurnExitPlanner.roundResult(
+        type: RoundOutcomeType.draw,
+        remainingCardCounts: _remainingCardCounts(),
+      ),
+    );
+  }
+
   /// Tracks per-turn progress while stock is empty and reports whether a full
   /// rotation of active seats has now elapsed with no progress (no card melded
   /// or covered out of any hand). See [_stockExhaustionHandTotalBaseline].
@@ -2242,6 +2279,10 @@ class ClassicHareegGameController {
       _phase = plan.nextPhase!;
       _evaluateRoundEnd();
     }
+    // A Table penalty can push the human past the elimination threshold. If so
+    // the round must conclude so the table surfaces match-over instead of
+    // playing on without them (see [_concludeRoundIfHumanEliminated]).
+    _concludeRoundIfHumanEliminated();
 
     return ApplyActionResult.success(plan.message);
   }

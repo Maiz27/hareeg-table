@@ -127,10 +127,35 @@ abstract final class ClassicHareegMatchProgressionRules {
       scores: Map.unmodifiable(nextScores),
       activeSeats: List.unmodifiable(remainingSeats),
       nextStarter: result.type == RoundOutcomeType.draw
-          ? currentStarter
+          ? _drawNextStarter(currentStarter, remainingSeats)
           : _requireActiveWinner(result, activeSeats),
       matchWinner: remainingSeats.length == 1 ? remainingSeats.single : null,
     );
+  }
+
+  /// Starter for the round dealt after a draw.
+  ///
+  /// A draw normally repeats the same starter, but the starter can have been
+  /// eliminated this round (e.g. a mid-round penalty crossed the threshold
+  /// before the round was concluded as a draw). When that happens the next
+  /// surviving seat in anti-clockwise order takes the deal so the dealer is
+  /// always an active seat. Falls back to [currentStarter] only when no seat
+  /// survives, in which case no next round is dealt anyway.
+  static PlayerSeat _drawNextStarter(
+    PlayerSeat currentStarter,
+    List<PlayerSeat> remainingSeats,
+  ) {
+    if (remainingSeats.contains(currentStarter)) {
+      return currentStarter;
+    }
+    var seat = currentStarter.nextAntiClockwise;
+    for (var step = 0; step < PlayerSeat.values.length; step += 1) {
+      if (remainingSeats.contains(seat)) {
+        return seat;
+      }
+      seat = seat.nextAntiClockwise;
+    }
+    return currentStarter;
   }
 
   static PlayerSeat _requireActiveWinner(
