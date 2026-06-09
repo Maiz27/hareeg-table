@@ -199,7 +199,12 @@ class _MatchOverScreenState extends State<MatchOverScreen>
         return;
       }
       showLoungeToast(context, message: strings.matchReportCopied);
-    } on Object {
+    } on Exception catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to copy match report: $error');
+      debugPrintStack(
+        label: '[hareeg:reports] Match report copy failure stack.',
+        stackTrace: stackTrace,
+      );
       if (!mounted) {
         return;
       }

@@ -13,7 +13,10 @@ const int matchReportV1Version = 1;
 ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
   final version = asJsonInt(json['version']);
   if (version != matchReportV1Version) {
-    throw const FormatException('Unsupported match report version.');
+    throw FormatException(
+      'Unsupported match report version $version; '
+      'expected $matchReportV1Version.',
+    );
   }
 
   final appJson = asJsonMap(json['app']);
@@ -184,10 +187,17 @@ Map<PlayerSeat, int> _scoresFromJson(Map<String, Object?> json) {
 
 List<PlayerSeat> _seatListFromJson(List<Object?> json) {
   final seats = <PlayerSeat>[];
+  final seen = <PlayerSeat>{};
   for (final raw in json) {
-    final seat = PlayerSeat.fromName(raw is String ? raw : null);
-    if (seat == null || seats.contains(seat)) {
-      continue;
+    if (raw is! String) {
+      throw FormatException('Invalid match report seat value: $raw.');
+    }
+    final seat = PlayerSeat.fromName(raw);
+    if (seat == null) {
+      throw FormatException('Unknown match report seat: $raw.');
+    }
+    if (!seen.add(seat)) {
+      throw FormatException('Duplicate match report seat: $raw.');
     }
     seats.add(seat);
   }

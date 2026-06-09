@@ -4,6 +4,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/classic_hareeg_match_report_v1.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 
 void main() {
@@ -141,6 +142,57 @@ void main() {
         ),
       );
     });
+
+    test('v1 decoder reports encountered and expected versions', () {
+      final report = ClassicHareegMatchReport.active(
+        app: _app,
+        platform: 'macOS',
+        generatedAt: DateTime.utc(2026, 6, 9, 14),
+        snapshot: _snapshot(seed: 43),
+      );
+      final json = report.toJson()..['version'] = 2;
+
+      expect(
+        () => decodeMatchReportV1(json),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Unsupported match report version 2; expected 1.',
+          ),
+        ),
+      );
+    });
+
+    test('completed reports reject malformed active seat lists', () {
+      for (final (:activeSeats, :message) in [
+        (
+          activeSeats: ['south', 'dealer'],
+          message: 'Unknown match report seat: dealer.',
+        ),
+        (
+          activeSeats: ['south', 'south'],
+          message: 'Duplicate match report seat: south.',
+        ),
+        (
+          activeSeats: ['south', 7],
+          message: 'Invalid match report seat value: 7.',
+        ),
+      ]) {
+        expect(
+          () => ClassicHareegMatchReport.fromJson(
+            _completedReportJson(activeSeats: activeSeats),
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              message,
+            ),
+          ),
+        );
+      }
+    });
   });
 }
 
@@ -173,4 +225,42 @@ ClassicHareegMatchSnapshot _snapshot({
     roundNumber: roundNumber,
     savedAt: DateTime.utc(2026, 6, 9),
   );
+}
+
+Map<String, Object?> _completedReportJson({
+  required List<Object?> activeSeats,
+}) {
+  const result = RoundProgressResult(
+    type: RoundOutcomeType.normalFinish,
+    winner: PlayerSeat.south,
+    remainingCardCounts: {
+      PlayerSeat.south: 0,
+      PlayerSeat.east: 4,
+      PlayerSeat.north: 7,
+      PlayerSeat.west: 9,
+    },
+  );
+  const progress = MatchProgressState(
+    scores: {
+      PlayerSeat.south: -3,
+      PlayerSeat.east: 31,
+      PlayerSeat.north: 18,
+      PlayerSeat.west: 24,
+    },
+    activeSeats: [PlayerSeat.south],
+    nextStarter: PlayerSeat.south,
+    matchWinner: PlayerSeat.south,
+  );
+  final report = ClassicHareegMatchReport.completed(
+    app: _app,
+    platform: 'android',
+    generatedAt: DateTime.utc(2026, 6, 9, 15),
+    snapshot: _snapshot(seed: 47),
+    roundResult: result,
+    matchProgress: progress,
+  );
+  final json = report.toJson();
+  final matchProgress = json['matchProgress']! as Map<String, Object?>;
+  matchProgress['activeSeats'] = activeSeats;
+  return json;
 }
