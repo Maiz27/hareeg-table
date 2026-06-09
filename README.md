@@ -4,6 +4,16 @@ Hareeg Table is an open-source Flutter card game for offline Classic Hareeg: one
 
 The project is early, but the first playable Classic Hareeg slice is now in place: menu, setup, table deal, core rules modules, CPU move intents, settings, resume storage, and in-app rules help. UI polish and animation treatment are still intentionally light.
 
+## Why this exists
+
+I built Hareeg Table because I got tired of a Hareeg app that didn't respect the person playing it.
+
+It had ads. I put up with them. Then one match, while I was offline, it threw a blank white box onto the screen and made me sit there waiting to "watch" an ad that was never going to load. No internet, no ad, nothing actually there. It paused my game to show me a void, and they didn't even get paid for the interruption.
+
+That was the moment. If an app will break a game you're enjoying to show a loading screen for nothing, the bar is on the floor. So I wrote my own.
+
+Hareeg Table is offline-first and ad-free. It doesn't interrupt your hand to entertain itself. The only thing it ever sends is a bug report, and only if you tap the button or hit a crash. Never your name, never your data, never mid-game.
+
 ## Product Direction
 
 - App display name: Hareeg Table
