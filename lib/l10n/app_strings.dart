@@ -198,6 +198,10 @@ class AppStrings {
   String get copyReport => _v('copyReport');
   String get matchReportCopied => _v('matchReportCopied');
   String get matchReportCopyFailed => _v('matchReportCopyFailed');
+  String get matchReportConfirmTitle => _v('matchReportConfirmTitle');
+  String get matchReportConfirmBody => _v('matchReportConfirmBody');
+  String get shareReport => _v('shareReport');
+  String get matchReportGenerationFailed => _v('matchReportGenerationFailed');
   String get cpuEast => _v('cpuEast');
   String get cpuNorth => _v('cpuNorth');
   String get cpuWest => _v('cpuWest');
@@ -1361,6 +1365,13 @@ const _englishValues = {
   'copyReport': 'Copy report',
   'matchReportCopied': 'Match report copied to clipboard.',
   'matchReportCopyFailed': 'Could not copy the match report.',
+  'matchReportConfirmTitle': 'Report this table',
+  'matchReportConfirmBody':
+      'The report includes the current game state and diagnostics so this '
+      'table can be reproduced. It does not include your name, settings, or '
+      'any personal information.',
+  'shareReport': 'Share report',
+  'matchReportGenerationFailed': 'Could not generate the match report.',
   'cpuEast': 'CPU East',
   'cpuNorth': 'CPU North',
   'cpuWest': 'CPU West',
@@ -1936,6 +1947,12 @@ const _arabicValues = {
   'copyReport': 'نسخ التقرير',
   'matchReportCopied': 'تم نسخ تقرير المباراة إلى الحافظة.',
   'matchReportCopyFailed': 'تعذر نسخ تقرير المباراة.',
+  'matchReportConfirmTitle': 'الإبلاغ عن هذه الطاولة',
+  'matchReportConfirmBody':
+      'يتضمن التقرير حالة اللعبة الحالية وبيانات التشخيص حتى يمكن إعادة إنتاج '
+      'هذه الطاولة. لا يتضمن اسمك أو إعداداتك أو أي معلومات شخصية.',
+  'shareReport': 'مشاركة التقرير',
+  'matchReportGenerationFailed': 'تعذر إنشاء تقرير المباراة.',
   'cpuEast': 'الآلي شرق',
   'cpuNorth': 'الآلي شمال',
   'cpuWest': 'الآلي غرب',

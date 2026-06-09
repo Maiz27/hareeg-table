@@ -20,6 +20,7 @@ import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import '../../../../domain/classic_hareeg/reporting/match_recorder.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
@@ -58,6 +59,7 @@ import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../../match_over/views/match_over_screen.dart';
+import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
 /// Live Classic Hareeg table.
@@ -145,6 +147,12 @@ class _GameTableScreenState extends State<GameTableScreen>
   );
 
   late ClassicHareegGameController _controller;
+
+  /// Records the diagnostic event log + replayable action transcript for the
+  /// active match so they can be embedded in an exported report. Null for
+  /// practice runs, which never export reports. The same recorder is handed to
+  /// each round's controller so it spans the whole match.
+  MatchRecorder? _recorder;
   final _handInteraction = ClassicHareegHandInteractionState();
   bool _isCpuRunning = false;
   // Set while the Table-tier fast-forward button is ripping through the
@@ -220,13 +228,24 @@ class _GameTableScreenState extends State<GameTableScreen>
         : PracticeTableRun(widget.practiceSession!);
     final practice = _practiceRun;
     final snapshot = widget.initialSnapshot;
+    // Practice never exports reports, so it skips the recorder entirely.
+    final recorder = practice != null ? null : MatchRecorder();
+    _recorder = recorder;
     _controller = practice != null
         ? practice.controller
         : snapshot != null
-        ? ClassicHareegGameController.fromSnapshot(snapshot)
+        ? ClassicHareegGameController.fromSnapshot(snapshot, recorder: recorder)
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
+            recorder: recorder,
           );
+    if (recorder != null) {
+      recorder.recordPersistence(
+        type: snapshot != null ? 'resumed' : 'dealt',
+        roundNumber: _controller.roundNumber,
+        data: {'stage': snapshot != null ? 'restore' : 'fresh-deal'},
+      );
+    }
     _meldFlight = MeldFlightController(
       handLookup: _cardInHand,
       baseMeldIndexLookup: (seat) => _controller.tableMeldsFor(seat).length,
@@ -300,14 +319,43 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<void> _exportActiveMatchReport() async {
-    final generatedAt = DateTime.now().toUtc();
-    final report = ClassicHareegMatchReport.active(
-      app: HareegAppMetadata.reportMetadata,
-      platform: currentMatchReportPlatform(),
-      generatedAt: generatedAt,
-      snapshot: _controller.toSnapshot(savedAt: generatedAt),
+    final choice = await showMatchReportConfirmation(
+      context,
+      highContrast: widget.preferences.highContrastCards,
     );
-    await _shareOrOfferCopy(report);
+    if (!mounted || choice == null) {
+      return;
+    }
+    final ClassicHareegMatchReport report;
+    try {
+      final generatedAt = DateTime.now().toUtc();
+      report = ClassicHareegMatchReport.active(
+        app: HareegAppMetadata.reportMetadata,
+        platform: currentMatchReportPlatform(),
+        generatedAt: generatedAt,
+        snapshot: _controller.toSnapshot(savedAt: generatedAt),
+        diagnostics: _recorder?.diagnostics,
+        transcript: _recorder?.transcript,
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to generate match report: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showLoungeToast(
+          context,
+          message: context.strings.matchReportGenerationFailed,
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
+      return;
+    }
+    switch (choice) {
+      case MatchReportExportChoice.share:
+        await _shareOrOfferCopy(report);
+      case MatchReportExportChoice.copy:
+        await _copyMatchReport(report);
+    }
   }
 
   Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {
@@ -1232,6 +1280,16 @@ class _GameTableScreenState extends State<GameTableScreen>
         _controller,
         seat,
       );
+      final leadInsight = _coachInsights.isEmpty ? null : _coachInsights.first;
+      if (leadInsight != null) {
+        _recorder?.recordCoachHint(
+          roundNumber: _controller.roundNumber,
+          hintId: leadInsight.category.name,
+          seat: seat,
+          phase: _controller.turnPhase,
+          data: {'count': _coachInsights.length},
+        );
+      }
     }
     return _coachInsights;
   }
@@ -2242,6 +2300,11 @@ class _GameTableScreenState extends State<GameTableScreen>
             throw StateError('Persistence plan is missing a snapshot.');
           }
           await widget.matchRepository.saveActiveMatch(snapshot);
+          _recorder?.recordPersistence(
+            type: 'saved',
+            roundNumber: _controller.roundNumber,
+            data: {'roundOver': isRoundOver},
+          );
         case ClassicHareegTablePersistenceAction.abandonActiveMatch:
           await widget.matchRepository.abandonActiveMatch();
       }
@@ -2338,6 +2401,8 @@ class _GameTableScreenState extends State<GameTableScreen>
         eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
           _matchEliminatedRoundBySeat,
         ),
+        diagnostics: _recorder?.diagnostics,
+        transcript: _recorder?.transcript,
       ),
     );
   }
@@ -2351,7 +2416,10 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography?.dispose();
     _dealChoreography = null;
     setState(() {
-      _controller = ClassicHareegGameController.fromSnapshot(snapshot);
+      _controller = ClassicHareegGameController.fromSnapshot(
+        snapshot,
+        recorder: _recorder,
+      );
       // The coach memo is tied to the previous controller instance; drop it so
       // the new round computes fresh insights instead of risking a stale cache
       // hit on a matching situation signature.
