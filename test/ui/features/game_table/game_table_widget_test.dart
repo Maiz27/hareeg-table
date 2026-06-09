@@ -112,6 +112,7 @@ void main() {
       expect(find.text('Table aids'), findsNothing);
       expect(find.text('Motion speed'), findsOneWidget);
       expect(find.text('Table haptics'), findsOneWidget);
+      expect(find.text('Report table issue'), findsOneWidget);
 
       await tester.tap(find.text('Resume table').last);
       await tester.pumpAndSettle();

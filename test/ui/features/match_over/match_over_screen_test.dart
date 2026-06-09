@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 import 'package:hareeg_table/l10n/app_strings.dart';
 import 'package:hareeg_table/ui/core/audio/table_audio.dart';
@@ -11,6 +16,7 @@ import 'package:hareeg_table/ui/core/haptics/table_haptics.dart';
 import 'package:hareeg_table/ui/core/motion/motion_speed.dart';
 import 'package:hareeg_table/ui/core/scopes/app_scopes.dart';
 import 'package:hareeg_table/ui/features/match_over/views/match_over_screen.dart';
+import 'package:hareeg_table/ui/features/match_reports/match_report_exporter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -125,6 +131,82 @@ void main() {
 
     expect(find.text('Table route'), findsOneWidget);
     expect(routeSetup, same(setup));
+  });
+
+  testWidgets('export button offers clipboard fallback with completed report', (
+    tester,
+  ) async {
+    final clipboard = _RecordingClipboardGateway();
+    await tester.pumpWidget(
+      _app(
+        arguments: _arguments(),
+        reportExporter: MatchReportExporter(
+          shareGateway: const UnavailableMatchReportShareGateway(),
+          clipboardGateway: clipboard,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('match-over-export-report')),
+    );
+    await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
+    await tester.pump();
+
+    expect(
+      find.text(
+        'File sharing is not available here. Copy the report JSON instead?',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Copy report'));
+    await tester.pump();
+
+    expect(find.text('Match report copied to clipboard.'), findsOneWidget);
+    final decoded = ClassicHareegMatchReport.fromJson(
+      _jsonMap(jsonDecode(clipboard.text!)),
+    );
+    expect(decoded.stage, MatchReportStage.completed);
+    expect(decoded.matchProgress!.matchWinner, PlayerSeat.south);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('export success keeps copy action available', (tester) async {
+    final clipboard = _RecordingClipboardGateway();
+    await tester.pumpWidget(
+      _app(
+        arguments: _arguments(),
+        reportExporter: MatchReportExporter(
+          shareGateway: const _SuccessfulShareGateway(),
+          clipboardGateway: clipboard,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('match-over-export-report')),
+    );
+    await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
+    await tester.pump();
+
+    expect(find.text('Match report ready to share.'), findsOneWidget);
+    expect(find.text('Copy report'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('lounge-toast'))).width,
+      lessThanOrEqualTo(360),
+    );
+
+    await tester.tap(find.text('Copy report'));
+    await tester.pump();
+
+    expect(find.text('Match report copied to clipboard.'), findsOneWidget);
+    final decoded = ClassicHareegMatchReport.fromJson(
+      _jsonMap(jsonDecode(clipboard.text!)),
+    );
+    expect(decoded.stage, MatchReportStage.completed);
+    expect(decoded.matchProgress!.matchWinner, PlayerSeat.south);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('Arabic locale renders localized labels in RTL', (tester) async {
@@ -249,6 +331,7 @@ Widget _app({
   TableAudio? audio,
   TableHaptics? haptics,
   ValueChanged<ClassicHareegSetup>? onTableRoute,
+  MatchReportExporter? reportExporter,
 }) {
   return MaterialApp(
     key: UniqueKey(),
@@ -264,7 +347,10 @@ Widget _app({
               motion: motion,
               audio: audio,
               haptics: haptics,
-              child: MatchOverScreen(arguments: arguments),
+              child: MatchOverScreen(
+                arguments: arguments,
+                reportExporter: reportExporter ?? const MatchReportExporter(),
+              ),
             ),
             AppRoutes.home => const Scaffold(
               body: Center(child: Text('Home route')),
@@ -338,6 +424,11 @@ MatchOverArguments _arguments({
     },
     roundsPlayed: roundsPlayed,
     setup: setup ?? ClassicHareegSetup.defaults(),
+    finalSnapshot: _snapshot(
+      setup: setup ?? ClassicHareegSetup.defaults(),
+      roundNumber: roundsPlayed,
+      scores: progress?.scores ?? _progress(winner: PlayerSeat.south).scores,
+    ),
     eliminatedRound: eliminatedRound,
   );
 }
@@ -392,4 +483,51 @@ class _RecordingSoundPlayer implements TableSoundPlayer {
 
   @override
   Future<void> dispose() async {}
+}
+
+ClassicHareegMatchSnapshot _snapshot({
+  required ClassicHareegSetup setup,
+  required int roundNumber,
+  required Map<PlayerSeat, int> scores,
+}) {
+  final round = ClassicHareegRound.deal(setup: setup, seed: 13);
+  return ClassicHareegMatchSnapshot(
+    setup: setup,
+    hands: round.hands,
+    seed: round.seed,
+    stock: round.stock,
+    discardPile: round.discardPile,
+    starter: round.starter,
+    currentSeat: round.currentSeat,
+    turnPhase: round.turnPhase,
+    scores: scores,
+    activeSeats: const [PlayerSeat.south],
+    roundNumber: roundNumber,
+    savedAt: DateTime.utc(2026, 6, 9),
+  );
+}
+
+Map<String, Object?> _jsonMap(Object? value) {
+  final map = value as Map<String, dynamic>;
+  return {for (final entry in map.entries) entry.key: entry.value};
+}
+
+class _RecordingClipboardGateway implements MatchReportClipboardGateway {
+  String? text;
+
+  @override
+  Future<void> copyText(String text) async {
+    this.text = text;
+  }
+}
+
+class _SuccessfulShareGateway implements MatchReportShareGateway {
+  const _SuccessfulShareGateway();
+
+  @override
+  Future<void> shareText({
+    required String fileName,
+    required String text,
+    required String mimeType,
+  }) async {}
 }
