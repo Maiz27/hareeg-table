@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/app_metadata.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../app/app_orientation.dart';
 import '../../../../cpu/classic_hareeg/coaching/classic_hareeg_coaching_advisor.dart';
@@ -18,11 +19,13 @@ import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
+import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/audio/table_audio.dart';
+import '../../../core/feedback/lounge_toast.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/scopes/app_scopes.dart';
@@ -55,6 +58,7 @@ import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../../match_over/views/match_over_screen.dart';
+import '../../match_reports/match_report_exporter.dart';
 
 /// Live Classic Hareeg table.
 ///
@@ -75,6 +79,7 @@ class GameTableScreen extends StatefulWidget {
     this.practiceSession,
     this.onPracticeFinished,
     this.nextPracticeScript,
+    this.reportExporter = const MatchReportExporter(),
   });
 
   /// Setup used to deal the round.
@@ -94,6 +99,9 @@ class GameTableScreen extends StatefulWidget {
 
   /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
+
+  /// Report exporter used by the pause overlay diagnostic action.
+  final MatchReportExporter reportExporter;
 
   /// Non-null when this table hosts a guided practice lesson.
   ///
@@ -289,6 +297,67 @@ class _GameTableScreenState extends State<GameTableScreen>
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+  }
+
+  Future<void> _exportActiveMatchReport() async {
+    final generatedAt = DateTime.now().toUtc();
+    final report = ClassicHareegMatchReport.active(
+      app: HareegAppMetadata.reportMetadata,
+      platform: currentMatchReportPlatform(),
+      generatedAt: generatedAt,
+      snapshot: _controller.toSnapshot(savedAt: generatedAt),
+    );
+    await _shareOrOfferCopy(report);
+  }
+
+  Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {
+    final strings = context.strings;
+    final attempt = await widget.reportExporter.share(report);
+    if (!mounted) {
+      return;
+    }
+    if (attempt.shared) {
+      showLoungeToast(
+        context,
+        message: strings.matchReportShareReady,
+        actionLabel: strings.copyReport,
+        onActionPressed: () {
+          unawaited(_copyMatchReport(report));
+        },
+      );
+      return;
+    }
+    showLoungeToast(
+      context,
+      message: strings.matchReportCopyFallback,
+      icon: Icons.error_outline,
+      isError: true,
+      actionLabel: strings.copyReport,
+      onActionPressed: () {
+        unawaited(_copyMatchReport(report));
+      },
+    );
+  }
+
+  Future<void> _copyMatchReport(ClassicHareegMatchReport report) async {
+    final strings = context.strings;
+    try {
+      await widget.reportExporter.copy(report);
+      if (!mounted) {
+        return;
+      }
+      showLoungeToast(context, message: strings.matchReportCopied);
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      showLoungeToast(
+        context,
+        message: strings.matchReportCopyFailed,
+        icon: Icons.error_outline,
+        isError: true,
+      );
+    }
   }
 
   void _resetHandInteraction() {
@@ -952,6 +1021,10 @@ class _GameTableScreenState extends State<GameTableScreen>
                   widget.preferences.copyWith(coachingTipsEnabled: v),
                 ),
                 onResume: () => setState(() => _pauseOpen = false),
+                onReportTableIssue: () {
+                  setState(() => _pauseOpen = false);
+                  unawaited(_exportActiveMatchReport());
+                },
                 onLeave: _isPractice
                     ? () => Navigator.of(context).pop()
                     : _returnToMainMenu,
@@ -2261,6 +2334,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         // widget.setup — settings may have been retuned mid-match via the
         // pause overlay, and rematch should mirror what just played.
         setup: _controller.setup,
+        finalSnapshot: _controller.toSnapshot(),
         eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
           _matchEliminatedRoundBySeat,
         ),

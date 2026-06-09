@@ -191,6 +191,13 @@ class AppStrings {
   String get nextNow => _v('nextNow');
   String get menu => _v('menu');
   String get couldNotSaveTable => _v('couldNotSaveTable');
+  String get reportTableIssue => _v('reportTableIssue');
+  String get exportMatchReport => _v('exportMatchReport');
+  String get matchReportShareReady => _v('matchReportShareReady');
+  String get matchReportCopyFallback => _v('matchReportCopyFallback');
+  String get copyReport => _v('copyReport');
+  String get matchReportCopied => _v('matchReportCopied');
+  String get matchReportCopyFailed => _v('matchReportCopyFailed');
   String get cpuEast => _v('cpuEast');
   String get cpuNorth => _v('cpuNorth');
   String get cpuWest => _v('cpuWest');
@@ -295,8 +302,7 @@ class AppStrings {
   String get practiceStrictnessTitle => _v('practiceStrictnessTitle');
   String get practiceStrictnessSummary => _v('practiceStrictnessSummary');
   String get practiceStrictPenaltyTitle => _v('practiceStrictPenaltyTitle');
-  String get practiceStrictPenaltySummary =>
-      _v('practiceStrictPenaltySummary');
+  String get practiceStrictPenaltySummary => _v('practiceStrictPenaltySummary');
   String get practiceTablePenaltyTitle => _v('practiceTablePenaltyTitle');
   String get practiceTablePenaltySummary => _v('practiceTablePenaltySummary');
 
@@ -305,8 +311,7 @@ class AppStrings {
   String get practiceCardValuesIntro => _v('practiceCardValuesIntro');
   String get practiceCardValuesNumberHeading =>
       _v('practiceCardValuesNumberHeading');
-  String get practiceCardValuesNumberLine =>
-      _v('practiceCardValuesNumberLine');
+  String get practiceCardValuesNumberLine => _v('practiceCardValuesNumberLine');
   String get practiceCardValuesFaceHeading =>
       _v('practiceCardValuesFaceHeading');
   String get practiceCardValuesFaceLine => _v('practiceCardValuesFaceLine');
@@ -323,10 +328,8 @@ class AppStrings {
   String get practiceMeldShapesRunHeading => _v('practiceMeldShapesRunHeading');
   String get practiceMeldShapesRunLine => _v('practiceMeldShapesRunLine');
   String get practiceMeldShapesOutro => _v('practiceMeldShapesOutro');
-  String get practiceMeldShapesSetCaption =>
-      _v('practiceMeldShapesSetCaption');
-  String get practiceMeldShapesRunCaption =>
-      _v('practiceMeldShapesRunCaption');
+  String get practiceMeldShapesSetCaption => _v('practiceMeldShapesSetCaption');
+  String get practiceMeldShapesRunCaption => _v('practiceMeldShapesRunCaption');
 
   String get practiceTheAcePanelTitle => _v('practiceTheAcePanelTitle');
   String get practiceTheAceIntro => _v('practiceTheAceIntro');
@@ -1350,6 +1353,14 @@ const _englishValues = {
   'nextNow': 'Next now',
   'menu': 'Menu',
   'couldNotSaveTable': 'Could not save the table. You can keep playing.',
+  'reportTableIssue': 'Report table issue',
+  'exportMatchReport': 'Export match report',
+  'matchReportShareReady': 'Match report ready to share.',
+  'matchReportCopyFallback':
+      'File sharing is not available here. Copy the report JSON instead?',
+  'copyReport': 'Copy report',
+  'matchReportCopied': 'Match report copied to clipboard.',
+  'matchReportCopyFailed': 'Could not copy the match report.',
   'cpuEast': 'CPU East',
   'cpuNorth': 'CPU North',
   'cpuWest': 'CPU West',
@@ -1662,8 +1673,7 @@ const _englishValues = {
       'The winner takes -1; every seat that never opened adds the full count of cards left in its hand — the number of cards, not their pip value. Going out early is defense for you and damage for them.',
   'practicePerfectHandTwos':
       'Your whole hand melds, yet totals only 47 — below the 51 you would need to open. Stage it set by set anyway: play the four twos.',
-  'practicePerfectHandTwosHint':
-      'Tap the four twos, then the gold meld chip.',
+  'practicePerfectHandTwosHint': 'Tap the four twos, then the gold meld chip.',
   'practicePerfectHandTwosDone': 'Twos staged — 8 so far, still short of 51.',
   'practicePerfectHandThrees': 'Add the four threes to the staged opening.',
   'practicePerfectHandThreesHint':
@@ -1672,7 +1682,8 @@ const _englishValues = {
   'practicePerfectHandFours': 'Add the three fours.',
   'practicePerfectHandFoursHint':
       'Tap the three fours, then the gold meld chip.',
-  'practicePerfectHandFoursDone': 'Fours staged — 32, the bar is still out of reach.',
+  'practicePerfectHandFoursDone':
+      'Fours staged — 32, the bar is still out of reach.',
   'practicePerfectHandFives': 'Add the three fives — your last set.',
   'practicePerfectHandFivesHint':
       'Tap the three fives, then the gold meld chip.',
@@ -1684,8 +1695,7 @@ const _englishValues = {
       'Round won — you staged every set and never reached 51, but laying your whole hand finishes the round outright, bypassing the opening you never needed. The seats that never opened still pay their full hand.',
   'practiceJokerOutStep1':
       'You are one play from the end: your eights complete the set, leaving only the joker. Play the three eights.',
-  'practiceJokerOutStep1Hint':
-      'Tap the three eights, then the gold meld chip.',
+  'practiceJokerOutStep1Hint': 'Tap the three eights, then the gold meld chip.',
   'practiceJokerOutStep1Done':
       'Eights down — only the joker is left in your hand.',
   'practiceJokerOutStep2':
@@ -1918,6 +1928,14 @@ const _arabicValues = {
   'nextNow': 'التالي الآن',
   'menu': 'القائمة',
   'couldNotSaveTable': 'تعذر حفظ الطاولة. يمكنك متابعة اللعب.',
+  'reportTableIssue': 'أبلغ عن مشكلة في الطاولة',
+  'exportMatchReport': 'تصدير تقرير المباراة',
+  'matchReportShareReady': 'تقرير المباراة جاهز للمشاركة.',
+  'matchReportCopyFallback':
+      'مشاركة الملف غير متاحة هنا. هل تريد نسخ JSON التقرير بدلا من ذلك؟',
+  'copyReport': 'نسخ التقرير',
+  'matchReportCopied': 'تم نسخ تقرير المباراة إلى الحافظة.',
+  'matchReportCopyFailed': 'تعذر نسخ تقرير المباراة.',
   'cpuEast': 'الآلي شرق',
   'cpuNorth': 'الآلي شمال',
   'cpuWest': 'الآلي غرب',
@@ -2037,8 +2055,7 @@ const _arabicValues = {
   'practiceCardValue9': '= 9',
   'practiceCardValue10Each': 'كلٌّ = 10',
   'practiceMeldShapesPanelTitle': 'المجموعات والتسلسلات',
-  'practiceMeldShapesIntro':
-      'المجموعة هي ثلاث أوراق أو أكثر في أحد شكلين.',
+  'practiceMeldShapesIntro': 'المجموعة هي ثلاث أوراق أو أكثر في أحد شكلين.',
   'practiceMeldShapesSetHeading': 'مجموعة',
   'practiceMeldShapesSetLine':
       'نفس الرتبة بأنواع مختلفة — مثل 7♠ 7♥ 7♦. ثلاث أو أربع أوراق.',
@@ -2050,8 +2067,7 @@ const _arabicValues = {
   'practiceMeldShapesSetCaption': 'مجموعة — نفس الرتبة',
   'practiceMeldShapesRunCaption': 'تسلسل — نفس النوع، بالترتيب',
   'practiceTheAcePanelTitle': 'الآص',
-  'practiceTheAceIntro':
-      'الآص أصعب ورقة في تقييمها. في التسلسل يلعب بطريقتين.',
+  'practiceTheAceIntro': 'الآص أصعب ورقة في تقييمها. في التسلسل يلعب بطريقتين.',
   'practiceTheAceHighHeading': 'عالٍ',
   'practiceTheAceHighLine':
       'بعد الشايب — J♣ Q♣ K♣ A♣ — يُحسب الآص 10. ذلك التسلسل يساوي 40.',
@@ -2226,16 +2242,14 @@ const _arabicValues = {
       'اضغط الخماسيات الثلاث ثم شريحة المجموعة الذهبية.',
   'practicePerfectHandFivesDone':
       'كل المجموعات نزلت عند 47 — لم تبلغ 51 قط، ومع ذلك لم يبق إلا الملك.',
-  'practicePerfectHandStep2':
-      'الإنهاء ينتهي دائما برمية: ارم الملك لتخرج.',
+  'practicePerfectHandStep2': 'الإنهاء ينتهي دائما برمية: ارم الملك لتخرج.',
   'practicePerfectHandCompletion':
       'فزت بالجولة — نزّلت كل مجموعة ولم تبلغ 51 قط، لكن إنزال يدك كلها ينهي الجولة مباشرة، متجاوزا الافتتاح الذي لم تحتجه. والمقاعد التي لم تفتتح تدفع يدها كاملة.',
   'practiceJokerOutStep1':
       'أنت على بعد لعبة من النهاية: ثمانياتك تكمل المجموعة ولا يبقى إلا الجوكر. العب الثمانيات الثلاث.',
   'practiceJokerOutStep1Hint':
       'اضغط الثمانيات الثلاث ثم شريحة المجموعة الذهبية.',
-  'practiceJokerOutStep1Done':
-      'نزلت الثمانيات — لم يبق في يدك إلا الجوكر.',
+  'practiceJokerOutStep1Done': 'نزلت الثمانيات — لم يبق في يدك إلا الجوكر.',
   'practiceJokerOutStep2':
       'الجوكر لا يُرمى أبدا أثناء اللعب — لكن هذا هو الختام، والرمية الختامية هي الاستثناء الوحيد. ارم الجوكر لتخرج.',
   'practiceJokerOutStep2Hint':
