@@ -8,15 +8,19 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dar
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import '../../../../domain/classic_hareeg/reporting/match_action_transcript.dart';
+import '../../../../domain/classic_hareeg/reporting/match_diagnostic_log.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/audio/table_audio.dart';
+import '../../../core/cards/card_theme.dart';
 import '../../../core/feedback/lounge_toast.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
 /// Route payload for [MatchOverScreen].
@@ -30,6 +34,8 @@ class MatchOverArguments {
     required this.setup,
     required this.finalSnapshot,
     this.eliminatedRound = const {},
+    this.diagnostics,
+    this.transcript,
   });
 
   /// Final round result.
@@ -52,6 +58,12 @@ class MatchOverArguments {
 
   /// Round number in which each seat was eliminated, when known.
   final Map<PlayerSeat, int> eliminatedRound;
+
+  /// Rolling diagnostic event log captured during the match, when available.
+  final MatchDiagnosticLog? diagnostics;
+
+  /// Replayable action transcript captured during the match, when available.
+  final MatchActionTranscript? transcript;
 }
 
 /// Final match summary and rematch surface.
@@ -149,17 +161,46 @@ class _MatchOverScreenState extends State<MatchOverScreen>
   }
 
   Future<void> _exportCompletedMatchReport() async {
-    final args = widget.arguments;
-    final generatedAt = DateTime.now().toUtc();
-    final report = ClassicHareegMatchReport.completed(
-      app: HareegAppMetadata.reportMetadata,
-      platform: currentMatchReportPlatform(),
-      generatedAt: generatedAt,
-      snapshot: args.finalSnapshot,
-      roundResult: args.result,
-      matchProgress: args.progress,
+    final choice = await showMatchReportConfirmation(
+      context,
+      highContrast: CardContrastScope.enabledOf(context),
     );
-    await _shareOrOfferCopy(report);
+    if (!mounted || choice == null) {
+      return;
+    }
+    final args = widget.arguments;
+    final ClassicHareegMatchReport report;
+    try {
+      final generatedAt = DateTime.now().toUtc();
+      report = ClassicHareegMatchReport.completed(
+        app: HareegAppMetadata.reportMetadata,
+        platform: currentMatchReportPlatform(),
+        generatedAt: generatedAt,
+        snapshot: args.finalSnapshot,
+        roundResult: args.result,
+        matchProgress: args.progress,
+        diagnostics: args.diagnostics,
+        transcript: args.transcript,
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to generate match report: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showLoungeToast(
+          context,
+          message: context.strings.matchReportGenerationFailed,
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
+      return;
+    }
+    switch (choice) {
+      case MatchReportExportChoice.share:
+        await _shareOrOfferCopy(report);
+      case MatchReportExportChoice.copy:
+        await _copyMatchReport(report);
+    }
   }
 
   Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {

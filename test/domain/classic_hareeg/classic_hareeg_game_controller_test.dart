@@ -2972,6 +2972,123 @@ void main() {
       expect(controller.isHumanEliminated, isTrue);
     });
 
+    test(
+      'a Table mistake that eliminates the human by score ends the round',
+      () {
+        // Reproduces the on-device freeze: the human deliberately commits a
+        // Table-tier mistake (a blocked-cover discard, +17) while already at 20,
+        // crossing the elimination threshold (37 >= 31). The penalty removes the
+        // human from the round; with three CPUs still active the round would
+        // otherwise play on, but the human is out of the match. The round must
+        // conclude so the table can surface match-over instead of stranding the
+        // human on a round they can no longer act in.
+        final meldCards = [
+          _card(CardRank.five, CardSuit.clubs, 71),
+          _card(CardRank.six, CardSuit.clubs, 71),
+          _card(CardRank.seven, CardSuit.clubs, 71),
+        ];
+        final cover = _card(CardRank.eight, CardSuit.clubs, 71);
+        final setup = ClassicHareegSetup.defaults().copyWith(
+          tableStrictness: TableStrictness.table,
+        );
+        final controller = ClassicHareegGameController.fromSnapshot(
+          _snapshot(
+            setup: setup,
+            handsBuilder: (defaults) => {
+              ...defaults,
+              PlayerSeat.south: [
+                ...meldCards,
+                cover,
+                ...defaults[PlayerSeat.south]!,
+              ],
+            },
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.action,
+            openingState: _opened(PlayerSeat.south),
+            scores: {
+              PlayerSeat.south: 20,
+              PlayerSeat.east: 0,
+              PlayerSeat.north: 0,
+              PlayerSeat.west: 0,
+            },
+          ),
+        );
+
+        controller.applyAction(
+          ClassicHareegActionIds.playMeldActionId(
+            meldCards.map((card) => card.id),
+          ),
+        );
+        // Mid-round, before the eliminating penalty, the human is still in.
+        expect(controller.isHumanEliminated, isFalse);
+
+        final result = controller.applyAction(
+          '${ClassicHareegActionIds.discardBlockedCoverPrefix}${cover.id}',
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(controller.scores[PlayerSeat.south], 37);
+        // The eliminating penalty concludes the round instead of passing turn
+        // on to the CPUs.
+        expect(controller.isRoundOver, isTrue);
+        expect(controller.roundOutcome, RoundOutcomeType.draw);
+        expect(controller.isHumanEliminated, isTrue);
+
+        final progress = controller.roundProgress;
+        expect(progress, isNotNull);
+        expect(progress!.activeSeats, isNot(contains(PlayerSeat.south)));
+        // Three CPUs remain, so there is no match winner — the human simply
+        // lost. The table reads isHumanEliminated to open match-over.
+        expect(progress.matchWinner, isNull);
+      },
+    );
+
+    test('a Table mistake below the threshold keeps the round going', () {
+      // The companion to the elimination case: a +17 penalty that does NOT
+      // cross 31 (0 -> 17) must still just remove the human from the round and
+      // hand turn to the next seat, never ending the round early.
+      final meldCards = [
+        _card(CardRank.five, CardSuit.clubs, 72),
+        _card(CardRank.six, CardSuit.clubs, 72),
+        _card(CardRank.seven, CardSuit.clubs, 72),
+      ];
+      final cover = _card(CardRank.eight, CardSuit.clubs, 72);
+      final setup = ClassicHareegSetup.defaults().copyWith(
+        tableStrictness: TableStrictness.table,
+      );
+      final controller = ClassicHareegGameController.fromSnapshot(
+        _snapshot(
+          setup: setup,
+          handsBuilder: (defaults) => {
+            ...defaults,
+            PlayerSeat.south: [
+              ...meldCards,
+              cover,
+              ...defaults[PlayerSeat.south]!,
+            ],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: _opened(PlayerSeat.south),
+        ),
+      );
+      controller.applyAction(
+        ClassicHareegActionIds.playMeldActionId(
+          meldCards.map((card) => card.id),
+        ),
+      );
+
+      final result = controller.applyAction(
+        '${ClassicHareegActionIds.discardBlockedCoverPrefix}${cover.id}',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(controller.scores[PlayerSeat.south], 17);
+      expect(controller.isRoundOver, isFalse);
+      expect(controller.currentSeat, PlayerSeat.east);
+      expect(controller.isHumanEliminated, isFalse);
+    });
+
     test('stock exhaustion in draw phase ends the round as a draw', () {
       // Build a snapshot where stock is empty and South is in draw phase
       // because West just discarded. Stock exhaustion + no finish logic

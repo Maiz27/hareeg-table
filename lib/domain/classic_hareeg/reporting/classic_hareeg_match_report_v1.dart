@@ -5,6 +5,8 @@ import '../models/player_seat.dart';
 import '../persistence/persistence_codec.dart';
 import '../rules/match_progression_rules.dart';
 import 'classic_hareeg_match_report.dart';
+import 'match_action_transcript.dart';
+import 'match_diagnostic_log.dart';
 
 /// Match-report schema version implemented by this file.
 const int matchReportV1Version = 1;
@@ -49,6 +51,12 @@ ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
 
   final roundResultJson = asJsonMap(json['roundResult']);
   final matchProgressJson = asJsonMap(json['matchProgress']);
+  // The optional embedded objects: absent/null means "this report omits them"
+  // (additive v1 fields), but a present value of the wrong shape is corruption
+  // that would otherwise be silently dropped — surface it instead of producing
+  // a report that quietly lost its diagnostics/transcript.
+  final diagnosticsJson = _optionalReportObject(json, 'diagnostics');
+  final transcriptJson = _optionalReportObject(json, 'transcript');
 
   return ClassicHareegMatchReport(
     app: _appMetadataFromJson(appJson),
@@ -68,6 +76,12 @@ ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
     matchProgress: matchProgressJson == null
         ? null
         : _matchProgressFromJson(matchProgressJson),
+    diagnostics: diagnosticsJson == null
+        ? null
+        : MatchDiagnosticLog.fromJson(diagnosticsJson),
+    transcript: transcriptJson == null
+        ? null
+        : MatchActionTranscript.fromJson(transcriptJson),
   );
 }
 
@@ -93,7 +107,32 @@ Map<String, Object?> encodeMatchReportV1(ClassicHareegMatchReport report) {
       'roundResult': _roundResultToJson(report.roundResult!),
     if (report.matchProgress != null)
       'matchProgress': _matchProgressToJson(report.matchProgress!),
+    if (report.diagnostics != null)
+      'diagnostics': report.diagnostics!.toJson(),
+    if (report.transcript != null) 'transcript': report.transcript!.toJson(),
   };
+}
+
+/// Reads an optional embedded object field. Returns null when the key is
+/// absent or explicitly null (the field is simply omitted), but throws when a
+/// value is present with a non-object shape so corruption is not silently
+/// decoded as "missing".
+Map<String, Object?>? _optionalReportObject(
+  Map<String, Object?> json,
+  String key,
+) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+  final map = asJsonMap(value);
+  if (map == null) {
+    throw FormatException(
+      'Invalid match report "$key": expected an object, '
+      'got ${value.runtimeType}.',
+    );
+  }
+  return map;
 }
 
 MatchReportAppMetadata _appMetadataFromJson(Map<String, Object?> json) {

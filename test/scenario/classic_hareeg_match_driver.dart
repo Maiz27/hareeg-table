@@ -5,6 +5,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_sna
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 
 import 'classic_hareeg_scenario.dart';
@@ -231,6 +232,7 @@ class ClassicHareegMatchDriver {
     int seed = 7,
     MatchStepObserver? onStep,
     MatchRoundObserver? onRoundEnd,
+    MatchRecorder? recorder,
   }) {
     // Reset the clock so a reused driver instance replays identically.
     _clock = _initialClock;
@@ -238,6 +240,7 @@ class ClassicHareegMatchDriver {
       setup: setup,
       seed: seed,
       now: _now,
+      recorder: recorder,
     ).controller;
 
     final rounds = <DrivenRoundReport>[];
@@ -329,7 +332,11 @@ class ClassicHareegMatchDriver {
             controller.roundProgress?.matchWinner, rounds, totalActions, setup,
             seed);
       }
-      controller = ClassicHareegGameController.fromSnapshot(next, now: _now);
+      controller = ClassicHareegGameController.fromSnapshot(
+        next,
+        now: _now,
+        recorder: recorder,
+      );
     }
   }
 

@@ -348,13 +348,17 @@ class PhysicalTablePlayfield extends StatelessWidget {
             discardLeft + (discardHitWidth - pileWidth) / 2;
         final visibleDiscardTop =
             discardTop + (discardHitHeight - pileHeight) / 2;
-        final fiftyCueLeft =
-            (visibleDiscardLeft + pileWidth - fiftyDiameter * 0.55)
-                .clamp(0.0, tableWidth - fiftyDiameter)
-                .toDouble();
-        final fiftyCueTop = (visibleDiscardTop - fiftyDiameter * 0.35)
-            .clamp(0.0, tableHeight - fiftyDiameter)
+        // The Fifty claim is its own deliberate control, so the cue ring sits
+        // clear ABOVE the discard card rather than overlapping it — tapping the
+        // card is always a plain pickup, tapping the ring is the conscious
+        // claim. Centred over the pile and clamped on-screen.
+        final fiftyCueLeft = (visibleDiscardLeft + (pileWidth - fiftyDiameter) / 2)
+            .clamp(0.0, tableWidth - fiftyDiameter)
             .toDouble();
+        final fiftyCueTop =
+            (visibleDiscardTop - fiftyDiameter - (compact ? 6.0 : 8.0))
+                .clamp(0.0, tableHeight - fiftyDiameter)
+                .toDouble();
         final activeFiftySeconds = isHumanTurn ? fiftySecondsRemaining : null;
 
         // Discard drop is handled by [_DiscardPile] itself so a card released
@@ -439,12 +443,16 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 topDiscard: topDiscard,
                 pendingDiscard: pendingDiscard,
                 cardSize: tableCardSize,
-                canTake: isHumanTurn && (canTakeDiscard || canClaimFifty),
+                // Tapping the card is always a plain pickup — never a Fifty
+                // claim. Claiming Fifty is a deliberate, separate action behind
+                // the cue ring, so a player picking the card up to meld can't
+                // accidentally commit to a claim just because the window is
+                // live. (A pickup during the window still scores a Fifty if the
+                // turn finishes on the thrown card; it just isn't a binding
+                // claim with the wrong-claim penalty.)
+                canTake: isHumanTurn && canTakeDiscard,
                 canReturn: isHumanTurn && canReturnDiscard,
-                // While the Fifty window is live, grabbing the thrown card IS
-                // the claim — the cue ring and the card share the tap area.
-                // A plain take returns as soon as the window closes.
-                onTake: canClaimFifty ? onClaimFifty : onTakeDiscard,
+                onTake: onTakeDiscard,
                 onReturn: onReturnDiscard,
                 onCardLongPress: onCardLongPress,
                 canAcceptDiscard: canDiscardCard,
@@ -461,6 +469,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               right: horizontalMeldInset,
               height: compact ? 58 : 70,
               child: SeatMeldLane(
+                key: const ValueKey('north-meld-lane'),
                 theme: theme,
                 owner: PlayerSeat.north,
                 melds: tableMelds[PlayerSeat.north] ?? const <PlacedMeld>[],

@@ -177,6 +177,7 @@ If the timer expires:
 - If stock is empty and the current player cannot draw, the round ends as a draw.
 - Caveat: if the previous discard can be used to finish the game outright, play may continue for that finish.
 - A non-finishing discard pickup is not enough to continue once stock is empty.
+- Liveness: once stock is empty the only way a card leaves a hand is onto the table (a meld or cover), so if a full rotation of the active seats passes with no such progress — nobody can complete the finish that kept play going — the round is dead and ends as a draw. This prevents an endgame from cycling the discard pile forever.
 - Drawn rounds do not change scores.
 - The same starter starts the next dealt round.
 

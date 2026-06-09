@@ -848,10 +848,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byKey(const ValueKey('fifty-cue')), findsOneWidget);
 
-    // The natural gesture claims: tap the thrown card on the pile. The
-    // claim only takes the card — the ring is gone (the proof is untimed)
-    // and the proof prompt takes over.
-    await tapDiscardPile(tester);
+    // Claiming Fifty is its own deliberate control: tap the cue ring, not the
+    // card (tapping the card is a plain pickup). The claim only takes the card —
+    // the ring is gone (the proof is untimed) and the proof prompt takes over.
+    await tapFiftyCue(tester);
     expect(find.byKey(const ValueKey('fifty-cue')), findsNothing);
     expect(
       find.textContaining('Prove it: meld the three fives'),

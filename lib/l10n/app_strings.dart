@@ -112,6 +112,8 @@ class AppStrings {
   String get aboutLicenses => _v('aboutLicenses');
   String get aboutHeader => _v('aboutHeader');
   String get aboutBody => _v('aboutBody');
+  String get whyThisExistsHeader => _v('whyThisExistsHeader');
+  String get whyThisExistsBody => _v('whyThisExistsBody');
   String get licensesThemesHeader => _v('licensesThemesHeader');
   String get licensesSoundsHeader => _v('licensesSoundsHeader');
   String get kenneyCasinoAudio => _v('kenneyCasinoAudio');
@@ -198,6 +200,10 @@ class AppStrings {
   String get copyReport => _v('copyReport');
   String get matchReportCopied => _v('matchReportCopied');
   String get matchReportCopyFailed => _v('matchReportCopyFailed');
+  String get matchReportConfirmTitle => _v('matchReportConfirmTitle');
+  String get matchReportConfirmBody => _v('matchReportConfirmBody');
+  String get shareReport => _v('shareReport');
+  String get matchReportGenerationFailed => _v('matchReportGenerationFailed');
   String get cpuEast => _v('cpuEast');
   String get cpuNorth => _v('cpuNorth');
   String get cpuWest => _v('cpuWest');
@@ -1270,6 +1276,22 @@ const _englishValues = {
   'aboutHeader': 'Hareeg Table',
   'aboutBody':
       'Open-source Sudanese Hareeg, offline-first, ad-free. Source on GitHub.',
+  'whyThisExistsHeader': 'Why this exists',
+  'whyThisExistsBody':
+      'I built Hareeg Table because I got tired of a Hareeg app that didn\'t '
+      'respect the person playing it.\n\n'
+      'It had ads. I put up with them. Then one match, while I was offline, it '
+      'threw a blank white box onto the screen and made me sit there waiting to '
+      '"watch" an ad that was never going to load. No internet, no ad, nothing '
+      'actually there. It paused my game to show me a void, and they didn\'t '
+      'even get paid for the interruption.\n\n'
+      'That was the moment. If an app will break a game you\'re enjoying to show '
+      'a loading screen for nothing, the bar is on the floor. So I wrote my own.'
+      '\n\n'
+      'Hareeg Table is offline-first and ad-free. It doesn\'t interrupt your '
+      'hand to entertain itself. The only thing it ever sends is a bug report, '
+      'and only if you tap the button or hit a crash. Never your name, never '
+      'your data, never mid-game.',
   'licensesThemesHeader': 'Card themes',
   'licensesSoundsHeader': 'Sound effects',
   'kenneyCasinoAudio': 'Kenney Casino Audio',
@@ -1361,6 +1383,13 @@ const _englishValues = {
   'copyReport': 'Copy report',
   'matchReportCopied': 'Match report copied to clipboard.',
   'matchReportCopyFailed': 'Could not copy the match report.',
+  'matchReportConfirmTitle': 'Report this table',
+  'matchReportConfirmBody':
+      'The report includes the current game state and diagnostics so this '
+      'table can be reproduced. It does not include your name, settings, or '
+      'any personal information.',
+  'shareReport': 'Share report',
+  'matchReportGenerationFailed': 'Could not generate the match report.',
   'cpuEast': 'CPU East',
   'cpuNorth': 'CPU North',
   'cpuWest': 'CPU West',
@@ -1707,7 +1736,7 @@ const _englishValues = {
   'practiceFiftyClaimStep1':
       'West just threw the 8 of diamonds — your eights meet it, your twos follow, and the queen stays back to throw. That discard is claimable: call Fifty before the timer runs out.',
   'practiceFiftyClaimStep1Hint':
-      'Tap the thrown card or the flame ring. Practice holds the ring at 3 — a real table never waits.',
+      'Tap the flame ring to call Fifty — tapping the card itself just picks it up. Practice holds the ring at 3 — a real table never waits.',
   'practiceFiftyClaimStep2':
       'Claimed — the eight is in your hand and the clock is gone. Now prove the call: meld the three eights.',
   'practiceFiftyClaimStep2Hint':
@@ -1845,6 +1874,18 @@ const _arabicValues = {
   'aboutHeader': 'طاولة حريق',
   'aboutBody':
       'حريق سوداني مفتوح المصدر، يعمل دون اتصال، وبدون إعلانات. المصدر على GitHub.',
+  'whyThisExistsHeader': 'لماذا صنعتُ هذا التطبيق',
+  'whyThisExistsBody':
+      'برمجتُ «طاولة حريق» لأنني سئمتُ من تطبيق حريق لا يحترم من يجلس ليلعبه.\n\n'
+      'كان فيه إعلانات، فتحمّلتها. ثم في إحدى الجولات، وأنا غير متصل بالإنترنت، '
+      'رمى على الشاشة مربّعًا أبيضَ فارغًا وأجبرني على الانتظار «لمشاهدة» إعلانٍ '
+      'لن يُحمَّل أبدًا. لا إنترنت، ولا إعلان، ولا شيء على الإطلاق. أوقف لعبتي '
+      'ليُريني فراغًا، ولم يحصلوا حتى على مقابلٍ لتلك المقاطعة.\n\n'
+      'عندها اتّخذتُ قراري. إذا كان تطبيقٌ يقطع عليك لعبةً تستمتع بها ليعرض شاشة '
+      'تحميلٍ بلا طائل، فإن الحدّ الأدنى قد بلغ الأرض. لذلك صنعتُ تطبيقي بنفسي.\n\n'
+      '«طاولة حريق» يعمل دون اتصال بالإنترنت في المقام الأول، وبلا إعلانات. لا '
+      'يقاطع جولتك ليُسلّي نفسه. الشيء الوحيد الذي يرسله هو تقريرٌ عن خلل، وفقط '
+      'حين تضغط الزر أو يحدث تعطّل. لا اسمك، ولا بياناتك، ولا في وسط اللعب أبدًا.',
   'licensesThemesHeader': 'سمات الأوراق',
   'licensesSoundsHeader': 'المؤثرات الصوتية',
   'kenneyCasinoAudio': 'Kenney Casino Audio',
@@ -1936,6 +1977,12 @@ const _arabicValues = {
   'copyReport': 'نسخ التقرير',
   'matchReportCopied': 'تم نسخ تقرير المباراة إلى الحافظة.',
   'matchReportCopyFailed': 'تعذر نسخ تقرير المباراة.',
+  'matchReportConfirmTitle': 'الإبلاغ عن هذه الطاولة',
+  'matchReportConfirmBody':
+      'يتضمن التقرير حالة اللعبة الحالية وبيانات التشخيص حتى يمكن إعادة إنتاج '
+      'هذه الطاولة. لا يتضمن اسمك أو إعداداتك أو أي معلومات شخصية.',
+  'shareReport': 'مشاركة التقرير',
+  'matchReportGenerationFailed': 'تعذر إنشاء تقرير المباراة.',
   'cpuEast': 'الآلي شرق',
   'cpuNorth': 'الآلي شمال',
   'cpuWest': 'الآلي غرب',
@@ -2259,7 +2306,7 @@ const _arabicValues = {
   'practiceFiftyClaimStep1':
       'الغرب رمى للتو 8 الديناري — ثمانياتك تكتمل بها، وثنائياتك تتبعها، والملكة تبقى للرمي. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
   'practiceFiftyClaimStep1Hint':
-      'اضغط الورقة المرمية أو حلقة اللهب. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
+      'اضغط حلقة اللهب لطلب الخمسين — الضغط على الورقة نفسها مجرد التقاط لها. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
   'practiceFiftyClaimStep2':
       'طالبت — الثمانية في يدك والمؤقت اختفى. الآن أثبت النداء: العب الثمانيات الثلاث.',
   'practiceFiftyClaimStep2Hint':

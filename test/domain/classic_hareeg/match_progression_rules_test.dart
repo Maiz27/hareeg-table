@@ -88,6 +88,32 @@ void main() {
       expect(state.nextStarter, PlayerSeat.north);
     });
 
+    test('a draw whose starter is eliminated hands the deal to a survivor', () {
+      // The starter (south) is already at the elimination threshold when the
+      // round is concluded as a draw (e.g. a mid-round penalty crossed 31
+      // before the round ended). A draw repeats the starter, but an eliminated
+      // seat cannot deal — the next surviving seat anti-clockwise must, so that
+      // dealing the next round never trips "Starter must be an active seat".
+      final state = apply(
+        currentStarter: PlayerSeat.south,
+        scores: {
+          PlayerSeat.south: 34,
+          PlayerSeat.east: 0,
+          PlayerSeat.north: 0,
+          PlayerSeat.west: 0,
+        },
+        result: const RoundProgressResult(
+          type: RoundOutcomeType.draw,
+          remainingCardCounts: {},
+        ),
+      );
+
+      expect(state.activeSeats, isNot(contains(PlayerSeat.south)));
+      expect(state.activeSeats, contains(state.nextStarter));
+      expect(state.nextStarter, PlayerSeat.east);
+      expect(state.matchWinner, isNull);
+    });
+
     test('normal finish rejects a winner outside active seats', () {
       expect(
         () => ClassicHareegMatchProgressionRules.applyRoundResult(

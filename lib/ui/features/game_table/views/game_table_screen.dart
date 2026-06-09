@@ -20,6 +20,7 @@ import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import '../../../../domain/classic_hareeg/reporting/match_recorder.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
@@ -58,6 +59,7 @@ import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../../match_over/views/match_over_screen.dart';
+import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
 /// Live Classic Hareeg table.
@@ -145,6 +147,12 @@ class _GameTableScreenState extends State<GameTableScreen>
   );
 
   late ClassicHareegGameController _controller;
+
+  /// Records the diagnostic event log + replayable action transcript for the
+  /// active match so they can be embedded in an exported report. Null for
+  /// practice runs, which never export reports. The same recorder is handed to
+  /// each round's controller so it spans the whole match.
+  MatchRecorder? _recorder;
   final _handInteraction = ClassicHareegHandInteractionState();
   bool _isCpuRunning = false;
   // Set while the Table-tier fast-forward button is ripping through the
@@ -155,6 +163,14 @@ class _GameTableScreenState extends State<GameTableScreen>
   // controller hasn't applied the move yet. Used to lock the UI so a second
   // tap doesn't queue a parallel action against the same controller state.
   bool _isHumanActionPending = false;
+  // Counts consecutive humanRemoved auto-restarts of the CPU loop after it hit
+  // the per-run safety cap without the round ending. The engine now terminates
+  // a stock-exhausted dead round as a draw, so a healthy run reaches round-over
+  // and resets this. The bound is a backstop: if some future state still failed
+  // to progress, an unbounded `scheduleMicrotask(_runCpuTurns)` would spin the
+  // table forever (the original freeze). Reset on any round-over / new round.
+  int _cpuAutoRestarts = 0;
+  static const _maxCpuAutoRestarts = 12;
   bool _scoreOpen = false;
   bool _pauseOpen = false;
   Set<String>? _placedJokerSnapshot;
@@ -220,13 +236,24 @@ class _GameTableScreenState extends State<GameTableScreen>
         : PracticeTableRun(widget.practiceSession!);
     final practice = _practiceRun;
     final snapshot = widget.initialSnapshot;
+    // Practice never exports reports, so it skips the recorder entirely.
+    final recorder = practice != null ? null : MatchRecorder();
+    _recorder = recorder;
     _controller = practice != null
         ? practice.controller
         : snapshot != null
-        ? ClassicHareegGameController.fromSnapshot(snapshot)
+        ? ClassicHareegGameController.fromSnapshot(snapshot, recorder: recorder)
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
+            recorder: recorder,
           );
+    if (recorder != null) {
+      recorder.recordPersistence(
+        type: snapshot != null ? 'resumed' : 'dealt',
+        roundNumber: _controller.roundNumber,
+        data: {'stage': snapshot != null ? 'restore' : 'fresh-deal'},
+      );
+    }
     _meldFlight = MeldFlightController(
       handLookup: _cardInHand,
       baseMeldIndexLookup: (seat) => _controller.tableMeldsFor(seat).length,
@@ -300,14 +327,43 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<void> _exportActiveMatchReport() async {
-    final generatedAt = DateTime.now().toUtc();
-    final report = ClassicHareegMatchReport.active(
-      app: HareegAppMetadata.reportMetadata,
-      platform: currentMatchReportPlatform(),
-      generatedAt: generatedAt,
-      snapshot: _controller.toSnapshot(savedAt: generatedAt),
+    final choice = await showMatchReportConfirmation(
+      context,
+      highContrast: widget.preferences.highContrastCards,
     );
-    await _shareOrOfferCopy(report);
+    if (!mounted || choice == null) {
+      return;
+    }
+    final ClassicHareegMatchReport report;
+    try {
+      final generatedAt = DateTime.now().toUtc();
+      report = ClassicHareegMatchReport.active(
+        app: HareegAppMetadata.reportMetadata,
+        platform: currentMatchReportPlatform(),
+        generatedAt: generatedAt,
+        snapshot: _controller.toSnapshot(savedAt: generatedAt),
+        diagnostics: _recorder?.diagnostics,
+        transcript: _recorder?.transcript,
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to generate match report: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showLoungeToast(
+          context,
+          message: context.strings.matchReportGenerationFailed,
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
+      return;
+    }
+    switch (choice) {
+      case MatchReportExportChoice.share:
+        await _shareOrOfferCopy(report);
+      case MatchReportExportChoice.copy:
+        await _copyMatchReport(report);
+    }
   }
 
   Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {
@@ -1232,6 +1288,16 @@ class _GameTableScreenState extends State<GameTableScreen>
         _controller,
         seat,
       );
+      final leadInsight = _coachInsights.isEmpty ? null : _coachInsights.first;
+      if (leadInsight != null) {
+        _recorder?.recordCoachHint(
+          roundNumber: _controller.roundNumber,
+          hintId: leadInsight.category.name,
+          seat: seat,
+          phase: _controller.turnPhase,
+          data: {'count': _coachInsights.length},
+        );
+      }
     }
     return _coachInsights;
   }
@@ -2135,7 +2201,16 @@ class _GameTableScreenState extends State<GameTableScreen>
       // would deadlock waiting for input. Re-enter the loop instead; the
       // round will end naturally on stock exhaustion or a CPU finish.
       final humanRemoved = _controller.removedSeats.contains(PlayerSeat.south);
-      final shouldAutoRestart = hitCpuSafetyLimit && humanRemoved;
+      // Bound the auto-restart so a non-progressing round can never spin the
+      // table forever. The engine draws a dead stock-exhausted round, so a real
+      // game stops re-entering well before this cap; exceeding it means progress
+      // has genuinely stalled and we stop rather than freeze.
+      if (!hitCpuSafetyLimit || _controller.isRoundOver) {
+        _cpuAutoRestarts = 0;
+      }
+      final shouldAutoRestart = hitCpuSafetyLimit &&
+          humanRemoved &&
+          _cpuAutoRestarts < _maxCpuAutoRestarts;
       setState(() {
         _isCpuRunning = false;
         _activeFlights.clear();
@@ -2151,6 +2226,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         }
       });
       if (shouldAutoRestart && mounted) {
+        _cpuAutoRestarts += 1;
         // Defer to the next microtask so the surrounding setState commits
         // before the recursive call grabs the running flag again.
         scheduleMicrotask(() {
@@ -2218,10 +2294,16 @@ class _GameTableScreenState extends State<GameTableScreen>
     final totalWatch = Stopwatch()..start();
     final isRoundOver = _controller.isRoundOver;
     final scoreView = _controller.scoreView;
+    // Once the human is eliminated the match is over for them: don't deal a
+    // CPU-only next round (which would also persist as a resumable spectator
+    // match). A null next-round snapshot makes the persistence plan abandon the
+    // match and the round-advance plan open match-over.
+    final shouldDealNextRound = isRoundOver && !_controller.isHumanEliminated;
     final persistencePlan = ClassicHareegTablePersistencePlanner.plan(
       isRoundOver: isRoundOver,
       activeSnapshot: isRoundOver ? null : _controller.toSnapshot(),
-      nextRoundSnapshot: isRoundOver ? _controller.nextRoundSnapshot() : null,
+      nextRoundSnapshot:
+          shouldDealNextRound ? _controller.nextRoundSnapshot() : null,
       roundResult: _controller.roundResult,
       scoreView: scoreView,
     );
@@ -2242,6 +2324,11 @@ class _GameTableScreenState extends State<GameTableScreen>
             throw StateError('Persistence plan is missing a snapshot.');
           }
           await widget.matchRepository.saveActiveMatch(snapshot);
+          _recorder?.recordPersistence(
+            type: 'saved',
+            roundNumber: _controller.roundNumber,
+            data: {'roundOver': isRoundOver},
+          );
         case ClassicHareegTablePersistenceAction.abandonActiveMatch:
           await widget.matchRepository.abandonActiveMatch();
       }
@@ -2338,6 +2425,8 @@ class _GameTableScreenState extends State<GameTableScreen>
         eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
           _matchEliminatedRoundBySeat,
         ),
+        diagnostics: _recorder?.diagnostics,
+        transcript: _recorder?.transcript,
       ),
     );
   }
@@ -2351,7 +2440,10 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography?.dispose();
     _dealChoreography = null;
     setState(() {
-      _controller = ClassicHareegGameController.fromSnapshot(snapshot);
+      _controller = ClassicHareegGameController.fromSnapshot(
+        snapshot,
+        recorder: _recorder,
+      );
       // The coach memo is tied to the previous controller instance; drop it so
       // the new round computes fresh insights instead of risking a stale cache
       // hit on a matching situation signature.

@@ -5,6 +5,8 @@ import '../models/player_seat.dart';
 import '../persistence/persistence_codec.dart';
 import '../rules/match_progression_rules.dart';
 import 'classic_hareeg_match_report_v1.dart';
+import 'match_action_transcript.dart';
+import 'match_diagnostic_log.dart';
 
 /// Lifecycle point captured by a match report.
 enum MatchReportStage {
@@ -71,6 +73,8 @@ class ClassicHareegMatchReport {
     this.seed,
     this.roundResult,
     this.matchProgress,
+    this.diagnostics,
+    this.transcript,
   });
 
   /// Builds an active-match report from the current snapshot.
@@ -79,6 +83,8 @@ class ClassicHareegMatchReport {
     required String platform,
     required DateTime generatedAt,
     required ClassicHareegMatchSnapshot snapshot,
+    MatchDiagnosticLog? diagnostics,
+    MatchActionTranscript? transcript,
   }) {
     return ClassicHareegMatchReport(
       app: app,
@@ -92,6 +98,8 @@ class ClassicHareegMatchReport {
       turnPhase: snapshot.turnPhase,
       scores: snapshot.scores,
       snapshot: snapshot,
+      diagnostics: diagnostics,
+      transcript: transcript,
     );
   }
 
@@ -103,6 +111,8 @@ class ClassicHareegMatchReport {
     required ClassicHareegMatchSnapshot snapshot,
     required RoundProgressResult roundResult,
     required MatchProgressState matchProgress,
+    MatchDiagnosticLog? diagnostics,
+    MatchActionTranscript? transcript,
   }) {
     return ClassicHareegMatchReport(
       app: app,
@@ -118,6 +128,8 @@ class ClassicHareegMatchReport {
       snapshot: snapshot,
       roundResult: roundResult,
       matchProgress: matchProgress,
+      diagnostics: diagnostics,
+      transcript: transcript,
     );
   }
 
@@ -167,6 +179,12 @@ class ClassicHareegMatchReport {
 
   /// Final match progress for completed reports.
   final MatchProgressState? matchProgress;
+
+  /// Rolling, capped diagnostic event log, when captured.
+  final MatchDiagnosticLog? diagnostics;
+
+  /// Replayable domain-level action transcript, when captured.
+  final MatchActionTranscript? transcript;
 
   /// Converts the report to the current JSON schema.
   Map<String, Object?> toJson() => encodeMatchReportV1(this);
