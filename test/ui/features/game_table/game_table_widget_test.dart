@@ -724,7 +724,7 @@ void main() {
       expect(eastLane.height, greaterThan(440));
     });
 
-    testWidgets('Fifty cue anchors above the discard pool top right', (
+    testWidgets('Fifty cue sits above the discard pile, clear of the card', (
       tester,
     ) async {
       final discard = _card(CardRank.nine, CardSuit.clubs, 92);
@@ -743,15 +743,56 @@ void main() {
       );
       final cueRect = tester.getRect(find.byKey(const ValueKey('fifty-cue')));
 
-      expect(cueRect.center.dx, greaterThan(discardRect.center.dx));
+      // The claim ring is its own control above the card, centred over the
+      // pile — not overlapping the card's tap area, so picking up and claiming
+      // are distinct gestures.
+      expect((cueRect.center.dx - discardRect.center.dx).abs(), lessThan(8.0));
       expect(cueRect.center.dy, lessThan(discardRect.center.dy));
     });
 
-    testWidgets('tapping the thrown card claims while the window is live', (
+    testWidgets('raised Fifty cue clears the north meld lane in portrait', (
       tester,
     ) async {
-      // The fifty cue and the card itself share the tap area: grabbing the
-      // thrown card IS the claim while the window is open.
+      // The cue moved above the discard card. On a portrait phone (the real
+      // play surface) there is room between north's meld lane and the pile, so
+      // the lifted cue must not sit on the melds. (In a cramped landscape it
+      // can briefly overlap, which is acceptable since the cue is time-bound;
+      // the card-clearance test above is the invariant that always holds.)
+      final discard = _card(CardRank.nine, CardSuit.clubs, 94);
+      final northMeld = PlacedMeld.fromCards([
+        _card(CardRank.four, CardSuit.spades, 94),
+        _card(CardRank.five, CardSuit.spades, 94),
+        _card(CardRank.six, CardSuit.spades, 94),
+      ]);
+      await _pumpPlayfield(
+        tester,
+        discardPile: [discard],
+        topDiscard: discard,
+        tableMelds: {
+          PlayerSeat.north: [northMeld],
+        },
+        fiftySecondsRemaining: 4,
+        isHumanTurn: true,
+        currentSeat: PlayerSeat.south,
+        size: const Size(412, 915),
+      );
+
+      final cueRect = tester.getRect(find.byKey(const ValueKey('fifty-cue')));
+      final northLane = tester.getRect(
+        find.byKey(const ValueKey('north-meld-lane')),
+      );
+
+      // The cue's top edge sits at or below the north lane's bottom — no
+      // overlap with the melds.
+      expect(cueRect.top, greaterThanOrEqualTo(northLane.bottom));
+    });
+
+    testWidgets('tapping the thrown card is a pickup, the ring claims Fifty', (
+      tester,
+    ) async {
+      // The card and the Fifty ring are distinct: tapping the card is always a
+      // plain pickup (take-discard), even while the window is live; claiming
+      // Fifty is the deliberate, separate ring tap.
       final discard = _card(CardRank.nine, CardSuit.clubs, 93);
       var claims = 0;
       var takes = 0;
@@ -768,28 +809,16 @@ void main() {
         onClaimFifty: () => claims += 1,
       );
 
+      // Tapping the card while the window is live takes the discard, never
+      // claims.
       await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
       await tester.pump();
+      expect(takes, 1);
+      expect(claims, 0);
 
-      expect(claims, 1);
-      expect(takes, 0);
-
-      // Once the claim leaves the surface (window closed), the same tap is a
-      // plain take again.
-      await _pumpPlayfield(
-        tester,
-        discardPile: [discard],
-        topDiscard: discard,
-        isHumanTurn: true,
-        currentSeat: PlayerSeat.south,
-        canTakeDiscard: true,
-        onTakeDiscard: () => takes += 1,
-        onClaimFifty: () => claims += 1,
-      );
-
-      await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+      // Claiming Fifty is the ring's own tap.
+      await tester.tap(find.byKey(const ValueKey('fifty-cue')));
       await tester.pump();
-
       expect(claims, 1);
       expect(takes, 1);
     });

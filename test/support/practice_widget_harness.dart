@@ -112,9 +112,15 @@ Future<void> playSelectedMeld(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// Taps the discard pile target.
+/// Taps the discard pile target (a plain pickup — never a Fifty claim).
 Future<void> tapDiscardPile(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('discard-pile-drop-target')));
+  await tester.pumpAndSettle();
+}
+
+/// Taps the Fifty cue ring — the deliberate, separate Fifty claim control.
+Future<void> tapFiftyCue(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('fifty-cue')));
   await tester.pumpAndSettle();
 }
 

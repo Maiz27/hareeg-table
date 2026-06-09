@@ -1736,7 +1736,7 @@ const _englishValues = {
   'practiceFiftyClaimStep1':
       'West just threw the 8 of diamonds — your eights meet it, your twos follow, and the queen stays back to throw. That discard is claimable: call Fifty before the timer runs out.',
   'practiceFiftyClaimStep1Hint':
-      'Tap the thrown card or the flame ring. Practice holds the ring at 3 — a real table never waits.',
+      'Tap the flame ring to call Fifty — tapping the card itself just picks it up. Practice holds the ring at 3 — a real table never waits.',
   'practiceFiftyClaimStep2':
       'Claimed — the eight is in your hand and the clock is gone. Now prove the call: meld the three eights.',
   'practiceFiftyClaimStep2Hint':
@@ -2306,7 +2306,7 @@ const _arabicValues = {
   'practiceFiftyClaimStep1':
       'الغرب رمى للتو 8 الديناري — ثمانياتك تكتمل بها، وثنائياتك تتبعها، والملكة تبقى للرمي. تلك الرمية قابلة للمطالبة: اطلب الخمسين قبل نفاد المؤقت.',
   'practiceFiftyClaimStep1Hint':
-      'اضغط الورقة المرمية أو حلقة اللهب. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
+      'اضغط حلقة اللهب لطلب الخمسين — الضغط على الورقة نفسها مجرد التقاط لها. التدريب يوقف الحلقة عند 3 — الطاولة الحقيقية لا تنتظر.',
   'practiceFiftyClaimStep2':
       'طالبت — الثمانية في يدك والمؤقت اختفى. الآن أثبت النداء: العب الثمانيات الثلاث.',
   'practiceFiftyClaimStep2Hint':
