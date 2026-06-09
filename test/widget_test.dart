@@ -142,9 +142,26 @@ void main() {
     await tester.tap(find.text('About & Licenses'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Card themes'), findsOneWidget);
-    expect(find.text('Sandline Lounge'), findsWidgets);
+    // The brand header sits at the top of the licenses list.
     expect(find.byType(AppBrandMark), findsOneWidget);
+
+    // The themes attribution section is lower in the lazily-built ListView, so
+    // scroll each entry into view before asserting rather than depending on the
+    // initial viewport / cache extent (which made these asserts environment-
+    // and order-dependent).
+    final licensesScroll = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(
+      find.text('Card themes'),
+      200,
+      scrollable: licensesScroll,
+    );
+    expect(find.text('Card themes'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Sandline Lounge').first,
+      200,
+      scrollable: licensesScroll,
+    );
+    expect(find.text('Sandline Lounge'), findsWidgets);
   });
 
   testWidgets('saved match resumes onto the table and can be abandoned', (
