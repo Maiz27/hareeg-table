@@ -13,6 +13,7 @@ import '../../../../domain/classic_hareeg/reporting/match_diagnostic_log.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/audio/table_audio.dart';
+import '../../../core/cards/card_theme.dart';
 import '../../../core/feedback/lounge_toast.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
@@ -160,7 +161,10 @@ class _MatchOverScreenState extends State<MatchOverScreen>
   }
 
   Future<void> _exportCompletedMatchReport() async {
-    final choice = await showMatchReportConfirmation(context);
+    final choice = await showMatchReportConfirmation(
+      context,
+      highContrast: CardContrastScope.enabledOf(context),
+    );
     if (!mounted || choice == null) {
       return;
     }

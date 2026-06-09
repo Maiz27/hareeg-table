@@ -271,7 +271,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Match report copied to clipboard.'), findsOneWidget);
-    expect(clipboard.text, isNotNull);
+    final decoded = ClassicHareegMatchReport.fromJson(
+      _jsonMap(jsonDecode(clipboard.text!)),
+    );
+    expect(decoded.stage, MatchReportStage.completed);
+    expect(decoded.matchProgress!.matchWinner, PlayerSeat.south);
     await tester.pump(const Duration(seconds: 3));
   });
 
