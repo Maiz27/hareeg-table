@@ -2294,10 +2294,16 @@ class _GameTableScreenState extends State<GameTableScreen>
     final totalWatch = Stopwatch()..start();
     final isRoundOver = _controller.isRoundOver;
     final scoreView = _controller.scoreView;
+    // Once the human is eliminated the match is over for them: don't deal a
+    // CPU-only next round (which would also persist as a resumable spectator
+    // match). A null next-round snapshot makes the persistence plan abandon the
+    // match and the round-advance plan open match-over.
+    final shouldDealNextRound = isRoundOver && !_controller.isHumanEliminated;
     final persistencePlan = ClassicHareegTablePersistencePlanner.plan(
       isRoundOver: isRoundOver,
       activeSnapshot: isRoundOver ? null : _controller.toSnapshot(),
-      nextRoundSnapshot: isRoundOver ? _controller.nextRoundSnapshot() : null,
+      nextRoundSnapshot:
+          shouldDealNextRound ? _controller.nextRoundSnapshot() : null,
       roundResult: _controller.roundResult,
       scoreView: scoreView,
     );
