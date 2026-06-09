@@ -151,7 +151,12 @@ void main() {
       find.byKey(const ValueKey('match-over-export-report')),
     );
     await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // The confirmation sheet explains the contents before anything is shared.
+    expect(find.text('Report this table'), findsOneWidget);
+    await tester.tap(find.text('Share report'));
+    await tester.pumpAndSettle();
 
     expect(
       find.text(
@@ -188,7 +193,9 @@ void main() {
       find.byKey(const ValueKey('match-over-export-report')),
     );
     await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share report'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Match report ready to share.'), findsOneWidget);
     expect(find.text('Copy report'), findsOneWidget);
@@ -206,6 +213,88 @@ void main() {
     );
     expect(decoded.stage, MatchReportStage.completed);
     expect(decoded.matchProgress!.matchWinner, PlayerSeat.south);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('confirmation sheet can be dismissed without exporting', (
+    tester,
+  ) async {
+    final clipboard = _RecordingClipboardGateway();
+    await tester.pumpWidget(
+      _app(
+        arguments: _arguments(),
+        reportExporter: MatchReportExporter(
+          shareGateway: const _SuccessfulShareGateway(),
+          clipboardGateway: clipboard,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('match-over-export-report')),
+    );
+    await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
+    await tester.pumpAndSettle();
+
+    // The body explains the report stays free of personal data.
+    expect(
+      find.textContaining('does not include your name'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report this table'), findsNothing);
+    expect(find.text('Match report ready to share.'), findsNothing);
+    expect(clipboard.text, isNull);
+  });
+
+  testWidgets('copy choice copies the report directly', (tester) async {
+    final clipboard = _RecordingClipboardGateway();
+    await tester.pumpWidget(
+      _app(
+        arguments: _arguments(),
+        reportExporter: MatchReportExporter(
+          shareGateway: const _SuccessfulShareGateway(),
+          clipboardGateway: clipboard,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('match-over-export-report')),
+    );
+    await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy report'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Match report copied to clipboard.'), findsOneWidget);
+    expect(clipboard.text, isNotNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('copy failure explains that copying failed', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        arguments: _arguments(),
+        reportExporter: const MatchReportExporter(
+          shareGateway: _SuccessfulShareGateway(),
+          clipboardGateway: _ThrowingClipboardGateway(),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('match-over-export-report')),
+    );
+    await tester.tap(find.byKey(const ValueKey('match-over-export-report')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy report'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not copy the match report.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -530,4 +619,13 @@ class _SuccessfulShareGateway implements MatchReportShareGateway {
     required String text,
     required String mimeType,
   }) async {}
+}
+
+class _ThrowingClipboardGateway implements MatchReportClipboardGateway {
+  const _ThrowingClipboardGateway();
+
+  @override
+  Future<void> copyText(String text) async {
+    throw Exception('clipboard unavailable');
+  }
 }

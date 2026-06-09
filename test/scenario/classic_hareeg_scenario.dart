@@ -5,6 +5,7 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 /// Thin builder over [ClassicHareegGameController] that lets a test read like
@@ -85,6 +86,7 @@ class ClassicHareegScenario {
     DateTime? savedAt,
     DateTime? fiftyWindowOpenedAt,
     DateTime Function()? now,
+    MatchRecorder? recorder,
   }) {
     final effectiveSetup = setup ?? ClassicHareegSetup.defaults();
     final base = ClassicHareegRound.deal(setup: effectiveSetup, seed: seed);
@@ -137,7 +139,11 @@ class ClassicHareegScenario {
     );
 
     return ClassicHareegScenario._(
-      ClassicHareegGameController.fromSnapshot(snapshot, now: now),
+      ClassicHareegGameController.fromSnapshot(
+        snapshot,
+        now: now,
+        recorder: recorder,
+      ),
     );
   }
 

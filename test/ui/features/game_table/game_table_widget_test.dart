@@ -119,6 +119,29 @@ void main() {
       expect(find.byType(PauseOverlay), findsNothing);
     });
 
+    testWidgets('reporting a table issue confirms contents before sharing', (
+      tester,
+    ) async {
+      await _openTable(tester);
+      await tester.tap(find.byTooltip('Pause'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Report table issue'));
+      await tester.pumpAndSettle();
+
+      // A transient confirmation sheet — not a permanent panel — explains the
+      // contents before anything is generated or shared.
+      expect(find.text('Report this table'), findsOneWidget);
+      expect(find.textContaining('does not include your name'), findsOneWidget);
+      expect(find.text('Share report'), findsOneWidget);
+      expect(find.text('Copy report'), findsOneWidget);
+
+      // Dismissing leaves the table untouched — nothing is exported.
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Report this table'), findsNothing);
+    });
+
     testWidgets('turning off table sounds keeps card-tap haptics active', (
       tester,
     ) async {

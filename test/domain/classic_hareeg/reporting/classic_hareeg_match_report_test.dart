@@ -5,6 +5,9 @@ import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.d
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/classic_hareeg_match_report_v1.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_action_transcript.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_diagnostic_event.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_diagnostic_log.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 
 void main() {
@@ -100,6 +103,63 @@ void main() {
       expect(decoded.matchProgress!.matchWinner, PlayerSeat.south);
       expect(decoded.scores[PlayerSeat.east], 31);
       expect(decoded.snapshot.roundNumber, 6);
+    });
+
+    test('carries diagnostics and transcript through a JSON round-trip', () {
+      final snapshot = _snapshot(seed: 53);
+      final diagnostics = MatchDiagnosticLog(capacity: 16)
+        ..record(
+          category: MatchDiagnosticCategory.fifty,
+          type: 'fiftyClaimed',
+          roundNumber: 1,
+          seat: PlayerSeat.south,
+          phase: TurnPhase.draw,
+        );
+      final transcript = MatchActionTranscript(
+        initialSnapshot: snapshot,
+        entries: const [
+          MatchActionTranscriptEntry(
+            order: 0,
+            seat: PlayerSeat.south,
+            roundNumber: 1,
+            phase: TurnPhase.action,
+            actionId: 'draw-stock',
+          ),
+        ],
+      );
+      final report = ClassicHareegMatchReport.active(
+        app: _app,
+        platform: 'windows',
+        generatedAt: DateTime.utc(2026, 6, 9, 16),
+        snapshot: snapshot,
+        diagnostics: diagnostics,
+        transcript: transcript,
+      );
+
+      final decoded = ClassicHareegMatchReport.fromJson(report.toJson());
+
+      expect(decoded.diagnostics, isNotNull);
+      expect(decoded.diagnostics!.events.single.type, 'fiftyClaimed');
+      expect(decoded.transcript, isNotNull);
+      expect(decoded.transcript!.entries.single.actionId, 'draw-stock');
+      expect(decoded.transcript!.initialSnapshot.seed, 53);
+    });
+
+    test('omits diagnostics and transcript keys when absent', () {
+      final report = ClassicHareegMatchReport.active(
+        app: _app,
+        platform: 'windows',
+        generatedAt: DateTime.utc(2026, 6, 9, 17),
+        snapshot: _snapshot(seed: 59),
+      );
+      final json = report.toJson();
+
+      expect(json.containsKey('diagnostics'), isFalse);
+      expect(json.containsKey('transcript'), isFalse);
+      // Older tooling that never wrote these fields still parses fine.
+      final decoded = ClassicHareegMatchReport.fromJson(json);
+      expect(decoded.diagnostics, isNull);
+      expect(decoded.transcript, isNull);
     });
 
     test('parsing tolerates additive unknown fields', () {
