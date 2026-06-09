@@ -5,6 +5,8 @@ import '../models/player_seat.dart';
 import '../persistence/persistence_codec.dart';
 import '../rules/match_progression_rules.dart';
 import 'classic_hareeg_match_report.dart';
+import 'match_action_transcript.dart';
+import 'match_diagnostic_log.dart';
 
 /// Match-report schema version implemented by this file.
 const int matchReportV1Version = 1;
@@ -49,6 +51,8 @@ ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
 
   final roundResultJson = asJsonMap(json['roundResult']);
   final matchProgressJson = asJsonMap(json['matchProgress']);
+  final diagnosticsJson = asJsonMap(json['diagnostics']);
+  final transcriptJson = asJsonMap(json['transcript']);
 
   return ClassicHareegMatchReport(
     app: _appMetadataFromJson(appJson),
@@ -68,6 +72,12 @@ ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
     matchProgress: matchProgressJson == null
         ? null
         : _matchProgressFromJson(matchProgressJson),
+    diagnostics: diagnosticsJson == null
+        ? null
+        : MatchDiagnosticLog.fromJson(diagnosticsJson),
+    transcript: transcriptJson == null
+        ? null
+        : MatchActionTranscript.fromJson(transcriptJson),
   );
 }
 
@@ -93,6 +103,9 @@ Map<String, Object?> encodeMatchReportV1(ClassicHareegMatchReport report) {
       'roundResult': _roundResultToJson(report.roundResult!),
     if (report.matchProgress != null)
       'matchProgress': _matchProgressToJson(report.matchProgress!),
+    if (report.diagnostics != null)
+      'diagnostics': report.diagnostics!.toJson(),
+    if (report.transcript != null) 'transcript': report.transcript!.toJson(),
   };
 }
 
