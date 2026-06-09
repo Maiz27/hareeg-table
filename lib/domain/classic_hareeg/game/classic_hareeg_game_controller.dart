@@ -120,6 +120,7 @@ class ClassicHareegGameController {
          for (final entry in round.hands.entries)
            entry.key: List<HareegCard>.of(entry.value),
        },
+       _seed = round.seed,
        _stock = List<HareegCard>.of(round.stock),
        _discardPile = List<HareegCard>.of(round.discardPile),
        _tableMelds = {
@@ -165,6 +166,7 @@ class ClassicHareegGameController {
        setup = restored.setup,
        rules = restored.rules,
        _hands = restored.hands,
+       _seed = restored.seed,
        _stock = restored.stock,
        _discardPile = restored.discardPile,
        _tableMelds = restored.tableMelds,
@@ -219,6 +221,7 @@ class ClassicHareegGameController {
 
   final DateTime Function() _now;
   final Map<PlayerSeat, List<HareegCard>> _hands;
+  final int? _seed;
   final List<HareegCard> _stock;
   final List<HareegCard> _discardPile;
   final Map<PlayerSeat, List<PlacedMeld>> _tableMelds;
@@ -309,6 +312,9 @@ class ClassicHareegGameController {
 
   /// One-based dealt round number.
   int get roundNumber => _roundNumber;
+
+  /// Seed used to shuffle the current dealt round, when known.
+  int? get seed => _seed;
 
   /// Round number in which seats were eliminated during this controller's
   /// lifetime.
@@ -454,6 +460,7 @@ class ClassicHareegGameController {
     return ClassicHareegMatchSnapshot(
       setup: setup,
       hands: resumeState.hands,
+      seed: _seed,
       stock: List<HareegCard>.of(_stock),
       discardPile: List<HareegCard>.of(_discardPile),
       tableMelds: resumeState.tableMelds,
@@ -1561,7 +1568,8 @@ class ClassicHareegGameController {
       // Either the claimant proved a claimed Fifty, or a windowed take-discard
       // finished on the thrown card: both end the round as a Fifty.
       final fiftyDiscarder = claim?.discarder ?? windowedTake!.discarder;
-      final firstRound = claim?.isFirstDealtRound ?? windowedTake!.isFirstDealtRound;
+      final firstRound =
+          claim?.isFirstDealtRound ?? windowedTake!.isFirstDealtRound;
       _activeFiftyClaim = null;
       _windowedDiscardTake = null;
       _fiftyWindow = null;

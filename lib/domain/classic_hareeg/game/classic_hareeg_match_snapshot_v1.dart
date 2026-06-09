@@ -76,9 +76,7 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   // delta into the next round). Fail loud instead of guessing the round.
   final roundNumber = asJsonInt(json['roundNumber']);
   if (roundNumber == null || roundNumber <= 0) {
-    throw const FormatException(
-      'Saved match is missing a valid roundNumber.',
-    );
+    throw const FormatException('Saved match is missing a valid roundNumber.');
   }
 
   if (setupJson == null ||
@@ -112,6 +110,7 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
   return ClassicHareegMatchSnapshot(
     setup: ClassicHareegSetup.fromJson(setupJson),
     hands: hands,
+    seed: asJsonInt(json['seed']),
     stock: _cardsFromJson(stockJson),
     discardPile: _cardsFromJson(discardJson),
     tableMelds: _tableMeldsFromJson(tableMeldsJson),
@@ -149,10 +148,13 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
 }
 
 /// Encodes [snapshot] into a v1-format saved match JSON object.
-Map<String, Object?> encodeMatchSnapshotV1(ClassicHareegMatchSnapshot snapshot) {
+Map<String, Object?> encodeMatchSnapshotV1(
+  ClassicHareegMatchSnapshot snapshot,
+) {
   return {
     'version': matchSnapshotV1Version,
     'setup': snapshot.setup.toJson(),
+    'seed': snapshot.seed,
     'hands': {
       for (final entry in snapshot.hands.entries)
         entry.key.name: entry.value.map((card) => card.toJson()).toList(),
@@ -275,8 +277,5 @@ List<PlayerSeat> _seatListFromJson(
       seats.add(seat);
     }
   }
-  return seats.isEmpty
-      ? List.unmodifiable(fallback)
-      : List.unmodifiable(seats);
+  return seats.isEmpty ? List.unmodifiable(fallback) : List.unmodifiable(seats);
 }
-

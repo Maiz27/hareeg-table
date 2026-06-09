@@ -48,6 +48,7 @@ abstract final class ClassicHareegMatchRestoration {
         for (final entry in snapshot.hands.entries)
           entry.key: List<HareegCard>.of(entry.value),
       },
+      seed: snapshot.seed,
       stock: List<HareegCard>.of(snapshot.stock),
       discardPile: List<HareegCard>.of(snapshot.discardPile),
       tableMelds: {
@@ -148,6 +149,7 @@ class ClassicHareegRestoredMatchState {
     required this.setup,
     required this.rules,
     required this.hands,
+    required this.seed,
     required this.stock,
     required this.discardPile,
     required this.tableMelds,
@@ -181,6 +183,9 @@ class ClassicHareegRestoredMatchState {
 
   /// Detached live hands.
   final Map<PlayerSeat, List<HareegCard>> hands;
+
+  /// Seed used to shuffle the restored round, when known.
+  final int? seed;
 
   /// Detached live stock.
   final List<HareegCard> stock;

@@ -51,6 +51,22 @@ void main() {
     }
   });
 
+  test('records explicit and generated seeds for replay', () {
+    final setup = ClassicHareegSetup.defaults();
+    final explicit = ClassicHareegRound.deal(setup: setup, seed: 7);
+    final generated = ClassicHareegRound.deal(setup: setup);
+    final replay = ClassicHareegRound.deal(setup: setup, seed: generated.seed);
+
+    expect(explicit.seed, 7);
+    expect(generated.seed, inInclusiveRange(0, 0x7FFFFFFE));
+    expect(replay.handFor(PlayerSeat.south).map((card) => card.id), [
+      for (final card in generated.handFor(PlayerSeat.south)) card.id,
+    ]);
+    expect(replay.stock.map((card) => card.id), [
+      for (final card in generated.stock) card.id,
+    ]);
+  });
+
   test('single deck with no jokers cannot deal four seats', () {
     // The setup picker only exposes 2-4 decks, but the round factory must
     // still refuse to deal an under-sized deck. 52 cards is one short of the
