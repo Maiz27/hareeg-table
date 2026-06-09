@@ -279,6 +279,19 @@ class ClassicHareegGameController {
   String? _previousDiscardFinishCacheKey;
   bool? _previousDiscardFinishCacheValue;
   ClassicHareegFinishPlan? _previousDiscardFinishPlanCacheValue;
+  // Stock-exhaustion liveness backstop. Once stock is empty, the only cards
+  // that can still leave a hand do so by being melded or covered onto the
+  // table — taking and re-discarding the pile is net-zero. So the total card
+  // count across active hands is monotonically non-increasing while stock is
+  // empty. If a full rotation of active seats passes with no reduction in that
+  // total, no seat can make progress toward a finish: the round is dead and
+  // must be drawn. This guards against a seat that the finish detector believes
+  // can finish (an optimistic pickup/Fifty finish) but that never actually
+  // completes, taking and re-discarding the open window forever (a livelock the
+  // CPU loop would otherwise re-enter indefinitely). Null until stock first
+  // empties; reset whenever the active hand total drops (real progress).
+  int? _stockExhaustionHandTotalBaseline;
+  int _stockExhaustionNoProgressTurns = 0;
 
   /// Seat that received 15 cards and starts in action phase.
   PlayerSeat get starter => _starter;
@@ -1997,8 +2010,16 @@ class ClassicHareegGameController {
     }
 
     final plan = _drawDecisionPlanFor(_currentSeat);
+    if (!plan.stockIsEmpty) {
+      // Stock still has cards: liveness can't stall, so clear any accrued
+      // no-progress accounting and skip the empty-stock checks entirely.
+      _stockExhaustionHandTotalBaseline = null;
+      _stockExhaustionNoProgressTurns = 0;
+      return;
+    }
+
     var shouldDraw = plan.shouldEndRoundAsDraw;
-    if (!shouldDraw && plan.stockIsEmpty) {
+    if (!shouldDraw) {
       // A hopeless (invalid) Fifty claim is advertised for the human's optional
       // paid-mistake flow, which keeps `shouldEndRoundAsDraw` false. It has no
       // strategic value, so once stock is exhausted and neither a valid Fifty
@@ -2015,6 +2036,24 @@ class ClassicHareegGameController {
           plan.canTakePreviousDiscard && plan.pickupWouldFinish;
       shouldDraw = !hasValidFiftyFinish && !pickupFinish;
     }
+
+    if (!shouldDraw && _stockExhaustionLivelockReached()) {
+      // Liveness backstop: a seat the finish detector believes can finish (an
+      // optimistic pickup/Fifty finish) but that never actually completes will
+      // take and re-discard the open window forever. A full rotation of active
+      // seats has now passed with no reduction in total hand cards, so the
+      // round can never progress toward a finish — draw it directly. The normal
+      // stock-exhaustion planner would decline here (it sees a pickup finish),
+      // so the draw is forced rather than routed through it.
+      _completeRound(
+        ClassicHareegTurnExitPlanner.roundResult(
+          type: RoundOutcomeType.draw,
+          remainingCardCounts: _remainingCardCounts(),
+        ),
+      );
+      return;
+    }
+
     if (!shouldDraw) {
       return;
     }
@@ -2028,6 +2067,33 @@ class ClassicHareegGameController {
     if (result != null) {
       _completeRound(result);
     }
+  }
+
+  /// Tracks per-turn progress while stock is empty and reports whether a full
+  /// rotation of active seats has now elapsed with no progress (no card melded
+  /// or covered out of any hand). See [_stockExhaustionHandTotalBaseline].
+  bool _stockExhaustionLivelockReached() {
+    final handTotal = _activeHandCardTotal();
+    final baseline = _stockExhaustionHandTotalBaseline;
+    if (baseline == null || handTotal < baseline) {
+      // First empty-stock turn, or real progress since the last check: a card
+      // left a hand onto the table. Restart the no-progress count from here.
+      _stockExhaustionHandTotalBaseline = handTotal;
+      _stockExhaustionNoProgressTurns = 1;
+      return false;
+    }
+    _stockExhaustionNoProgressTurns += 1;
+    // One turn per active seat without progress is a complete dead rotation.
+    return _stockExhaustionNoProgressTurns > _roundActiveSeats.length;
+  }
+
+  /// Total cards held across every seat still active in the round.
+  int _activeHandCardTotal() {
+    var total = 0;
+    for (final seat in _roundActiveSeats) {
+      total += cardCountFor(seat);
+    }
+    return total;
   }
 
   ClassicHareegDrawDecisionPlan _drawDecisionPlanFor(PlayerSeat seat) {
