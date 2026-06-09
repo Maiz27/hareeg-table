@@ -163,6 +163,14 @@ class _GameTableScreenState extends State<GameTableScreen>
   // controller hasn't applied the move yet. Used to lock the UI so a second
   // tap doesn't queue a parallel action against the same controller state.
   bool _isHumanActionPending = false;
+  // Counts consecutive humanRemoved auto-restarts of the CPU loop after it hit
+  // the per-run safety cap without the round ending. The engine now terminates
+  // a stock-exhausted dead round as a draw, so a healthy run reaches round-over
+  // and resets this. The bound is a backstop: if some future state still failed
+  // to progress, an unbounded `scheduleMicrotask(_runCpuTurns)` would spin the
+  // table forever (the original freeze). Reset on any round-over / new round.
+  int _cpuAutoRestarts = 0;
+  static const _maxCpuAutoRestarts = 12;
   bool _scoreOpen = false;
   bool _pauseOpen = false;
   Set<String>? _placedJokerSnapshot;
@@ -2193,7 +2201,16 @@ class _GameTableScreenState extends State<GameTableScreen>
       // would deadlock waiting for input. Re-enter the loop instead; the
       // round will end naturally on stock exhaustion or a CPU finish.
       final humanRemoved = _controller.removedSeats.contains(PlayerSeat.south);
-      final shouldAutoRestart = hitCpuSafetyLimit && humanRemoved;
+      // Bound the auto-restart so a non-progressing round can never spin the
+      // table forever. The engine draws a dead stock-exhausted round, so a real
+      // game stops re-entering well before this cap; exceeding it means progress
+      // has genuinely stalled and we stop rather than freeze.
+      if (!hitCpuSafetyLimit || _controller.isRoundOver) {
+        _cpuAutoRestarts = 0;
+      }
+      final shouldAutoRestart = hitCpuSafetyLimit &&
+          humanRemoved &&
+          _cpuAutoRestarts < _maxCpuAutoRestarts;
       setState(() {
         _isCpuRunning = false;
         _activeFlights.clear();
@@ -2209,6 +2226,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         }
       });
       if (shouldAutoRestart && mounted) {
+        _cpuAutoRestarts += 1;
         // Defer to the next microtask so the surrounding setState commits
         // before the recursive call grabs the running flag again.
         scheduleMicrotask(() {
