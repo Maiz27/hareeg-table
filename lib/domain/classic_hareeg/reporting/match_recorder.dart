@@ -78,7 +78,9 @@ class MatchRecorder {
       roundNumber: roundNumber,
       seat: seat,
       phase: phase,
-      data: {'hintId': hintId, ...data},
+      // Canonical hintId wins: a stray 'hintId' in caller data must not
+      // override the function's argument, so it is spread first.
+      data: {...data, 'hintId': hintId},
     );
   }
 

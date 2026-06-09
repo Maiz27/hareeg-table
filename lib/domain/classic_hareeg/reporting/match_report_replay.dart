@@ -215,8 +215,10 @@ List<String> describeSnapshotMismatch({
   final wantStock = _sortedIds(expected.stock.map((c) => c.id));
   final gotStock = _sortedIds(actual.stock.map((c) => c.id));
   if (!_listEquals(wantStock, gotStock)) {
-    lines.add('stock count: expected ${wantStock.length}, '
-        'got ${gotStock.length}');
+    // Emit the full (sorted) contents, not just counts, so a composition
+    // mismatch — same size, different cards — is visible. Matches the
+    // discard-pile/hand reporting below and above.
+    lines.add('stock: expected $wantStock, got $gotStock');
   }
 
   final wantDiscard = expected.discardPile.map((c) => c.id).toList();
