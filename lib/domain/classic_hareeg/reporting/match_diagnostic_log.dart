@@ -20,20 +20,32 @@ class MatchDiagnosticLog {
     final capacity = asJsonInt(json['capacity']) ?? 200;
     final eventsJson = asJsonList(json['events']) ?? const [];
     final log = MatchDiagnosticLog(capacity: capacity < 1 ? 200 : capacity);
-    var maxOrder = -1;
+    final parsed = <MatchDiagnosticEvent>[];
     for (final raw in eventsJson) {
       final map = asJsonMap(raw);
       if (map == null) {
         throw const FormatException('Invalid match diagnostic event entry.');
       }
-      final event = MatchDiagnosticEvent.fromJson(map);
+      parsed.add(MatchDiagnosticEvent.fromJson(map));
+    }
+    // Enforce the ring-buffer invariant even for a hand-edited / corrupt report
+    // that carries more events than the cap: keep the most recent `capacity`
+    // and fold the overflow into droppedCount so the log never reads as
+    // complete when it was truncated.
+    var extraDropped = 0;
+    if (parsed.length > log.capacity) {
+      extraDropped = parsed.length - log.capacity;
+      parsed.removeRange(0, extraDropped);
+    }
+    var maxOrder = -1;
+    for (final event in parsed) {
       log._events.add(event);
       if (event.order > maxOrder) {
         maxOrder = event.order;
       }
     }
     log._nextOrder = maxOrder + 1;
-    log._droppedCount = asJsonInt(json['droppedCount']) ?? 0;
+    log._droppedCount = (asJsonInt(json['droppedCount']) ?? 0) + extraDropped;
     return log;
   }
 

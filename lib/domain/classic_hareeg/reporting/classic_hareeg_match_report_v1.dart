@@ -51,8 +51,12 @@ ClassicHareegMatchReport decodeMatchReportV1(Map<String, Object?> json) {
 
   final roundResultJson = asJsonMap(json['roundResult']);
   final matchProgressJson = asJsonMap(json['matchProgress']);
-  final diagnosticsJson = asJsonMap(json['diagnostics']);
-  final transcriptJson = asJsonMap(json['transcript']);
+  // The optional embedded objects: absent/null means "this report omits them"
+  // (additive v1 fields), but a present value of the wrong shape is corruption
+  // that would otherwise be silently dropped — surface it instead of producing
+  // a report that quietly lost its diagnostics/transcript.
+  final diagnosticsJson = _optionalReportObject(json, 'diagnostics');
+  final transcriptJson = _optionalReportObject(json, 'transcript');
 
   return ClassicHareegMatchReport(
     app: _appMetadataFromJson(appJson),
@@ -107,6 +111,28 @@ Map<String, Object?> encodeMatchReportV1(ClassicHareegMatchReport report) {
       'diagnostics': report.diagnostics!.toJson(),
     if (report.transcript != null) 'transcript': report.transcript!.toJson(),
   };
+}
+
+/// Reads an optional embedded object field. Returns null when the key is
+/// absent or explicitly null (the field is simply omitted), but throws when a
+/// value is present with a non-object shape so corruption is not silently
+/// decoded as "missing".
+Map<String, Object?>? _optionalReportObject(
+  Map<String, Object?> json,
+  String key,
+) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+  final map = asJsonMap(value);
+  if (map == null) {
+    throw FormatException(
+      'Invalid match report "$key": expected an object, '
+      'got ${value.runtimeType}.',
+    );
+  }
+  return map;
 }
 
 MatchReportAppMetadata _appMetadataFromJson(Map<String, Object?> json) {

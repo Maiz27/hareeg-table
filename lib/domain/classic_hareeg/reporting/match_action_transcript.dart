@@ -36,6 +36,20 @@ class MatchActionTranscriptEntry {
         actionId == null) {
       throw const FormatException('Invalid match transcript entry.');
     }
+    // Enforce the entry invariants the recorder always upholds, so a corrupt
+    // transcript fails fast instead of replaying nonsense: order is a
+    // zero-based counter, rounds are one-based, and an action id is non-blank.
+    if (order < 0) {
+      throw FormatException('Invalid match transcript entry order: $order.');
+    }
+    if (roundNumber < 1) {
+      throw FormatException(
+        'Invalid match transcript entry round number: $roundNumber.',
+      );
+    }
+    if (actionId.trim().isEmpty) {
+      throw const FormatException('Empty match transcript entry action id.');
+    }
     return MatchActionTranscriptEntry(
       order: order,
       seat: seat,
@@ -98,15 +112,27 @@ class MatchActionTranscript {
     if (initialJson == null || entriesJson == null) {
       throw const FormatException('Invalid match transcript.');
     }
+    final entries = <MatchActionTranscriptEntry>[];
+    var previousOrder = -1;
+    for (final raw in entriesJson) {
+      final entry = MatchActionTranscriptEntry.fromJson(
+        asJsonMap(raw) ??
+            (throw const FormatException('Invalid transcript entry.')),
+      );
+      // Order is a strictly-increasing match-wide counter; a non-increasing
+      // step means the transcript was reordered or corrupted.
+      if (entry.order <= previousOrder) {
+        throw FormatException(
+          'Non-monotonic match transcript order: ${entry.order} '
+          'after $previousOrder.',
+        );
+      }
+      previousOrder = entry.order;
+      entries.add(entry);
+    }
     return MatchActionTranscript(
       initialSnapshot: ClassicHareegMatchSnapshot.fromJson(initialJson),
-      entries: [
-        for (final raw in entriesJson)
-          MatchActionTranscriptEntry.fromJson(
-            asJsonMap(raw) ??
-                (throw const FormatException('Invalid transcript entry.')),
-          ),
-      ],
+      entries: entries,
     );
   }
 
