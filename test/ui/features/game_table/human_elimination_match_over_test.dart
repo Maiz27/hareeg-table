@@ -12,11 +12,18 @@ import 'package:hareeg_table/ui/features/match_over/views/match_over_screen.dart
 import '../../../support/test_fixtures.dart';
 
 void main() {
-  ShowcaseCardFan.disableLoopingMotionForTesting = true;
-
   testWidgets(
     'resuming a match with the human eliminated by score opens match-over',
     (tester) async {
+      // Pin the home showcase fan, restoring the global afterwards so this test
+      // stays self-contained.
+      final priorLoopingMotion =
+          ShowcaseCardFan.disableLoopingMotionForTesting;
+      ShowcaseCardFan.disableLoopingMotionForTesting = true;
+      addTearDown(
+        () => ShowcaseCardFan.disableLoopingMotionForTesting =
+            priorLoopingMotion,
+      );
       // Mirrors the on-device freeze: round 2, the human (south) sits at 34 —
       // past the 31 elimination threshold — removed from the round by a Table
       // penalty, with three CPUs still active and the round NOT over. Pre-fix
