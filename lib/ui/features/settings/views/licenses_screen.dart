@@ -48,6 +48,8 @@ class _LicensesScreenState extends State<LicensesScreen> {
               children: [
                 const _AboutIntro(),
                 const _SectionBreak(),
+                const _OriginStory(),
+                const _SectionBreak(),
                 _LicenseSection(themes: widget.themes),
                 const _SectionBreak(),
                 const _SoundLicenseSection(),
@@ -137,6 +139,38 @@ class _AboutIntro extends StatelessWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _OriginStory extends StatelessWidget {
+  const _OriginStory();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.local_fire_department_outlined,
+              color: LoungeTokens.goldAccent,
+            ),
+            const SizedBox(width: LoungeTokens.space2),
+            Expanded(
+              child: Text(
+                strings.whyThisExistsHeader,
+                style: LoungeTokens.heading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        Text(strings.whyThisExistsBody, style: LoungeTokens.body),
       ],
     );
   }
