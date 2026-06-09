@@ -15,6 +15,8 @@ import '../rules/mistake_preset_rules.dart';
 import '../rules/opening_rules.dart';
 import '../rules/strictness_rule_profile.dart';
 import '../rules/turn_flow_rules.dart';
+import '../reporting/match_diagnostic_event.dart';
+import '../reporting/match_recorder.dart';
 import 'classic_hareeg_action.dart';
 import 'classic_hareeg_action_surface_planner.dart';
 import 'classic_hareeg_discard_eligibility.dart';
@@ -113,7 +115,9 @@ class ClassicHareegGameController {
   ClassicHareegGameController.fromRound(
     ClassicHareegRound round, {
     DateTime Function()? now,
+    MatchRecorder? recorder,
   }) : _now = now ?? DateTime.now,
+       _recorder = recorder,
        setup = round.setup,
        rules = round.rules,
        _hands = {
@@ -145,6 +149,7 @@ class ClassicHareegGameController {
        _turnJournal = ClassicHareegTurnJournal() {
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
+    _recorder?.captureInitialState(toSnapshot(savedAt: _now()));
   }
 
   /// Creates a controller restored from a persisted snapshot.
@@ -152,17 +157,21 @@ class ClassicHareegGameController {
     ClassicHareegMatchSnapshot snapshot, {
     ClassicHareegRules? rules,
     DateTime Function()? now,
+    MatchRecorder? recorder,
   }) {
     return ClassicHareegGameController._fromRestoredMatch(
       ClassicHareegMatchRestoration.fromSnapshot(snapshot, rules: rules),
       now: now,
+      recorder: recorder,
     );
   }
 
   ClassicHareegGameController._fromRestoredMatch(
     ClassicHareegRestoredMatchState restored, {
     DateTime Function()? now,
+    MatchRecorder? recorder,
   }) : _now = now ?? DateTime.now,
+       _recorder = recorder,
        setup = restored.setup,
        rules = restored.rules,
        _hands = restored.hands,
@@ -211,6 +220,7 @@ class ClassicHareegGameController {
     }
     _syncUnlockedBenchmarkWithTable();
     _evaluateRoundEnd();
+    _recorder?.captureInitialState(toSnapshot(savedAt: _now()));
   }
 
   /// Setup values used to deal the active round.
@@ -220,6 +230,11 @@ class ClassicHareegGameController {
   final ClassicHareegRules rules;
 
   final DateTime Function() _now;
+
+  /// Optional recorder fed the action transcript and diagnostic events at the
+  /// [applyAction] seam. Null in tests and CPU-only harnesses that don't export
+  /// reports, so recording adds zero overhead there.
+  final MatchRecorder? _recorder;
   final Map<PlayerSeat, List<HareegCard>> _hands;
   final int? _seed;
   final List<HareegCard> _stock;
@@ -652,7 +667,201 @@ class ClassicHareegGameController {
   /// Returns [ApplyActionResult.failure] when the action id is unknown or the
   /// action is illegal under the current rule state.
   ApplyActionResult applyAction(String actionId) {
-    return _ClassicHareegActionApplication(this).apply(actionId);
+    final recorder = _recorder;
+    if (recorder == null) {
+      return _ClassicHareegActionApplication(this).apply(actionId);
+    }
+
+    // Capture the pre-action context so diagnostic events report the acting
+    // seat/phase/round and so state transitions can be diffed after applying.
+    final seat = _currentSeat;
+    final phase = _phase;
+    final round = _roundNumber;
+    final scoresBefore = Map<PlayerSeat, int>.of(scores);
+    final wasRoundOver = isRoundOver;
+    final claimantBefore = fiftyClaimant;
+    final removedBefore = Set<PlayerSeat>.of(_removedSeats);
+
+    final result = _ClassicHareegActionApplication(this).apply(actionId);
+
+    _recordDiagnostics(
+      recorder: recorder,
+      actionId: actionId,
+      seat: seat,
+      phase: phase,
+      round: round,
+      result: result,
+      scoresBefore: scoresBefore,
+      wasRoundOver: wasRoundOver,
+      claimantBefore: claimantBefore,
+      removedBefore: removedBefore,
+    );
+
+    if (result.isSuccess && !result.wasReverted) {
+      recorder.recordAction(
+        seat: seat,
+        roundNumber: round,
+        phase: phase,
+        actionId: actionId,
+      );
+    }
+    return result;
+  }
+
+  /// Emits the notable diagnostic events for one applied action.
+  ///
+  /// Only meaningful transitions are logged — illegal actions, penalty reverts,
+  /// scoring changes, Fifty window/claim transitions, round finishes, and
+  /// notable CPU decisions — so the capped log stays focused on the context
+  /// around a reported problem rather than every routine draw and discard
+  /// (those live in the full transcript instead).
+  void _recordDiagnostics({
+    required MatchRecorder recorder,
+    required String actionId,
+    required PlayerSeat seat,
+    required TurnPhase phase,
+    required int round,
+    required ApplyActionResult result,
+    required Map<PlayerSeat, int> scoresBefore,
+    required bool wasRoundOver,
+    required PlayerSeat? claimantBefore,
+    required Set<PlayerSeat> removedBefore,
+  }) {
+    final log = recorder.diagnostics;
+    final descriptor = ClassicHareegActionIds.describe(actionId);
+    final isCpu = seat != PlayerSeat.south;
+
+    if (!result.isSuccess) {
+      log.record(
+        category: MatchDiagnosticCategory.rules,
+        type: 'invalidAction',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          'actionId': actionId,
+          'kind': descriptor.kind.name,
+          'message': result.message,
+        },
+      );
+      return;
+    }
+
+    if (result.wasReverted) {
+      log.record(
+        category: MatchDiagnosticCategory.rules,
+        type: 'penaltyReverted',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          'actionId': actionId,
+          'kind': descriptor.kind.name,
+          if (result.revertedCardId != null)
+            'revertedCardId': result.revertedCardId,
+          'message': result.message,
+        },
+      );
+    }
+
+    final scoresAfter = scores;
+    if (!_scoresEqual(scoresBefore, scoresAfter)) {
+      log.record(
+        category: MatchDiagnosticCategory.scoring,
+        type: 'scoresChanged',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          'before': {
+            for (final entry in scoresBefore.entries) entry.key.name: entry.value,
+          },
+          'after': {
+            for (final entry in scoresAfter.entries) entry.key.name: entry.value,
+          },
+        },
+      );
+    }
+
+    final newlyRemoved = _removedSeats.difference(removedBefore);
+    if (newlyRemoved.isNotEmpty) {
+      log.record(
+        category: MatchDiagnosticCategory.rules,
+        type: 'seatRemoved',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          'removed': [for (final s in newlyRemoved) s.name],
+        },
+      );
+    }
+
+    final claimantAfter = fiftyClaimant;
+    if (claimantBefore != claimantAfter) {
+      log.record(
+        category: MatchDiagnosticCategory.fifty,
+        type: claimantAfter != null ? 'fiftyWindowOpened' : 'fiftyWindowClosed',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          if (claimantAfter != null) 'claimant': claimantAfter.name,
+        },
+      );
+    }
+
+    if (descriptor.kind == ClassicHareegActionKind.claimFifty) {
+      log.record(
+        category: MatchDiagnosticCategory.fifty,
+        type: 'fiftyClaimed',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+      );
+    }
+
+    final roundJustEnded = !wasRoundOver && isRoundOver;
+    if (roundJustEnded) {
+      final outcome = _roundResult;
+      log.record(
+        category: MatchDiagnosticCategory.finish,
+        type: 'roundEnded',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          if (roundOutcome != null) 'outcome': roundOutcome!.name,
+          if (outcome?.winner != null) 'winner': outcome!.winner!.name,
+        },
+      );
+    }
+
+    if (isCpu &&
+        (descriptor.kind == ClassicHareegActionKind.claimFifty ||
+            roundJustEnded)) {
+      log.record(
+        category: MatchDiagnosticCategory.ai,
+        type: 'cpuDecision',
+        roundNumber: round,
+        seat: seat,
+        phase: phase,
+        data: {
+          'actionId': actionId,
+          'kind': descriptor.kind.name,
+          'difficulty': setup.cpuDifficulty.name,
+        },
+      );
+    }
+  }
+
+  static bool _scoresEqual(Map<PlayerSeat, int> a, Map<PlayerSeat, int> b) {
+    for (final seat in PlayerSeat.values) {
+      if ((a[seat] ?? 0) != (b[seat] ?? 0)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Plays [cardIds] from [seat]'s hand as one validated table meld.
