@@ -21,6 +21,9 @@ migrate_working_dir/
 # Keep editor-local VS Code preferences out of commits.
 .vscode/
 
+# Per-machine Claude Code overrides (permission allowlists, local prefs).
+.claude/settings.local.json
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
