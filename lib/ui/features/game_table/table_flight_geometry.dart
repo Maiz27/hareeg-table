@@ -131,7 +131,10 @@ Offset resolveTableMeldSlot(
   Size size,
   Size flightCardSize,
 ) {
-  final compact = size.height <= 390 || size.width <= 700;
+  // Must match PhysicalTablePlayfield's `compact` (tableHeight <= 360) so the
+  // meld-slot maths uses the same card sizes/insets the lane renders with;
+  // otherwise heights in (360, 390] land the flight off-slot.
+  final compact = size.height <= 360 || size.width <= 700;
   final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
   final opponentCardSize = compact ? const Size(26, 36) : const Size(32, 44);
   final meldCardSize = compact ? const Size(32, 44) : const Size(38, 54);
