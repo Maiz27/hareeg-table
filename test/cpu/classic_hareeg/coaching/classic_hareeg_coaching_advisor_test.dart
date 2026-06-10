@@ -142,14 +142,18 @@ void main() {
 
   group('fiftyAvailable', () {
     test('seat owns the window and a finish uses the top discard', () {
-      // South holds two runs missing one card each; the top discard completes a
-      // finish (the partition must use the discard and leave <= 1 card).
+      // South holds a complete run, a run missing one card, and a junk 2♠ for
+      // the final discard; the top discard completes the finish. (A valid
+      // finish must END with a discard — a hand that melds everything with
+      // nothing left to throw is not claimable, which the engine's claim
+      // advertisement enforces.)
       final hand = [
         _c(CardRank.eight, CardSuit.diamonds),
         _c(CardRank.nine, CardSuit.diamonds),
         _c(CardRank.ten, CardSuit.diamonds),
         _c(CardRank.five, CardSuit.clubs),
         _c(CardRank.six, CardSuit.clubs),
+        _c(CardRank.two, CardSuit.spades),
       ];
       final topDiscard = _c(CardRank.seven, CardSuit.clubs);
       final scenario = ClassicHareegScenario.deal(
@@ -160,6 +164,9 @@ void main() {
         turnPhase: TurnPhase.draw,
         openingState: ScenarioCards.openedFor(PlayerSeat.south),
         fiftyWindowOpenedAt: DateTime.utc(2026, 5, 24),
+        // Pin the clock inside the claim window: the hint requires the claim
+        // to be LIVE on the legal surface, not merely a restored window.
+        now: () => DateTime.utc(2026, 5, 24, 0, 0, 1),
       );
 
       // The restoration opens a Fifty window for the current seat whenever the
@@ -378,7 +385,7 @@ void main() {
 
       expect(insights.first.category, CoachingInsightCategory.openNow);
       // The joker is framed as part of a meld to lay, not as a cover hint.
-      expect(_has(insights, CoachingInsightCategory.coverKeep), isFalse);
+      expect(_has(insights, CoachingInsightCategory.playCover), isFalse);
       expect(insights.first.highlightCardIds, contains(joker.id));
     });
 
@@ -904,24 +911,195 @@ void main() {
     });
   });
 
-  group('defensiveDiscard', () {
-    test('warns about a card whose rank an opponent picked up', () {
-      // East (an opponent of South) picked up the nine of clubs. South holds a
-      // legal-to-discard nine; discarding it would feed East.
-      final pickedUp = _c(CardRank.nine, CardSuit.clubs);
-      final southNine = _c(CardRank.nine, CardSuit.hearts, deckIndex: 4);
-      final hand = [
-        southNine,
-        _c(CardRank.two, CardSuit.spades),
-        _c(CardRank.five, CardSuit.diamonds),
-        _c(CardRank.king, CardSuit.hearts),
-      ];
+  group('hold-back warning (threat fold-in)', () {
+    // South's hand for most cases: the NAIVE throw (lowest keep-score) is the
+    // lone 9♥; the K♦ is the safe alternative; Q♠+J♠ are run partners worth
+    // keeping. The warning must fire ONLY when the naive throw is materially
+    // threatened AND the recommendation dodges it.
+    final southNine = _c(CardRank.nine, CardSuit.hearts, deckIndex: 4);
+    final kingDiamonds = _c(CardRank.king, CardSuit.diamonds);
+    List<HareegCard> warnableHand() => [
+      southNine,
+      kingDiamonds,
+      _c(CardRank.queen, CardSuit.spades),
+      _c(CardRank.jack, CardSuit.spades),
+    ];
+
+    test('warns when the natural throw feeds a collector, naming a safer '
+        'card', () {
+      // East picked up a nine: the rank tell. South's cheapest throw is its
+      // own nine — the coach must steer to the King and explain the hold-back.
       final scenario = ClassicHareegScenario.deal(
         setup: _coachingSetup(),
-        southHand: hand,
+        southHand: warnableHand(),
         currentSeat: PlayerSeat.south,
         turnPhase: TurnPhase.action,
         openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, southNine.id);
+      expect(suggestion.avoidOpponent, PlayerSeat.east);
+      expect(suggestion.avoidReason, CoachAvoidReason.collecting);
+      expect(suggestion.avoidRank, CardRank.nine);
+      expect(suggestion.discardCardId, isNot(southNine.id));
+    });
+
+    test('silent when the natural throw is already safe', () {
+      // Same nine pickup, but South's cheapest throw is a harmless 2♠ — the
+      // warning would not change the decision, so it must not fire (the
+      // playtest fixation: warning on every turn regardless of relevance).
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          southNine,
+          _c(CardRank.two, CardSuit.spades),
+          _c(CardRank.five, CardSuit.diamonds),
+          _c(CardRank.king, CardSuit.hearts),
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, isNull);
+      expect(suggestion.discardCardId, isNot(southNine.id));
+    });
+
+    test('an opponent merely DISCARDING a card is not "collecting" it', () {
+      // East discarded a nine (threw it away). A discard means the opponent
+      // did NOT want it, so it must not flag South's nine as risky — only
+      // deliberate pickups count. The turn-one false-positive the playtest
+      // surfaced.
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: warnableHand(),
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.discard,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, isNull);
+    });
+
+    test('tells from an opponent down to a few cards are stale', () {
+      // The owner's playtest complaint: East picked up a nine early, then
+      // melded down to two cards. It has stopped collecting from the pile —
+      // the warning must not keep firing on its stale tell.
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: warnableHand(),
+        eastHand: [
+          _c(CardRank.two, CardSuit.diamonds, deckIndex: 7),
+          _c(CardRank.six, CardSuit.spades, deckIndex: 7),
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south, PlayerSeat.east},
+        ),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, isNull);
+      // The right teaching for that opponent is the close-to-finish banner.
+      expect(
+        _has(insights, CoachingInsightCategory.opponentCloseToFinish),
+        isTrue,
+      );
+    });
+
+    test('a pickup the opponent has since melded onto the table is spent', () {
+      // East picked up the 9♣ and later laid it in a visible set: the tell is
+      // consumed — South's nine is no longer evidence of collecting.
+      final pickedUp = _c(CardRank.nine, CardSuit.clubs);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: warnableHand(),
+        tableMelds: {
+          PlayerSeat.east: [
+            _meld([
+              pickedUp,
+              _c(CardRank.nine, CardSuit.spades, deckIndex: 7),
+              _c(CardRank.nine, CardSuit.diamonds, deckIndex: 7),
+            ]),
+          ],
+        },
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south, PlayerSeat.east},
+        ),
         discardHistoryEvents: [
           DiscardEvent(
             seat: PlayerSeat.east,
@@ -937,69 +1115,34 @@ void main() {
         PlayerSeat.south,
       );
 
-      expect(
-        _has(insights, CoachingInsightCategory.defensiveDiscard),
-        isTrue,
-      );
-      final insight = _find(
+      final suggestion = _find(
         insights,
-        CoachingInsightCategory.defensiveDiscard,
+        CoachingInsightCategory.discardSuggestion,
       );
-      expect(insight.hotOpponent, PlayerSeat.east);
-      expect(insight.hotRank, CardRank.nine);
-      expect(insight.discardCardId, southNine.id);
+      expect(suggestion.avoidCardId, isNull);
     });
 
-    test('absent when no opponent is collecting any held rank or suit', () {
-      final hand = [
-        _c(CardRank.nine, CardSuit.hearts),
-        _c(CardRank.two, CardSuit.spades),
-        _c(CardRank.five, CardSuit.diamonds),
-        _c(CardRank.king, CardSuit.hearts),
-      ];
+    test('a suit pickup only marks adjacent ranks, not the whole suit', () {
+      // East picked up the 2♣. South's cheapest throw is a 9♣ — same suit but
+      // seven ranks away, no plausible run neighbour. The old suit-wide match
+      // (one clubs pickup poisons every club) was the fixation bug.
+      final nineClubs = _c(CardRank.nine, CardSuit.clubs, deckIndex: 4);
       final scenario = ClassicHareegScenario.deal(
         setup: _coachingSetup(),
-        southHand: hand,
-        currentSeat: PlayerSeat.south,
-        turnPhase: TurnPhase.action,
-        openingState: ScenarioCards.openedFor(PlayerSeat.south),
-      );
-
-      final insights = ClassicHareegCoachingAdvisor.adviseFor(
-        scenario.controller,
-        PlayerSeat.south,
-      );
-
-      expect(
-        _has(insights, CoachingInsightCategory.defensiveDiscard),
-        isFalse,
-      );
-    });
-
-    test('an opponent merely DISCARDING a suit is not "collecting" it', () {
-      // East discarded a nine of clubs (threw it away). A discard means the
-      // opponent did NOT want it, so it must not flag South's nine as risky —
-      // only deliberate pickups count. This is the turn-one false-positive the
-      // playtest surfaced.
-      final discarded = _c(CardRank.nine, CardSuit.clubs);
-      final southNine = _c(CardRank.nine, CardSuit.hearts, deckIndex: 4);
-      final hand = [
-        southNine,
-        _c(CardRank.two, CardSuit.spades),
-        _c(CardRank.five, CardSuit.diamonds),
-        _c(CardRank.king, CardSuit.hearts),
-      ];
-      final scenario = ClassicHareegScenario.deal(
-        setup: _coachingSetup(),
-        southHand: hand,
+        southHand: [
+          nineClubs,
+          kingDiamonds,
+          _c(CardRank.queen, CardSuit.spades),
+          _c(CardRank.jack, CardSuit.spades),
+        ],
         currentSeat: PlayerSeat.south,
         turnPhase: TurnPhase.action,
         openingState: ScenarioCards.openedFor(PlayerSeat.south),
         discardHistoryEvents: [
           DiscardEvent(
             seat: PlayerSeat.east,
-            card: discarded,
-            kind: DiscardEventKind.discard,
+            card: _c(CardRank.two, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
             sequence: 0,
           ),
         ],
@@ -1010,8 +1153,516 @@ void main() {
         PlayerSeat.south,
       );
 
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, isNull);
+      expect(suggestion.discardCardId, nineClubs.id);
+    });
+
+    test('a suit pickup at adjacent rank IS a run tell', () {
+      // East picked up the 8♣; South's cheapest throw is the 9♣ — a direct
+      // run neighbour. Warn and steer to the King.
+      final nineClubs = _c(CardRank.nine, CardSuit.clubs, deckIndex: 4);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          nineClubs,
+          kingDiamonds,
+          _c(CardRank.queen, CardSuit.spades),
+          _c(CardRank.jack, CardSuit.spades),
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.eight, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, nineClubs.id);
+      expect(suggestion.avoidReason, CoachAvoidReason.collecting);
+      expect(suggestion.avoidSuit, CardSuit.clubs);
+      expect(suggestion.discardCardId, isNot(nineClubs.id));
+    });
+
+    // NOTE: there is deliberately no run-end fold-in case here. A card that
+    // extends a visible table meld is cover-blocked from plain discard by the
+    // rules, so it never appears on the legal safe-discard surface the
+    // guidance picks from. The runEnd threat branch stays for parity with the
+    // Expert danger model (and any future tier where cover-discards are
+    // legal), but it cannot fire on the Coaching tier's legal surface.
+
+    test('silent when every legal throw is threatened', () {
+      // East collects both ranks South holds. A warning with no safer
+      // alternative is noise the player cannot act on.
+      final nineHearts = _c(CardRank.nine, CardSuit.hearts, deckIndex: 4);
+      final queenHearts = _c(CardRank.queen, CardSuit.hearts, deckIndex: 4);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [nineHearts, queenHearts],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.queen, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 1,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final suggestion = _find(
+        insights,
+        CoachingInsightCategory.discardSuggestion,
+      );
+      expect(suggestion.avoidCardId, isNull);
+    });
+
+    test('rides the opening-progress hint for an unopened seat', () {
+      // The fixation's worst case was pre-opening: the standalone warning
+      // permanently shadowed opening guidance. Now it rides ON the opening
+      // hint instead — keep cards ringed, a safe build-discard named, and the
+      // hot card held back.
+      final nineHearts = _c(CardRank.nine, CardSuit.hearts, deckIndex: 4);
+      final kingClubs = _c(CardRank.king, CardSuit.clubs);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          _c(CardRank.eight, CardSuit.diamonds),
+          _c(CardRank.nine, CardSuit.diamonds),
+          _c(CardRank.ten, CardSuit.diamonds),
+          nineHearts,
+          kingClubs,
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {},
+        ),
+        discardHistoryEvents: [
+          DiscardEvent(
+            seat: PlayerSeat.east,
+            card: _c(CardRank.nine, CardSuit.clubs),
+            kind: DiscardEventKind.pickup,
+            sequence: 0,
+          ),
+        ],
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final opening = _find(insights, CoachingInsightCategory.openingProgress);
+      expect(opening.avoidCardId, nineHearts.id);
+      expect(opening.avoidOpponent, PlayerSeat.east);
+      expect(opening.discardCardId, kingClubs.id);
+      // No standalone warning category exists to shadow the opening guidance.
+      expect(insights.first.category, CoachingInsightCategory.openingProgress);
+    });
+  });
+
+  group('fiftyHold', () {
+    final finishingHand = [
+      _c(CardRank.eight, CardSuit.diamonds),
+      _c(CardRank.nine, CardSuit.diamonds),
+      _c(CardRank.ten, CardSuit.diamonds),
+      _c(CardRank.five, CardSuit.clubs),
+      _c(CardRank.six, CardSuit.clubs),
+      _c(CardRank.seven, CardSuit.clubs),
+      _c(CardRank.two, CardSuit.spades),
+    ];
+
+    test('replaces the finish hint when Expert would hold for a Fifty', () {
+      // Finishing hand, deep stock, heavy pips, and East at high-risk score:
+      // Expert holds the finish, so the coach explains the hold instead of
+      // contradicting the brain with "you can win".
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: finishingHand,
+        scores: const {PlayerSeat.east: 27},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(_has(insights, CoachingInsightCategory.finishAvailable), isFalse);
+      final hold = _find(insights, CoachingInsightCategory.fiftyHold);
+      expect(insights.first.category, CoachingInsightCategory.fiftyHold);
+      expect(hold.subjectSeat, PlayerSeat.east);
+      expect(hold.subjectIsSelf, isFalse);
+      expect(hold.subjectValue, 27);
+      // The finish partition still rings so the player sees the choice.
+      expect(hold.highlightCardIds, isNotEmpty);
+    });
+
+    test('names the player when their own score motivates the hold', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: finishingHand,
+        scores: const {PlayerSeat.south: 26},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final hold = _find(insights, CoachingInsightCategory.fiftyHold);
+      expect(hold.subjectIsSelf, isTrue);
+      expect(hold.subjectValue, 26);
+    });
+
+    test('plain finish when no one is at high-risk score', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: finishingHand,
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(insights.first.category, CoachingInsightCategory.finishAvailable);
+      expect(_has(insights, CoachingInsightCategory.fiftyHold), isFalse);
+    });
+  });
+
+  group('takeAndFinish', () {
+    final nearFinishHand = [
+      _c(CardRank.eight, CardSuit.diamonds),
+      _c(CardRank.nine, CardSuit.diamonds),
+      _c(CardRank.five, CardSuit.clubs),
+      _c(CardRank.six, CardSuit.clubs),
+      _c(CardRank.seven, CardSuit.clubs),
+      _c(CardRank.two, CardSuit.spades),
+    ];
+
+    test('takes over when the Fifty claim window has lapsed', () {
+      // The 10♦ tops the pile and completes 8-9-10♦; the rest of the hand is
+      // a complete run + the final discard. The restored window's timer has
+      // long expired (real clock vs the 2026-05-24 save), so the claim is no
+      // longer on the legal surface — but the finish is still there for −1.
+      // The claim-vs-take lesson, live.
+      final ten = _c(CardRank.ten, CardSuit.diamonds);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: nearFinishHand,
+        discardPile: [ten],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(insights.first.category, CoachingInsightCategory.takeAndFinish);
+      final take = _find(insights, CoachingInsightCategory.takeAndFinish);
+      expect(take.highlightCardIds, contains(ten.id));
+    });
+
+    test('yields to the Fifty claim while the window is the seat\'s', () {
+      final ten = _c(CardRank.ten, CardSuit.diamonds);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: nearFinishHand,
+        discardPile: [ten],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        fiftyWindowOpenedAt: DateTime.utc(2026, 5, 24),
+        now: () => DateTime.utc(2026, 5, 24, 0, 0, 1),
+      );
+
+      expect(scenario.controller.fiftyClaimant, PlayerSeat.south);
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(_has(insights, CoachingInsightCategory.takeAndFinish), isFalse);
+      expect(insights.first.category, CoachingInsightCategory.fiftyAvailable);
+    });
+
+    test('absent when the discard does not finish the hand', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: nearFinishHand,
+        discardPile: [_c(CardRank.king, CardSuit.hearts)],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(_has(insights, CoachingInsightCategory.takeAndFinish), isFalse);
+    });
+  });
+
+  group('baitDiscard', () {
+    test('flags a pickup that fits the hand but cannot open', () {
+      // Unopened South with a low pair; the third 2 completes a set worth far
+      // below the 51 requirement. Taking it only reveals the plan — the bait
+      // lesson, surfaced instead of silence.
+      final bait = _c(CardRank.two, CardSuit.diamonds);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          _c(CardRank.two, CardSuit.spades),
+          _c(CardRank.two, CardSuit.hearts),
+          _c(CardRank.nine, CardSuit.clubs),
+          _c(CardRank.king, CardSuit.diamonds),
+        ],
+        discardPile: [bait],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {},
+        ),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
       expect(
-        _has(insights, CoachingInsightCategory.defensiveDiscard),
+        _has(insights, CoachingInsightCategory.pickupCompletesMeld),
+        isFalse,
+      );
+      final baitInsight = _find(insights, CoachingInsightCategory.baitDiscard);
+      expect(baitInsight.highlightCardIds, contains(bait.id));
+    });
+
+    test('absent for an opened seat — any completing pickup is fine', () {
+      final bait = _c(CardRank.two, CardSuit.diamonds);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          _c(CardRank.two, CardSuit.spades),
+          _c(CardRank.two, CardSuit.hearts),
+          _c(CardRank.nine, CardSuit.clubs),
+          _c(CardRank.king, CardSuit.diamonds),
+        ],
+        discardPile: [bait],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(_has(insights, CoachingInsightCategory.baitDiscard), isFalse);
+      expect(
+        _has(insights, CoachingInsightCategory.pickupCompletesMeld),
+        isTrue,
+      );
+    });
+  });
+
+  group('stage banners', () {
+    test('scorePosture: own high-risk score', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        scores: const {PlayerSeat.south: 27},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final posture = _find(insights, CoachingInsightCategory.scorePosture);
+      expect(posture.subjectIsSelf, isTrue);
+      expect(posture.subjectValue, 27);
+      expect(posture.subjectThreshold, isNotNull);
+    });
+
+    test('scorePosture: opponent at elimination-target score', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        scores: const {PlayerSeat.west: 29},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final posture = _find(insights, CoachingInsightCategory.scorePosture);
+      expect(posture.subjectIsSelf, isFalse);
+      expect(posture.subjectSeat, PlayerSeat.west);
+      expect(posture.subjectValue, 29);
+    });
+
+    test('scorePosture: absent at calm scores', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        scores: const {PlayerSeat.south: 10, PlayerSeat.east: 24},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(_has(insights, CoachingInsightCategory.scorePosture), isFalse);
+    });
+
+    test('endgameStockLow fires at the Expert thin-stock threshold', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        stock: [
+          _c(CardRank.three, CardSuit.spades, deckIndex: 7),
+          _c(CardRank.four, CardSuit.diamonds, deckIndex: 7),
+          _c(CardRank.five, CardSuit.spades, deckIndex: 7),
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final banner = _find(insights, CoachingInsightCategory.endgameStockLow);
+      expect(banner.subjectValue, 3);
+    });
+
+    test('opponentCloseToFinish names the shortest opened opponent hand', () {
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        eastHand: [
+          _c(CardRank.two, CardSuit.diamonds, deckIndex: 7),
+          _c(CardRank.six, CardSuit.spades, deckIndex: 7),
+        ],
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.east},
+        ),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final banner = _find(
+        insights,
+        CoachingInsightCategory.opponentCloseToFinish,
+      );
+      expect(banner.subjectSeat, PlayerSeat.east);
+      expect(banner.subjectValue, 2);
+    });
+
+    test('benchmarkAlert fires only on a raised, foreign benchmark', () {
+      final raised = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 68,
+          openedSeats: {PlayerSeat.west},
+          benchmarkOwner: PlayerSeat.west,
+        ),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        raised.controller,
+        PlayerSeat.south,
+      );
+
+      final banner = _find(insights, CoachingInsightCategory.benchmarkAlert);
+      expect(banner.subjectSeat, PlayerSeat.west);
+      expect(banner.openingRequirement, 68);
+
+      final unraised = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.west},
+        ),
+      );
+
+      expect(
+        _has(
+          ClassicHareegCoachingAdvisor.adviseFor(
+            unraised.controller,
+            PlayerSeat.south,
+          ),
+          CoachingInsightCategory.benchmarkAlert,
+        ),
         isFalse,
       );
     });
@@ -1296,8 +1947,8 @@ void main() {
       // CoachingInsightCategory declares its values in descending priority order
       // — the single source of truth the advisor sorts by. Many playtest fixes
       // were "category X must outrank category Y" (drawStock over openingProgress,
-      // playCover over coverKeep, discardSuggestion over defensiveDiscard), so
-      // pin that the ladder never silently inverts or collides.
+      // takeAndFinish over pickupCompletesMeld, stage banners over the floors),
+      // so pin that the ladder never silently inverts or collides.
       final categories = CoachingInsightCategory.values;
       for (var i = 1; i < categories.length; i += 1) {
         expect(

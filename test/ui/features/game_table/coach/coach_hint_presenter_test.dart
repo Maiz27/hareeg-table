@@ -55,22 +55,6 @@ void main() {
       expect(hint.situationKey, contains('top'));
     });
 
-    test('cover advice is framed as a positive keep hint', () {
-      final hint = present(
-        const CoachingInsight(
-          category: CoachingInsightCategory.coverKeep,
-          priority: 500,
-          coverCardId: 'c1',
-          highlightCardIds: ['c1'],
-        ),
-      );
-      expect(hint.accent, CoachAccent.coach);
-      expect(hint.intensity, CoachIntensity.quiet);
-      expect(hint.title, 'Worth keeping');
-      expect(hint.body, contains('Keep the King of Spades'));
-      expect(hint.body, isNot(contains('discard')));
-    });
-
     test('joker advice is an unambiguous swap action, not a keep hint', () {
       // Regression: the copy used to say "Keep the X. Play it to swap…", which
       // contradicts itself. It must read as a single clear action and rings the
@@ -89,20 +73,175 @@ void main() {
       expect(hint.ringCardIds, ['c1', 'm1', 'm2', 'm3']);
     });
 
-    test('defensive discard is the only avoid-framed hint', () {
+    test('discard suggestion folds in a collecting hold-back warning', () {
       final hint = present(
         const CoachingInsight(
-          category: CoachingInsightCategory.defensiveDiscard,
-          priority: 300,
-          discardCardId: 'c1',
-          hotOpponent: PlayerSeat.east,
-          hotSuit: CardSuit.hearts,
-          highlightCardIds: ['c1'],
+          category: CoachingInsightCategory.discardSuggestion,
+          priority: 350,
+          discardCardId: 'd1',
+          avoidCardId: 'c1',
+          avoidOpponent: PlayerSeat.east,
+          avoidReason: CoachAvoidReason.collecting,
+          avoidRank: CardRank.king,
+          highlightCardIds: ['d1'],
         ),
       );
-      expect(hint.title, 'Hold this back');
-      expect(hint.body, contains('Avoid discarding the King of Spades'));
-      expect(hint.body, contains('Hearts'));
+      expect(hint.body, contains('Hold back the King of Spades'));
+      expect(hint.body, contains('picking up'));
+      // The hold-back card rings cool (it stays in hand); the recommended
+      // throw rings warm.
+      expect(hint.ringCardIds, ['c1']);
+      expect(hint.discardRingCardIds, ['d1']);
+      // The hold-back card participates in the situation key so a changed
+      // warning re-animates the callout.
+      expect(hint.situationKey, contains('c1'));
+    });
+
+    test('discard suggestion folds in a run-end hold-back warning', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.discardSuggestion,
+          priority: 350,
+          discardCardId: 'd1',
+          avoidCardId: 'c1',
+          avoidOpponent: PlayerSeat.east,
+          avoidReason: CoachAvoidReason.runEnd,
+          highlightCardIds: ['d1'],
+        ),
+      );
+      expect(hint.body, contains('Hold back the King of Spades'));
+      expect(hint.body, contains('run'));
+    });
+
+    test('take-and-finish is an urgent discard-zone win moment', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.takeAndFinish,
+          priority: 880,
+          highlightCardIds: ['top'],
+        ),
+        topDiscard: seven,
+      );
+      expect(hint.intensity, CoachIntensity.popIn);
+      expect(hint.accent, CoachAccent.finish);
+      expect(hint.zone, CoachZone.discard);
+      expect(hint.title, 'Take it and finish');
+      expect(hint.body, contains('Seven of Hearts'));
+      expect(hint.body, contains('−1'));
+    });
+
+    test('fifty-hold explains the trade against an opponent score', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.fiftyHold,
+          priority: 860,
+          subjectSeat: PlayerSeat.west,
+          subjectValue: 27,
+          highlightCardIds: ['a', 'b', 'c'],
+          meldGroups: [
+            ['a', 'b', 'c'],
+          ],
+        ),
+      );
+      expect(hint.accent, CoachAccent.fifty);
+      expect(hint.intensity, CoachIntensity.quiet);
+      expect(hint.body, contains('finish now'));
+      expect(hint.body, contains('27'));
+      expect(hint.ringCardIds, ['a', 'b', 'c']);
+    });
+
+    test('fifty-hold self variant cites the player\'s own score', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.fiftyHold,
+          priority: 860,
+          subjectSeat: PlayerSeat.south,
+          subjectIsSelf: true,
+          subjectValue: 26,
+        ),
+      );
+      expect(hint.body, contains('26'));
+      expect(hint.body, contains('you'));
+    });
+
+    test('score posture banners pick the self vs target copy', () {
+      final self = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.scorePosture,
+          priority: 380,
+          subjectSeat: PlayerSeat.south,
+          subjectIsSelf: true,
+          subjectValue: 27,
+          subjectThreshold: 31,
+        ),
+      );
+      expect(self.title, 'Watch your score');
+      expect(self.body, contains('27'));
+      expect(self.body, contains('31'));
+
+      final target = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.scorePosture,
+          priority: 380,
+          subjectSeat: PlayerSeat.east,
+          subjectValue: 29,
+        ),
+      );
+      expect(target.title, 'Press the lead');
+      expect(target.body, contains('29'));
+    });
+
+    test('stock-low banner anchors to the discard zone with the count', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.endgameStockLow,
+          priority: 375,
+          subjectValue: 5,
+        ),
+      );
+      expect(hint.zone, CoachZone.discard);
+      expect(hint.body, contains('5'));
+      expect(hint.body, contains('draw'));
+    });
+
+    test('opponent-close banner names the seat and count', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.opponentCloseToFinish,
+          priority: 370,
+          subjectSeat: PlayerSeat.north,
+          subjectValue: 2,
+        ),
+      );
+      expect(hint.body, contains('2 cards'));
+    });
+
+    test('benchmark banner carries the raised requirement', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.benchmarkAlert,
+          priority: 365,
+          subjectSeat: PlayerSeat.west,
+          openingRequirement: 68,
+        ),
+      );
+      expect(hint.title, 'The bar was raised');
+      expect(hint.body, contains('68'));
+    });
+
+    test('bait banner explains why the tempting discard stays', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.baitDiscard,
+          priority: 360,
+          highlightCardIds: ['top'],
+        ),
+        topDiscard: seven,
+      );
+      expect(hint.zone, CoachZone.discard);
+      expect(hint.title, 'Let it lie');
+      expect(hint.body, contains('Seven of Hearts'));
+      expect(hint.body, contains('reveals'));
     });
 
     test('open-now carries the meld groups for grouped ring colours', () {

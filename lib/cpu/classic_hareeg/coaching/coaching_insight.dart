@@ -13,12 +13,31 @@ import '../../../domain/classic_hareeg/models/playing_card.dart';
 /// The relative order is load-bearing (many playtest fixes were "category X must
 /// outrank category Y"), so a test asserts this ladder stays strictly
 /// descending.
+///
+/// The ladder has three bands:
+/// - WIN/WINDOW moments (1000–860): finishes and Fifty decisions.
+/// - PLAYS (800–400): the concrete move the Expert brain would make now.
+/// - STAGE banners (380–360): once-per-round posture teaching, surfaced through
+///   [CoachInsightFlow] so each shows for a single turn per round and never
+///   shadows the per-turn floors permanently.
+/// - FLOORS (350–200): the guidance that keeps every turn non-silent.
 enum CoachingInsightCategory {
   /// The seat can empty its hand and finish the round this turn.
   finishAvailable(1000),
 
   /// The seat owns a valid Fifty/Khamsin claim on the current top discard.
   fiftyAvailable(900),
+
+  /// No Fifty window is open for the seat, but taking the top discard still
+  /// finishes the hand for the normal −1 — the claim-vs-take distinction that
+  /// confused real players. Outranks the plain pickup hint.
+  takeAndFinish(880),
+
+  /// The seat CAN finish, but the Expert brain would hold the finish to chase
+  /// a Fifty (deep stock, heavy hand, someone at high-risk score). Replaces
+  /// [finishAvailable] in that posture so the coach explains the hold instead
+  /// of silently contradicting it with a discard suggestion.
+  fiftyHold(860),
 
   /// An unopened seat whose best partition already meets the opening
   /// requirement — it can open this turn.
@@ -32,27 +51,39 @@ enum CoachingInsightCategory {
 
   /// The seat should lay a hand card off as a cover onto a meld on the table
   /// (its own or an opponent's) this turn — the Expert brain's chosen play.
-  /// Distinct from [coverKeep], which only says a card is worth holding.
   playCover(550),
-
-  /// A hand card covers/extends one of the seat's own table melds, framed as a
-  /// positive KEEP/teaching insight. No longer emitted by the advisor: cover
-  /// advice is now driven by the Expert plan's chosen move ([playCover] /
-  /// finish-by-cover), so the coach never re-derives a bespoke "keep" cover that
-  /// could diverge from the brain. The value (and its presenter copy) is retained
-  /// for the priority ladder and any future plan-sourced keep framing.
-  coverKeep(500),
 
   /// A joker the seat could replace on the table, or hold for a bigger meld.
   jokerAdvice(400),
 
+  /// Stage banner: the score situation changes correct play — the seat itself
+  /// is near elimination (finish fast, stay light), or an opponent is one bad
+  /// round from elimination (finishing now hurts them most).
+  scorePosture(380),
+
+  /// Stage banner: the stock is thin — stop building, shed into the table;
+  /// an exhausted stock with no finish is a drawn round.
+  endgameStockLow(375),
+
+  /// Stage banner: an opened opponent is down to a few cards — every card
+  /// still in the seat's hand is a point if they finish.
+  opponentCloseToFinish(370),
+
+  /// Stage banner: a benchmark owner has raised the opening requirement past
+  /// the seat's best openable value.
+  benchmarkAlert(365),
+
+  /// Stage banner: the top discard fits the seat's hand but cannot reach the
+  /// opening requirement — taking it only reveals the seat's plan (the
+  /// bait-discard lesson, live).
+  baitDiscard(360),
+
   /// The seat owes a discard to end the turn and has no productive play left:
   /// the coach recommends a specific, safe card to throw. The action-phase
   /// counterpart to [drawStock] — it keeps the hand-by-hand guidance moving.
+  /// May carry a hold-back warning ([CoachingInsight.avoidCardId]) when the
+  /// obvious throw is materially dangerous and the recommendation dodges it.
   discardSuggestion(350),
-
-  /// A legal discard whose rank/suit an opponent is visibly collecting.
-  defensiveDiscard(300),
 
   /// Nothing better is available this turn: drawing from the stock is the
   /// sensible default. Sits above [openingProgress] so that in the draw phase an
@@ -62,7 +93,8 @@ enum CoachingInsightCategory {
   drawStock(250),
 
   /// An unopened seat whose best partition falls short of the requirement.
-  /// Surfaces in the action phase, where a draw is no longer owed.
+  /// Surfaces in the action phase, where a draw is no longer owed. May carry a
+  /// hold-back warning like [discardSuggestion].
   openingProgress(200);
 
   const CoachingInsightCategory(this.priority);
@@ -71,6 +103,27 @@ enum CoachingInsightCategory {
   /// category so the ordering lives in one readable table instead of scattered
   /// band constants at each call site.
   final int priority;
+
+  /// Whether this category is a once-per-round STAGE banner (deduplicated by
+  /// the UI's insight flow) rather than per-turn guidance.
+  bool get isStageBanner => switch (this) {
+    scorePosture ||
+    endgameStockLow ||
+    opponentCloseToFinish ||
+    benchmarkAlert ||
+    baitDiscard => true,
+    _ => false,
+  };
+}
+
+/// Why a hold-back ([CoachingInsight.avoidCardId]) warning fired.
+enum CoachAvoidReason {
+  /// The card slots directly onto an opponent's visible run on the table.
+  runEnd,
+
+  /// An opponent has been deliberately picking up matching cards from the
+  /// discard pile (rank match, or same suit at adjacent rank).
+  collecting,
 }
 
 /// One structured, localization-free coaching insight.
@@ -86,9 +139,6 @@ class CoachingInsight {
     this.openingShortfall,
     this.openingBestValue,
     this.openingRequirement,
-    this.hotSuit,
-    this.hotRank,
-    this.hotOpponent,
     this.coverCardId,
     this.coverMeldOwner,
     this.coverMeldIndex,
@@ -96,6 +146,15 @@ class CoachingInsight {
     this.jokerCardId,
     this.jokerReplacementActionId,
     this.discardCardId,
+    this.avoidCardId,
+    this.avoidOpponent,
+    this.avoidReason,
+    this.avoidRank,
+    this.avoidSuit,
+    this.subjectSeat,
+    this.subjectIsSelf = false,
+    this.subjectValue,
+    this.subjectThreshold,
     this.coverFinishes = false,
     this.coverIsChoice = false,
     this.highlightCardIds = const [],
@@ -114,25 +173,18 @@ class CoachingInsight {
   /// For opening insights: the best openable partition value found.
   final int? openingBestValue;
 
-  /// For opening insights: the current opening requirement.
+  /// For opening insights and [CoachingInsightCategory.benchmarkAlert]: the
+  /// current opening requirement.
   final int? openingRequirement;
 
-  /// For [CoachingInsightCategory.defensiveDiscard]: the suit being collected.
-  final CardSuit? hotSuit;
-
-  /// For [CoachingInsightCategory.defensiveDiscard]: the rank being collected.
-  final CardRank? hotRank;
-
-  /// For [CoachingInsightCategory.defensiveDiscard]: the collecting opponent.
-  final PlayerSeat? hotOpponent;
-
-  /// For [CoachingInsightCategory.coverKeep]: the hand card id that covers.
+  /// For [CoachingInsightCategory.playCover] (and the play-meld combine): the
+  /// hand card id that covers.
   final String? coverCardId;
 
-  /// For [CoachingInsightCategory.coverKeep]: owner of the extended meld.
+  /// For cover-carrying insights: owner of the extended meld.
   final PlayerSeat? coverMeldOwner;
 
-  /// For [CoachingInsightCategory.coverKeep]: index of the extended meld.
+  /// For cover-carrying insights: index of the extended meld.
   final int? coverMeldIndex;
 
   /// For [CoachingInsightCategory.openNow], [CoachingInsightCategory.playMeld]:
@@ -146,8 +198,44 @@ class CoachingInsight {
   /// the seat can swap a real card in for a represented table joker.
   final String? jokerReplacementActionId;
 
-  /// For [CoachingInsightCategory.defensiveDiscard]: the risky hand card id.
+  /// For discard-carrying insights: the recommended card id to throw.
   final String? discardCardId;
+
+  /// Hold-back warning: a hand card the player would plausibly throw (lowest
+  /// keep-score) that is materially dangerous, while [discardCardId] is a safe
+  /// alternative. Null when no warning applies — the common case.
+  final String? avoidCardId;
+
+  /// Hold-back warning: the threatened-by opponent.
+  final PlayerSeat? avoidOpponent;
+
+  /// Hold-back warning: why the card is dangerous.
+  final CoachAvoidReason? avoidReason;
+
+  /// Hold-back warning ([CoachAvoidReason.collecting]): the collected rank.
+  final CardRank? avoidRank;
+
+  /// Hold-back warning ([CoachAvoidReason.collecting]): the collected suit.
+  final CardSuit? avoidSuit;
+
+  /// Stage banners and [CoachingInsightCategory.fiftyHold]: the seat the
+  /// message is about (the near-elimination opponent, the nearly-finished
+  /// opponent, the benchmark owner, the Fifty-hold target).
+  final PlayerSeat? subjectSeat;
+
+  /// Whether [subjectSeat] is the coached seat itself (the presenter cannot
+  /// infer this — it has no seat context).
+  final bool subjectIsSelf;
+
+  /// Stage banners: the number the message is about — a score
+  /// ([CoachingInsightCategory.scorePosture], [CoachingInsightCategory.fiftyHold]),
+  /// the stock size ([CoachingInsightCategory.endgameStockLow]), or an opponent
+  /// hand count ([CoachingInsightCategory.opponentCloseToFinish]).
+  final int? subjectValue;
+
+  /// For [CoachingInsightCategory.scorePosture] (self variant): the score at
+  /// which a seat is eliminated, for "31 eliminates you" copy.
+  final int? subjectThreshold;
 
   /// For [CoachingInsightCategory.finishAvailable] surfaced as a finish-by-cover:
   /// covering every [highlightCardIds] card (grouped by [meldGroups]) empties the

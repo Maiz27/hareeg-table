@@ -167,13 +167,18 @@ abstract final class CoachHintPresenter {
               );
         // Combine the keep guidance with the discard so a single hint says both
         // "build toward N (keep these)" and "throw this one" — the keep cards
-        // ring teal/grouped, the discard card rings the warm discard hue.
+        // ring teal/grouped, the discard card rings the warm discard hue. A
+        // hold-back warning (the obvious throw is dangerous) rides along too.
         final openDiscardId = insight.discardCardId;
-        final body = openDiscardId == null
+        var body = openDiscardId == null
             ? progress
             : '$progress ${strings.coachDiscardToBuildSuffix(
                 identityForCardId(openDiscardId),
               )}';
+        final openAvoid = _avoidSuffix(insight, strings, identityForCardId);
+        if (openAvoid != null) {
+          body = '$body $openAvoid';
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachOpeningProgressTitle,
@@ -182,7 +187,12 @@ abstract final class CoachHintPresenter {
           zone: CoachZone.hand,
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.coach,
-          ringCardIds: insight.highlightCardIds,
+          // The hold-back card rings in the cool keep hue: the message is
+          // "this one stays in your hand for now".
+          ringCardIds: [
+            ...insight.highlightCardIds,
+            if (insight.avoidCardId != null) insight.avoidCardId!,
+          ],
           ringGroups: insight.meldGroups,
           discardRingCardIds: [?openDiscardId],
           situationKey: key,
@@ -217,21 +227,6 @@ abstract final class CoachHintPresenter {
           body: strings.coachPickupBody(topDiscardIdentity),
           icon: Icons.download_outlined,
           zone: CoachZone.discard,
-          intensity: CoachIntensity.quiet,
-          accent: CoachAccent.coach,
-          ringCardIds: insight.highlightCardIds,
-          situationKey: key,
-        );
-      case CoachingInsightCategory.coverKeep:
-        final cardId = insight.coverCardId;
-        return CoachHint(
-          category: insight.category,
-          title: strings.coachCoverKeepTitle,
-          body: strings.coachCoverKeepBody(
-            cardId == null ? null : identityForCardId(cardId),
-          ),
-          icon: Icons.push_pin_outlined,
-          zone: CoachZone.hand,
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.coach,
           ringCardIds: insight.highlightCardIds,
@@ -272,39 +267,133 @@ abstract final class CoachHintPresenter {
           ringCardIds: insight.highlightCardIds,
           situationKey: key,
         );
-      case CoachingInsightCategory.defensiveDiscard:
-        final cardId = insight.discardCardId;
-        return CoachHint(
-          category: insight.category,
-          title: strings.coachDefensiveTitle,
-          body: strings.coachDefensiveBody(
-            card: cardId == null ? null : identityForCardId(cardId),
-            opponent: insight.hotOpponent!,
-            rank: insight.hotRank,
-            suit: insight.hotSuit,
-          ),
-          icon: Icons.shield_outlined,
-          zone: CoachZone.hand,
-          intensity: CoachIntensity.quiet,
-          accent: CoachAccent.coach,
-          ringCardIds: insight.highlightCardIds,
-          situationKey: key,
-        );
       case CoachingInsightCategory.discardSuggestion:
         final cardId = insight.discardCardId;
+        var discardBody = strings.coachDiscardBody(
+          cardId == null ? null : identityForCardId(cardId),
+        );
+        final discardAvoid = _avoidSuffix(insight, strings, identityForCardId);
+        if (discardAvoid != null) {
+          discardBody = '$discardBody $discardAvoid';
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachDiscardTitle,
-          body: strings.coachDiscardBody(
-            cardId == null ? null : identityForCardId(cardId),
-          ),
+          body: discardBody,
           icon: Icons.upload_outlined,
           zone: CoachZone.hand,
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.coach,
-          // "Discard this" rings in the warm discard hue, not the teal keep hue.
-          ringCardIds: const [],
+          // "Discard this" rings in the warm discard hue, not the teal keep
+          // hue; the hold-back card (if any) rings cool — it stays in hand.
+          ringCardIds: [?insight.avoidCardId],
           discardRingCardIds: [?cardId],
+          situationKey: key,
+        );
+      case CoachingInsightCategory.takeAndFinish:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachTakeAndFinishTitle,
+          body: strings.coachTakeAndFinishBody(topDiscardIdentity),
+          icon: Icons.emoji_events_outlined,
+          zone: CoachZone.discard,
+          intensity: CoachIntensity.popIn,
+          accent: CoachAccent.finish,
+          ringCardIds: insight.highlightCardIds,
+          situationKey: key,
+        );
+      case CoachingInsightCategory.fiftyHold:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachFiftyHoldTitle,
+          body: insight.subjectIsSelf
+              ? strings.coachFiftyHoldSelfBody(insight.subjectValue ?? 0)
+              : strings.coachFiftyHoldTargetBody(
+                  opponent: insight.subjectSeat!,
+                  score: insight.subjectValue ?? 0,
+                ),
+          icon: Icons.local_fire_department,
+          zone: CoachZone.hand,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.fifty,
+          ringCardIds: insight.highlightCardIds,
+          ringGroups: insight.meldGroups,
+          situationKey: key,
+        );
+      case CoachingInsightCategory.scorePosture:
+        return CoachHint(
+          category: insight.category,
+          title: insight.subjectIsSelf
+              ? strings.coachScoreSelfTitle
+              : strings.coachScoreTargetTitle,
+          body: insight.subjectIsSelf
+              ? strings.coachScoreSelfBody(
+                  score: insight.subjectValue ?? 0,
+                  threshold: insight.subjectThreshold ?? 31,
+                )
+              : strings.coachScoreTargetBody(
+                  opponent: insight.subjectSeat!,
+                  score: insight.subjectValue ?? 0,
+                ),
+          icon: Icons.leaderboard_outlined,
+          zone: CoachZone.hand,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.coach,
+          ringCardIds: const [],
+          situationKey: key,
+        );
+      case CoachingInsightCategory.endgameStockLow:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachStockLowTitle,
+          body: strings.coachStockLowBody(insight.subjectValue ?? 0),
+          icon: Icons.hourglass_bottom,
+          zone: CoachZone.discard,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.coach,
+          ringCardIds: const [],
+          situationKey: key,
+        );
+      case CoachingInsightCategory.opponentCloseToFinish:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachOpponentCloseTitle,
+          body: strings.coachOpponentCloseBody(
+            opponent: insight.subjectSeat!,
+            count: insight.subjectValue ?? 0,
+          ),
+          icon: Icons.timer_outlined,
+          zone: CoachZone.hand,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.coach,
+          ringCardIds: const [],
+          situationKey: key,
+        );
+      case CoachingInsightCategory.benchmarkAlert:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachBenchmarkTitle,
+          body: strings.coachBenchmarkBody(
+            owner: insight.subjectSeat!,
+            requirement: insight.openingRequirement ?? 0,
+          ),
+          icon: Icons.vertical_align_top,
+          zone: CoachZone.hand,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.coach,
+          ringCardIds: const [],
+          situationKey: key,
+        );
+      case CoachingInsightCategory.baitDiscard:
+        return CoachHint(
+          category: insight.category,
+          title: strings.coachBaitTitle,
+          body: strings.coachBaitBody(topDiscardIdentity),
+          icon: Icons.visibility_off_outlined,
+          zone: CoachZone.discard,
+          intensity: CoachIntensity.quiet,
+          accent: CoachAccent.coach,
+          ringCardIds: insight.highlightCardIds,
           situationKey: key,
         );
       case CoachingInsightCategory.drawStock:
@@ -336,8 +425,43 @@ abstract final class CoachHintPresenter {
     }
   }
 
+  // The hold-back warning line riding on a discard-carrying hint, or null
+  // when the insight carries none.
+  static String? _avoidSuffix(
+    CoachingInsight insight,
+    AppStrings strings,
+    CoachIdentityLookup identityForCardId,
+  ) {
+    final avoidId = insight.avoidCardId;
+    final opponent = insight.avoidOpponent;
+    if (avoidId == null || opponent == null) {
+      return null;
+    }
+    final identity = identityForCardId(avoidId);
+    return switch (insight.avoidReason) {
+      CoachAvoidReason.runEnd => strings.coachAvoidRunEndSuffix(
+        card: identity,
+        opponent: opponent,
+      ),
+      CoachAvoidReason.collecting || null => strings.coachAvoidCollectingSuffix(
+        card: identity,
+        opponent: opponent,
+        rank: insight.avoidRank,
+        suit: insight.avoidSuit,
+      ),
+    };
+  }
+
   static String _situationKey(CoachingInsight insight) {
     final ids = [...insight.highlightCardIds]..sort();
-    return '${insight.category.name}:${ids.join(',')}';
+    // Subject/avoid params re-animate the callout when the message materially
+    // changes even though the ringed cards did not (e.g. the hold-back card
+    // changes, or a banner's number moves).
+    final extras = [
+      if (insight.avoidCardId != null) 'a:${insight.avoidCardId}',
+      if (insight.subjectSeat != null) 's:${insight.subjectSeat!.name}',
+      if (insight.subjectValue != null) 'v:${insight.subjectValue}',
+    ].join(',');
+    return '${insight.category.name}:${ids.join(',')}:$extras';
   }
 }

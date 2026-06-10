@@ -29,7 +29,10 @@ typedef _LegalCover = ({
 /// classify the human player's situation into prioritized [CoachingInsight]s.
 ///
 /// The advisor emits localization-free structured data only; mapping each
-/// insight to EN/AR text is the UI stage's job.
+/// insight to EN/AR text is the UI stage's job. Cross-turn dedup (stage
+/// banners showing once per round) is also the UI stage's job
+/// ([CoachInsightFlow]) — the advisor stays pure and re-emits every applicable
+/// insight on every call.
 abstract final class ClassicHareegCoachingAdvisor {
   // Insight priorities live on [CoachingInsightCategory] (a single descending
   // ladder); each builder passes its category's `.priority` so the ordering is
@@ -38,9 +41,15 @@ abstract final class ClassicHareegCoachingAdvisor {
   // Cap matching the Expert planner's partition fan-out.
   static const _partitionLimit = 256;
 
+  // An opened opponent at or below this many cards triggers the
+  // close-to-finish stage banner.
+  static const _opponentCloseHandMax = 3;
+
   /// Returns priority-sorted coaching insights for [seat] given [controller].
   ///
-  /// Highest-priority insight is first; callers may show only `result.first`.
+  /// Highest-priority insight is first; callers may show only `result.first`
+  /// (the live table routes the list through [CoachInsightFlow] so stage
+  /// banners dedupe per round).
   static List<CoachingInsight> adviseFor(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -59,6 +68,7 @@ abstract final class ClassicHareegCoachingAdvisor {
 
     _addFinish(controller, seat, observation, insights);
     _addFifty(controller, seat, observation, insights);
+    _addTakeAndFinish(controller, seat, observation, insights);
     _addOpening(controller, seat, observation, analysis, insights);
     _addPlayMeld(controller, seat, analysis, insights);
     _addPickup(controller, seat, observation, insights);
@@ -67,7 +77,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     // plan surfaced a cover instead.
     _addCover(controller, seat, analysis, insights);
     _addJokerAdvice(controller, seat, insights);
-    _addDefensiveDiscard(analysis, insights);
+    _addStageBanners(controller, seat, observation, insights);
     _addDiscardSuggestion(controller, seat, observation, analysis, insights);
     _addDrawStock(seat, observation, insights);
 
@@ -90,8 +100,11 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // 1. finishAvailable — the seat can empty its hand this turn. A finishing
-  // partition leaves <= 1 card remaining (the last card is the final discard).
+  // 1. finishAvailable / fiftyHold — the seat can empty its hand this turn. A
+  // finishing partition leaves <= 1 card remaining (the last card is the final
+  // discard). When the Expert brain would HOLD that finish to chase a Fifty,
+  // the coach must not contradict it with a bare "you can win": it surfaces
+  // fiftyHold instead, explaining the trade so the player can choose.
   static void _addFinish(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -144,6 +157,38 @@ abstract final class ClassicHareegCoachingAdvisor {
       return;
     }
     final highlight = [for (final card in finishing.cardsUsed) card.id];
+    // CPU-first: when Expert holds this finish for a Fifty, teach the hold —
+    // otherwise the visible discard suggestion below the finish looks wrong to
+    // a player who can see their own win.
+    if (ExpertCpuMovePlanner.holdsNormalFinishForFifty(observation)) {
+      final ownScore = observation.ownScore;
+      PlayerSeat subject = seat;
+      var subjectScore = ownScore;
+      var subjectIsSelf = true;
+      if (ownScore < ExpertCpuMovePlanner.highRiskScoreFloor) {
+        for (final opponent in observation.opponents) {
+          final score = observation.scoreFor(opponent);
+          if (score >= ExpertCpuMovePlanner.highRiskScoreFloor &&
+              (subjectIsSelf || score > subjectScore)) {
+            subject = opponent;
+            subjectScore = score;
+            subjectIsSelf = false;
+          }
+        }
+      }
+      out.add(
+        CoachingInsight(
+          category: CoachingInsightCategory.fiftyHold,
+          priority: CoachingInsightCategory.fiftyHold.priority,
+          subjectSeat: subject,
+          subjectIsSelf: subjectIsSelf,
+          subjectValue: subjectScore,
+          highlightCardIds: highlight,
+          meldGroups: _groupsOf(finishing),
+        ),
+      );
+      return;
+    }
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.finishAvailable,
@@ -154,10 +199,15 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // 2. fiftyAvailable — the seat owns the Fifty window AND a real finishing
-  // partition uses the top discard. This mirrors canSuccessfullyClaimFiftyFor
-  // but additionally requires the finish to consume the claimed discard so the
-  // claim is genuine rather than a wrong-claim mistake.
+  // 2. fiftyAvailable — the seat owns the Fifty window AND `claim-fifty` is
+  // live on the legal surface. The window object outlives its timer (it is
+  // only cleared by the next action), so gating on `fiftyClaimant` alone kept
+  // advising "Claim the Fifty" after the timer lapsed — an impossible action;
+  // once the advertisement is gone, the take-and-finish hint takes over and
+  // teaches the −1 path instead. No bespoke finish check is needed: on the
+  // coaching tier the engine only advertises the claim after validating a
+  // full finish proof (fiftyClaimNeedsFinishProofForAdvertise), including the
+  // cover-routed finishes a melds-only partition scan would miss.
   static void _addFifty(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -167,24 +217,13 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (observation.fiftyClaimant != seat) {
       return;
     }
-    final topDiscard = controller.topDiscard;
-    if (topDiscard == null) {
+    if (!observation.legalActionIds.contains(
+      ClassicHareegActionIds.claimFifty,
+    )) {
       return;
     }
-    // Require a finishing partition that consumes the claimed discard. We read
-    // the claim directly from `fiftyClaimant` + the partition primitive rather
-    // than the legal `claim-fifty` advertisement: that advertisement is gated
-    // on window timing/grace that a coaching hint should not depend on, and the
-    // spec defines availability as "seat is fiftyClaimant AND a real finishing
-    // partition uses the top discard".
-    final hand = controller.handFor(seat);
-    final withDiscard = [...hand, topDiscard];
-    final finishesOnDiscard = MeldPartitionEnumerator.partitionsOf(
-      withDiscard,
-      mustUseCardId: topDiscard.id,
-      safetyCap: _partitionLimit,
-    ).any((partition) => partition.cardsRemaining.length <= 1);
-    if (!finishesOnDiscard) {
+    final topDiscard = controller.topDiscard;
+    if (topDiscard == null) {
       return;
     }
     out.add(
@@ -196,9 +235,70 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // 3. openNow vs openingProgress — an unopened seat. Best openable value comes
+  // 3. takeAndFinish — no live Fifty claim is available to the seat, but
+  // taking the top discard still completes a finish for the normal −1. Teaches
+  // the claim-vs-take distinction (a lapsed window does NOT take the finish
+  // away, only the −3) that confused real players.
+  static void _addTakeAndFinish(
+    ClassicHareegGameController controller,
+    PlayerSeat seat,
+    CpuObservation observation,
+    List<CoachingInsight> out,
+  ) {
+    if (_containsCategory(out, CoachingInsightCategory.fiftyAvailable)) {
+      // The claim hint owns this discard while the claim is live.
+      return;
+    }
+    final topDiscard = controller.topDiscard;
+    if (topDiscard == null) {
+      return;
+    }
+    if (!observation.legalActionIds.contains(
+      ClassicHareegActionIds.takeDiscard,
+    )) {
+      return;
+    }
+    if (!_finishesOnTopDiscard(controller, seat, topDiscard)) {
+      return;
+    }
+    out.add(
+      CoachingInsight(
+        category: CoachingInsightCategory.takeAndFinish,
+        priority: CoachingInsightCategory.takeAndFinish.priority,
+        highlightCardIds: [topDiscard.id],
+      ),
+    );
+  }
+
+  // Whether [seat]'s hand plus [topDiscard] holds a finishing partition that
+  // consumes the discard AND leaves exactly one card as the final discard — a
+  // valid finish must end with a discard, so a partition that melds everything
+  // (zero remaining) is NOT a finish. Conservative on purpose: cover-routed
+  // finishes are not detected, so the hint can only under-promise, never
+  // advise an impossible take.
+  static bool _finishesOnTopDiscard(
+    ClassicHareegGameController controller,
+    PlayerSeat seat,
+    HareegCard topDiscard,
+  ) {
+    final hand = controller.handFor(seat);
+    final withDiscard = [...hand, topDiscard];
+    return MeldPartitionEnumerator.partitionsOf(
+      withDiscard,
+      mustUseCardId: topDiscard.id,
+      safetyCap: _partitionLimit,
+    ).any((partition) => partition.cardsRemaining.length == 1);
+  }
+
+  // 4. openNow vs openingProgress — an unopened seat. Best openable value comes
   // from the highest-value partition. If it clears the requirement we surface
   // openNow with the play action; otherwise openingProgress with the shortfall.
+  //
+  // Deliberate divergence from the Expert opening-band posture: Expert may open
+  // in the 70–80 band as first opener instead of at max value. The coach shows
+  // the max-value partition — "open fat as first opener" is the same defensible
+  // lesson, and ringing a partition the copy's number does not match would
+  // confuse more than the band nuance teaches.
   static void _addOpening(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -227,6 +327,7 @@ abstract final class ClassicHareegCoachingAdvisor {
       // No melds in hand: teach the (staged-adjusted) shortfall, and name the
       // lowest-potential card to shed (no keepers to protect yet).
       final shortfall = requirement - stagedValue;
+      final guidance = analysis.discardGuidance(keepIds: const {});
       out.add(
         CoachingInsight(
           category: CoachingInsightCategory.openingProgress,
@@ -234,12 +335,12 @@ abstract final class ClassicHareegCoachingAdvisor {
           openingShortfall: shortfall > 0 ? shortfall : 0,
           openingBestValue: stagedValue,
           openingRequirement: requirement,
-          discardCardId: _buildingDiscardId(
-            controller,
-            seat,
-            analysis,
-            const {},
-          ),
+          discardCardId: guidance?.discardCardId,
+          avoidCardId: guidance?.avoidCardId,
+          avoidOpponent: guidance?.avoidOpponent,
+          avoidReason: guidance?.avoidReason,
+          avoidRank: guidance?.avoidRank,
+          avoidSuit: guidance?.avoidSuit,
         ),
       );
       return;
@@ -262,6 +363,11 @@ abstract final class ClassicHareegCoachingAdvisor {
       );
       return;
     }
+    // Choose the discard from cards OUTSIDE the highlighted keep partition,
+    // so the hint never rings a card teal ("keep") and pink ("discard") at
+    // once — e.g. it must not tell you to shed the 4♣ that anchors the very
+    // 4-5-6-7 run it is telling you to keep.
+    final guidance = analysis.discardGuidance(keepIds: highlight.toSet());
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.openingProgress,
@@ -271,87 +377,27 @@ abstract final class ClassicHareegCoachingAdvisor {
         openingRequirement: requirement,
         highlightCardIds: highlight,
         meldGroups: _groupsOf(partition),
-        // Choose the discard from cards OUTSIDE the highlighted keep partition,
-        // so the hint never rings a card teal ("keep") and pink ("discard") at
-        // once — e.g. it must not tell you to shed the 4♣ that anchors the very
-        // 4-5-6-7 run it is telling you to keep.
-        discardCardId: _buildingDiscardId(
-          controller,
-          seat,
-          analysis,
-          highlight.toSet(),
-        ),
+        discardCardId: guidance?.discardCardId,
+        avoidCardId: guidance?.avoidCardId,
+        avoidOpponent: guidance?.avoidOpponent,
+        avoidReason: guidance?.avoidReason,
+        avoidRank: guidance?.avoidRank,
+        avoidSuit: guidance?.avoidSuit,
       ),
     );
   }
 
-  // The lowest-potential LEGAL safe discard among cards NOT in [keepIds] (the
-  // best opening partition the hint highlights). Potential-weighted via
-  // [discardKeepScore]; ties shed the higher pip first. Restricting to legal
-  // safe discards drops cover cards that cannot be discarded. Returns null in
-  // the draw phase (no legal discard) or when every legal card is a keeper.
-  static String? _buildingDiscardId(
-    ClassicHareegGameController controller,
-    PlayerSeat seat,
-    _CoachingAnalysis analysis,
-    Set<String> keepIds,
-  ) {
-    final hand = analysis.hand;
-    // Keep scores from the shared disjoint best-grouping model over the WHOLE
-    // hand: each card is scored by the value of the single meld / group it lands
-    // in, so a card already committed to a meld scores that meld's value and
-    // cannot inflate a loose deadwood neighbour (the A♥ locked in the aces set is
-    // not borrowed as a heart-run partner for a loose 2♥/3♥). No free-hand
-    // trimming is needed for scoring. [keepIds] is excluded from the discard
-    // CANDIDATES only — a UI contract so the hint never rings one card as both a
-    // "keep" (teal) and the recommended "discard" (rose).
-    final keepScores = analysis.keepScores;
-    HareegCard? pick;
-    var pickScore = 1 << 30;
-    var pickPip = 1 << 30;
-    for (final id in controller.legalActionIdsFor(seat)) {
-      final action = ClassicHareegActionIds.describe(id);
-      if (!action.isSafeDiscard || action.cardId == null) {
-        continue;
-      }
-      final cardId = action.cardId!;
-      if (keepIds.contains(cardId)) {
-        continue;
-      }
-      HareegCard? card;
-      for (final candidate in hand) {
-        if (candidate.id == cardId) {
-          card = candidate;
-          break;
-        }
-      }
-      if (card == null) {
-        continue;
-      }
-      final score = keepScores[card.id] ?? 0;
-      final pip = cardPipValue(card);
-      // Lowest keep-score wins; on a tie shed the LOWER pip so the higher-
-      // ceiling card is kept (mirrors the Expert comparator's value term).
-      if (pick == null ||
-          score < pickScore ||
-          (score == pickScore && pip < pickPip)) {
-        pick = card;
-        pickScore = score;
-        pickPip = pip;
-      }
-    }
-    return pick?.id;
-  }
-
-  // 4. playMeld — an opened seat that can lay a complete meld from hand.
+  // 5. playMeld — an opened seat that can lay a complete meld from hand.
   //
   // A full meld is always better coaching than breaking a single card off for a
-  // cover, so this must surface (priority 700) ahead of the cover hints (550 /
-  // 500) whenever a settable meld exists. We first trust an advertised play-meld
-  // id, then fall back to enumerating the hand directly: the legal surface's
-  // candidate generator can miss a valid meld, and a pending discard narrows the
-  // surface to only melds using that card — in both cases the player still has a
-  // complete meld worth laying, and the coach should point at it.
+  // cover, so this must surface (priority 700) ahead of the cover hint (550)
+  // whenever a settable meld exists. CPU-first: when the Expert plan's chosen
+  // move IS a meld play, present exactly that meld. Otherwise fall back to an
+  // advertised play-meld id, then to enumerating the hand directly: the legal
+  // surface's candidate generator can miss a valid meld, and a pending discard
+  // narrows the surface to only melds using that card — in both cases the
+  // player still has a complete meld worth laying, and the coach should point
+  // at it.
   static void _addPlayMeld(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -360,6 +406,14 @@ abstract final class ClassicHareegCoachingAdvisor {
   ) {
     if (!controller.openingState.hasOpened(seat)) {
       return;
+    }
+    final planMeldId = analysis.expertMeldActionId;
+    if (planMeldId != null) {
+      final action = ClassicHareegActionIds.describe(planMeldId);
+      if (action.isMeldPlay) {
+        _emitPlayMeld(controller, seat, action.cardIds, planMeldId, out);
+        return;
+      }
     }
     for (final id in controller.legalActionIdsFor(seat)) {
       final action = ClassicHareegActionIds.describe(id);
@@ -479,8 +533,13 @@ abstract final class ClassicHareegCoachingAdvisor {
     return null;
   }
 
-  // 5. pickupCompletesMeld — taking the top discard would complete/improve a
-  // meld: a legal partition uses the discard and leaves fewer cards in hand.
+  // 6. pickupCompletesMeld / baitDiscard — taking the top discard would
+  // complete/improve a meld: a legal partition uses the discard and leaves
+  // fewer cards in hand. For an UNOPENED seat the partition must also clear
+  // the opening requirement — a pickup that fits the hand but cannot open is
+  // the classic bait: taking it reveals the plan for nothing, so the coach
+  // surfaces the bait-discard lesson instead of staying silent about why the
+  // tempting card should be left alone.
   static void _addPickup(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -498,25 +557,49 @@ abstract final class ClassicHareegCoachingAdvisor {
     }
     final hand = controller.handFor(seat);
     final withDiscard = [...hand, topDiscard];
-    final openingFloor = observation.ownHasOpened()
-        ? null
-        : observation.currentOpeningRequirement;
-    final completing = MeldPartitionEnumerator.topPartitions(
+    final fitting = MeldPartitionEnumerator.topPartitions(
       withDiscard,
       comparator: MeldPartitionRankers.byCoverSurfaceDesc,
       take: 1,
       mustUseCardId: topDiscard.id,
-      minTotalValue: openingFloor,
       safetyCap: _partitionLimit,
     );
-    if (completing.isEmpty) {
+    if (fitting.isEmpty || fitting.first.cardsRemaining.length >= hand.length) {
+      // The discard does not pull any hand card into a meld.
       return;
     }
-    final partition = completing.first;
-    if (partition.cardsRemaining.length >= hand.length) {
-      // The discard did not actually pull any hand card into a meld.
+    if (!observation.ownHasOpened()) {
+      final openable = MeldPartitionEnumerator.topPartitions(
+        withDiscard,
+        comparator: MeldPartitionRankers.byCoverSurfaceDesc,
+        take: 1,
+        mustUseCardId: topDiscard.id,
+        minTotalValue: observation.currentOpeningRequirement,
+        safetyCap: _partitionLimit,
+      );
+      if (openable.isEmpty ||
+          openable.first.cardsRemaining.length >= hand.length) {
+        // Fits, but cannot reach the opening value: the bait lesson.
+        out.add(
+          CoachingInsight(
+            category: CoachingInsightCategory.baitDiscard,
+            priority: CoachingInsightCategory.baitDiscard.priority,
+            highlightCardIds: [topDiscard.id],
+          ),
+        );
+        return;
+      }
+      _emitPickup(openable.first, topDiscard, out);
       return;
     }
+    _emitPickup(fitting.first, topDiscard, out);
+  }
+
+  static void _emitPickup(
+    MeldPartition partition,
+    HareegCard topDiscard,
+    List<CoachingInsight> out,
+  ) {
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.pickupCompletesMeld,
@@ -530,7 +613,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // 6. Cover advice, driven ENTIRELY by the Expert plan's chosen move. When the
+  // 7. Cover advice, driven ENTIRELY by the Expert plan's chosen move. When the
   // plan places a cover, the coach presents it; when the plan instead HOLDS — it
   // keeps a developing hand or a joker for a Fifty and discards — the coach shows
   // the plan's discard (via _addDiscardSuggestion), never a bespoke cover hint.
@@ -653,7 +736,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     return covers;
   }
 
-  // 7. jokerAdvice — the seat can replace a represented joker on the table with
+  // 8. jokerAdvice — the seat can replace a represented joker on the table with
   // a real card it holds (a concrete, actionable upgrade). A replace-joker id
   // on the legal surface is the cleanest signal.
   static void _addJokerAdvice(
@@ -694,90 +777,174 @@ abstract final class ClassicHareegCoachingAdvisor {
     }
   }
 
-  // 8. defensiveDiscard — a LEGAL discard whose rank/suit an opponent is
-  // visibly collecting. The signal is opponent PICKUPS from the discard pile
-  // only: deliberately taking a card is the genuine "collecting" tell. A card
-  // an opponent DISCARDED is one they did not want, so counting discards (as a
-  // raw threat profile does) inverts the meaning and produces misleading,
-  // too-eager warnings on turn one. Coaching copy must be defensible to a
-  // human learner, so we diverge from the Expert profile here and require a
-  // real pickup. Framing it as "avoid" is correct because the discard is legal.
-  static void _addDefensiveDiscard(
-    _CoachingAnalysis analysis,
+  // 9. Stage banners — game-stage posture the brain already weighs but the
+  // coach never narrated: score pressure, thin stock, an opponent about to
+  // finish, a raised benchmark. Emitted on every applicable call (the advisor
+  // is pure); the UI's [CoachInsightFlow] shows each at most once per round so
+  // they teach without nagging.
+  static void _addStageBanners(
+    ClassicHareegGameController controller,
+    PlayerSeat seat,
+    CpuObservation observation,
     List<CoachingInsight> out,
   ) {
-    final history = analysis.discardHistory;
-    final opponents = analysis.opponents;
-    if (opponents.isEmpty) {
-      return;
-    }
-
-    // Build a per-opponent hot rank/suit list from discards + pickups, the same
-    // signal the Expert threat profile collects.
-    final hotByOpponent = <PlayerSeat, _HotSet>{};
-    for (final opponent in opponents) {
-      final hot = _HotSet();
-      for (final card in history.lastPickupsBy(opponent, 99)) {
-        final identity = card.effectiveIdentity;
-        if (identity == null) {
-          continue;
+    // scorePosture — self at high risk wins over an opponent target: the
+    // player's own survival changes every decision; pressing a lead changes a
+    // few.
+    final ownScore = observation.ownScore;
+    if (ownScore >= ExpertCpuMovePlanner.highRiskScoreFloor) {
+      out.add(
+        CoachingInsight(
+          category: CoachingInsightCategory.scorePosture,
+          priority: CoachingInsightCategory.scorePosture.priority,
+          subjectSeat: seat,
+          subjectIsSelf: true,
+          subjectValue: ownScore,
+          subjectThreshold: observation.eliminationThreshold,
+        ),
+      );
+    } else {
+      PlayerSeat? target;
+      var targetScore = 0;
+      for (final opponent in observation.opponents) {
+        final score = observation.scoreFor(opponent);
+        if (score >= ExpertCpuMovePlanner.eliminationTargetScoreFloor &&
+            score > targetScore) {
+          target = opponent;
+          targetScore = score;
         }
-        hot.ranks.add(identity.rank);
-        hot.suits.add(identity.suit);
       }
-      if (hot.ranks.isNotEmpty || hot.suits.isNotEmpty) {
-        hotByOpponent[opponent] = hot;
-      }
-    }
-    if (hotByOpponent.isEmpty) {
-      return;
-    }
-
-    // Only advise on cards that are actually legal plain discards right now.
-    final legalDiscardIds = analysis.legalSafeDiscardIds.toSet();
-    if (legalDiscardIds.isEmpty) {
-      return;
-    }
-
-    for (final card in analysis.hand) {
-      if (!legalDiscardIds.contains(card.id)) {
-        continue;
-      }
-      final identity = card.effectiveIdentity;
-      if (identity == null) {
-        continue;
-      }
-      for (final entry in hotByOpponent.entries) {
-        final hot = entry.value;
-        final rankHot = hot.ranks.contains(identity.rank);
-        final suitHot = hot.suits.contains(identity.suit);
-        if (!rankHot && !suitHot) {
-          continue;
-        }
+      if (target != null) {
         out.add(
           CoachingInsight(
-            category: CoachingInsightCategory.defensiveDiscard,
-            priority: CoachingInsightCategory.defensiveDiscard.priority,
-            discardCardId: card.id,
-            hotOpponent: entry.key,
-            hotRank: rankHot ? identity.rank : null,
-            hotSuit: suitHot ? identity.suit : null,
-            highlightCardIds: [card.id],
+            category: CoachingInsightCategory.scorePosture,
+            priority: CoachingInsightCategory.scorePosture.priority,
+            subjectSeat: target,
+            subjectValue: targetScore,
           ),
         );
-        return;
       }
+    }
+
+    // endgameStockLow — the same threshold that flips Expert into its
+    // pip-shedding endgame comparator.
+    final stock = observation.stockCount;
+    if (stock > 0 && stock <= ExpertCpuMovePlanner.thinStockCount) {
+      out.add(
+        CoachingInsight(
+          category: CoachingInsightCategory.endgameStockLow,
+          priority: CoachingInsightCategory.endgameStockLow.priority,
+          subjectValue: stock,
+        ),
+      );
+    }
+
+    // opponentCloseToFinish — an OPENED opponent down to a few cards. (An
+    // unopened opponent always holds a full hand, so the opened check also
+    // guards against miscounting mid-deal states.)
+    PlayerSeat? closest;
+    var closestCount = _opponentCloseHandMax + 1;
+    for (final opponent in observation.opponents) {
+      if (!observation.hasOpened(opponent)) {
+        continue;
+      }
+      final count = observation.handCountFor(opponent);
+      if (count > 0 && count < closestCount) {
+        closest = opponent;
+        closestCount = count;
+      }
+    }
+    if (closest != null) {
+      out.add(
+        CoachingInsight(
+          category: CoachingInsightCategory.opponentCloseToFinish,
+          priority: CoachingInsightCategory.opponentCloseToFinish.priority,
+          subjectSeat: closest,
+          subjectValue: closestCount,
+        ),
+      );
+    }
+
+    // benchmarkAlert — an unopened seat facing a LIVE raised requirement.
+    final benchmarkOwner = observation.benchmarkOwner;
+    if (!observation.ownHasOpened() &&
+        benchmarkOwner != null &&
+        benchmarkOwner != seat &&
+        observation.currentOpeningRequirement >
+            controller.openingState.baseRequirement) {
+      out.add(
+        CoachingInsight(
+          category: CoachingInsightCategory.benchmarkAlert,
+          priority: CoachingInsightCategory.benchmarkAlert.priority,
+          subjectSeat: benchmarkOwner,
+          openingRequirement: observation.currentOpeningRequirement,
+        ),
+      );
     }
   }
 
-  // 9. drawStock — the draw-phase instruction. When drawing from the stock is a
+  // 10. discardSuggestion — the action-phase discard floor, taken straight from
+  // the Expert brain so the coaching is hand-by-hand and matches expert play (it
+  // weighs card value, run/set potential, held duplicates, and the opponent
+  // threat profile, via the shared keep-score model). A floor so the turn is
+  // never silent; its low priority keeps it from overriding any real play.
+  // Carries the hold-back warning when the obvious throw is materially
+  // dangerous and the recommendation dodges it.
+  //
+  // OPENED seats only: an unopened seat below the benchmark is guided by openNow
+  // / openingProgress (which teach "build toward N" and ring the keepers).
+  // Emitting a discard floor there is actively harmful — the seat cannot meld
+  // yet, so the Expert plan falls to "discard the lowest-pip card" with no
+  // protection for a developing-meld anchor. And when a lay-off cover was already
+  // surfaced ([_addCover], higher priority) it is the better action, so the
+  // floor is suppressed.
+  static void _addDiscardSuggestion(
+    ClassicHareegGameController controller,
+    PlayerSeat seat,
+    CpuObservation observation,
+    _CoachingAnalysis analysis,
+    List<CoachingInsight> out,
+  ) {
+    if (!controller.openingState.hasOpened(seat)) {
+      return;
+    }
+    if (_containsCategory(out, CoachingInsightCategory.playCover)) {
+      return;
+    }
+    final legalDiscardIds = analysis.legalSafeDiscardIds;
+    if (legalDiscardIds.isEmpty) {
+      return;
+    }
+    // The Expert brain's pick when it discards (already threat-aware), else
+    // the analysis' safe pick.
+    final guidance = analysis.discardGuidance(
+      keepIds: const {},
+      preferredId: analysis.expertDiscardId,
+    );
+    final cardId = guidance?.discardCardId ?? legalDiscardIds.first;
+    out.add(
+      CoachingInsight(
+        category: CoachingInsightCategory.discardSuggestion,
+        priority: CoachingInsightCategory.discardSuggestion.priority,
+        discardCardId: cardId,
+        avoidCardId: guidance?.avoidCardId,
+        avoidOpponent: guidance?.avoidOpponent,
+        avoidReason: guidance?.avoidReason,
+        avoidRank: guidance?.avoidRank,
+        avoidSuit: guidance?.avoidSuit,
+        highlightCardIds: [cardId],
+      ),
+    );
+  }
+
+  // 11. drawStock — the draw-phase instruction. When drawing from the stock is a
   // legal action the seat still owes a draw and nothing more urgent (finish /
-  // meld / pickup / cover / joker / defensive) applied, so the actionable
-  // coaching default is "draw a card". It sits above openingProgress so an
-  // unopened seat is told to draw rather than only shown its shortfall — but the
-  // opening numbers are folded in here (copied off the openingProgress insight
-  // that [_addOpening] appended earlier in [adviseFor]) so the player still sees
-  // progress in the draw body. Outranked by any real play insight.
+  // meld / pickup / cover / joker) applied, so the actionable coaching default
+  // is "draw a card". It sits above openingProgress so an unopened seat is told
+  // to draw rather than only shown its shortfall — but the opening numbers are
+  // folded in here (copied off the openingProgress insight that [_addOpening]
+  // appended earlier in [adviseFor]) so the player still sees progress in the
+  // draw body. Outranked by any real play insight.
   static void _addDrawStock(
     PlayerSeat seat,
     CpuObservation observation,
@@ -810,48 +977,6 @@ abstract final class ClassicHareegCoachingAdvisor {
         // hint would show the shortfall but point at nothing in the hand.
         highlightCardIds: opening?.highlightCardIds ?? const [],
         meldGroups: opening?.meldGroups ?? const [],
-      ),
-    );
-  }
-
-  // discardSuggestion — the action-phase discard floor, taken straight from the
-  // Expert brain so the coaching is hand-by-hand and matches expert play (it
-  // weighs card value, run/set potential, held duplicates, and the opponent
-  // threat profile, via the shared keep-score model). A floor so the turn is
-  // never silent; its low priority keeps it from overriding any real play.
-  //
-  // OPENED seats only: an unopened seat below the benchmark is guided by openNow
-  // / openingProgress (which teach "build toward N" and ring the keepers).
-  // Emitting a discard floor there is actively harmful — the seat cannot meld
-  // yet, so the Expert plan falls to "discard the lowest-pip card" with no
-  // protection for a developing-meld anchor. And when a lay-off cover was already
-  // surfaced ([_addPlayCover], higher priority) it is the better action, so the
-  // floor is suppressed.
-  static void _addDiscardSuggestion(
-    ClassicHareegGameController controller,
-    PlayerSeat seat,
-    CpuObservation observation,
-    _CoachingAnalysis analysis,
-    List<CoachingInsight> out,
-  ) {
-    if (!controller.openingState.hasOpened(seat)) {
-      return;
-    }
-    if (_containsCategory(out, CoachingInsightCategory.playCover)) {
-      return;
-    }
-    final legalDiscardIds = analysis.legalSafeDiscardIds;
-    if (legalDiscardIds.isEmpty) {
-      return;
-    }
-    // The Expert brain's pick when it discards, else a legal discard floor.
-    final cardId = analysis.expertDiscardId ?? legalDiscardIds.first;
-    out.add(
-      CoachingInsight(
-        category: CoachingInsightCategory.discardSuggestion,
-        priority: CoachingInsightCategory.discardSuggestion.priority,
-        discardCardId: cardId,
-        highlightCardIds: [cardId],
       ),
     );
   }
@@ -930,9 +1055,24 @@ abstract final class ClassicHareegCoachingAdvisor {
   }
 }
 
-class _HotSet {
-  final Set<CardRank> ranks = {};
-  final Set<CardSuit> suits = {};
+/// Discard guidance for one discard-carrying insight: the recommended card and
+/// an optional hold-back warning.
+class _DiscardGuidance {
+  const _DiscardGuidance({
+    required this.discardCardId,
+    this.avoidCardId,
+    this.avoidOpponent,
+    this.avoidReason,
+    this.avoidRank,
+    this.avoidSuit,
+  });
+
+  final String discardCardId;
+  final String? avoidCardId;
+  final PlayerSeat? avoidOpponent;
+  final CoachAvoidReason? avoidReason;
+  final CardRank? avoidRank;
+  final CardSuit? avoidSuit;
 }
 
 /// Read model shared across one [ClassicHareegCoachingAdvisor.adviseFor] call.
@@ -963,9 +1103,6 @@ class _CoachingAnalysis {
   /// The seat's current hand.
   final List<HareegCard> hand;
 
-  /// Round-scoped discard memory.
-  late final discardHistory = controller.discardHistory;
-
   /// Active opponents in turn order.
   late final List<PlayerSeat> opponents =
       ClassicHareegCoachingAdvisor._opponentsOf(controller, seat);
@@ -989,6 +1126,13 @@ class _CoachingAnalysis {
   /// The Expert brain's full plan for this observation, computed once.
   late final _expertPlan = const ExpertCpuMovePlanner().plan(_observation);
 
+  /// The Expert brain's opponent threat model — the SAME profile its discard
+  /// comparator weighs (CPU-first), so the coach's hold-back warnings narrate
+  /// exactly the signals the CPUs play: recent unconsumed pickups from
+  /// opponents still building, and visible run-end fits.
+  late final OpponentThreatProfile threatProfile =
+      OpponentThreatProfile.fromObservation(_observation);
+
   /// The card id the Expert brain would discard, or null when it would not
   /// discard (it can play a meld, or it is the draw phase). Lets the opened-seat
   /// discard hint match the Expert CPU without building a second whole plan.
@@ -1011,6 +1155,13 @@ class _CoachingAnalysis {
   /// covering — lets the coach present the brain's exact cover.
   String? get expertCoverActionId => expertCovers ? _expertPlan.actionId : null;
 
+  /// The meld-play action id the Expert brain chose, or null when its move is
+  /// not a meld play — lets the play-meld hint present the brain's exact meld.
+  String? get expertMeldActionId =>
+      _expertPlan.scenario == ClassicHareegCpuMoveScenario.meldPlay
+      ? _expertPlan.actionId
+      : null;
+
   MeldPartition? _computeBestPartition() {
     final best = MeldPartitionEnumerator.topPartitions(
       hand,
@@ -1019,5 +1170,95 @@ class _CoachingAnalysis {
       safetyCap: ClassicHareegCoachingAdvisor._partitionLimit,
     );
     return best.isEmpty ? null : best.first;
+  }
+
+  /// The material threat against discarding [card], or null when none —
+  /// straight from the Expert brain's threat profile.
+  OpponentThreat? threatFor(HareegCard card) => threatProfile
+      .primaryThreatFor(card);
+
+  /// Picks the discard to recommend among the legal safe discards outside
+  /// [keepIds], plus an optional hold-back warning.
+  ///
+  /// The NAIVE pick (lowest keep-score, danger-blind — what a learner would
+  /// likely throw) is compared against the recommendation ([preferredId] when
+  /// given — the Expert plan's own pick — otherwise the threat-aware safe
+  /// pick). The warning fires ONLY when it changes the decision: the naive
+  /// pick is materially threatened while the recommendation is not. When every
+  /// option is threatened there is no warning — telling the player to avoid a
+  /// card with nothing safer to offer is noise they cannot act on.
+  _DiscardGuidance? discardGuidance({
+    required Set<String> keepIds,
+    String? preferredId,
+  }) {
+    final candidates = <HareegCard>[];
+    for (final id in legalSafeDiscardIds) {
+      if (keepIds.contains(id)) {
+        continue;
+      }
+      for (final card in hand) {
+        if (card.id == id) {
+          candidates.add(card);
+          break;
+        }
+      }
+    }
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    HareegCard pickBy(int Function(HareegCard) primary) {
+      var pick = candidates.first;
+      var pickPrimary = primary(pick);
+      var pickScore = keepScores[pick.id] ?? 0;
+      var pickPip = cardPipValue(pick);
+      for (final card in candidates.skip(1)) {
+        final cardPrimary = primary(card);
+        final score = keepScores[card.id] ?? 0;
+        final pip = cardPipValue(card);
+        // Lowest keep-score wins; on a tie shed the LOWER pip so the higher-
+        // ceiling card is kept (mirrors the Expert comparator's value term).
+        if (cardPrimary < pickPrimary ||
+            (cardPrimary == pickPrimary &&
+                (score < pickScore ||
+                    (score == pickScore && pip < pickPip)))) {
+          pick = card;
+          pickPrimary = cardPrimary;
+          pickScore = score;
+          pickPip = pip;
+        }
+      }
+      return pick;
+    }
+
+    final naive = pickBy((_) => 0);
+    HareegCard chosen;
+    if (preferredId != null) {
+      chosen = candidates.firstWhere(
+        (card) => card.id == preferredId,
+        orElse: () => pickBy((card) => threatFor(card) == null ? 0 : 1),
+      );
+    } else {
+      chosen = pickBy((card) => threatFor(card) == null ? 0 : 1);
+    }
+
+    if (chosen.id == naive.id) {
+      return _DiscardGuidance(discardCardId: chosen.id);
+    }
+    final naiveThreat = threatFor(naive);
+    if (naiveThreat == null || threatFor(chosen) != null) {
+      return _DiscardGuidance(discardCardId: chosen.id);
+    }
+    return _DiscardGuidance(
+      discardCardId: chosen.id,
+      avoidCardId: naive.id,
+      avoidOpponent: naiveThreat.opponent,
+      avoidReason: switch (naiveThreat.kind) {
+        OpponentThreatKind.runEnd => CoachAvoidReason.runEnd,
+        OpponentThreatKind.collecting => CoachAvoidReason.collecting,
+      },
+      avoidRank: naiveThreat.rank,
+      avoidSuit: naiveThreat.suit,
+    );
   }
 }

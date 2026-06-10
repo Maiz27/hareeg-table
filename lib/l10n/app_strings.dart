@@ -677,18 +677,6 @@ class AppStrings {
         : 'Taking the $name completes one of your melds.';
   }
 
-  String get coachCoverKeepTitle => isRtl ? 'تستحق الاحتفاظ' : 'Worth keeping';
-
-  String coachCoverKeepBody(CardIdentity? card) {
-    final name = card != null ? cardName(card) : coachThisCard;
-    // A KEEP hint (not an act-now hint): it extends a meld you already own, so
-    // hold it rather than discard it. Playing it off is the separate "Lay it
-    // off" (playCover) hint.
-    return isRtl
-        ? 'احتفظ بـ $name؛ فهي تمدّد مجموعتك المميّزة على الطاولة.'
-        : 'Keep the $name — it extends your highlighted meld on the table.';
-  }
-
   String get coachDiscardTitle => isRtl ? 'أنهِ دورك' : 'End your turn';
 
   String coachDiscardBody(CardIdentity? card) {
@@ -748,9 +736,9 @@ class AppStrings {
         : 'Use your $name to swap in for the joker in the highlighted meld.';
   }
 
-  String get coachDefensiveTitle => isRtl ? 'احتفظ بها الآن' : 'Hold this back';
-
-  String coachDefensiveBody({
+  /// Appended to a discard-carrying hint when the obvious throw is materially
+  /// dangerous: an opponent has been deliberately picking up matching cards.
+  String coachAvoidCollectingSuffix({
     required CardIdentity? card,
     required PlayerSeat opponent,
     CardRank? rank,
@@ -759,18 +747,135 @@ class AppStrings {
     final name = card != null ? cardName(card) : coachThisCard;
     final who = seatLabel(opponent);
     final String target;
-    if (rank != null && suit != null) {
-      target = isRtl
-          ? '${rankWord(rank)} و${suitWord(suit)}'
-          : 'the ${rankWord(rank)} and ${suitWord(suit)}';
-    } else if (rank != null) {
-      target = isRtl ? rankWord(rank) : 'the ${rankWord(rank)}';
+    if (rank != null) {
+      target = isRtl ? rankWord(rank) : '${rankWord(rank)}s';
+    } else if (suit != null) {
+      target = suitWord(suit);
     } else {
-      target = suitWord(suit!);
+      target = isRtl ? 'أوراقًا مشابهة' : 'cards like it';
     }
     return isRtl
-        ? 'تجنّب رمي $name. $who يجمع $target.'
-        : 'Avoid discarding the $name. $who is collecting $target.';
+        ? 'أمسِك $name — $who يلتقط $target.'
+        : 'Hold back the $name — $who has been picking up $target.';
+  }
+
+  /// Appended to a discard-carrying hint when the obvious throw slots straight
+  /// onto an opponent's visible run on the table.
+  String coachAvoidRunEndSuffix({
+    required CardIdentity? card,
+    required PlayerSeat opponent,
+  }) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    final who = seatLabel(opponent);
+    return isRtl
+        ? 'أمسِك $name — فهي تمتد مباشرة على مجموعة $who.'
+        : 'Hold back the $name — it fits straight onto $who\'s run.';
+  }
+
+  String get coachTakeAndFinishTitle =>
+      isRtl ? 'خذها وافز' : 'Take it and finish';
+
+  String coachTakeAndFinishBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'لا نافذة خمسين الآن، لكن أخذ $name لا يزال يُنهي يدك بالنتيجة العادية −1.'
+        : 'No Fifty window, but taking the $name still finishes your hand for '
+              'the normal −1.';
+  }
+
+  String get coachFiftyHoldTitle =>
+      isRtl ? 'فكّر في الخمسين' : 'Worth holding for a Fifty';
+
+  /// Fifty-hold explanation when the PLAYER is the high-score seat.
+  String coachFiftyHoldSelfBody(int score) {
+    return isRtl
+        ? 'يمكنك الفوز الآن (−1). الإمساك من أجل خمسين يدفع −3 — مهم وأنت على $score نقطة.'
+        : 'You can finish now (−1). Holding for a Fifty pays −3 — big while '
+              'you sit at $score points.';
+  }
+
+  /// Fifty-hold explanation targeting a high-score opponent.
+  String coachFiftyHoldTargetBody({
+    required PlayerSeat opponent,
+    required int score,
+  }) {
+    final who = seatLabel(opponent);
+    return isRtl
+        ? 'يمكنك الفوز الآن (−1). خمسين تدفع −3 وتضيف +3 على $who وهو على $score نقطة.'
+        : 'You can finish now (−1). A Fifty pays −3 and adds +3 to $who, '
+              'already at $score points.';
+  }
+
+  String get coachScoreSelfTitle => isRtl ? 'انتبه لنقاطك' : 'Watch your score';
+
+  String coachScoreSelfBody({required int score, required int threshold}) {
+    return isRtl
+        ? 'أنت على $score نقطة و$threshold تُقصيك. افضّل الإنهاء السريع وخفّف يدك.'
+        : 'You are at $score points and $threshold eliminates you. Favor the '
+              'quick finish and keep your hand light.';
+  }
+
+  String get coachScoreTargetTitle => isRtl ? 'اضغط الآن' : 'Press the lead';
+
+  String coachScoreTargetBody({
+    required PlayerSeat opponent,
+    required int score,
+  }) {
+    final who = seatLabel(opponent);
+    return isRtl
+        ? '$who على $score نقطة — إنهاء هذه الجولة قد يُقصيه من المباراة.'
+        : '$who is at $score points — finishing this round could eliminate '
+              'them.';
+  }
+
+  String get coachStockLowTitle =>
+      isRtl ? 'مجموعة السحب تنفد' : 'Stock is running out';
+
+  String coachStockLowBody(int count) {
+    return isRtl
+        ? 'بقي $count ورقات فقط. صرّف أوراقك على الطاولة — إن نفد السحب دون فوز فالجولة تعادل.'
+        : 'Only $count cards left to draw. Shed into the table — if the stock '
+              'empties with no finish, the round is a draw.';
+  }
+
+  String get coachOpponentCloseTitle =>
+      isRtl ? 'أحدهم يوشك أن يُنهي' : 'Someone is nearly done';
+
+  String coachOpponentCloseBody({
+    required PlayerSeat opponent,
+    required int count,
+  }) {
+    final who = seatLabel(opponent);
+    final cards = isRtl
+        ? (count == 1 ? 'ورقة واحدة' : '$count ورقات')
+        : (count == 1 ? 'one card' : '$count cards');
+    return isRtl
+        ? 'لدى $who $cards فقط. كل ورقة في يدك تُحسب عليك إذا أنهى.'
+        : '$who is down to $cards. Every card you still hold scores against '
+              'you if they finish.';
+  }
+
+  String get coachBenchmarkTitle => isRtl ? 'رُفع الحد' : 'The bar was raised';
+
+  String coachBenchmarkBody({
+    required PlayerSeat owner,
+    required int requirement,
+  }) {
+    final who = seatLabel(owner);
+    return isRtl
+        ? 'رفع $who حد الافتتاح إلى $requirement — وقد يواصل رفعه حتى يفتتح لاعب آخر.'
+        : '$who raised the opening requirement to $requirement — and can keep '
+              'raising it until a second player opens.';
+  }
+
+  String get coachBaitTitle => isRtl ? 'اتركها' : 'Let it lie';
+
+  String coachBaitBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? '$name تناسب يدك، لكنها لا توصلك لقيمة الافتتاح. أخذها الآن يكشف خطتك فقط.'
+        : 'The $name fits your hand, but it cannot reach the opening value. '
+              'Taking it now only reveals your plan.';
   }
 
   String decksValue(int value) => isRtl ? '$value رزم' : '$value decks';
