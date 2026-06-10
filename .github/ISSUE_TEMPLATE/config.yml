@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Classic Hareeg rules question
+    url: https://github.com/Maiz27/hareeg-table/blob/main/docs/rules/classic-hareeg.md
+    about: Check the documented rules before filing a rule-behavior issue.
+  - name: Contributing guide
+    url: https://github.com/Maiz27/hareeg-table/blob/main/CONTRIBUTING.md
+    about: How to set up, build, test, and open a pull request.
