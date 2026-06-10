@@ -1452,7 +1452,9 @@ class _GameTableScreenState extends State<GameTableScreen>
   Future<void> _returnPendingDiscard() async {
     if (_controller.isFiftyProofTurn) {
       final confirmed = await _confirmGiveUpFifty();
-      if (confirmed != true) {
+      // The dialog is an async gap; bail if the table was disposed while it
+      // was open rather than running an action that would setState().
+      if (!mounted || confirmed != true) {
         return;
       }
     }
@@ -1460,28 +1462,27 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   Future<bool?> _confirmGiveUpFifty() {
-    final consequence =
-        _controller.setup.tableStrictness == TableStrictness.table
-        ? "You'll take +17 and be out of this round."
-        : "You'll take the wrong-claim points penalty.";
+    final strings = context.strings;
+    final body = _controller.setup.tableStrictness == TableStrictness.table
+        ? strings.giveUpFiftyBodyTable
+        : strings.giveUpFiftyBodyPenalty;
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        final dialogStrings = dialogContext.strings;
         return AlertDialog(
           key: const ValueKey('give-up-fifty-dialog'),
-          title: const Text('Give up the Fifty?'),
-          content: Text(
-            'Put the picked-up card back to give up this Fifty. $consequence',
-          ),
+          title: Text(dialogStrings.giveUpFiftyTitle),
+          content: Text(body),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Keep trying'),
+              child: Text(dialogStrings.keepTrying),
             ),
             FilledButton(
               key: const ValueKey('give-up-fifty-confirm'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Give up'),
+              child: Text(dialogStrings.giveUpFiftyConfirm),
             ),
           ],
         );
