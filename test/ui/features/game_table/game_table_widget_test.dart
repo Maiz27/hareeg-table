@@ -21,7 +21,6 @@ import 'package:hareeg_table/ui/features/game_table/widgets/fifty_ring.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/pause_overlay.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/score_overlay.dart';
-import 'package:hareeg_table/ui/features/match_over/views/match_over_screen.dart';
 
 import '../../../support/test_fixtures.dart';
 
@@ -918,7 +917,7 @@ void main() {
       expect(find.byTooltip('Scores'), findsOneWidget);
     });
 
-    testWidgets('match result dwells then navigates to MatchOverScreen', (
+    testWidgets('match result dwells then shows the match-over overlay', (
       tester,
     ) async {
       final meldCards = [
@@ -973,10 +972,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1500));
       await tester.pumpAndSettle();
 
-      expect(find.byType(MatchOverScreen), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('match-over-overlay')),
+        findsOneWidget,
+      );
       expect(find.text('You win the match'), findsOneWidget);
       expect(find.text('6 rounds played'), findsOneWidget);
       expect(repository.saved, isNull);
+
+      // Rematch restarts the match in place — no rotation, no new route — so
+      // the overlay clears and the landscape table is live again.
+      await tester.tap(
+        find.byKey(const ValueKey('match-over-overlay-rematch')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.byKey(const ValueKey('match-over-overlay')),
+        findsNothing,
+      );
+      expect(find.byType(PhysicalTablePlayfield), findsOneWidget);
     });
 
     testWidgets('FiftyRing is present during a claimable Fifty window', (
@@ -1528,7 +1543,10 @@ void main() {
           await tester.pump(const Duration(seconds: 2));
         }
 
-        expect(find.byType(MatchOverScreen), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('match-over-overlay')),
+          findsOneWidget,
+        );
       },
     );
 
