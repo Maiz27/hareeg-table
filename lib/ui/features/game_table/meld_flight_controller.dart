@@ -15,10 +15,11 @@ import 'widgets/meld_flight_overlay.dart';
 typedef MeldFlightHandLookup =
     HareegCard? Function(PlayerSeat seat, String cardId);
 
-/// Lookup of the number of melds already committed for a seat. Used to
-/// allocate landing-slot indices for the sets in flight so they target the
-/// same lanes the controller will commit them to.
-typedef MeldFlightBaseMeldIndexLookup = int Function(PlayerSeat seat);
+/// Lookup of the card counts of the melds already committed for a seat, in
+/// placement order. Used to allocate landing-slot indices for the sets in
+/// flight and to reproduce the lane's arrangement so each set flies to its
+/// own resting slot rather than the lane centre.
+typedef MeldFlightLaneCardCountsLookup = List<int> Function(PlayerSeat seat);
 
 /// Sound callback fired once at the start of a meld play. The orchestrator
 /// stays UI-agnostic about the audio layer.
@@ -39,14 +40,14 @@ class MeldFlightController extends ChangeNotifier {
   /// Creates a meld flight controller.
   MeldFlightController({
     required MeldFlightHandLookup handLookup,
-    required MeldFlightBaseMeldIndexLookup baseMeldIndexLookup,
+    required MeldFlightLaneCardCountsLookup existingMeldCardCounts,
     required bool Function() isMounted,
   }) : _handLookup = handLookup,
-       _baseMeldIndexLookup = baseMeldIndexLookup,
+       _existingMeldCardCounts = existingMeldCardCounts,
        _isMounted = isMounted;
 
   final MeldFlightHandLookup _handLookup;
-  final MeldFlightBaseMeldIndexLookup _baseMeldIndexLookup;
+  final MeldFlightLaneCardCountsLookup _existingMeldCardCounts;
   final bool Function() _isMounted;
 
   final List<MeldFlight> _activeFlights = [];
@@ -104,12 +105,21 @@ class MeldFlightController extends ChangeNotifier {
     final placedMelds = resolved.result.isValid && resolved.melds.isNotEmpty
         ? resolved.melds
         : <PlacedMeld>[PlacedMeld.fromCards(cards)];
-    final baseMeldIndex = _baseMeldIndexLookup(seat);
+    final existingCounts = _existingMeldCardCounts(seat);
+    final baseMeldIndex = existingCounts.length;
     onSoundPlay?.call();
     for (var i = 0; i < placedMelds.length; i += 1) {
       if (!_isMounted()) return false;
       final meld = placedMelds[i];
       _serial += 1;
+      // Lane card counts as they will be once this set lands: the melds
+      // already on the table plus every set flown so far (including this
+      // one). Lets the flight geometry place the fan on this set's resting
+      // slot instead of the lane centre.
+      final laneCardCounts = [
+        ...existingCounts,
+        for (var j = 0; j <= i; j += 1) placedMelds[j].cards.length,
+      ];
       final flight = MeldFlight(
         serial: _serial,
         seat: seat,
@@ -118,7 +128,11 @@ class MeldFlightController extends ChangeNotifier {
         // bottom hand strip for south) so each set visibly leaves the hand.
         begin: TableFlightAnchors.seatHandStrip(seat),
         end: TableFlightAnchors.seatLane(seat),
-        endMeldSlot: TableMeldFlightSlot(seat: seat, index: baseMeldIndex + i),
+        endMeldSlot: TableMeldFlightSlot(
+          seat: seat,
+          index: baseMeldIndex + i,
+          laneMeldCardCounts: laneCardCounts,
+        ),
         duration: flightDuration,
       );
       _activeFlights.add(flight);

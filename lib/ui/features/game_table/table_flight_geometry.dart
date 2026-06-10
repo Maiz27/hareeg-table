@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import 'animations/deal_choreography.dart';
+import 'seat_meld_arrangement.dart';
 import 'table_card_flight_planner.dart';
 
 /// Shared seat-hand geometry used by every flight overlay (single-card
@@ -116,7 +117,15 @@ Offset _resolveSideHandSlot(
   return centeredFlightOffset(centerX, centerY, flightCardSize);
 }
 
-/// Resolves the centre of a table-meld slot for flight overlays.
+/// Resolves the landing point of a table-meld slot for flight overlays.
+///
+/// When [slot] carries `laneMeldCardCounts`, the landing point is the centre
+/// of that meld's resting slot — computed by the shared [SeatMeldArrangement]
+/// the lane itself renders from, so the fan lands exactly where the meld will
+/// rest. Without counts it falls back to the lane centre (the legacy anchor).
+///
+/// NOTE: the lane rect maths below mirrors `PhysicalTablePlayfield` — keep the
+/// two in sync (the side-lane width in particular).
 Offset resolveTableMeldSlot(
   TableMeldFlightSlot slot,
   Size size,
@@ -125,6 +134,7 @@ Offset resolveTableMeldSlot(
   final compact = size.height <= 390 || size.width <= 700;
   final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
   final opponentCardSize = compact ? const Size(26, 36) : const Size(32, 44);
+  final meldCardSize = compact ? const Size(32, 44) : const Size(38, 54);
   final sideMeldCardSize = compact ? const Size(28, 40) : const Size(34, 48);
   final sideRailWidth = compact ? 46.0 : 56.0;
   final edgeInset = (size.width * 0.026)
@@ -133,42 +143,68 @@ Offset resolveTableMeldSlot(
   final topInset = (size.height * 0.032)
       .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
       .toDouble();
-  final southMeldBottom = handCardSize.height + (compact ? 2.0 : 6.0);
-  final southMeldHeight = compact ? 50.0 : 60.0;
+  // South lane geometry, matching the playfield's bottom-anchored meld lane
+  // (height includes the expand headroom that sits above the resting cards).
+  final southMeldBottom = handCardSize.height + (compact ? 10.0 : 18.0);
+  final meldExpandedScale = compact ? 1.16 : 1.26;
+  final southMeldHeight =
+      meldCardSize.height * meldExpandedScale + (compact ? 12.0 : 16.0);
+  final northMeldHeight = compact ? 58.0 : 70.0;
+  final northMeldTop =
+      topInset + opponentCardSize.height + (compact ? 18.0 : 24.0);
   final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
   final sideMeldBottomSafe = size.height - (compact ? 12.0 : 16.0);
   final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
-  final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
+  final sideMeldColumnWidth =
+      sideMeldCardSize.height + (compact ? 8.0 : 10.0);
+  final sideMeldColumnGap = compact ? 8.0 : 12.0;
+  final sideMeldLanePadding = compact ? 8.0 : 12.0;
+  final sideMeldWidth =
+      sideMeldColumnWidth * 2 + sideMeldColumnGap + sideMeldLanePadding;
   final sideMeldGap = compact ? 6.0 : 10.0;
+  final sideOuter = edgeInset + sideRailWidth + sideMeldGap;
   final horizontalMeldInset = (size.width * 0.25)
       .clamp(compact ? 126.0 : 210.0, compact ? 180.0 : 390.0)
       .toDouble();
+  final flatLaneWidth = math.max(0.0, size.width - horizontalMeldInset * 2);
 
-  final (centerX, centerY) = switch (slot.seat) {
-    PlayerSeat.south => (
-      size.width * 0.5,
-      size.height - southMeldBottom - southMeldHeight * 0.5,
+  // Lane rect (outer, before the lane's own padding/border inset).
+  final laneRect = switch (slot.seat) {
+    PlayerSeat.south => Rect.fromLTWH(
+      horizontalMeldInset,
+      size.height - southMeldBottom - southMeldHeight,
+      flatLaneWidth,
+      southMeldHeight,
     ),
-    PlayerSeat.north => (
-      size.width * 0.5,
-      topInset +
-          opponentCardSize.height +
-          (compact ? 18.0 : 24.0) +
-          (compact ? 58.0 : 70.0) * 0.5,
+    PlayerSeat.north => Rect.fromLTWH(
+      horizontalMeldInset,
+      northMeldTop,
+      flatLaneWidth,
+      northMeldHeight,
     ),
-    PlayerSeat.west => (
-      edgeInset + sideRailWidth + sideMeldGap + sideMeldWidth * 0.5,
-      sideMeldTop + sideMeldHeight * 0.5,
+    PlayerSeat.west => Rect.fromLTWH(
+      sideOuter,
+      sideMeldTop,
+      sideMeldWidth,
+      sideMeldHeight,
     ),
-    PlayerSeat.east => (
-      size.width -
-          edgeInset -
-          sideRailWidth -
-          sideMeldGap -
-          sideMeldWidth * 0.5,
-      sideMeldTop + sideMeldHeight * 0.5,
+    PlayerSeat.east => Rect.fromLTWH(
+      size.width - sideOuter - sideMeldWidth,
+      sideMeldTop,
+      sideMeldWidth,
+      sideMeldHeight,
     ),
   };
+
+  final center = _meldSlotCenter(
+    slot: slot,
+    laneRect: laneRect,
+    compact: compact,
+    cardSize: switch (slot.seat) {
+      PlayerSeat.south || PlayerSeat.north => meldCardSize,
+      PlayerSeat.east || PlayerSeat.west => sideMeldCardSize,
+    },
+  );
 
   final laneInset = switch (slot.seat) {
     PlayerSeat.south || PlayerSeat.north => horizontalMeldInset,
@@ -183,11 +219,62 @@ Offset resolveTableMeldSlot(
   if (minX > maxX) {
     minX = maxX = size.width * 0.5;
   }
-  final clampedCenterX = centerX.clamp(minX, maxX);
+  final clampedCenterX = center.dx.clamp(minX, maxX);
   return centeredFlightOffset(
     clampedCenterX.toDouble(),
-    centerY,
+    center.dy,
     flightCardSize,
+  );
+}
+
+/// Resolves the global centre of a meld slot inside [laneRect]. Uses the
+/// shared arrangement when the slot carries lane card counts; otherwise
+/// returns the lane centre.
+Offset _meldSlotCenter({
+  required TableMeldFlightSlot slot,
+  required Rect laneRect,
+  required bool compact,
+  required Size cardSize,
+}) {
+  final counts = slot.laneMeldCardCounts;
+  if (counts.isEmpty) {
+    return laneRect.center;
+  }
+  // The lane insets its content by its padding + 1px border.
+  final inset = compact ? 4.0 : 6.0;
+  final innerLane = Size(
+    math.max(0.0, laneRect.width - inset * 2),
+    math.max(0.0, laneRect.height - inset * 2),
+  );
+  final sideFacing = slot.seat == PlayerSeat.east || slot.seat == PlayerSeat.west;
+  final footprints = [
+    for (final count in counts)
+      SeatMeldArrangement.footprint(
+        cardSize: cardSize,
+        cardCount: count,
+        compact: compact,
+        sideFacing: sideFacing,
+      ),
+  ];
+  final layout = sideFacing
+      ? SeatMeldArrangement.side(
+          laneSize: innerLane,
+          footprints: footprints,
+          meldGap: compact ? 8.0 : 12.0,
+          columnGap: compact ? 8.0 : 12.0,
+          growFromRailRight: slot.seat == PlayerSeat.east,
+        )
+      : SeatMeldArrangement.flat(
+          laneSize: innerLane,
+          footprints: footprints,
+          meldGap: compact ? 7.0 : 10.0,
+          rowGap: compact ? 8.0 : 12.0,
+          anchorBottom: slot.seat == PlayerSeat.south,
+        );
+  final localCenter = layout.centerOf(slot.index, innerLane);
+  return Offset(
+    laneRect.left + inset + localCenter.dx,
+    laneRect.top + inset + localCenter.dy,
   );
 }
 

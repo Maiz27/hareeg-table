@@ -55,13 +55,24 @@ enum TableCardFlightScenario {
 /// Target slot for a table-meld card flight.
 class TableMeldFlightSlot {
   /// Creates a table-meld slot reference.
-  const TableMeldFlightSlot({required this.seat, this.index = 0});
+  const TableMeldFlightSlot({
+    required this.seat,
+    this.index = 0,
+    this.laneMeldCardCounts = const [],
+  });
 
   /// Meld owner.
   final PlayerSeat seat;
 
   /// Zero-based meld lane index for the owner.
   final int index;
+
+  /// Card count of every meld present in the owner's lane when this flight
+  /// lands, in placement order (including the meld at [index] itself). Lets
+  /// the flight geometry reproduce the lane's arrangement and aim at the
+  /// exact resting slot instead of the lane centre. Empty falls back to the
+  /// lane-centre anchor.
+  final List<int> laneMeldCardCounts;
 }
 
 /// Realized table card flight, independent of widget geometry.
