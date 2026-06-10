@@ -80,13 +80,22 @@ typedef ClassicHareegFinishPlanParts = ({
 /// opening requirement) — a melds-only perfect hand stays exempt.
 class ClassicHareegFinishPlanner {
   /// Creates a finish planner for one candidate card set.
+  ///
+  /// [coverDisallowedCardIds] bars specific cards from being used as cover
+  /// extensions, forcing them into fresh melds for any complete plan. The
+  /// controller uses this to check *pickup* realizability: a taken discard that
+  /// an unopened seat can only place via a cover is unplayable (covers need a
+  /// prior opening, but the taken card must be used immediately), so barring it
+  /// from covers reports a finish only when the discard genuinely melds.
   ClassicHareegFinishPlanner(
     List<HareegCard> cards, {
     List<ClassicHareegFinishCoverTarget> coverTargets = const [],
     int? coverPlanMinimumMeldValue,
+    Set<String> coverDisallowedCardIds = const {},
   }) : _cards = List.unmodifiable(cards),
        _fullMask = cards.isEmpty ? 0 : (1 << cards.length) - 1,
-       _coverPlanMinimumMeldValue = coverPlanMinimumMeldValue {
+       _coverPlanMinimumMeldValue = coverPlanMinimumMeldValue,
+       _coverDisallowedCardIds = coverDisallowedCardIds {
     for (var index = 0; index < _cards.length; index += 1) {
       _bitByCardId[_cards[index].id] = 1 << index;
     }
@@ -97,6 +106,7 @@ class ClassicHareegFinishPlanner {
   final List<HareegCard> _cards;
   final int _fullMask;
   final int? _coverPlanMinimumMeldValue;
+  final Set<String> _coverDisallowedCardIds;
   final Map<String, int> _bitByCardId = {};
   final Map<int, List<_FinishMeldCandidate>> _candidatesByFirstBit = {};
   final Map<int, List<PlacedMeld>?> _partitionMemo = {};
@@ -239,6 +249,11 @@ class ClassicHareegFinishPlanner {
         for (var index = 0; index < _cards.length; index += 1) {
           final bit = 1 << index;
           if ((usedMask & bit) != 0) {
+            continue;
+          }
+          if (_coverDisallowedCardIds.contains(_cards[index].id)) {
+            // Barred from cover use (e.g. a taken discard an unopened seat must
+            // meld), so it can never extend a table meld in this plan.
             continue;
           }
           final extension = ClassicHareegCoverRules.resolveCoverExtension(

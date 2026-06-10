@@ -50,7 +50,7 @@ test alongside the fix rather than a one-off.
 controller — the same `applyAction` seam the UI uses — and reports every step
 and round. Three test families build on it:
 
-- **Family A — invariant sweep** (`full_game_invariant_sweep_*_test.dart`, eight
+- **Family A — invariant sweep** (`full_game_invariant_sweep_*_test.dart`, ten
   per-slice suites sharing `full_game_invariant_sweep.dart`, +
   `MatchInvariantChecker` in `test/scenario/invariants/`). Plays matches across
   the strictness × difficulty × joker-count matrix and asserts universal
@@ -61,7 +61,15 @@ and round. Three test families build on it:
   not specific values, so it holds for any seed or config. The sweep is split
   across files so CI can parallelize it, and its **seed** axis is tiered: pull
   requests run a reduced seed set while push-to-`main` and a nightly run cover
-  the full matrix — see [CI test runs](../workflows/ci-tests.md).
+  the full matrix — see [CI test runs](../workflows/ci-tests.md). For converging
+  (mistake-free) configs the checker also asserts no round is forced to a draw by
+  the engine's stock-exhaustion liveness backstop: a mistake-free CPU always
+  realizes a reachable finish, so a backstop draw means finish detection kept the
+  round alive on a finish the CPU could not play out. The
+  `*_endgame_test.dart` suites drive those configs in the driver's **no-recovery**
+  mode (mirroring production's CPU loop, with no Fifty-window-expiry recovery) and
+  long enough to reach removed-seat (3-active) endgames, where a stock-exhausted
+  round historically livelocked.
 - **Family B — determinism + goldens.** `match_determinism_test.dart` asserts
   the same `(seed, setup)` replays byte-identically. `golden_match_test.dart`
   pins a canonical transcript (every action, round result, and running scores)

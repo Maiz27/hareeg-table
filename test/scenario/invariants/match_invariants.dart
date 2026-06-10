@@ -29,13 +29,28 @@ import '../classic_hareeg_match_driver.dart';
 ///   wrong, scores moving mid-round, non-active seats scored).
 class MatchInvariantChecker {
   /// Creates a checker for one match.
-  MatchInvariantChecker({required this.setup, required this.seed});
+  ///
+  /// Set [requireNoBackstopDraw] for mistake-free (converging) configurations:
+  /// a round forced to a draw by the engine's stock-exhaustion liveness backstop
+  /// then becomes a failure. A mistake-free CPU always takes a reachable finish,
+  /// so the backstop should never fire for it — when it does, the finish detector
+  /// advertised a finish the CPU could not actually play out (the detector/
+  /// executor disagreement this checker guards). Leave it false for fallible
+  /// (casual) CPUs, which can legitimately decline a finish and dead-draw.
+  MatchInvariantChecker({
+    required this.setup,
+    required this.seed,
+    this.requireNoBackstopDraw = false,
+  });
 
   /// Setup the match was driven with.
   final ClassicHareegSetup setup;
 
   /// Seed the match was dealt with (for failure messages).
   final int seed;
+
+  /// Whether a backstop-forced draw is a failure (converging configs only).
+  final bool requireNoBackstopDraw;
 
   List<String>? _referenceCardIds;
   int? _baselineRound;
@@ -90,6 +105,22 @@ class MatchInvariantChecker {
 
   /// Asserts per-round identity conservation and every score invariant.
   void checkRound(DrivenRoundReport report) {
+    // Liveness root cause (checked first, before the value invariants): a
+    // mistake-free CPU always realizes a reachable finish, so the
+    // stock-exhaustion backstop should never have to force this round to a draw.
+    // When it does, the finish detector kept the round alive on a finish the CPU
+    // could not actually play out — the detector/executor disagreement. The
+    // assertion is that a converging config never *needs* the backstop, so the
+    // sweep fails a stock-exhaustion livelock the recovering driver would
+    // otherwise tolerate as a silent draw.
+    if (requireNoBackstopDraw && report.endedByLivelockBackstop) {
+      _fail(
+        'round ${report.roundNumber} was forced to a draw by the '
+        'stock-exhaustion liveness backstop — the finish detector advertised a '
+        'finish no mistake-free CPU completed (detector/executor disagreement)',
+      );
+    }
+
     _checkIdentityConservation(report);
 
     final result = report.result;

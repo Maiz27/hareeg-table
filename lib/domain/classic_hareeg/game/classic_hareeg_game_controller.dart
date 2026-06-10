@@ -294,6 +294,15 @@ class ClassicHareegGameController {
   int? _stockExhaustionHandTotalBaseline;
   int _stockExhaustionNoProgressTurns = 0;
 
+  // Set when the round was concluded by the stock-exhaustion liveness backstop
+  // (a dead no-progress rotation forced a draw) rather than a normal draw or a
+  // finish. The backstop only fires when the finish detector kept a round alive
+  // believing a seat could finish while no seat ever completed it — so this flag
+  // marks a detector/executor disagreement that the backstop merely masked. Test
+  // harnesses read it to fail converging configs that should never need it; in
+  // production it stays an invisible safety net. See [_evaluateRoundEnd].
+  bool _roundEndedByLivelockBackstop = false;
+
   /// Seat that received 15 cards and starts in action phase.
   PlayerSeat get starter => _starter;
 
@@ -353,6 +362,14 @@ class ClassicHareegGameController {
 
   /// Full round result once the round has ended.
   RoundProgressResult? get roundResult => _roundResult;
+
+  /// Whether the just-completed round was forced to a draw by the
+  /// stock-exhaustion liveness backstop (a dead no-progress rotation) rather
+  /// than ending naturally. True only when the finish detector kept the round
+  /// alive on a finish no seat ever realized — a detector/executor disagreement
+  /// the backstop masked. Test harnesses assert this stays false for
+  /// mistake-free (converging) configurations.
+  bool get roundEndedByLivelockBackstop => _roundEndedByLivelockBackstop;
 
   /// Match progress produced by the completed round, if any.
   MatchProgressState? get roundProgress => _matchFlow.progressFor(_roundResult);
@@ -2046,6 +2063,7 @@ class ClassicHareegGameController {
       // round can never progress toward a finish — draw it directly. The normal
       // stock-exhaustion planner would decline here (it sees a pickup finish),
       // so the draw is forced rather than routed through it.
+      _roundEndedByLivelockBackstop = true;
       _completeRound(
         ClassicHareegTurnExitPlanner.roundResult(
           type: RoundOutcomeType.draw,
@@ -2518,8 +2536,50 @@ class ClassicHareegGameController {
       ..scriptIndex = 0;
   }
 
+  /// Whether [seat] could finish *by taking* the previous discard right now.
+  ///
+  /// This drives the stock-exhaustion liveness decision: an empty-stock round is
+  /// kept alive only while a seat can still finish on the pile. The check must
+  /// therefore report a finish the pickup flow can actually play out — otherwise
+  /// the seat takes the card, fails to finish, re-discards, and the round
+  /// livelocks (the liveness backstop then has to force a draw).
+  ///
+  /// The pickup flow takes the discard as a pending card that must be used
+  /// immediately: the relaxed taken-discard surface offers only plays that use
+  /// it, and an unopened seat cannot place a cover until it has opened. So a
+  /// cover-routed taken discard is unplayable for an unopened seat — it can only
+  /// be returned. The Fifty *claim* path is exempt (its proof script opens
+  /// before covering), which is why this realizability constraint lives on the
+  /// pickup predicate and not on [_finishPlanWithPreviousDiscard] itself. For an
+  /// unopened seat we re-check with the taken discard barred from covers, so a
+  /// finish is reported only when the discard genuinely lands in a fresh meld.
   bool _canFinishWithPreviousDiscard(PlayerSeat seat) {
-    return _finishPlanWithPreviousDiscard(seat) != null;
+    if (_finishPlanWithPreviousDiscard(seat) == null) {
+      return false;
+    }
+    if (_openingState.hasOpened(seat)) {
+      return true;
+    }
+    final discarded = topDiscard;
+    if (discarded == null) {
+      return false;
+    }
+    final planner = ClassicHareegFinishPlanner(
+      [..._handFor(seat), discarded],
+      coverTargets: _finishCoverTargets(),
+      coverPlanMinimumMeldValue: _openingState.currentRequirement,
+      coverDisallowedCardIds: {discarded.id},
+    );
+    if (!planner.hasValidMeldContaining(discarded.id)) {
+      return false;
+    }
+    return ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
+          hand: _handFor(seat),
+          discarded: discarded,
+          playerOpened: false,
+          planner: planner,
+        ) !=
+        null;
   }
 
   ClassicHareegFiftyClaimPlan _fiftyClaimPlanFor(

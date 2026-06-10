@@ -28,6 +28,13 @@ enum MatchStopReason {
   /// still open, even after a Fifty window was expired. A real anomaly: the
   /// action surface stranded a seat mid-round.
   stuckNoLegalActions,
+
+  /// No-recovery mode only: the CPU strategy declined every legal action (a
+  /// hopeless Fifty claim being the lone non-stock option) and the driver was
+  /// configured not to model wall-clock Fifty-window expiry. This mirrors the
+  /// production CPU loop, which has no such recovery — surfacing the stuck state
+  /// instead of papering over it with a clock jump the real app never makes.
+  cpuStrandedNoRecovery,
 }
 
 /// One applied action within a driven match, captured *after* the action with
@@ -110,6 +117,7 @@ class DrivenRoundReport {
     required this.scoresBefore,
     required this.scoresAfter,
     required this.snapshotAtRoundOver,
+    required this.endedByLivelockBackstop,
   });
 
   /// One-based dealt round number.
@@ -130,6 +138,14 @@ class DrivenRoundReport {
   /// Full game state captured once the round ended — the surface for
   /// per-round identity (multiset) conservation.
   final ClassicHareegMatchSnapshot snapshotAtRoundOver;
+
+  /// Whether this round was forced to a draw by the engine's stock-exhaustion
+  /// liveness backstop rather than ending naturally. A backstop draw means the
+  /// finish detector kept the round alive on a finish no seat ever realized — a
+  /// detector/executor disagreement the backstop masked. For mistake-free
+  /// (converging) CPUs this is always a bug; for fallible CPUs it can be a
+  /// legitimately declined finish.
+  final bool endedByLivelockBackstop;
 }
 
 /// Final report for a driven match.
@@ -164,6 +180,13 @@ class MatchRunReport {
 
   /// Whether the match ended naturally with a single winner.
   bool get endedNaturally => stopReason == MatchStopReason.matchWinner;
+
+  /// Number of rounds in this match that were forced to a draw by the engine's
+  /// stock-exhaustion liveness backstop. Should be zero for mistake-free
+  /// (converging) configurations — any non-zero count is a detector/executor
+  /// disagreement the backstop masked.
+  int get backstopForcedDrawCount =>
+      rounds.where((round) => round.endedByLivelockBackstop).length;
 }
 
 /// Per-action observer; invoked after every applied action.
@@ -189,10 +212,19 @@ typedef MatchRoundObserver = void Function(DrivenRoundReport report);
 /// of deadlocking.
 class ClassicHareegMatchDriver {
   /// Creates a match driver.
+  ///
+  /// When [recoverStuckFiftyWindows] is false the driver runs in *no-recovery*
+  /// mode: it no longer jumps its clock past a stalled Fifty window when the CPU
+  /// strategy declines every legal action. This mirrors the production CPU loop
+  /// ([ClassicHareegCpuTurnRunner]), which has no such recovery, so the sweep
+  /// can reach stuck states the recovering driver papers over. A decline in
+  /// no-recovery mode stops the match with [MatchStopReason.cpuStrandedNoRecovery]
+  /// instead of expiring the window and re-polling.
   ClassicHareegMatchDriver({
     this.strategy = const ClassicHareegCpuStrategy(),
     this.actionLimit = 2500,
     this.roundLimit = 60,
+    this.recoverStuckFiftyWindows = true,
     DateTime? clockStart,
     Duration clockStep = const Duration(seconds: 1),
   }) : _initialClock = clockStart ?? DateTime.utc(2026, 1, 1),
@@ -200,6 +232,11 @@ class ClassicHareegMatchDriver {
 
   /// CPU strategy used for every seat.
   final CpuStrategy strategy;
+
+  /// Whether the driver models wall-clock expiry of a stalled Fifty window when
+  /// the CPU strategy declines every legal action. False mirrors production's
+  /// recovery-free CPU loop. See the constructor docs.
+  final bool recoverStuckFiftyWindows;
 
   /// Maximum actions before stopping with [MatchStopReason.actionLimit].
   final int actionLimit;
@@ -272,6 +309,12 @@ class ClassicHareegMatchDriver {
           if (controller.fiftyClaimant != seat) {
             _throwNoChoice(controller, seat, legalActionIds);
           }
+          if (!recoverStuckFiftyWindows) {
+            // No-recovery mode mirrors production, which never jumps the clock
+            // to expire a stalled window. Surface the stuck state instead.
+            return _report(MatchStopReason.cpuStrandedNoRecovery, null, rounds,
+                totalActions, setup, seed);
+          }
           _expireFiftyWindow(controller);
           legalActionIds = controller.cpuActionIdsFor(seat);
           if (legalActionIds.isEmpty) {
@@ -322,6 +365,7 @@ class ClassicHareegMatchDriver {
         scoresBefore: scoresBefore,
         scoresAfter: Map<PlayerSeat, int>.of(controller.scores),
         snapshotAtRoundOver: controller.toSnapshot(savedAt: _now()),
+        endedByLivelockBackstop: controller.roundEndedByLivelockBackstop,
       );
       rounds.add(report);
       onRoundEnd?.call(report);
