@@ -35,6 +35,7 @@ import '../../../core/theme/lounge_tokens.dart';
 import '../animations/deal_choreography.dart';
 import '../coach/coach_highlighting.dart';
 import '../coach/coach_hint.dart';
+import '../coach/coach_insight_flow.dart';
 import '../cue/table_cue_choreographer.dart';
 import '../meld_flight_controller.dart';
 import '../table_action_presentation_planner.dart';
@@ -208,6 +209,16 @@ class _GameTableScreenState extends State<GameTableScreen>
   // when that signature changes.
   String? _coachInsightCacheKey;
   List<CoachingInsight> _coachInsights = const [];
+
+  // Cross-turn coach surfacing policy: stage banners show once per round each.
+  // Match-lifetime state (keys embed the round number, so no reset is needed).
+  final CoachInsightFlow _coachInsightFlow = CoachInsightFlow();
+
+  // Synthetic turn marker for the insight flow (the controller has no turn
+  // counter): bumped whenever the seat on turn changes. Plain fields mutated
+  // during build — no setState, no listeners.
+  PlayerSeat? _coachTurnSeat;
+  int _coachTurnCounter = 0;
 
   // State-owned so replay / next-lesson swap sessions in place. A route swap
   // would build the replacement table (landscape) and then dispose this one,
@@ -746,11 +757,22 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Coaching tier: surface one prioritized hint when the player is on turn,
     // the toggle is on, and nothing is mid-animation or covering the table.
     // Practice replaces the advisor coach with the step banner.
-    final coachActive =
+    //
+    // Two gates with different semantics: [coachComputes] folds the PERSISTENT
+    // conditions (tier, toggle, practice, turn ownership) — when any is false
+    // the advisor (a full Expert plan + partition enumeration) must not run at
+    // all; standard/strict/table tables and CPU turns pay nothing. The
+    // remaining TRANSIENT conditions (overlays, in-flight motion) only hide
+    // the *display* while still computing, so the cached insights track every
+    // controller-state change and never go stale across an animation (the
+    // playtest "discard the card you just melded" bug).
+    final coachComputes =
         !_isPractice &&
         strictness.showsProactiveHints &&
         widget.preferences.coachingTipsEnabled &&
-        isHumanTurn &&
+        isHumanTurn;
+    final coachActive =
+        coachComputes &&
         !_pauseOpen &&
         !_scoreOpen &&
         _inspectedCard == null &&
@@ -761,7 +783,9 @@ class _GameTableScreenState extends State<GameTableScreen>
         // While a selection is producing meld suggestions, that rack is the
         // active guidance; stepping aside avoids two stacked bottom callouts.
         meldSuggestions.isEmpty;
-    final coachHint = _buildCoachHint(strings, humanSeat, gate: coachActive);
+    final coachHint = coachComputes
+        ? _buildCoachHint(strings, humanSeat, gate: coachActive)
+        : null;
     final coachHighlighting = _isPractice
         ? _practiceStepHighlighting(isHumanTurn: isHumanTurn)
         : CoachHighlighting.fromHint(coachHint);
@@ -1247,25 +1271,39 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 
   /// Builds the coaching hint to surface this frame, or null when none should
-  /// show. [gate] folds in the strictness tier, the player's toggle, turn
-  /// ownership, and the absence of any blocking overlay or in-flight motion.
+  /// show. The caller folds the persistent conditions (tier, toggle, turn
+  /// ownership) into whether this runs at all; [gate] carries the transient
+  /// ones (blocking overlays, in-flight motion).
   CoachHint? _buildCoachHint(
     AppStrings strings,
     PlayerSeat seat, {
     required bool gate,
   }) {
-    // Always recompute (cheap — memoized by the situation signature) so the
-    // cached insights track every controller-state change. The [gate] only
-    // hides the *display* while something is mid-animation; it must NOT freeze
-    // the *data*, or a hint computed before a draw/cover landed survives stale
-    // once the gate reopens (the playtest "discard the card you just melded"
-    // bug). Compute first, then gate the display.
+    // Always recompute while the coach is live (cheap — memoized by the
+    // situation signature) so the cached insights track every controller-state
+    // change. The [gate] only hides the *display* while something is
+    // mid-animation; it must NOT freeze the *data*, or a hint computed before
+    // a draw/cover landed survives stale once the gate reopens (the playtest
+    // "discard the card you just melded" bug). Compute first, then gate the
+    // display.
     final insights = _coachInsightsFor(seat);
     if (!gate || insights.isEmpty) {
       return null;
     }
+    if (_controller.currentSeat != _coachTurnSeat) {
+      _coachTurnSeat = _controller.currentSeat;
+      _coachTurnCounter += 1;
+    }
+    final insight = _coachInsightFlow.select(
+      insights: insights,
+      roundNumber: _controller.roundNumber,
+      turnKey: '${_controller.roundNumber}:$_coachTurnCounter',
+    );
+    if (insight == null) {
+      return null;
+    }
     return CoachHintPresenter.present(
-      insight: insights.first,
+      insight: insight,
       strings: strings,
       identityForCardId: _identityForCardId,
       topDiscardIdentity: _controller.topDiscard?.effectiveIdentity,
@@ -1280,8 +1318,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// could reuse the pre-draw insight (the stale-discard playtest bug). The Fifty
   /// claimant is included because the Fifty hint depends on whether a claim
   /// window is open for this seat, and a window can open or expire without the
-  /// top discard changing (seconds-remaining is deliberately NOT in the key — the
-  /// advisor ignores the timing, and including it would re-analyse every tick).
+  /// top discard changing. The claim-LIVENESS bit (timer still running) is also
+  /// keyed — it flips exactly once per window, letting the hint hand over from
+  /// "Claim the Fifty" to "take it and finish" when the timer lapses — but the
+  /// raw seconds remaining are deliberately NOT keyed (that would re-analyse
+  /// every tick).
   List<CoachingInsight> _coachInsightsFor(PlayerSeat seat) {
     final hand = _controller.handFor(seat);
     final ownMelds = _controller.tableMeldsFor(seat);
@@ -1296,6 +1337,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       ..write(_controller.pendingDiscard?.id ?? '-')
       ..write('#f:')
       ..write(_controller.fiftyClaimant?.name ?? '-')
+      ..write((_controller.fiftySecondsRemaining ?? 0) > 0 ? '+' : '-')
       ..write('#h:');
     for (final card in hand) {
       key
