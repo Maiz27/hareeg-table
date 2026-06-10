@@ -1088,11 +1088,10 @@ class ClassicHareegGameController {
       if (!mistake.canApply) {
         return false;
       }
-      // Table removal clears staged plays on the way out; Strict must take
-      // staged melds back first, mirroring a plain return.
-      if (mistake.removesPlayer) {
-        return true;
-      }
+      // Same precondition as a plain return on every tier: an unopened
+      // claimant must take staged opening melds back first so the give-up
+      // never strands sub-requirement melds on the table (Table removal does
+      // not clean them up).
       return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
     }
     return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
@@ -1170,11 +1169,12 @@ class ClassicHareegGameController {
         'turn.',
       );
     }
-    // Strict (non-removing) tier: stage plays must be taken back first, exactly
-    // like a plain return, and the precondition is checked BEFORE the penalty
-    // is charged so a refused give-up never leaves a phantom +3 on the score.
-    if (!mistake.removesPlayer &&
-        pending != null &&
+    // On every tier the staged opening melds must be taken back first (exactly
+    // like a plain return), checked BEFORE any penalty is charged. Without this
+    // a Table give-up would remove the claimant while their sub-requirement
+    // melds stayed stranded on the table; the Strict give-up would also leave a
+    // phantom +3 if it later failed.
+    if (pending != null &&
         !_openingState.hasOpened(returningSeat) &&
         _turnOpeningMelds.isNotEmpty) {
       return const ApplyActionResult.failure(
