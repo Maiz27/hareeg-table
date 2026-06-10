@@ -45,12 +45,14 @@ void main() {
     final c = build();
     expect(
       c.controlActionIdsFor(PlayerSeat.south),
-      contains('return-pending-discard'),
+      contains(ClassicHareegActionIds.returnPendingDiscard),
       reason: 'the give-up must be discoverable on the control surface',
     );
 
     final before = c.scores[PlayerSeat.south] ?? 0;
-    final result = c.applyAction('return-pending-discard');
+    final result = c.applyAction(
+      ClassicHareegActionIds.returnPendingDiscard,
+    );
     expect(result.isSuccess, isTrue);
     expect(c.scores[PlayerSeat.south], before + 17);
     expect(c.removedSeats.contains(PlayerSeat.south), isTrue);
