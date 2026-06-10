@@ -192,6 +192,13 @@ class MatchRunReport {
 /// Per-action observer; invoked after every applied action.
 typedef MatchStepObserver = void Function(MatchStep step);
 
+/// Per-decision observer; invoked with the LIVE controller before each action
+/// is chosen and applied. Lets read-only analysis layers (e.g. the coaching
+/// advisor) be exercised against every real mid-match state. Observers must
+/// not mutate the controller.
+typedef MatchDecisionObserver =
+    void Function(ClassicHareegGameController controller, PlayerSeat seat);
+
 /// Per-round observer; invoked when each round ends, before the next deal.
 typedef MatchRoundObserver = void Function(DrivenRoundReport report);
 
@@ -269,6 +276,7 @@ class ClassicHareegMatchDriver {
     int seed = 7,
     MatchStepObserver? onStep,
     MatchRoundObserver? onRoundEnd,
+    MatchDecisionObserver? onDecision,
     MatchRecorder? recorder,
   }) {
     // Reset the clock so a reused driver instance replays identically.
@@ -299,6 +307,10 @@ class ClassicHareegMatchDriver {
         if (legalActionIds.isEmpty) {
           return _report(MatchStopReason.stuckNoLegalActions, null, rounds,
               totalActions, setup, seed);
+        }
+
+        if (onDecision != null) {
+          onDecision(controller, seat);
         }
 
         var intent = _tryChoose(controller, seat, legalActionIds);
