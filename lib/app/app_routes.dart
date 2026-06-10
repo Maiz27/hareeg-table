@@ -10,10 +10,11 @@ abstract final class AppRoutes {
   static const newGame = '/new-game';
 
   /// Live Classic Hareeg table.
+  ///
+  /// The end-of-match summary is shown as an in-table landscape overlay
+  /// (`MatchOverOverlay`) rather than a separate route, so the match ends and
+  /// restarts without leaving landscape.
   static const table = '/table';
-
-  /// Final match summary shown after the live table reports a match winner.
-  static const matchOver = '/match-over';
 
   /// Local settings surface.
   static const settings = '/settings';

@@ -189,6 +189,11 @@ class AppStrings {
   String get wonByFifty => _v('wonByFifty');
   String get wonByFinish => _v('wonByFinish');
   String get returnToMenu => _v('returnToMenu');
+  String get giveUpFiftyTitle => _v('giveUpFiftyTitle');
+  String get giveUpFiftyBodyTable => _v('giveUpFiftyBodyTable');
+  String get giveUpFiftyBodyPenalty => _v('giveUpFiftyBodyPenalty');
+  String get giveUpFiftyConfirm => _v('giveUpFiftyConfirm');
+  String get keepTrying => _v('keepTrying');
   String get eliminated => _v('eliminated');
   String get nextNow => _v('nextNow');
   String get menu => _v('menu');
@@ -1371,6 +1376,15 @@ const _englishValues = {
   'wonByFifty': 'Won by Fifty',
   'wonByFinish': 'Won by finish',
   'returnToMenu': 'Return to menu',
+  'giveUpFiftyTitle': 'Give up the Fifty?',
+  'giveUpFiftyBodyTable':
+      'Put the picked-up card back to give up this Fifty. '
+      "You'll take +17 and be out of this round.",
+  'giveUpFiftyBodyPenalty':
+      'Put the picked-up card back to give up this Fifty. '
+      "You'll take the wrong-claim points penalty.",
+  'giveUpFiftyConfirm': 'Give up',
+  'keepTrying': 'Keep trying',
   'eliminated': 'Eliminated',
   'nextNow': 'Next now',
   'menu': 'Menu',
@@ -1965,6 +1979,15 @@ const _arabicValues = {
   'wonByFifty': 'فاز بالخمسين',
   'wonByFinish': 'فاز بإنهاء الجولة',
   'returnToMenu': 'العودة للقائمة',
+  'giveUpFiftyTitle': 'التخلي عن الخمسين؟',
+  'giveUpFiftyBodyTable':
+      'أعد البطاقة الملتقطة إلى الكومة للتخلي عن هذا الخمسين. '
+      'ستحصل على +17 وتخرج من هذه الجولة.',
+  'giveUpFiftyBodyPenalty':
+      'أعد البطاقة الملتقطة إلى الكومة للتخلي عن هذا الخمسين. '
+      'ستحصل على عقوبة المطالبة الخاطئة.',
+  'giveUpFiftyConfirm': 'تخلَّ',
+  'keepTrying': 'متابعة المحاولة',
   'eliminated': 'خارج اللعب',
   'nextNow': 'التالي الآن',
   'menu': 'القائمة',

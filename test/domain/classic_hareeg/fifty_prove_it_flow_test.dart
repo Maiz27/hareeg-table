@@ -162,6 +162,46 @@ void main() {
       expect(controller.isFiftyProofTurn, isTrue);
     });
 
+    test('penalty tiers: returning the claimed card gives up the Fifty', () {
+      // Strict tier: an unprovable claim (4 cards can't form a perfect hand)
+      // is accepted into a proof turn, and returning the claimed card is the
+      // discoverable give-up — +3, the claim is called off, the seat stays.
+      final now = DateTime.utc(2026, 6, 7, 12);
+      final claimed = _card(CardRank.nine, CardSuit.clubs, 410);
+      final controller = _controller(
+        strictness: TableStrictness.strict,
+        eastHand: [
+          _card(CardRank.seven, CardSuit.clubs, 410),
+          _card(CardRank.eight, CardSuit.clubs, 410),
+          _card(CardRank.two, CardSuit.hearts, 410),
+          _card(CardRank.three, CardSuit.diamonds, 410),
+        ],
+        discardPile: [claimed],
+        savedAt: now,
+        now: () => now,
+      );
+      expect(
+        controller.applyAction(ClassicHareegActionIds.claimFifty).isSuccess,
+        isTrue,
+      );
+      expect(controller.isFiftyProofTurn, isTrue);
+      expect(
+        controller.legalActionIdsFor(PlayerSeat.east),
+        contains(ClassicHareegActionIds.returnPendingDiscard),
+      );
+
+      final before = controller.scores[PlayerSeat.east] ?? 0;
+      final result = controller.applyAction(
+        ClassicHareegActionIds.returnPendingDiscard,
+      );
+      expect(result.isSuccess, isTrue, reason: result.message);
+      expect(controller.scores[PlayerSeat.east], before + 3);
+      // Strict keeps the player in the round; only the claim is called off.
+      expect(controller.removedSeats.contains(PlayerSeat.east), isFalse);
+      expect(controller.isFiftyProofTurn, isFalse);
+      expect(controller.pendingDiscard, isNull);
+    });
+
     test('a first-dealt-round proof scores the -1 exception', () {
       final now = DateTime.utc(2026, 6, 7, 12);
       final claimed = _card(CardRank.nine, CardSuit.clubs, 405);
@@ -279,10 +319,13 @@ ClassicHareegGameController _controller({
   TurnPhase turnPhase = TurnPhase.draw,
   HareegCard? pendingDiscard,
   int roundNumber = 2,
+  TableStrictness? strictness,
   required DateTime savedAt,
   required DateTime Function() now,
 }) {
-  final setup = ClassicHareegSetup.defaults();
+  final setup = strictness == null
+      ? ClassicHareegSetup.defaults()
+      : ClassicHareegSetup.defaults().copyWith(tableStrictness: strictness);
   final base = ClassicHareegRound.deal(setup: setup, seed: 5);
   return ClassicHareegGameController.fromSnapshot(
     ClassicHareegMatchSnapshot(

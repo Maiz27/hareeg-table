@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
@@ -6,8 +7,6 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
-import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
-import 'package:hareeg_table/ui/features/match_over/views/match_over_screen.dart';
 
 import '../../../support/test_fixtures.dart';
 
@@ -70,9 +69,14 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 30));
 
       expect(tester.takeException(), isNull);
-      // The eliminated human must land on match-over, not the frozen table.
-      expect(find.byType(MatchOverScreen), findsOneWidget);
-      expect(find.byType(PhysicalTablePlayfield), findsNothing);
+      // The eliminated human must land on the match-over surface. It now shows
+      // as a dedicated overlay on the landscape table (which stays mounted
+      // behind it but is covered and non-interactive) instead of a separate
+      // portrait route.
+      expect(
+        find.byKey(const ValueKey('match-over-overlay')),
+        findsOneWidget,
+      );
     },
   );
 }

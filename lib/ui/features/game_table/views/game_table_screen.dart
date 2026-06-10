@@ -53,12 +53,12 @@ import '../../learning/widgets/practice_completion_overlay.dart';
 import '../../learning/widgets/practice_missed_overlay.dart';
 import '../../learning/widgets/practice_step_banner.dart';
 import '../widgets/coach_overlay.dart';
+import '../widgets/match_over_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
-import '../../match_over/views/match_over_screen.dart';
 import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
@@ -195,6 +195,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   HareegCard? _inspectedCard;
   static const _revertFlashDuration = Duration(milliseconds: 1100);
   ClassicHareegRoundResultPresentation? _roundResultPresentation;
+  // Non-null while the dedicated match-over overlay is shown. The match ends
+  // in place on the landscape table (no route change, no rotation); the
+  // rematch restarts the controller without leaving the screen.
+  ClassicHareegRoundResultPresentation? _matchOverPresentation;
   final Map<PlayerSeat, int> _matchEliminatedRoundBySeat = {};
   int _flightSerial = 0;
 
@@ -256,7 +260,9 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
     _meldFlight = MeldFlightController(
       handLookup: _cardInHand,
-      baseMeldIndexLookup: (seat) => _controller.tableMeldsFor(seat).length,
+      existingMeldCardCounts: (seat) => [
+        for (final meld in _controller.tableMeldsFor(seat)) meld.cards.length,
+      ],
       isMounted: () => mounted,
     )..addListener(_handleCueOrFlightChange);
     _cues.addListener(_handleCueOrFlightChange);
@@ -828,9 +834,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               onTakeDiscard: () => unawaited(
                 _runHumanAction(ClassicHareegActionIds.takeDiscard),
               ),
-              onReturnDiscard: () => unawaited(
-                _runHumanAction(ClassicHareegActionIds.returnPendingDiscard),
-              ),
+              onReturnDiscard: () => unawaited(_returnPendingDiscard()),
               onClaimFifty: () => unawaited(_claimFifty()),
               onReturnOpeningMelds: () => unawaited(
                 _runHumanAction(ClassicHareegActionIds.returnOpeningMelds),
@@ -950,13 +954,18 @@ class _GameTableScreenState extends State<GameTableScreen>
                             ),
                             SizedBox(width: edgeInset * 0.6),
                           ],
-                          _TableChromeButton(
-                            tooltip: strings.pauseTable,
-                            icon: Icons.pause_rounded,
-                            diameter: buttonSize,
-                            iconSize: iconSize,
-                            onPressed: () => setState(() => _pauseOpen = true),
-                          ),
+                          // Guided practice has no match to pause (and its own
+                          // close button exits to the hub), so the pause
+                          // control is hidden during a lesson.
+                          if (!_isPractice)
+                            _TableChromeButton(
+                              tooltip: strings.pauseTable,
+                              icon: Icons.pause_rounded,
+                              diameter: buttonSize,
+                              iconSize: iconSize,
+                              onPressed: () =>
+                                  setState(() => _pauseOpen = true),
+                            ),
                         ],
                       ),
                     ),
@@ -1146,6 +1155,27 @@ class _GameTableScreenState extends State<GameTableScreen>
                       onDismiss: () {
                         setState(() => _roundResultPresentation = null);
                       },
+                    ),
+            ),
+            _AnimatedOverlaySlot(
+              visible: _matchOverPresentation != null,
+              overlayKey: 'match-over-overlay-slot',
+              duration: _scaledDelay(const Duration(milliseconds: 240)),
+              child: _matchOverPresentation == null
+                  ? const SizedBox.shrink()
+                  : MatchOverOverlay(
+                      result: _matchOverPresentation!.result,
+                      progress: _matchOverPresentation!.progress,
+                      roundsPlayed: _controller.roundNumber,
+                      eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
+                        _matchEliminatedRoundBySeat,
+                      ),
+                      highContrast: widget.preferences.highContrastCards,
+                      onRematch: _restartMatchSameSetup,
+                      onReturnToMenu: _returnToMainMenu,
+                      onExportReport: () => unawaited(
+                        _exportCompletedMatchReport(_matchOverPresentation!),
+                      ),
                     ),
             ),
           ],
@@ -1415,6 +1445,51 @@ class _GameTableScreenState extends State<GameTableScreen>
     await _runHumanAction(fallbackActionId);
   }
 
+  /// Returns the picked-up card. During a Fifty proof turn this is the
+  /// explicit "give up" gesture and carries the tier penalty, so it asks for
+  /// confirmation first — a stray tap should never silently cost +17 and the
+  /// round.
+  Future<void> _returnPendingDiscard() async {
+    if (_controller.isFiftyProofTurn) {
+      final confirmed = await _confirmGiveUpFifty();
+      // The dialog is an async gap; bail if the table was disposed while it
+      // was open rather than running an action that would setState().
+      if (!mounted || confirmed != true) {
+        return;
+      }
+    }
+    await _runHumanAction(ClassicHareegActionIds.returnPendingDiscard);
+  }
+
+  Future<bool?> _confirmGiveUpFifty() {
+    final strings = context.strings;
+    final body = _controller.setup.tableStrictness == TableStrictness.table
+        ? strings.giveUpFiftyBodyTable
+        : strings.giveUpFiftyBodyPenalty;
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final dialogStrings = dialogContext.strings;
+        return AlertDialog(
+          key: const ValueKey('give-up-fifty-dialog'),
+          title: Text(dialogStrings.giveUpFiftyTitle),
+          content: Text(body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(dialogStrings.keepTrying),
+            ),
+            FilledButton(
+              key: const ValueKey('give-up-fifty-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(dialogStrings.giveUpFiftyConfirm),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<TableInteractionJokerChoice?> _showJokerChoiceDialog(
     List<TableInteractionJokerChoice> choices,
   ) {
@@ -1681,6 +1756,10 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
     _flightSerial = serial;
 
+    // Carry the target lane's meld card counts so a cover/replacement flight
+    // lands on the meld it targets rather than the lane centre (the same
+    // arrangement the lane renders from).
+    final endMeldSlot = realization.endMeldSlot;
     return _CardFlight(
       serial: serial,
       card: card,
@@ -1690,7 +1769,16 @@ class _GameTableScreenState extends State<GameTableScreen>
       duration: duration,
       beginHandSlot: realization.beginHandSlot,
       endHandSlot: realization.endHandSlot,
-      endMeldSlot: realization.endMeldSlot,
+      endMeldSlot: endMeldSlot == null
+          ? null
+          : TableMeldFlightSlot(
+              seat: endMeldSlot.seat,
+              index: endMeldSlot.index,
+              laneMeldCardCounts: [
+                for (final meld in _controller.tableMeldsFor(endMeldSlot.seat))
+                  meld.cards.length,
+              ],
+            ),
     );
   }
 
@@ -2410,25 +2498,99 @@ class _GameTableScreenState extends State<GameTableScreen>
     _cues.stopFiftyTicker();
     _dealChoreography?.dispose();
     _dealChoreography = null;
-    Navigator.of(context).pushReplacementNamed(
-      AppRoutes.matchOver,
-      arguments: MatchOverArguments(
-        result: presentation.result,
-        progress: presentation.progress,
-        previousScores: presentation.previousScores,
-        roundsPlayed: _controller.roundNumber,
-        // Use the controller's current setup, not the (potentially stale)
-        // widget.setup — settings may have been retuned mid-match via the
-        // pause overlay, and rematch should mirror what just played.
-        setup: _controller.setup,
-        finalSnapshot: _controller.toSnapshot(),
-        eliminatedRound: Map<PlayerSeat, int>.unmodifiable(
-          _matchEliminatedRoundBySeat,
-        ),
+    // Show the dedicated match-over overlay in place instead of pushing a
+    // separate (portrait) route — the table stays landscape and the rematch
+    // restarts without a rotation round-trip.
+    setState(() {
+      _roundResultPresentation = null;
+      _matchOverPresentation = presentation;
+    });
+  }
+
+  /// Starts a fresh match with the same setup without leaving the table.
+  void _restartMatchSameSetup() {
+    // Settings may have been retuned mid-match via the pause overlay; mirror
+    // what just played, exactly like the old route-based rematch did.
+    final setup = _controller.setup;
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
+    _dealChoreography?.dispose();
+    _dealChoreography = null;
+    _matchEliminatedRoundBySeat.clear();
+    final recorder = _isPractice ? null : MatchRecorder();
+    _recorder = recorder;
+    setState(() {
+      _controller = ClassicHareegGameController.fromRound(
+        ClassicHareegRound.deal(setup: setup),
+        recorder: recorder,
+      );
+      _coachInsightCacheKey = null;
+      _coachInsights = const [];
+      _resetHandInteraction();
+      _dealChoreography = _buildDealChoreography();
+      _isCpuRunning = false;
+      _scoreOpen = false;
+      _pauseOpen = false;
+      _placedJokerSnapshot = null;
+      _activeFlights.clear();
+      _meldFlight.clear();
+      _inspectedCard = null;
+      _roundResultPresentation = null;
+      _matchOverPresentation = null;
+    });
+    if (recorder != null) {
+      recorder.recordPersistence(
+        type: 'dealt',
+        roundNumber: _controller.roundNumber,
+        data: const {'stage': 'rematch'},
+      );
+    }
+    _ensureFiftyTicker();
+    _scheduleTurnFlow();
+  }
+
+  Future<void> _exportCompletedMatchReport(
+    ClassicHareegRoundResultPresentation presentation,
+  ) async {
+    final choice = await showMatchReportConfirmation(
+      context,
+      highContrast: widget.preferences.highContrastCards,
+    );
+    if (!mounted || choice == null) {
+      return;
+    }
+    final ClassicHareegMatchReport report;
+    try {
+      final generatedAt = DateTime.now().toUtc();
+      report = ClassicHareegMatchReport.completed(
+        app: HareegAppMetadata.reportMetadata,
+        platform: currentMatchReportPlatform(),
+        generatedAt: generatedAt,
+        snapshot: _controller.toSnapshot(savedAt: generatedAt),
+        roundResult: presentation.result,
+        matchProgress: presentation.progress,
         diagnostics: _recorder?.diagnostics,
         transcript: _recorder?.transcript,
-      ),
-    );
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint('[hareeg:reports] Failed to generate match report: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showLoungeToast(
+          context,
+          message: context.strings.matchReportGenerationFailed,
+          icon: Icons.error_outline,
+          isError: true,
+        );
+      }
+      return;
+    }
+    switch (choice) {
+      case MatchReportExportChoice.share:
+        await _shareOrOfferCopy(report);
+      case MatchReportExportChoice.copy:
+        await _copyMatchReport(report);
+    }
   }
 
   void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {

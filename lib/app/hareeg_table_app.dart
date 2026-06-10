@@ -27,7 +27,6 @@ import '../ui/features/learning/views/onboarding_screen.dart';
 import '../ui/features/learning/views/practice_checklist_screen.dart';
 import '../ui/features/learning/views/practice_reading_panel_screen.dart';
 import '../ui/features/learning/views/strictness_explainer_screen.dart';
-import '../ui/features/match_over/views/match_over_screen.dart';
 import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
 import '../ui/features/settings/views/settings_screen.dart';
@@ -337,17 +336,6 @@ class _HareegTableAppState extends State<HareegTableApp> {
               lessonId: lessonId,
               learningRepository: _learning,
             ),
-            settings: settings,
-          );
-        }
-
-        if (settings.name == AppRoutes.matchOver) {
-          final args = settings.arguments;
-          if (args is! MatchOverArguments) {
-            return null;
-          }
-          return MaterialPageRoute<void>(
-            builder: (context) => MatchOverScreen(arguments: args),
             settings: settings,
           );
         }

@@ -69,8 +69,9 @@ abstract class ClassicHareegActionSurfaceFacts {
   /// Whether the unused pending discard may be returned right now.
   ///
   /// False for unopened seats with staged opening melds (the staged plays
-  /// must be taken back first) and during a Fifty proof turn (the claimed
-  /// card cannot be returned).
+  /// must be taken back first). During a Fifty proof turn returning the
+  /// claimed card is the explicit "give up" gesture, available on the tiers
+  /// that price a wrong Fifty (Strict/Table) and carrying that penalty.
   bool canReturnPendingDiscard(PlayerSeat seat);
 
   /// Draw decision plan for draw phase.

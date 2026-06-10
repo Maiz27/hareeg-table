@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
@@ -101,24 +99,25 @@ class _SuggestionGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = suggestion.cards;
-    final gap = cardSize.width * 0.50;
-    final width = cardSize.width + math.max(0, cards.length - 1) * gap;
-    // Cards fan right (each at left: i*gap), so a card's right half is covered
-    // by its neighbour. The natural fan keeps ascending index order — each card
-    // paints above its LEFT neighbour, so every card's top-left rank corner
-    // stays visible (rightmost on top). The joker carries a bottom-centred
-    // represented-identity badge, so it alone must float to the very top to
-    // keep that badge readable even from an interior slot. We therefore keep
-    // ascending order for everything and only lift jokers to the end. Offsets
-    // and overall width are unchanged, so the rack's centred layout is identical.
-    final paintOrder = [for (var i = 0; i < cards.length; i++) i];
-    paintOrder.sort((a, b) {
-      final aJoker = cards[a].isJoker;
-      final bJoker = cards[b].isJoker;
-      if (aJoker != bJoker) return aJoker ? 1 : -1;
-      // Preserve natural left→right fan within the same priority.
-      return a.compareTo(b);
-    });
+    final overlapGap = cardSize.width * 0.50;
+    // A joker carries a bottom-centred represented-identity badge. The earlier
+    // fix lifted jokers to the top of the stack to keep that badge readable,
+    // but an interior joker then painted OVER the cards to its right and hid
+    // them. Instead keep the natural left→right fan (each card paints above its
+    // left neighbour, so a joker never covers its right neighbour) and step the
+    // card *after* a joker clear of it — no overlap — so the badge is fully
+    // visible. Normal neighbours keep the compact fan overlap. Result: the
+    // joker is neither hidden behind nor hiding the other cards.
+    final fullStep = cardSize.width + 4.0;
+    final lefts = <double>[];
+    var x = 0.0;
+    for (var i = 0; i < cards.length; i++) {
+      lefts.add(x);
+      if (i < cards.length - 1) {
+        x += cards[i].isJoker ? fullStep : overlapGap;
+      }
+    }
+    final width = (cards.isEmpty ? 0.0 : lefts.last) + cardSize.width;
     return Tooltip(
       message: context.strings.playMeld,
       child: GestureDetector(
@@ -131,9 +130,9 @@ class _SuggestionGroup extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              for (final i in paintOrder)
+              for (var i = 0; i < cards.length; i++)
                 Positioned(
-                  left: i * gap,
+                  left: lefts[i],
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onLongPress: () => onCardLongPress(cards[i]),
