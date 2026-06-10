@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "schema": "classic_hareeg_match_report",
+  "app": {
+    "appId": "com.maiz27.hareegtable",
+    "appName": "Hareeg Table",
+    "version": "1.0.0-alpha.9",
+    "buildNumber": "debug"
+  },
+  "platform": "android",
+  "generatedAt": "2026-06-10T09:11:58.943572Z",
+  "stage": "active",
+  "setup": {
+    "cpuDifficulty": "skilled",
+    "starterMode": "human",
+    "openingRequirement": 51,
+    "deckCount": 2,
+    "jokerCount": 2,
+    "fiftyTimerSeconds": 4,
+    "tableStrictness": "table"
+  },
+  "seed": 1261137262,
+  "roundNumber": 1,
+  "currentSeat": "south",
+  "turnPhase": "action",
+  "scores": { "south": 0, "east": 0, "north": 0, "west": 0 },
+  "snapshot": {
+    "version": 1,
+    "setup": {
+      "cpuDifficulty": "skilled",
+      "starterMode": "human",
+      "openingRequirement": 51,
+      "deckCount": 2,
+      "jokerCount": 2,
+      "fiftyTimerSeconds": 4,
+      "tableStrictness": "table"
+    },
+    "seed": 1261137262,
+    "hands": {
+      "south": [
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "queen", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "eight", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "eight", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "nine", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ten", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ten", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": 1, "identity": null, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "queen", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "king", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "three", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "four", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "five", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "six", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "seven", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "eight", "suit": "clubs" }, "representedIdentity": null }
+      ],
+      "east": [
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "three", "suit": "hearts" }, "representedIdentity": null }
+      ],
+      "north": [
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "seven", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "queen", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "three", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "six", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "three", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "queen", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "four", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "three", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "nine", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "two", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "seven", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "six", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "five", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "four", "suit": "diamonds" }, "representedIdentity": null }
+      ],
+      "west": [
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "five", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "four", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "six", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "two", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "four", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "five", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "two", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "nine", "suit": "clubs" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "seven", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "three", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "five", "suit": "spades" }, "representedIdentity": null },
+        { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "seven", "suit": "hearts" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "five", "suit": "diamonds" }, "representedIdentity": null },
+        { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "two", "suit": "spades" }, "representedIdentity": null }
+      ]
+    },
+    "stock": [
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "two", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "jack", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "four", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "jack", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "king", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "six", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "five", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "jack", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ten", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "seven", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "jack", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "king", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "two", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ace", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "nine", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "eight", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "king", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "seven", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": 0, "identity": null, "representedIdentity": null }
+    ],
+    "discardPile": [
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ace", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "king", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ace", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "queen", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "two", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ten", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "king", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ace", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "two", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "queen", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "king", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ten", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "three", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "eight", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ace", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "eight", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "six", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "eight", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "jack", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "eight", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "six", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "king", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ace", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "jack", "suit": "diamonds" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "queen", "suit": "spades" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ten", "suit": "hearts" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "seven", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "four", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ace", "suit": "clubs" }, "representedIdentity": null },
+      { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "ace", "suit": "diamonds" }, "representedIdentity": null }
+    ],
+    "tableMelds": {
+      "south": [],
+      "east": [
+        { "cards": [
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "nine", "suit": "clubs" }, "representedIdentity": null },
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ten", "suit": "clubs" }, "representedIdentity": null },
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "jack", "suit": "clubs" }, "representedIdentity": null }
+        ], "valueSnapshot": 29, "coverValue": 0 },
+        { "cards": [
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "nine", "suit": "diamonds" }, "representedIdentity": null },
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "nine", "suit": "spades" }, "representedIdentity": null },
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "nine", "suit": "hearts" }, "representedIdentity": null }
+        ], "valueSnapshot": 27, "coverValue": 0 },
+        { "cards": [
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "ten", "suit": "hearts" }, "representedIdentity": null },
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "jack", "suit": "hearts" }, "representedIdentity": null },
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "queen", "suit": "hearts" }, "representedIdentity": null }
+        ], "valueSnapshot": 30, "coverValue": 0 },
+        { "cards": [
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "three", "suit": "spades" }, "representedIdentity": null },
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "four", "suit": "spades" }, "representedIdentity": null },
+          { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "five", "suit": "spades" }, "representedIdentity": null },
+          { "deckIndex": 0, "jokerIndex": null, "identity": { "rank": "six", "suit": "spades" }, "representedIdentity": null }
+        ], "valueSnapshot": 12, "coverValue": 6 }
+      ],
+      "north": [],
+      "west": []
+    },
+    "starter": "south",
+    "currentSeat": "south",
+    "turnPhase": "action",
+    "pendingDiscard": { "deckIndex": 1, "jokerIndex": null, "identity": { "rank": "seven", "suit": "clubs" }, "representedIdentity": null },
+    "openingState": {
+      "baseRequirement": 51,
+      "currentRequirement": 104,
+      "benchmarkOwner": "east",
+      "isLocked": false,
+      "openedSeats": ["east"]
+    },
+    "scores": { "south": 0, "east": 0, "north": 0, "west": 0 },
+    "activeSeats": ["south", "east", "north", "west"],
+    "roundNumber": 1,
+    "removedSeats": [],
+    "fiftyWindowOpenedAt": null,
+    "fiftyWindowDiscarder": null,
+    "fiftyWindowIsFirstDealtRound": null,
+    "activeFiftyClaimCardId": "deck-1-seven-clubs",
+    "activeFiftyClaimDiscarder": "west",
+    "activeFiftyClaimIsFirstDealtRound": true,
+    "windowedTakeCardId": null,
+    "windowedTakeDiscarder": null,
+    "windowedTakeIsFirstDealtRound": null,
+    "savedAt": "2026-06-10T09:11:58.943572Z",
+    "discardHistory": { "events": [] }
+  }
+}

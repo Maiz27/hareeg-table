@@ -1079,10 +1079,21 @@ class ClassicHareegGameController {
     if (_pendingDiscard == null || seat != _currentSeat) {
       return false;
     }
-    // A claimed Fifty card cannot be returned: the claimant is committed to
-    // the proof, and abandoning it is priced at the turn exit instead.
+    // During a Fifty proof turn, returning the claimed card is the explicit
+    // "give up" gesture (priced by the tier's wrong-Fifty consequence), so it
+    // stays available instead of being blocked — that block is what left a
+    // doomed claimant stuck with a card they could neither prove nor return.
     if (_activeFiftyClaim != null) {
-      return false;
+      final mistake = _mistakeConsequencePlanFor(MistakeType.wrongFiftyClaim);
+      if (!mistake.canApply) {
+        return false;
+      }
+      // Table removal clears staged plays on the way out; Strict must take
+      // staged melds back first, mirroring a plain return.
+      if (mistake.removesPlayer) {
+        return true;
+      }
+      return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
     }
     return _openingState.hasOpened(seat) || _turnOpeningMelds.isEmpty;
   }
@@ -1091,9 +1102,16 @@ class ClassicHareegGameController {
     final pending = _pendingDiscard;
     final returningSeat = _currentSeat;
     if (_activeFiftyClaim != null) {
-      return const ApplyActionResult.failure(
-        'The claimed card cannot be returned — prove the Fifty or end the '
-        'turn.',
+      // Returning the claimed card during a Fifty proof turn is the explicit
+      // "give up" gesture. It carries the tier's wrong-Fifty consequence —
+      // Table: +17 and out of the round; Strict: +3 and the claim is called
+      // off — so a claimant who picked up an unprovable Fifty always has a
+      // discoverable exit instead of being stuck with a card they cannot
+      // return. (Coaching/Standard block the wrong claim at claim time, so no
+      // proof turn exists for them to give up.)
+      return _giveUpFiftyProofByReturn(
+        returningSeat: returningSeat,
+        pending: pending,
       );
     }
     // An unopened seat's staged table plays are not valid commitments yet, so
@@ -1131,6 +1149,69 @@ class ClassicHareegGameController {
       ..setSource(FinishCardSource.stock);
     _evaluateRoundEnd();
     return const ApplyActionResult.success();
+  }
+
+  /// Resolves "return the claimed card" during a Fifty proof turn as the
+  /// give-up gesture, applying the tier's wrong-Fifty consequence.
+  ///
+  /// Table tier removes the claimant (+17, claimed card back on the pile, turn
+  /// passes) via the same [_applyMistake] path the discard-exit uses. Strict
+  /// charges the score penalty (+3), calls off the claim, and hands the claimed
+  /// card back to the pile, dropping the seat into its draw decision — the same
+  /// shape as a plain pending return.
+  ApplyActionResult _giveUpFiftyProofByReturn({
+    required PlayerSeat returningSeat,
+    required HareegCard? pending,
+  }) {
+    final mistake = _mistakeConsequencePlanFor(MistakeType.wrongFiftyClaim);
+    if (!mistake.canApply) {
+      return const ApplyActionResult.failure(
+        'The claimed card cannot be returned — prove the Fifty or end the '
+        'turn.',
+      );
+    }
+    // Strict (non-removing) tier: stage plays must be taken back first, exactly
+    // like a plain return, and the precondition is checked BEFORE the penalty
+    // is charged so a refused give-up never leaves a phantom +3 on the score.
+    if (!mistake.removesPlayer &&
+        pending != null &&
+        !_openingState.hasOpened(returningSeat) &&
+        _turnOpeningMelds.isNotEmpty) {
+      return const ApplyActionResult.failure(
+        'Take back your staged melds before giving up the Fifty.',
+      );
+    }
+
+    final removal = _applyMistake(mistake);
+    if (removal != null) {
+      // Table tier: the seat is removed, the claimed card was returned to the
+      // pile by the mistake plan, and the turn has already advanced.
+      return removal;
+    }
+
+    // Strict tier: the penalty is on the score; call off the claim and return
+    // the claimed card to the pile like a plain pending return.
+    _activeFiftyClaim = null;
+    try {
+      final next = ClassicHareegTurnFlowRules.returnPendingDiscard(
+        _turnFlowState(),
+      );
+      _applyTurnFlowState(next);
+    } on StateError catch (error) {
+      return ApplyActionResult.failure(error.message);
+    }
+    if (pending != null) {
+      _roundMemory.onReturnPendingDiscard(returningSeat, pending);
+      _lastReturnedPendingDiscard = (seat: returningSeat, cardId: pending.id);
+    }
+    _windowedDiscardTake = null;
+    _fiftyWindow = null;
+    _fiftyWindowOpenedAt = null;
+    _turnJournal
+      ..clearConsumedPendingDiscard()
+      ..setSource(FinishCardSource.stock);
+    _evaluateRoundEnd();
+    return ApplyActionResult.success(mistake.message);
   }
 
   ApplyActionResult _applyPlayMeld(
