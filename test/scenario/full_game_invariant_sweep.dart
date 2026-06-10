@@ -63,9 +63,22 @@ ClassicHareegSetup fullGameInvariantSetupFor(
   );
 }
 
-void driveFullGameInvariantSweep(ClassicHareegSetup setup, int seed) {
-  final checker = MatchInvariantChecker(setup: setup, seed: seed);
-  ClassicHareegMatchDriver(actionLimit: fullGameInvariantActionBudget).run(
+void driveFullGameInvariantSweep(
+  ClassicHareegSetup setup,
+  int seed, {
+  int actionLimit = fullGameInvariantActionBudget,
+  bool requireNoBackstopDraw = false,
+  bool recoverStuckFiftyWindows = true,
+}) {
+  final checker = MatchInvariantChecker(
+    setup: setup,
+    seed: seed,
+    requireNoBackstopDraw: requireNoBackstopDraw,
+  );
+  ClassicHareegMatchDriver(
+    actionLimit: actionLimit,
+    recoverStuckFiftyWindows: recoverStuckFiftyWindows,
+  ).run(
     setup: setup,
     seed: seed,
     onStep: checker.checkStep,
@@ -89,9 +102,46 @@ void driveStrategicFullGameInvariantSweep(
   TableStrictness strictness,
 ) {
   for (final seed in strategicSweepSeeds) {
+    // Mistake-free CPUs always realize a reachable finish, so the
+    // stock-exhaustion backstop must never fire — assert it does not.
     driveFullGameInvariantSweep(
       fullGameInvariantSetupFor(strictness, difficulty, 2),
       seed,
+      requireNoBackstopDraw: true,
+    );
+  }
+}
+
+/// Seeds driven long enough to reach removed-seat (3-active) endgames, where a
+/// stock-exhausted round historically livelocked once the human was gone. These
+/// run in no-recovery mode (mirroring production's CPU loop) with the
+/// no-backstop assertion, so a masked detector/executor disagreement fails the
+/// sweep instead of silently drawing or running to the action cap.
+///
+/// Tiered like the rest of the sweep: PRs run a reduced set for fast feedback
+/// while push-to-`main`/nightly (`HAREEG_FULL_SWEEP=1`) drive the full matrix.
+const _removedSeatEndgameSeedsFull = [1, 2, 3, 4, 5, 6, 7, 8, 11, 13, 17, 23];
+const _removedSeatEndgameSeedsPr = [1, 2, 3];
+
+List<int> get removedSeatEndgameSeeds =>
+    fullSweepSeeds ? _removedSeatEndgameSeedsFull : _removedSeatEndgameSeedsPr;
+
+/// Higher budget so eliminations land and a 3-seat endgame is actually reached.
+const removedSeatEndgameActionBudget = 8000;
+
+const removedSeatEndgameTimeout = Timeout(Duration(minutes: 6));
+
+void driveRemovedSeatEndgameInvariantSweep(
+  CpuDifficulty difficulty,
+  TableStrictness strictness,
+) {
+  for (final seed in removedSeatEndgameSeeds) {
+    driveFullGameInvariantSweep(
+      fullGameInvariantSetupFor(strictness, difficulty, 2),
+      seed,
+      actionLimit: removedSeatEndgameActionBudget,
+      requireNoBackstopDraw: true,
+      recoverStuckFiftyWindows: false,
     );
   }
 }
