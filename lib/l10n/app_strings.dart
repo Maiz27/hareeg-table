@@ -1380,10 +1380,10 @@ const _englishValues = {
   'giveUpFiftyTitle': 'Give up the Fifty?',
   'giveUpFiftyBodyTable':
       'Put the picked-up card back to give up this Fifty. '
-      "You'll take +17 and be out of this round.",
+      'You\'ll take +17 and be out of this round.',
   'giveUpFiftyBodyPenalty':
       'Put the picked-up card back to give up this Fifty. '
-      "You'll take the wrong-claim points penalty.",
+      'You\'ll take the wrong-claim points penalty.',
   'giveUpFiftyConfirm': 'Give up',
   'keepTrying': 'Keep trying',
   'eliminated': 'Eliminated',
