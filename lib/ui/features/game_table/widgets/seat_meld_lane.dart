@@ -13,6 +13,7 @@ import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../coach/coach_highlighting.dart';
+import '../seat_meld_arrangement.dart';
 import '../table_meld_drop_target.dart';
 
 /// Predicate that decides whether a dragged card may land on a specific table
@@ -197,28 +198,58 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
               );
 
               if (sideFacing) {
-                // Bunch melds together with a fixed gap between them and
-                // center the cluster vertically in the lane. The viewport is
-                // forced to at least lane height so the column can center
-                // when there's slack; when content exceeds the lane height
-                // the SingleChildScrollView still scrolls.
+                // Side (east/west) melds fill centred columns that grow
+                // toward the table centre instead of a single tall strip.
+                // The arrangement is computed by the shared
+                // `SeatMeldArrangement` model — the same model the flight
+                // geometry reads — so each meld is drawn exactly where its
+                // placement flight lands. `Clip.none` keeps a tapped
+                // (expanded) meld from being cropped; the vertical scroll is
+                // only a fallback for the rare case the columns still
+                // overflow the lane height.
                 final meldGap = widget.compact ? 8.0 : 12.0;
+                final columnGap = widget.compact ? 8.0 : 12.0;
+                final laneSize = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                final footprints = [
+                  for (final meld in widget.melds)
+                    SeatMeldArrangement.footprint(
+                      cardSize: widget.cardSize,
+                      cardCount: meld.cards.length,
+                      compact: widget.compact,
+                      sideFacing: true,
+                    ),
+                ];
+                final layout = SeatMeldArrangement.side(
+                  laneSize: laneSize,
+                  footprints: footprints,
+                  meldGap: meldGap,
+                  columnGap: columnGap,
+                  // East (quarterTurns 3) hugs the right rail and grows left
+                  // toward centre; west (quarterTurns 1) hugs the left rail.
+                  growFromRailRight: widget.quarterTurns == 3,
+                );
                 return SingleChildScrollView(
                   scrollDirection: Axis.vertical,
                   physics: const BouncingScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: constraints.maxWidth,
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                  child: SizedBox(
+                    width: laneSize.width,
+                    height: layout.contentSize.height,
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        for (var i = 0; i < meldWidgets.length; i++) ...[
-                          if (i > 0) SizedBox(height: meldGap),
-                          meldWidgets[i],
-                        ],
+                        for (
+                          var i = 0;
+                          i < meldWidgets.length && i < layout.slots.length;
+                          i++
+                        )
+                          Positioned(
+                            left: layout.slots[i].left,
+                            top: layout.slots[i].top,
+                            child: meldWidgets[i],
+                          ),
                       ],
                     ),
                   ),

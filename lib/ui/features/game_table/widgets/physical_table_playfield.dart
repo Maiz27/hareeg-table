@@ -320,7 +320,17 @@ class PhysicalTablePlayfield extends StatelessWidget {
         final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
         final sideMeldBottomSafe = tableHeight - (compact ? 12.0 : 16.0);
         final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
-        final sideMeldWidth = sideMeldCardSize.height + (compact ? 20.0 : 22.0);
+        // Side meld lanes are wide enough for two columns of rotated melds so
+        // they fill into the empty band toward the table centre (a tidy
+        // cluster from the side player's own view) instead of one long edge
+        // strip that scrolls. The width must agree with `resolveTableMeldSlot`
+        // in table_flight_geometry.dart so placement flights land on-slot.
+        final sideMeldColumnWidth =
+            sideMeldCardSize.height + (compact ? 8.0 : 10.0);
+        final sideMeldColumnGap = compact ? 8.0 : 12.0;
+        final sideMeldLanePadding = compact ? 8.0 : 12.0;
+        final sideMeldWidth =
+            sideMeldColumnWidth * 2 + sideMeldColumnGap + sideMeldLanePadding;
         final sideMeldGap = compact ? 6.0 : 10.0;
         final horizontalMeldInset = (tableWidth * 0.25)
             .clamp(compact ? 126.0 : 210.0, compact ? 180.0 : 390.0)
