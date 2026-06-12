@@ -14,7 +14,7 @@ legality layer blocks.
 
 ## Pipeline
 
-```
+```text
 ClassicHareegGameController
   → ClassicHareegCoachingAdvisor.adviseFor(controller, seat)   (pure)
   → List<CoachingInsight> (priority-sorted)
@@ -26,8 +26,9 @@ ClassicHareegGameController
 - The **advisor** is a pure function of controller state + seat: no mutation,
   no I/O, no time, no cross-turn memory. It re-emits every applicable insight
   on every call.
-- The **flow** (`CoachInsightFlow`, one instance per table screen) owns
-  cross-turn surfacing policy: per-turn guidance always surfaces; stage
+- The **flow** (`CoachInsightFlow`, one instance per match — replaced on
+  rematch, since its once-per-round keys embed the restarting round number)
+  owns cross-turn surfacing policy: per-turn guidance always surfaces; stage
   banners show once per round each (see below).
 - The screen memoizes the advisor on a cheap situation signature and only
   computes at all when the persistent gates hold (coaching tier, tips toggle,
