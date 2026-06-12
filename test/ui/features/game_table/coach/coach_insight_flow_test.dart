@@ -8,6 +8,7 @@ CoachingInsight _insight(
   PlayerSeat? subjectSeat,
   int? subjectValue,
   int? openingRequirement,
+  List<String> highlightCardIds = const [],
 }) {
   return CoachingInsight(
     category: category,
@@ -15,6 +16,7 @@ CoachingInsight _insight(
     subjectSeat: subjectSeat,
     subjectValue: subjectValue,
     openingRequirement: openingRequirement,
+    highlightCardIds: highlightCardIds,
   );
 }
 
@@ -42,6 +44,37 @@ void main() {
       expect(
         selection.stageNote?.category,
         CoachingInsightCategory.benchmarkAlert,
+      );
+    });
+
+    test('each distinct bait card re-teaches; the same bait stays taught', () {
+      // A bait is a live trap on the pile, not round-long posture: deduping
+      // by category alone went silent on the round's SECOND bait card. The
+      // per-card qualifier re-alerts for a new bait while the same card
+      // (still topping the pile turns later) stays taught.
+      final flow = CoachInsightFlow();
+      CoachSelection selectBait(String cardId, String turnKey) => flow.select(
+        insights: [
+          _insight(
+            CoachingInsightCategory.baitDiscard,
+            highlightCardIds: [cardId],
+          ),
+          _insight(CoachingInsightCategory.drawStock),
+        ],
+        roundNumber: 1,
+        turnKey: turnKey,
+      );
+
+      expect(
+        selectBait('bait-a', '1:1').stageNote?.category,
+        CoachingInsightCategory.baitDiscard,
+      );
+      // Same bait, later turn: already taught.
+      expect(selectBait('bait-a', '1:3').stageNote, isNull);
+      // A different bait card is a new trap: teach again.
+      expect(
+        selectBait('bait-b', '1:5').stageNote?.category,
+        CoachingInsightCategory.baitDiscard,
       );
     });
 

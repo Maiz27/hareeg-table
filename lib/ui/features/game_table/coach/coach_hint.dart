@@ -528,6 +528,11 @@ abstract final class CoachHintPresenter {
       if (insight.discardCardId != null) 'd:${insight.discardCardId}',
       if (insight.subjectSeat != null) 's:${insight.subjectSeat!.name}',
       if (insight.subjectValue != null) 'v:${insight.subjectValue}',
+      // benchmarkAlert / opening hints render the requirement in their copy;
+      // without this token a raise re-worded the text but never re-keyed the
+      // callout animation.
+      if (insight.openingRequirement != null)
+        'o:${insight.openingRequirement}',
     ].join(',');
     return '${insight.category.name}:${ids.join(',')}:$extras';
   }

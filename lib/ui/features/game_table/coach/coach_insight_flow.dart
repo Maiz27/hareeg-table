@@ -24,13 +24,19 @@ class CoachSelection {
 /// this flow decides what the table actually shows. The PRIMARY slot always
 /// carries the top actionable insight. STAGE banners
 /// ([CoachingInsightCategory.isStageBanner]) never occupy the primary slot:
-/// they surface as a secondary note, at most once per round each, holding for
-/// the turn they first appear in. Without the dedup, a banner whose condition
-/// holds all round (thin stock, score pressure) would repeat every turn — the
-/// fixation failure the overhaul removes.
+/// they surface as a secondary note, holding for the turn they first appear
+/// in. Without the dedup, a banner whose condition holds all round (thin
+/// stock, score pressure) would repeat every turn — the fixation failure the
+/// overhaul removes.
 ///
-/// One instance lives in the table screen's state for the lifetime of a match;
-/// keys embed the round number, so no per-round reset is needed.
+/// "Once per round" is DELIBERATELY per teaching, not per category: the
+/// [_stageKey] qualifier re-alerts when the message materially changes — a
+/// different opponent close to finishing, a fresh benchmark raise, a new bait
+/// card on the pile — while an unchanged condition stays taught (test-pinned
+/// in coach_insight_flow_test.dart).
+///
+/// One instance lives in the table screen's state for the lifetime of a match
+/// (replaced on rematch — keys embed the round number, which restarts).
 class CoachInsightFlow {
   /// Creates an insight flow with no banner history.
   CoachInsightFlow();
@@ -86,7 +92,9 @@ class CoachInsightFlow {
 
   // Per-category dedup identity. The qualifier picks what "again" means:
   // a different OPPONENT close to finishing is new teaching, a different
-  // stock COUNT is not, and every benchmark RAISE deserves a fresh alert.
+  // stock COUNT is not, every benchmark RAISE deserves a fresh alert, and
+  // each distinct BAIT card is a live trap the player is about to step on —
+  // deduping bait by category alone went silent on the round's second bait.
   String _stageKey(CoachingInsight insight, int roundNumber) {
     final qualifier = switch (insight.category) {
       CoachingInsightCategory.scorePosture ||
@@ -94,6 +102,7 @@ class CoachInsightFlow {
         insight.subjectSeat?.name ?? '',
       CoachingInsightCategory.benchmarkAlert =>
         '${insight.openingRequirement ?? 0}',
+      CoachingInsightCategory.baitDiscard => insight.highlightCardIds.join(','),
       _ => '',
     };
     return '$roundNumber:${insight.category.name}:$qualifier';
