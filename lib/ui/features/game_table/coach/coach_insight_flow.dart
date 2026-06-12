@@ -100,8 +100,10 @@ class CoachInsightFlow {
       CoachingInsightCategory.scorePosture ||
       CoachingInsightCategory.opponentCloseToFinish =>
         insight.subjectSeat?.name ?? '',
+      // Owner + requirement: the owner is fixed per round today, but the key
+      // must identify the teaching on its own, not lean on that invariant.
       CoachingInsightCategory.benchmarkAlert =>
-        '${insight.openingRequirement ?? 0}',
+        '${insight.subjectSeat?.name ?? ''}:${insight.openingRequirement ?? 0}',
       CoachingInsightCategory.baitDiscard => insight.highlightCardIds.join(','),
       _ => '',
     };

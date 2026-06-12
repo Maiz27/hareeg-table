@@ -122,13 +122,16 @@ abstract final class CoachHintPresenter {
           finishBody = strings.coachFinishPlanBody(
             identityForCardId(finishDiscardId),
           );
-          if (insight.bypassesOpening) {
-            finishBody = '$finishBody ${strings.coachFinishOpensSuffix}';
-          }
         } else if (insight.coverFinishes) {
           finishBody = strings.coachCoverFinishBody;
         } else {
           finishBody = strings.coachFinishBody;
+        }
+        // The bypass teaching rides on EVERY finish variant: today the
+        // advisor only flags it alongside a named final discard, but the
+        // copy must not silently depend on that pairing.
+        if (insight.bypassesOpening) {
+          finishBody = '$finishBody ${strings.coachFinishOpensSuffix}';
         }
         return CoachHint(
           category: insight.category,
