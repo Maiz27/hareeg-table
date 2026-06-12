@@ -786,33 +786,58 @@ class OpponentThreatProfile {
     if (card.isJoker || identity == null) {
       return null;
     }
-    for (final tell in _tells) {
-      if (tell.runEndIdentities.contains(identity.key)) {
-        return OpponentThreat(
-          opponent: tell.opponent,
-          kind: OpponentThreatKind.runEnd,
-        );
-      }
+    // Tier order is deliberate and matches dangerScore (run-end's flat 120 tops
+    // every collecting weight): a concrete run-end fit outranks a soft
+    // collecting tell. Within a tier, attribute to the MOST DANGEROUS opponent
+    // (elimination > near-score > plain) instead of the first in seat order —
+    // when two seats both match, the coach must name the one that matters.
+    final runEndTell = _mostDangerousTell(
+      (tell) => tell.runEndIdentities.contains(identity.key),
+    );
+    if (runEndTell != null) {
+      return OpponentThreat(
+        opponent: runEndTell.opponent,
+        kind: OpponentThreatKind.runEnd,
+      );
     }
-    for (final tell in _tells) {
-      if (tell.matchesRank(identity)) {
-        return OpponentThreat(
-          opponent: tell.opponent,
-          kind: OpponentThreatKind.collecting,
-          rank: identity.rank,
-        );
-      }
+    final rankTell = _mostDangerousTell((tell) => tell.matchesRank(identity));
+    if (rankTell != null) {
+      return OpponentThreat(
+        opponent: rankTell.opponent,
+        kind: OpponentThreatKind.collecting,
+        rank: identity.rank,
+      );
     }
-    for (final tell in _tells) {
-      if (tell.matchesSuitAdjacent(identity)) {
-        return OpponentThreat(
-          opponent: tell.opponent,
-          kind: OpponentThreatKind.collecting,
-          suit: identity.suit,
-        );
-      }
+    final suitTell = _mostDangerousTell(
+      (tell) => tell.matchesSuitAdjacent(identity),
+    );
+    if (suitTell != null) {
+      return OpponentThreat(
+        opponent: suitTell.opponent,
+        kind: OpponentThreatKind.collecting,
+        suit: identity.suit,
+      );
     }
     return null;
+  }
+
+  /// The most dangerous tell satisfying [matches] (elimination > near-score >
+  /// plain), or null when none match. Ties keep the first in the stable
+  /// anti-clockwise seat order [_tells] is built in.
+  _OpponentTells? _mostDangerousTell(bool Function(_OpponentTells) matches) {
+    _OpponentTells? best;
+    var bestWeight = -1;
+    for (final tell in _tells) {
+      if (!matches(tell)) {
+        continue;
+      }
+      final weight = tell.eliminationTarget ? 2 : (tell.nearScore ? 1 : 0);
+      if (weight > bestWeight) {
+        bestWeight = weight;
+        best = tell;
+      }
+    }
+    return best;
   }
 
   static List<CardIdentity> _runEndCoverThreats(PlacedMeld meld) {
