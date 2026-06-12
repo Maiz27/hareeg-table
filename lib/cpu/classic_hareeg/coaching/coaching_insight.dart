@@ -16,7 +16,7 @@ import '../../../domain/classic_hareeg/models/playing_card.dart';
 ///
 /// The ladder has three bands:
 /// - WIN/WINDOW moments (1000–860): finishes and Fifty decisions.
-/// - PLAYS (800–400): the concrete move the Expert brain would make now.
+/// - PLAYS (800–550): the concrete move the Expert brain would make now.
 /// - STAGE banners (380–360): once-per-round posture teaching, surfaced through
 ///   [CoachInsightFlow] so each shows for a single turn per round and never
 ///   shadows the per-turn floors permanently.
@@ -43,6 +43,13 @@ enum CoachingInsightCategory {
   /// requirement — it can open this turn.
   openNow(800),
 
+  /// A table joker the seat can replace with the real card it holds. Above
+  /// [playMeld] because the swap is a FREE action that must come first: the
+  /// meld may consume the very card the swap needs (playtest: three natural
+  /// 8s got melded, burning the 8♣ that could have reclaimed the joker),
+  /// while swapping first keeps the same meld playable via the freed joker.
+  jokerAdvice(750),
+
   /// An opened seat that has a legal meld it can play from hand right now.
   playMeld(700),
 
@@ -52,9 +59,6 @@ enum CoachingInsightCategory {
   /// The seat should lay a hand card off as a cover onto a meld on the table
   /// (its own or an opponent's) this turn — the Expert brain's chosen play.
   playCover(550),
-
-  /// A joker the seat could replace on the table, or hold for a bigger meld.
-  jokerAdvice(400),
 
   /// Stage banner: the score situation changes correct play — the seat itself
   /// is near elimination (finish fast, stay light), or an opponent is one bad
@@ -116,6 +120,22 @@ enum CoachingInsightCategory {
   };
 }
 
+/// Why the Expert brain is HOLDING a legal cover in hand this turn — narrated
+/// on the discard hint so a freshly drawn (or visible) lay-off is acknowledged
+/// the moment it exists, even when playing it would be the wrong move.
+/// Mirrors the brain's `CoverHoldReason` (the insight model stays decoupled
+/// from the planner, like [CoachAvoidReason] mirrors the threat kinds).
+enum CoachCoverHoldReason {
+  /// The cover card is a joker — never burn it on a non-finishing cover.
+  jokerGuard,
+
+  /// Few cards + deep stock + a developing hand: covering sheds the Fifty.
+  fiftyDevelopment,
+
+  /// The card extends the seat's own run at an end; no rush to lay it off.
+  ownRunExtension,
+}
+
 /// Why a hold-back ([CoachingInsight.avoidCardId]) warning fired.
 enum CoachAvoidReason {
   /// The card slots directly onto an opponent's visible run on the table.
@@ -142,6 +162,7 @@ class CoachingInsight {
     this.coverCardId,
     this.coverMeldOwner,
     this.coverMeldIndex,
+    this.holdCoverReason,
     this.meldActionId,
     this.jokerCardId,
     this.jokerReplacementActionId,
@@ -156,6 +177,7 @@ class CoachingInsight {
     this.subjectValue,
     this.subjectThreshold,
     this.coverFinishes = false,
+    this.bypassesOpening = false,
     this.coverIsChoice = false,
     this.highlightCardIds = const [],
     this.meldGroups = const [],
@@ -186,6 +208,14 @@ class CoachingInsight {
 
   /// For cover-carrying insights: index of the extended meld.
   final int? coverMeldIndex;
+
+  /// For [CoachingInsightCategory.discardSuggestion]: the Expert brain is
+  /// deliberately HOLDING the legal cover named by [coverCardId] (extending
+  /// [coverMeldOwner]/[coverMeldIndex]) and this is why. The presenter folds
+  /// a "you could lay that off, but hold it because…" line into the discard
+  /// hint so a drawn cover is acknowledged the moment it appears. Null when
+  /// no held cover applies — the common case.
+  final CoachCoverHoldReason? holdCoverReason;
 
   /// For [CoachingInsightCategory.openNow], [CoachingInsightCategory.playMeld]:
   /// the play-meld action id to invoke.
@@ -242,6 +272,12 @@ class CoachingInsight {
   /// hand and wins. Lets the presenter pick "cover these to win" copy instead of
   /// the generic finish body.
   final bool coverFinishes;
+
+  /// For [CoachingInsightCategory.finishAvailable]: the seat has not opened, so
+  /// this full-hand finish doubles as its opening — either the perfect-hand
+  /// bypass (melds-only, exempt from the requirement) or fresh melds that clear
+  /// it. Lets the presenter add the "this also opens you" teaching.
+  final bool bypassesOpening;
 
   /// For [CoachingInsightCategory.playCover]: more than one independent cover is
   /// available, so the player may lay one off and still play or discard the

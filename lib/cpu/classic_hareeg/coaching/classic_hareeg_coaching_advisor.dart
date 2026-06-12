@@ -1,3 +1,6 @@
+import '../../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart'
+    show ClassicHareegFinishPlan;
+import '../../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_round.dart'
     show TurnPhase;
@@ -8,7 +11,7 @@ import '../../../domain/classic_hareeg/models/classic_hareeg_setup.dart'
     show CpuDifficulty;
 import '../cpu_move_plan.dart' show ClassicHareegCpuMoveScenario;
 import '../cpu_move_plan_pipeline.dart'
-    show cardPipValue, cardsCanMeldTogether, handKeepScores;
+    show CpuLegalAction, cardPipValue, cardsCanMeldTogether, handKeepScores;
 import '../cpu_observation.dart';
 import '../expert_cpu_move_planner.dart';
 import 'coaching_insight.dart';
@@ -66,7 +69,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
     final insights = <CoachingInsight>[];
 
-    _addFinish(controller, seat, observation, insights);
+    _addFinish(controller, seat, observation, analysis, insights);
     _addFifty(controller, seat, observation, insights);
     _addTakeAndFinish(controller, seat, observation, insights);
     _addOpening(controller, seat, observation, analysis, insights);
@@ -100,15 +103,21 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // 1. finishAvailable / fiftyHold — the seat can empty its hand this turn. A
-  // finishing partition leaves <= 1 card remaining (the last card is the final
-  // discard). When the Expert brain would HOLD that finish to chase a Fifty,
-  // the coach must not contradict it with a bare "you can win": it surfaces
-  // fiftyHold instead, explaining the trade so the player can choose.
+  // 1. finishAvailable / fiftyHold — the seat can empty its hand this turn.
+  // Detection runs on the engine's own [ClassicHareegFinishPlanner] (via
+  // [_CoachingAnalysis.finishPlan]), so the coach sees every finish the rules
+  // accept: melds-only, cover-routed (cards laid onto existing table melds),
+  // and the unopened-seat routes — the perfect-hand opening bypass and the
+  // opening-finish whose fresh melds clear the requirement. (The playtest gap:
+  // a 3-card set + a cover + the final discard was a full win AND the player's
+  // opening, but the melds-only partition scan saw only "you can lay a meld".)
+  // When the Expert brain would HOLD the finish to chase a Fifty, the coach
+  // surfaces fiftyHold instead of contradicting it with a bare "you can win".
   static void _addFinish(
     ClassicHareegGameController controller,
     PlayerSeat seat,
     CpuObservation observation,
+    _CoachingAnalysis analysis,
     List<CoachingInsight> out,
   ) {
     if (observation.turnPhase != TurnPhase.action) {
@@ -119,24 +128,19 @@ abstract final class ClassicHareegCoachingAdvisor {
       // you can discard it). The Fifty/pickup paths cover draw-phase finishes.
       return;
     }
-    if (!observation.ownHasOpened()) {
-      // An unopened seat cannot finish: it must first satisfy the opening
-      // benchmark, so a "finish" partition is not actionable as a finish.
-      return;
-    }
     // Relaxed taken-discard rule: the pending (or claimed) card can never be
-    // the closing discard, so any "finish" whose final discard would be that
-    // card is not a finish. The one-card trivial case below can now reach a
-    // hand holding ONLY the unused pending card; guard both branches.
+    // the closing discard. [finishPlan] never selects it as the final discard
+    // (and uses every other card), but the one-card trivial case below can
+    // reach a hand holding ONLY the unused pending card; guard it directly.
     final pendingId = controller.pendingDiscard?.id;
-    // The trivial finish: a single card left, where discarding (or covering)
-    // it empties the hand and wins. The meld-partition enumerator yields no
-    // partition for a meldless hand, so detect this directly and ring the last
-    // card. Checked before [finishingPartition] so the case is handled
-    // regardless of how the enumerator treats a one-card hand.
-    final hand = controller.handFor(seat);
+    // The trivial finish: a single card left, where discarding it empties the
+    // hand and wins (a final discard is exempt from the cover block). The
+    // planner has no melds to prove for a one-card hand, so detect this
+    // directly and ring the last card. Opened seats only — an unopened seat
+    // cannot reach a one-card hand.
+    final hand = analysis.hand;
     if (hand.length == 1) {
-      if (hand.first.id == pendingId) {
+      if (!observation.ownHasOpened() || hand.first.id == pendingId) {
         return;
       }
       out.add(
@@ -148,55 +152,99 @@ abstract final class ClassicHareegCoachingAdvisor {
       );
       return;
     }
-    final finishing = observation.finishingPartition();
-    if (finishing == null) {
+    final plan = analysis.finishPlan;
+    if (plan == null) {
       return;
     }
-    if (pendingId != null &&
-        finishing.cardsRemaining.any((card) => card.id == pendingId)) {
-      return;
-    }
-    final highlight = [for (final card in finishing.cardsUsed) card.id];
     // CPU-first: when Expert holds this finish for a Fifty, teach the hold —
     // otherwise the visible discard suggestion below the finish looks wrong to
-    // a player who can see their own win.
+    // a player who can see their own win. (The hold gate reasons on the
+    // melds-only finishing partition, so a cover-routed plan never holds: its
+    // Fifty kernel cannot be re-proven after the covers are spent.)
     if (ExpertCpuMovePlanner.holdsNormalFinishForFifty(observation)) {
-      final ownScore = observation.ownScore;
-      PlayerSeat subject = seat;
-      var subjectScore = ownScore;
-      var subjectIsSelf = true;
-      if (ownScore < ExpertCpuMovePlanner.highRiskScoreFloor) {
-        for (final opponent in observation.opponents) {
-          final score = observation.scoreFor(opponent);
-          if (score >= ExpertCpuMovePlanner.highRiskScoreFloor &&
-              (subjectIsSelf || score > subjectScore)) {
-            subject = opponent;
-            subjectScore = score;
-            subjectIsSelf = false;
-          }
-        }
-      }
-      out.add(
-        CoachingInsight(
-          category: CoachingInsightCategory.fiftyHold,
-          priority: CoachingInsightCategory.fiftyHold.priority,
-          subjectSeat: subject,
-          subjectIsSelf: subjectIsSelf,
-          subjectValue: subjectScore,
-          highlightCardIds: highlight,
-          meldGroups: _groupsOf(finishing),
-        ),
-      );
+      _emitFiftyHold(observation, analysis, plan, out);
       return;
     }
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.finishAvailable,
         priority: CoachingInsightCategory.finishAvailable.priority,
-        highlightCardIds: highlight,
-        meldGroups: _groupsOf(finishing),
+        coverFinishes: plan.covers.isNotEmpty,
+        bypassesOpening: !observation.ownHasOpened(),
+        discardCardId: plan.finalDiscard.id,
+        highlightCardIds: [
+          for (final group in _finishPlanGroups(controller, plan)) ...group,
+        ],
+        meldGroups: _finishPlanGroups(controller, plan),
       ),
     );
+  }
+
+  // The fiftyHold insight: the finish stays ringed so the player sees the
+  // choice, the punishable seat is named, and the hold-sustaining throw is
+  // recommended.
+  static void _emitFiftyHold(
+    CpuObservation observation,
+    _CoachingAnalysis analysis,
+    ClassicHareegFinishPlan plan,
+    List<CoachingInsight> out,
+  ) {
+    // A Fifty's +3 can only hit the seat whose discard the claim takes — the
+    // active seat immediately before this one (the Expert hold gate already
+    // weighed exactly that seat). Naming anyone else is factually wrong: the
+    // playtest hint implied the high-score seat across the table would pay.
+    final ownScore = observation.ownScore;
+    final subjectIsSelf =
+        ownScore >= ExpertCpuMovePlanner.highRiskScoreFloor;
+    final target = subjectIsSelf
+        ? observation.seat
+        : ExpertCpuMovePlanner.fiftyPunishTarget(observation);
+    if (target == null) {
+      return;
+    }
+    out.add(
+      CoachingInsight(
+        category: CoachingInsightCategory.fiftyHold,
+        priority: CoachingInsightCategory.fiftyHold.priority,
+        subjectSeat: target,
+        subjectIsSelf: subjectIsSelf,
+        subjectValue: subjectIsSelf ? ownScore : observation.scoreFor(target),
+        // The throw that keeps the hold alive — the Expert plan's own discard,
+        // drawn from the LEGAL surface, so a cover-blocked card (which cannot
+        // leave as a plain discard) is never recommended. Without this the
+        // hint said "hold" but left the player guessing how to end the turn.
+        discardCardId: analysis.expertDiscardId,
+        highlightCardIds: [
+          for (final meld in plan.melds)
+            for (final card in meld.cards) card.id,
+        ],
+        meldGroups: [
+          for (final meld in plan.melds)
+            [for (final card in meld.cards) card.id],
+        ],
+      ),
+    );
+  }
+
+  // Ring groups for a full finish plan: each fresh meld, then each cover with
+  // the table meld it extends (both ends of the lay-off), in play order.
+  static List<List<String>> _finishPlanGroups(
+    ClassicHareegGameController controller,
+    ClassicHareegFinishPlan plan,
+  ) {
+    final groups = <List<String>>[
+      for (final meld in plan.melds)
+        [for (final card in meld.cards) card.id],
+    ];
+    for (final cover in plan.covers) {
+      final melds = controller.tableMeldsFor(cover.targetSeat);
+      groups.add([
+        for (final card in cover.cards) card.id,
+        if (cover.meldIndex >= 0 && cover.meldIndex < melds.length)
+          for (final card in melds[cover.meldIndex].cards) card.id,
+      ]);
+    }
+    return groups;
   }
 
   // 2. fiftyAvailable — the seat owns the Fifty window AND `claim-fifty` is
@@ -347,7 +395,12 @@ abstract final class ClassicHareegCoachingAdvisor {
     }
     final effectiveValue = stagedValue + partition.totalValue;
     final highlight = [for (final card in partition.cardsUsed) card.id];
-    if (effectiveValue >= requirement) {
+    // openNow is an ACTION-phase instruction — opening happens after the
+    // draw. In the draw phase a requirement-meeting hand falls through to
+    // openingProgress (shortfall clamped to 0), which the draw hint folds in
+    // as "you can open after drawing" instead of hijacking the draw decision.
+    if (effectiveValue >= requirement &&
+        observation.turnPhase == TurnPhase.action) {
       out.add(
         CoachingInsight(
           category: CoachingInsightCategory.openNow,
@@ -368,11 +421,15 @@ abstract final class ClassicHareegCoachingAdvisor {
     // once — e.g. it must not tell you to shed the 4♣ that anchors the very
     // 4-5-6-7 run it is telling you to keep.
     final guidance = analysis.discardGuidance(keepIds: highlight.toSet());
+    final shortfall = requirement - effectiveValue;
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.openingProgress,
         priority: CoachingInsightCategory.openingProgress.priority,
-        openingShortfall: requirement - effectiveValue,
+        // Clamped: a draw-phase hand that already meets the requirement
+        // carries shortfall 0, which the draw hint presents as "you can open
+        // after drawing".
+        openingShortfall: shortfall > 0 ? shortfall : 0,
         openingBestValue: effectiveValue,
         openingRequirement: requirement,
         highlightCardIds: highlight,
@@ -404,6 +461,13 @@ abstract final class ClassicHareegCoachingAdvisor {
     _CoachingAnalysis analysis,
     List<CoachingInsight> out,
   ) {
+    if (controller.turnPhase != TurnPhase.action) {
+      // A meld can only be laid AFTER the draw. Without this gate a meldable
+      // hand (e.g. a joker set) hijacked the whole draw phase at priority 700
+      // — the coach kept saying "lay this meld" while the actual decision was
+      // draw-vs-take (the playtest joker fixation).
+      return;
+    }
     if (!controller.openingState.hasOpened(seat)) {
       return;
     }
@@ -411,14 +475,14 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (planMeldId != null) {
       final action = ClassicHareegActionIds.describe(planMeldId);
       if (action.isMeldPlay) {
-        _emitPlayMeld(controller, seat, action.cardIds, planMeldId, out);
+        _emitPlayMeld(controller, seat, analysis, action.cardIds, planMeldId, out);
         return;
       }
     }
     for (final id in controller.legalActionIdsFor(seat)) {
       final action = ClassicHareegActionIds.describe(id);
       if (action.isMeldPlay) {
-        _emitPlayMeld(controller, seat, action.cardIds, id, out);
+        _emitPlayMeld(controller, seat, analysis, action.cardIds, id, out);
         return;
       }
     }
@@ -442,6 +506,7 @@ abstract final class ClassicHareegCoachingAdvisor {
       _emitPlayMeld(
         controller,
         seat,
+        analysis,
         cardIds,
         ClassicHareegActionIds.playMeldActionId(cardIds),
         out,
@@ -457,11 +522,23 @@ abstract final class ClassicHareegCoachingAdvisor {
   static void _emitPlayMeld(
     ClassicHareegGameController controller,
     PlayerSeat seat,
+    _CoachingAnalysis analysis,
     List<String> meldCardIds,
     String? meldActionId,
     List<CoachingInsight> out,
   ) {
-    final cover = _isolatedCoverFor(controller, seat, meldCardIds.toSet());
+    var cover = _isolatedCoverFor(controller, seat, meldCardIds.toSet());
+    if (cover != null &&
+        analysis.coverHoldReasons[cover.cardId] ==
+            CoverHoldReason.fiftyDevelopment) {
+      // The brain is holding that lay-off to protect a developing Fifty —
+      // combining it into the meld hint would push the exact play the brain
+      // declined. An own-run-end hold stays combined: it is a soft timing
+      // preference, and the combined "play the meld + lay this off" display
+      // is owner-validated for that shape. (A joker never reaches here —
+      // [_isolatedCoverFor] skips jokers.)
+      cover = null;
+    }
     final highlight = <String>[...meldCardIds];
     final groups = <List<String>>[List<String>.of(meldCardIds)];
     if (cover != null) {
@@ -656,7 +733,8 @@ abstract final class ClassicHareegCoachingAdvisor {
     // the cover-only endgame its enumerator misses — the blackout the bespoke
     // detector hit (covers on an opponent meld, no safe discard, it bailed).
     final hasSafeDiscard = analysis.legalSafeDiscardIds.isNotEmpty;
-    if (!hasSafeDiscard) {
+    if (!hasSafeDiscard &&
+        !_containsCategory(out, CoachingInsightCategory.finishAvailable)) {
       final groups = [
         for (final cover in covers) [cover.cardId, ...cover.meldCardIds],
       ];
@@ -738,7 +816,11 @@ abstract final class ClassicHareegCoachingAdvisor {
 
   // 8. jokerAdvice — the seat can replace a represented joker on the table with
   // a real card it holds (a concrete, actionable upgrade). A replace-joker id
-  // on the legal surface is the cleanest signal.
+  // on the legal surface is the cleanest signal. Outranks playMeld (see the
+  // category doc): the swap is free and must come FIRST — when the swap card
+  // also anchors a playable meld, melding first burns the swap, so the hint
+  // folds that meld in ("your meld still works after the swap") instead of
+  // letting the meld hint shadow the better move.
   static void _addJokerAdvice(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -760,16 +842,41 @@ abstract final class ClassicHareegCoachingAdvisor {
             }
           }
         }
+        // The swap card may also anchor a playable in-hand meld (playtest:
+        // 8♥ 8♦ + a drawn 8♣ that could reclaim the table joker). Carry that
+        // meld as a ring group so the hint teaches both: swap first, the
+        // meld still works with the freed joker in the 8♣'s place.
+        List<String> swapMeldGroup = const [];
+        final cardId = action.cardId;
+        if (cardId != null) {
+          for (final insight in out) {
+            if (insight.category != CoachingInsightCategory.playMeld) {
+              continue;
+            }
+            for (final group in insight.meldGroups) {
+              if (group.contains(cardId)) {
+                swapMeldGroup = group;
+                break;
+              }
+            }
+            if (swapMeldGroup.isNotEmpty) {
+              break;
+            }
+          }
+        }
         out.add(
           CoachingInsight(
             category: CoachingInsightCategory.jokerAdvice,
             priority: CoachingInsightCategory.jokerAdvice.priority,
-            jokerCardId: action.cardId,
+            jokerCardId: cardId,
             jokerReplacementActionId: id,
             highlightCardIds: [
-              if (action.cardId != null) action.cardId!,
+              ?cardId,
               ...meldCardIds,
+              for (final id in swapMeldGroup)
+                if (id != cardId) id,
             ],
+            meldGroups: swapMeldGroup.isEmpty ? const [] : [swapMeldGroup],
           ),
         );
         return;
@@ -865,11 +972,17 @@ abstract final class ClassicHareegCoachingAdvisor {
       );
     }
 
-    // benchmarkAlert — an unopened seat facing a LIVE raised requirement.
+    // benchmarkAlert — an unopened seat facing a LIVE raised requirement. Once
+    // a second player opens the benchmark LOCKS and can never rise again, so
+    // the "can keep raising" teaching is over: the number is just the
+    // requirement, which the opening-progress hint already shows. (Playtest:
+    // the alert fired after two other seats had already opened — stale and
+    // factually wrong.)
     final benchmarkOwner = observation.benchmarkOwner;
     if (!observation.ownHasOpened() &&
         benchmarkOwner != null &&
         benchmarkOwner != seat &&
+        !controller.openingState.isLocked &&
         observation.currentOpeningRequirement >
             controller.openingState.baseRequirement) {
       out.add(
@@ -922,6 +1035,11 @@ abstract final class ClassicHareegCoachingAdvisor {
       preferredId: analysis.expertDiscardId,
     );
     final cardId = guidance?.discardCardId ?? legalDiscardIds.first;
+    // When the brain is deliberately HOLDING a legal cover (it discards
+    // instead), narrate the hold on this hint: a freshly drawn lay-off the
+    // coach says nothing about reads as blindness, not strategy (playtest:
+    // the cover was only "discovered" a turn later when the posture flipped).
+    final held = analysis.heldCover;
     out.add(
       CoachingInsight(
         category: CoachingInsightCategory.discardSuggestion,
@@ -932,7 +1050,28 @@ abstract final class ClassicHareegCoachingAdvisor {
         avoidReason: guidance?.avoidReason,
         avoidRank: guidance?.avoidRank,
         avoidSuit: guidance?.avoidSuit,
-        highlightCardIds: [cardId],
+        coverCardId: held?.cover.cardId,
+        coverMeldOwner: held?.cover.owner,
+        coverMeldIndex: held?.cover.meldIndex,
+        holdCoverReason: switch (held?.reason) {
+          null => null,
+          CoverHoldReason.jokerGuard => CoachCoverHoldReason.jokerGuard,
+          CoverHoldReason.fiftyDevelopment =>
+            CoachCoverHoldReason.fiftyDevelopment,
+          CoverHoldReason.ownRunExtension =>
+            CoachCoverHoldReason.ownRunExtension,
+        },
+        highlightCardIds: [
+          cardId,
+          if (held != null) ...[held.cover.cardId, ...held.cover.meldCardIds],
+        ],
+        // The held cover and its target meld ring as one cool keep group so
+        // the note points at both ends of the lay-off being declined.
+        meldGroups: held == null
+            ? const []
+            : [
+                [held.cover.cardId, ...held.cover.meldCardIds],
+              ],
       ),
     );
   }
@@ -1120,6 +1259,15 @@ class _CoachingAnalysis {
   /// melds nothing.
   late final MeldPartition? bestPartition = _computeBestPartition();
 
+  /// The engine-grade full-hand finish for this turn, or null when none: fresh
+  /// melds + cover placements consuming every card except one final discard.
+  /// Built on the same [ClassicHareegFinishPlanner] the rules engine uses for
+  /// its finish proofs, so the coach detects exactly the finishes the engine
+  /// accepts — including cover-routed wins and the unopened-seat routes (the
+  /// melds-only perfect hand, exempt from the opening requirement, and the
+  /// cover-routed opening-finish whose fresh melds clear it).
+  late final ClassicHareegFinishPlan? finishPlan = _computeFinishPlan();
+
   /// Per-card keep scores from the shared disjoint best-grouping model.
   late final Map<String, int> keepScores = handKeepScores(hand);
 
@@ -1151,6 +1299,46 @@ class _CoachingAnalysis {
   bool get expertCovers =>
       _expertPlan.scenario == ClassicHareegCpuMoveScenario.cover;
 
+  /// The Expert brain's hold reason for each legal cover it would HOLD in hand
+  /// rather than play, keyed by cover card id. Same brain, same call — lets
+  /// the coach narrate a deliberate hold (playtest: a freshly drawn cover got
+  /// no mention at all until the brain's posture flipped a turn later).
+  late final Map<String, CoverHoldReason> coverHoldReasons =
+      _computeCoverHoldReasons();
+
+  /// The first legal cover the brain is holding, with its reason — the one
+  /// the discard hint narrates. Null when the brain is covering this turn or
+  /// no legal cover is held.
+  ({_LegalCover cover, CoverHoldReason reason})? get heldCover {
+    if (expertCovers) {
+      return null;
+    }
+    for (final cover in legalCovers) {
+      final reason = coverHoldReasons[cover.cardId];
+      if (reason != null) {
+        return (cover: cover, reason: reason);
+      }
+    }
+    return null;
+  }
+
+  Map<String, CoverHoldReason> _computeCoverHoldReasons() {
+    final reasons = <String, CoverHoldReason>{};
+    for (final cover in legalCovers) {
+      final reason = ExpertCpuMovePlanner.coverHoldReasonFor(
+        _observation,
+        CpuLegalAction(
+          actionId: cover.actionId,
+          descriptor: ClassicHareegActionIds.describe(cover.actionId),
+        ),
+      );
+      if (reason != null) {
+        reasons[cover.cardId] = reason;
+      }
+    }
+    return reasons;
+  }
+
   /// The cover action id the Expert brain chose, or null when it is not
   /// covering — lets the coach present the brain's exact cover.
   String? get expertCoverActionId => expertCovers ? _expertPlan.actionId : null;
@@ -1170,6 +1358,44 @@ class _CoachingAnalysis {
       safetyCap: ClassicHareegCoachingAdvisor._partitionLimit,
     );
     return best.isEmpty ? null : best.first;
+  }
+
+  ClassicHareegFinishPlan? _computeFinishPlan() {
+    // A finish needs at least one play plus the final discard; the planner's
+    // meld enumeration also caps out above 20 cards (full hands stay far
+    // below). The one-card trivial finish is handled directly by _addFinish.
+    if (hand.length < 2 || hand.length > 20) {
+      return null;
+    }
+    final planner = ClassicHareegFinishPlanner(
+      hand,
+      coverTargets: ClassicHareegFinishCoverTarget.allFrom(
+        controller.tableMelds,
+      ),
+      // Mirrors the engine's finish proofs: an unopened seat's cover-routed
+      // plan must clear the opening requirement with its fresh melds, while a
+      // melds-only perfect hand stays exempt (the opening bypass).
+      coverPlanMinimumMeldValue: _observation.ownHasOpened()
+          ? null
+          : _observation.currentOpeningRequirement,
+    );
+    final pendingId = controller.pendingDiscard?.id;
+    for (final candidate in hand) {
+      if (candidate.id == pendingId) {
+        // The taken card must end the turn in a meld or cover — it can never
+        // leave as the closing discard.
+        continue;
+      }
+      final parts = planner.planWithout(candidate);
+      if (parts != null) {
+        return ClassicHareegFinishPlan(
+          melds: parts.melds,
+          covers: parts.covers,
+          finalDiscard: candidate,
+        );
+      }
+    }
+    return null;
   }
 
   /// The material threat against discarding [card], or null when none —
