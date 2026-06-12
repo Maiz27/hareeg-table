@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/cpu_move_plan_pipeline.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_observation.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_strategy.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/expert_cpu_move_planner.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_discard_history.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
@@ -174,6 +176,64 @@ void main() {
       expect(
         _choose(CpuDifficulty.expert, observation),
         discardAction(fourClubs),
+      );
+    });
+
+    test('rates a same-suit King dangerous when an opponent collects toward an '
+        'ace-HIGH run', () {
+      // A high-score opponent picked up an ace (A♥) — collecting toward an
+      // ace-HIGH run (A-K-Q). The K♥ is a plausible run neighbour, but raw rank
+      // orders read the ace as 1, so the K (distance 12) drew NO suit adjacency
+      // heat. Under the dual ace reading the K♥ is suit-adjacent and dangerous;
+      // an off-suit K♣ stays safe (danger 0).
+      final history = DiscardHistory()
+        ..recordPickup(PlayerSeat.west, card(CardRank.ace, CardSuit.hearts));
+      final observation = _FakeCpuObservation(
+        legalActionIds: const [],
+        ownHand: const [],
+        openingState: opened(),
+        opponentScores: const {PlayerSeat.west: 26},
+        discardHistory: history,
+      );
+      final profile = OpponentThreatProfile.fromObservation(observation);
+
+      expect(
+        profile.dangerScore(card(CardRank.king, CardSuit.hearts)),
+        greaterThan(0),
+      );
+      expect(
+        profile.dangerScore(card(CardRank.king, CardSuit.clubs)),
+        0,
+      );
+    });
+
+    test('an ace pickup flags BOTH the low and high run neighbours', () {
+      // Same ace-HIGH collection: the same-suit 2 is the ace-LOW neighbour and
+      // the King is the ace-HIGH neighbour. The earlier ace-low-only reading
+      // singled out the 2; the dual reading marks both as suit-adjacent, while
+      // an off-suit card stays safe.
+      final history = DiscardHistory()
+        ..recordPickup(PlayerSeat.west, card(CardRank.ace, CardSuit.hearts));
+      final observation = _FakeCpuObservation(
+        legalActionIds: const [],
+        ownHand: const [],
+        openingState: opened(),
+        opponentScores: const {PlayerSeat.west: 26},
+        discardHistory: history,
+      );
+      final profile = OpponentThreatProfile.fromObservation(observation);
+
+      expect(
+        profile.dangerScore(card(CardRank.two, CardSuit.hearts)),
+        greaterThan(0),
+      );
+      expect(
+        profile.dangerScore(card(CardRank.king, CardSuit.hearts)),
+        greaterThan(0),
+      );
+      expect(
+        profile.dangerScore(card(CardRank.four, CardSuit.clubs)),
+        0,
       );
     });
 
@@ -607,6 +667,45 @@ void main() {
       );
 
       expect(_choose(CpuDifficulty.expert, observation), tenCover);
+    });
+
+    test('holds an ace cover that tops the seats own King-high run', () {
+      // Issue 2: a 10-J-Q-K own run (orders 10-13) has no ace yet, so an Ace
+      // cover tops it (order 14 == orders.last + 1) — a legal high-ace
+      // extension per the meld validator. Keyed off the existing run shape the
+      // brain must still recognise the ace-above-King extension and HOLD the
+      // cover to keep developing the run.
+      final aceSpades = card(CardRank.ace, CardSuit.spades);
+      final loose = card(CardRank.four, CardSuit.hearts);
+      final ownRun = [
+        card(CardRank.ten, CardSuit.spades),
+        card(CardRank.jack, CardSuit.spades),
+        card(CardRank.queen, CardSuit.spades),
+        card(CardRank.king, CardSuit.spades),
+      ];
+      final coverAction = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.east,
+        meldIndex: 0,
+        cardIds: [aceSpades.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [coverAction, discardAction(aceSpades)],
+        ownHand: [aceSpades, loose],
+        stockCount: 40,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.east: [PlacedMeld.fromCards(ownRun)],
+        },
+      );
+
+      final cover = CpuLegalAction(
+        actionId: coverAction,
+        descriptor: ClassicHareegActionIds.describe(coverAction),
+      );
+      expect(
+        ExpertCpuMovePlanner.coverHoldReasonFor(observation, cover),
+        CoverHoldReason.ownRunExtension,
+      );
     });
 
     test('plays a non-finishing cover when the hand is not developing', () {

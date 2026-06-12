@@ -317,7 +317,12 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     if (orders == null) {
       return null;
     }
-    final order = _rankOrder(identity.rank, highAce: orders.last == 14);
+    // An ace covers EITHER end: it extends below a low-ace run (order 1, under
+    // [orders.first]) or tops a King-high run (order 14, above orders.last ==
+    // 13). [_sequenceOrders] reads the EXISTING run shape, so a King-high run
+    // carries no order-14 yet; promote the ace cover to its high reading when
+    // it sits above the King. Other ranks keep their single reading.
+    final order = _rankOrder(identity.rank, highAce: orders.last == 13);
     return order == orders.first - 1 || order == orders.last + 1
         ? CoverHoldReason.ownRunExtension
         : null;
@@ -396,8 +401,8 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
         return keepCompare;
       }
 
-      final leftTarget = profile.fiftySetupScore(leftCard);
-      final rightTarget = profile.fiftySetupScore(rightCard);
+      final leftTarget = profile.avoidFeedingScore(leftCard);
+      final rightTarget = profile.avoidFeedingScore(rightCard);
       final targetCompare = leftTarget.compareTo(rightTarget);
       if (targetCompare != 0) {
         return targetCompare;
@@ -747,9 +752,14 @@ class OpponentThreatProfile {
     return score;
   }
 
-  /// How well discarding [card] sets up a punishing Fifty against a high-score
-  /// opponent.
-  int fiftySetupScore(HareegCard card) {
+  /// How dangerous it is to FEED [card] to a high-score opponent that is
+  /// collecting its identity — a defensive avoid-feeding tie-break, NOT an
+  /// offensive Fifty setup. (A Fifty's +3 lands only on [fiftyPunishTarget],
+  /// so this any-opponent scan cannot encode Fifty-setup intent.) The discard
+  /// comparator sheds the LOWER-scoring card, so a card a near-score /
+  /// elimination opponent is collecting scores higher and is KEPT, denying
+  /// that seat the pickup. Weighted hardest against an elimination target.
+  int avoidFeedingScore(HareegCard card) {
     final identity = card.effectiveIdentity;
     if (identity == null) {
       return 0;
@@ -880,8 +890,31 @@ class _OpponentTells {
       if (pickup.suit != identity.suit) {
         return false;
       }
-      final distance = (pickup.rank.order - identity.rank.order).abs();
-      return distance > 0 && distance <= OpponentThreatProfile._runDistance;
+      // Dual ace reading: an ace reads order 1 (low) OR 14 (high), so a pickup
+      // or candidate ace must test BOTH so a K/Q neighbour of an ace-HIGH run
+      // (A-K-Q) gets adjacency heat — raw orders read ace as 1 and flagged 2/3
+      // instead. Adjacent under EITHER reading is adjacent; the zero-distance
+      // guard still excludes the same identity (an ace-vs-ace pickup is
+      // distance 0 under both readings and stays out).
+      return _suitAdjacent(pickup.rank, identity.rank);
     });
+  }
+
+  static bool _suitAdjacent(CardRank pickupRank, CardRank identityRank) {
+    final pickupOrders = _aceReadings(pickupRank);
+    final identityOrders = _aceReadings(identityRank);
+    for (final pickupOrder in pickupOrders) {
+      for (final identityOrder in identityOrders) {
+        final distance = (pickupOrder - identityOrder).abs();
+        if (distance > 0 && distance <= OpponentThreatProfile._runDistance) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static List<int> _aceReadings(CardRank rank) {
+    return rank == CardRank.ace ? const [1, 14] : [rank.order];
   }
 }
