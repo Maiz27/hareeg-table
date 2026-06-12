@@ -190,6 +190,22 @@ class CpuMovePlanPipeline {
       }
     }
 
+    // Joker replacement is checked BEFORE meld plays: the swap needs the
+    // natural card still in hand, and the best meld may consume exactly that
+    // card (e.g. three natural 8s whose 8♣ could first reclaim a table joker
+    // representing it) — melding first destroys the swap forever, while
+    // swapping first keeps the same meld playable with the freed joker.
+    final replacement = firstActionOfKind(
+      actions,
+      ClassicHareegActionKind.replaceJoker,
+    );
+    if (replacement != null && policy.gateJokerReplacement(observation)) {
+      return ClassicHareegCpuMovePlan(
+        scenario: ClassicHareegCpuMoveScenario.jokerReplacement,
+        actionId: replacement.actionId,
+      );
+    }
+
     final holdForFifty = policy.shouldHoldNormalFinishForFifty(observation);
     if (!holdForFifty) {
       final meldAction = bestMeldAction(
@@ -213,25 +229,21 @@ class CpuMovePlanPipeline {
       }
     }
 
-    final replacement = firstActionOfKind(
-      actions,
-      ClassicHareegActionKind.replaceJoker,
-    );
-    if (replacement != null && policy.gateJokerReplacement(observation)) {
-      return ClassicHareegCpuMovePlan(
-        scenario: ClassicHareegCpuMoveScenario.jokerReplacement,
-        actionId: replacement.actionId,
-      );
-    }
-
-    final cover = firstActionOfKind(
-      actions,
-      ClassicHareegActionKind.placeCover,
-    );
-    if (cover != null && !policy.shouldHoldCover(observation, cover)) {
+    for (final action in actions) {
+      if (action.descriptor.kind != ClassicHareegActionKind.placeCover) {
+        continue;
+      }
+      if (policy.shouldHoldCover(observation, action)) {
+        // A held cover passes over only THIS candidate — another legal cover
+        // (e.g. a freshly drawn lay-off) may still be the right play. Keying
+        // the whole branch off the first advertised cover made the move
+        // order-dependent: a held joker cover listed first blinded the seat
+        // to every other cover on the surface for a full turn.
+        continue;
+      }
       return ClassicHareegCpuMovePlan(
         scenario: ClassicHareegCpuMoveScenario.cover,
-        actionId: cover.actionId,
+        actionId: action.actionId,
       );
     }
 

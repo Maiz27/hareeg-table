@@ -48,7 +48,48 @@ void main() {
       expect(_choose(CpuDifficulty.expert, observation), discardFinal);
     });
 
-    test('extends Fifty hold window for a high-score opponent target', () {
+    test('extends Fifty hold window when the punishable seat is at high score',
+        () {
+      // A Fifty claimed by this seat (east) can only punish SOUTH — the
+      // active seat discarding immediately before it. South's high score
+      // makes the gamble aimable, so Expert holds the finish.
+      final firstMeld = [
+        card(CardRank.seven, CardSuit.clubs),
+        card(CardRank.eight, CardSuit.clubs),
+        card(CardRank.nine, CardSuit.clubs),
+      ];
+      final secondMeld = [
+        card(CardRank.ten, CardSuit.hearts),
+        card(CardRank.jack, CardSuit.hearts),
+        card(CardRank.queen, CardSuit.hearts),
+      ];
+      final finalDiscard = card(CardRank.king, CardSuit.diamonds);
+      final finish = partition(
+        [firstMeld, secondMeld],
+        remaining: [finalDiscard],
+      );
+      final finishAction = ClassicHareegActionIds.playMeldActionId(
+        [...firstMeld, ...secondMeld].map((card) => card.id),
+      );
+      final discardFinal = discardAction(finalDiscard);
+      final observation = _FakeCpuObservation(
+        legalActionIds: [finishAction, discardFinal],
+        ownHand: [...firstMeld, ...secondMeld, finalDiscard],
+        stockCount: 9,
+        openingState: opened(),
+        opponentScores: const {PlayerSeat.south: 28},
+        partitions: _FakeMeldPartitionView([finish]),
+        finishingPartition: finish,
+      );
+
+      expect(_choose(CpuDifficulty.skilled, observation), finishAction);
+      expect(_choose(CpuDifficulty.expert, observation), discardFinal);
+    });
+
+    test('no Fifty hold for a high scorer the claim can never punish', () {
+      // West acts AFTER east, so east's Fifty can never hit west: the +3
+      // lands only on the seat whose discard the claim takes. With no
+      // reachable payoff, Expert takes the sure finish instead of gambling.
       final firstMeld = [
         card(CardRank.seven, CardSuit.clubs),
         card(CardRank.eight, CardSuit.clubs),
@@ -78,8 +119,7 @@ void main() {
         finishingPartition: finish,
       );
 
-      expect(_choose(CpuDifficulty.skilled, observation), finishAction);
-      expect(_choose(CpuDifficulty.expert, observation), discardFinal);
+      expect(_choose(CpuDifficulty.expert, observation), finishAction);
     });
 
     test('refuses discard adjacent to a high-score opponent run end', () {
@@ -231,7 +271,11 @@ void main() {
       );
     });
 
-    test('delays joker replacement until a finish is visible', () {
+    test('replaces a table joker eagerly — a free upgrade for every tier', () {
+      // Reversal of the old "delay until a finish is visible" posture: the
+      // swap costs nothing (scoring is card count, the freed joker need not
+      // be played), and waiting loses it whenever the natural card gets
+      // consumed — or a multi-deck twin holder swaps first.
       final discard = card(CardRank.four, CardSuit.clubs);
       final replacement = ClassicHareegActionIds.replaceJokerActionId(
         targetSeat: PlayerSeat.south,
@@ -245,10 +289,38 @@ void main() {
       );
 
       expect(_choose(CpuDifficulty.skilled, observation), replacement);
-      expect(
-        _choose(CpuDifficulty.expert, observation),
-        discardAction(discard),
+      expect(_choose(CpuDifficulty.expert, observation), replacement);
+    });
+
+    test('swaps for a table joker before melding away the swap card', () {
+      // Playtest: hand 8♥ 8♦ + a drawn 8♣, table joker representing the 8♣.
+      // Melding the natural 8s first consumes the 8♣ and destroys the swap;
+      // the swap must come first — the meld still works with the freed joker.
+      final eightHearts = card(CardRank.eight, CardSuit.hearts);
+      final eightDiamonds = card(CardRank.eight, CardSuit.diamonds);
+      final eightClubs = card(CardRank.eight, CardSuit.clubs);
+      final junk = card(CardRank.two, CardSuit.spades);
+      final eights = [eightHearts, eightDiamonds, eightClubs];
+      final meldAction = ClassicHareegActionIds.playMeldActionId(
+        eights.map((card) => card.id),
       );
+      final replacement = ClassicHareegActionIds.replaceJokerActionId(
+        targetSeat: PlayerSeat.north,
+        meldIndex: 0,
+        cardId: eightClubs.id,
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [meldAction, replacement, discardAction(junk)],
+        ownHand: [...eights, junk],
+        stockCount: 30,
+        openingState: opened(),
+        partitions: _FakeMeldPartitionView([
+          partition([eights], remaining: [junk]),
+        ]),
+      );
+
+      expect(_choose(CpuDifficulty.expert, observation), replacement);
+      expect(_choose(CpuDifficulty.skilled, observation), replacement);
     });
 
     test('pushes first opening benchmark into the 70-80 band', () {
@@ -458,6 +530,56 @@ void main() {
         _choose(CpuDifficulty.expert, observation),
         discardAction(fiveSpades),
       );
+    });
+
+    test('a held cover does not blind the seat to other playable covers', () {
+      // Order-dependence regression: the pipeline keyed its whole cover branch
+      // off the FIRST advertised cover. With a guarded joker cover listed
+      // first, the seat discarded instead of playing the second, perfectly
+      // good lay-off — and a freshly drawn cover went unused for a full turn.
+      final joker = HareegCard.joker(deckIndex: 90, jokerIndex: 0);
+      final tenSpades = card(CardRank.ten, CardSuit.spades);
+      // Big disconnected hand (> 5 cards) so the Fifty-development hold does
+      // not apply to the 10♠ — only the joker guard is in play.
+      final fourHearts = card(CardRank.four, CardSuit.hearts);
+      final nineDiamonds = card(CardRank.nine, CardSuit.diamonds);
+      final twoClubs = card(CardRank.two, CardSuit.clubs);
+      final kingDiamonds = card(CardRank.king, CardSuit.diamonds);
+      final jokerCover = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.west,
+        meldIndex: 0,
+        cardIds: [joker.id],
+      );
+      final tenCover = ClassicHareegActionIds.placeCoverActionId(
+        targetSeat: PlayerSeat.west,
+        meldIndex: 0,
+        cardIds: [tenSpades.id],
+      );
+      final observation = _FakeCpuObservation(
+        legalActionIds: [
+          jokerCover,
+          tenCover,
+          discardAction(fourHearts),
+          discardAction(nineDiamonds),
+          discardAction(twoClubs),
+          discardAction(kingDiamonds),
+        ],
+        ownHand: [
+          joker,
+          tenSpades,
+          fourHearts,
+          nineDiamonds,
+          twoClubs,
+          kingDiamonds,
+        ],
+        stockCount: 40,
+        openingState: opened(),
+        tableMelds: {
+          PlayerSeat.west: [PlacedMeld.fromCards(westRun)],
+        },
+      );
+
+      expect(_choose(CpuDifficulty.expert, observation), tenCover);
     });
 
     test('plays a non-finishing cover when the hand is not developing', () {

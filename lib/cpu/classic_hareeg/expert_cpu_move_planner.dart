@@ -6,6 +6,26 @@ import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
 import 'skilled_cpu_move_planner.dart';
 
+/// Why Expert holds a legal cover in hand instead of playing it.
+///
+/// Returned by [ExpertCpuMovePlanner.coverHoldReasonFor] so the coaching
+/// advisor can narrate the brain's hold instead of staying silent about a
+/// visibly coverable card.
+enum CoverHoldReason {
+  /// The cover card is a joker: never burn the strongest finish/Fifty asset
+  /// on a non-finishing cover.
+  jokerGuard,
+
+  /// Endgame Fifty-hold posture: few cards, deep stock, and the remaining
+  /// hand still develops toward a meld — shedding into covers throws the
+  /// Fifty away.
+  fiftyDevelopment,
+
+  /// The card extends the seat's OWN table run at an end: keep developing the
+  /// run rather than burning the card early.
+  ownRunExtension,
+}
+
 /// Expert CPU planner with offensive Fifty posture and opponent-aware defence.
 ///
 /// This tier is a thin adapter — every stage of `plan()` runs in
@@ -35,10 +55,17 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
 
   /// Whether Expert would HOLD a normal finish to chase a Fifty instead:
   /// a finishing partition exists, the stock is deep enough to keep drawing,
-  /// the hand is heavy enough to pay for the gamble, and someone (self or an
-  /// opponent) is at high-risk score. Public so the coaching advisor can
-  /// narrate the same posture the brain plays instead of contradicting it
-  /// with a bare "you can finish" hint.
+  /// the hand is heavy enough to pay for the gamble, and the Fifty has a
+  /// worthwhile payoff. Public so the coaching advisor can narrate the same
+  /// posture the brain plays instead of contradicting it with a bare "you can
+  /// finish" hint.
+  ///
+  /// Payoff check: a Fifty's +3 can only land on the seat whose discard the
+  /// claimant takes — the active seat immediately BEFORE it in turn order
+  /// ([fiftyPunishTarget]). A high score elsewhere at the table is
+  /// unreachable, so it does not justify the gamble: the hold pays when the
+  /// claimant itself is at high risk (the −3 buys real breathing room) or the
+  /// punishable seat is (the +3 may eliminate them).
   static bool holdsNormalFinishForFifty(CpuObservation observation) {
     if (observation.finishingPartition() == null ||
         observation.stockCount < _fiftyHoldStockFloor ||
@@ -49,9 +76,27 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
     if (observation.ownScore >= _highRiskScoreFloor) {
       return true;
     }
-    return observation.opponents.any((opponent) {
-      return observation.scoreFor(opponent) >= _highRiskScoreFloor;
-    });
+    final target = fiftyPunishTarget(observation);
+    return target != null &&
+        observation.scoreFor(target) >= _highRiskScoreFloor;
+  }
+
+  /// The only seat a Fifty claimed by [observation]'s seat can punish: the
+  /// active seat immediately before it in turn order, whose discard the claim
+  /// would take. Null in the degenerate no-opponents state.
+  static PlayerSeat? fiftyPunishTarget(CpuObservation observation) {
+    final opponents = observation.opponents;
+    return opponents.isEmpty ? null : opponents.last;
+  }
+
+  /// Why Expert would HOLD [cover] in hand instead of playing it, or null when
+  /// it plays the cover. Public so the coaching advisor narrates the same hold
+  /// the brain plays (the policy's boolean hook delegates to the same check).
+  static CoverHoldReason? coverHoldReasonFor(
+    CpuObservation observation,
+    CpuLegalAction cover,
+  ) {
+    return const _ExpertCpuPlanPolicy().coverHoldReasonFor(observation, cover);
   }
   // Endgame Fifty-hold cover posture: an opened seat with at most this many
   // cards is close enough to a finish that shedding a developing card into a
@@ -190,26 +235,46 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
 
   @override
   bool gateJokerReplacement(CpuObservation observation) {
-    return observation.finishingPartition() != null;
+    // Eager: a valid swap is a free upgrade — the natural card moves onto the
+    // table in the joker's spot, the freed joker (the strongest finish/Fifty
+    // asset) comes to hand, scoring is card-COUNT so holding it costs
+    // nothing, and with multi-deck twins any opponent holding the other copy
+    // can steal the swap first. The old "delay until a finish is visible"
+    // posture lost the swap whenever the natural card got consumed by a meld
+    // or discard in the meantime (playtest: three natural 8s were melded,
+    // burning the 8♣ that could have reclaimed a table joker).
+    return true;
   }
 
   @override
   bool shouldHoldCover(CpuObservation observation, CpuLegalAction cover) {
+    return coverHoldReasonFor(observation, cover) != null;
+  }
+
+  /// Why Expert would hold [cover] in hand instead of playing it, or null when
+  /// the cover should be played. The boolean policy hook ([shouldHoldCover])
+  /// delegates here; the coaching advisor reads the reason so it can NARRATE
+  /// the hold the brain plays ("the drawn card fits that meld, but hold it
+  /// because…") instead of going silent about a visibly coverable card.
+  CoverHoldReason? coverHoldReasonFor(
+    CpuObservation observation,
+    CpuLegalAction cover,
+  ) {
     final cardIds = cover.descriptor.cardIds;
     if (cardIds.length != 1) {
       // Multi-card covers are not reasoned about here; preserve the prior
       // behaviour of always playing them.
-      return false;
+      return null;
     }
     final card = _cardById(observation, cardIds.single);
     if (card == null) {
-      return false;
+      return null;
     }
 
     // A cover that empties the hand wins the round outright — never hold a
     // finish, for a Fifty or anything else.
     if (observation.ownHand.length == cardIds.length) {
-      return false;
+      return null;
     }
 
     // Never burn a joker on a non-finishing cover. A held joker is the single
@@ -217,7 +282,7 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     // so playing it onto a cover is almost always a mistake — the playtest
     // "joker pushed onto a cover" bug.
     if (card.isJoker) {
-      return true;
+      return CoverHoldReason.jokerGuard;
     }
 
     // Endgame Fifty-hold posture (opened seats only). Hold a non-finishing
@@ -231,29 +296,31 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
             ExpertCpuMovePlanner._fiftyHoldCoverHandMax &&
         observation.stockCount >= ExpertCpuMovePlanner._fiftyHoldStockFloor &&
         _remainingHandDevelops(observation.ownHand, card.id)) {
-      return true;
+      return CoverHoldReason.fiftyDevelopment;
     }
 
     // Existing posture: hold a cover that extends the seat's OWN run at an end,
     // to keep developing the run rather than burning the card early.
     final target = cover.descriptor.coverTarget;
     if (target == null || target.targetSeat != observation.seat) {
-      return false;
+      return null;
     }
     final identity = card.effectiveIdentity;
     if (identity == null) {
-      return false;
+      return null;
     }
     final ownMelds = observation.tableMeldsFor(observation.seat);
     if (target.meldIndex < 0 || target.meldIndex >= ownMelds.length) {
-      return false;
+      return null;
     }
     final orders = _sequenceOrders(ownMelds[target.meldIndex]);
     if (orders == null) {
-      return false;
+      return null;
     }
     final order = _rankOrder(identity.rank, highAce: orders.last == 14);
-    return order == orders.first - 1 || order == orders.last + 1;
+    return order == orders.first - 1 || order == orders.last + 1
+        ? CoverHoldReason.ownRunExtension
+        : null;
   }
 
   // True when the hand minus [excludeCardId] still has a developing meld — two
