@@ -1815,6 +1815,47 @@ void main() {
 
       expect(_has(insights, CoachingInsightCategory.takeAndFinish), isFalse);
     });
+
+    test('detects a cover-routed take-and-finish', () {
+      // Taking the 7♣ completes 5-6-7♣, the J♠ lays off onto North's spade
+      // run, and the 2♥ closes — a finish the old melds-only proof missed
+      // (it under-promised on every cover-routed take).
+      final seven = _c(CardRank.seven, CardSuit.clubs);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          _c(CardRank.five, CardSuit.clubs),
+          _c(CardRank.six, CardSuit.clubs),
+          _c(CardRank.jack, CardSuit.spades),
+          _c(CardRank.two, CardSuit.hearts),
+        ],
+        discardPile: [seven],
+        tableMelds: {
+          PlayerSeat.north: [
+            _meld([
+              _c(CardRank.eight, CardSuit.spades),
+              _c(CardRank.nine, CardSuit.spades),
+              _c(CardRank.ten, CardSuit.spades),
+            ]),
+          ],
+        },
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.draw,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south, PlayerSeat.north},
+        ),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      expect(insights.first.category, CoachingInsightCategory.takeAndFinish);
+      expect(insights.first.highlightCardIds, contains(seven.id));
+    });
   });
 
   group('baitDiscard', () {

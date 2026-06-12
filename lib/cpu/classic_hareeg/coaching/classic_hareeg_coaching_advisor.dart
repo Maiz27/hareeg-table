@@ -1,5 +1,5 @@
 import '../../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart'
-    show ClassicHareegFinishPlan;
+    show ClassicHareegFiftyClaimPlanner, ClassicHareegFinishPlan;
 import '../../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_round.dart'
@@ -306,7 +306,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     )) {
       return;
     }
-    if (!_finishesOnTopDiscard(controller, seat, topDiscard)) {
+    if (!_finishesOnTopDiscard(controller, seat, observation, topDiscard)) {
       return;
     }
     out.add(
@@ -318,24 +318,51 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // Whether [seat]'s hand plus [topDiscard] holds a finishing partition that
-  // consumes the discard AND leaves exactly one card as the final discard — a
-  // valid finish must end with a discard, so a partition that melds everything
-  // (zero remaining) is NOT a finish. Conservative on purpose: cover-routed
-  // finishes are not detected, so the hint can only under-promise, never
-  // advise an impossible take.
+  // Whether [seat]'s hand plus [topDiscard] is a full finish that consumes
+  // the discard and ends with exactly one final discard. Proven by the same
+  // [ClassicHareegFiftyClaimPlanner] proof the engine uses (it plans melds +
+  // covers over the hand plus the taken card and requires the taken card to
+  // be used), so cover-routed take-and-finishes are detected — the old
+  // melds-only partition scan under-promised on them. Mirrors the engine's
+  // pickup realizability rule for an UNOPENED seat: the taken card must land
+  // in a fresh meld (covers need a prior opening, but the taken card must be
+  // used immediately), so it is barred from cover use in that proof.
   static bool _finishesOnTopDiscard(
     ClassicHareegGameController controller,
     PlayerSeat seat,
+    CpuObservation observation,
     HareegCard topDiscard,
   ) {
     final hand = controller.handFor(seat);
-    final withDiscard = [...hand, topDiscard];
-    return MeldPartitionEnumerator.partitionsOf(
-      withDiscard,
-      mustUseCardId: topDiscard.id,
-      safetyCap: _partitionLimit,
-    ).any((partition) => partition.cardsRemaining.length == 1);
+    final coverTargets = ClassicHareegFinishCoverTarget.allFrom(
+      controller.tableMelds,
+    );
+    if (!observation.ownHasOpened()) {
+      final planner = ClassicHareegFinishPlanner(
+        [...hand, topDiscard],
+        coverTargets: coverTargets,
+        coverPlanMinimumMeldValue: observation.currentOpeningRequirement,
+        coverDisallowedCardIds: {topDiscard.id},
+      );
+      if (!planner.hasValidMeldContaining(topDiscard.id)) {
+        return false;
+      }
+      return ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
+            hand: hand,
+            discarded: topDiscard,
+            playerOpened: false,
+            planner: planner,
+          ) !=
+          null;
+    }
+    return ClassicHareegFiftyClaimPlanner.finishPlanForClaim(
+          hand: hand,
+          discarded: topDiscard,
+          playerOpened: true,
+          coverTargets: coverTargets,
+          openingRequirement: observation.currentOpeningRequirement,
+        ) !=
+        null;
   }
 
   // 4. openNow vs openingProgress — an unopened seat. Best openable value comes
