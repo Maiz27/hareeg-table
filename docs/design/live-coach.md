@@ -41,8 +41,20 @@ The coach narrates the brain's decision; it never re-derives its own. Bespoke
 re-detection diverged from the brain and produced the HT-40 playtest bugs.
 Concretely:
 
-- Cover advice surfaces only when the Expert plan's move IS a cover.
-- The play-meld hint presents the Expert plan's exact meld when the plan melds.
+- Cover advice surfaces only when the Expert plan's move IS a cover. The
+  pipeline tries every legal cover and skips only the held ones (keying the
+  branch off the first advertised cover made the move order-dependent — a
+  guarded joker cover listed first blinded the seat to a freshly drawn
+  lay-off for a full turn).
+- When the brain deliberately HOLDS a legal cover (joker guard, Fifty
+  development, own-run end — `ExpertCpuMovePlanner.coverHoldReasonFor`), the
+  discard hint NARRATES the hold: the cover and its target meld ring as a
+  keep group with "you could lay that off, but hold it because…" copy.
+  Silence about a visibly coverable card reads as coach blindness, not
+  strategy.
+- The play-meld hint presents the Expert plan's exact meld when the plan
+  melds, and only folds a lay-off cover in when the brain is not holding it
+  for Fifty development.
 - The discard floor is the Expert plan's own discard pick.
 - When the brain *declines* a visible finish (`holdsNormalFinishForFifty`),
   the coach explains the hold (`fiftyHold`) instead of contradicting it with
@@ -60,9 +72,19 @@ Declared (descending, test-pinned) on `CoachingInsightCategory`:
 | Band | Categories |
 |---|---|
 | Win / window (1000–860) | finishAvailable, fiftyAvailable, takeAndFinish, fiftyHold |
-| Plays (800–400) | openNow, playMeld, pickupCompletesMeld, playCover, jokerAdvice |
+| Plays (800–550) | openNow, jokerAdvice, playMeld, pickupCompletesMeld, playCover |
 | Stage banners (380–360) | scorePosture, endgameStockLow, opponentCloseToFinish, benchmarkAlert, baitDiscard |
 | Floors (350–200) | discardSuggestion, drawStock, openingProgress |
+
+`jokerAdvice` sits ABOVE `playMeld` deliberately: a joker swap is a free
+action that must come first — the meld may consume the very card the swap
+needs (melding three natural 8s burns the 8♣ that could reclaim a table
+joker), while swapping first keeps the same meld playable via the freed
+joker. When the swap card anchors a playable meld, that meld rides on the
+swap hint as a ring group with "swap first" copy. The CPU pipeline plays in
+the same order (replacement before melds), and every tier now swaps eagerly —
+the old Expert delay-until-finish lost the swap whenever the natural card got
+consumed, and a multi-deck twin holder could steal it.
 
 Only one insight is presented at a time; secondary content rides on the top
 hint (opening numbers fold into the draw hint, a lay-off cover folds into the
@@ -119,8 +141,33 @@ guidance below it.
   that confused real players). The screen's memo key carries a claim-liveness
   bit so the handover happens the moment the timer lapses.
 - `fiftyHold` explains the Expert posture of holding a finish for a Fifty
-  (deep stock, heavy hand, someone at high-risk score) — previously the coach
-  silently showed a discard under a visible finish, which read as a bug.
+  (deep stock, heavy hand, a worthwhile payoff) — previously the coach
+  silently showed a discard under a visible finish, which read as a bug. The
+  payoff is aimable at exactly one seat: a Fifty's +3 lands on whoever's
+  discard the claim takes, i.e. the active seat immediately BEFORE the
+  claimant (`ExpertCpuMovePlanner.fiftyPunishTarget`). The hold fires when
+  the claimant or that seat is at high-risk score — never for a high scorer
+  elsewhere at the table (a playtest hint implied the wrong seat would pay) —
+  and the hint names that seat plus the hold-sustaining throw, taken from the
+  Expert plan's legal discard so a cover-blocked card is never recommended.
+
+## Finish detection (engine-plan based)
+
+`finishAvailable` runs on the engine's own `ClassicHareegFinishPlanner` (the
+same exact-cover search behind Fifty proofs), not a melds-only partition
+scan. The coach therefore sees every finish the rules accept:
+
+- cover-routed wins (hand cards laid onto existing table melds), including
+  the playtest gap: a 3-card set + a cover + the final discard read as "you
+  can lay down a meld" before;
+- the final-discard exemption — the closing throw may be a card that is
+  cover-blocked as a plain discard;
+- unopened-seat routes: the melds-only perfect hand (exempt from the opening
+  requirement) and the cover-routed opening-finish whose fresh melds clear
+  it. Both set `bypassesOpening` so the copy teaches the bypass.
+
+The hint names the plan's final discard (rung warm) and rings each fresh
+meld and each cover-with-its-target-meld as its own group.
 
 ## Known divergences (deliberate)
 
