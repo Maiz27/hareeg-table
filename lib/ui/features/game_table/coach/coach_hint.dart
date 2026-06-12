@@ -555,6 +555,15 @@ abstract final class CoachHintPresenter {
     // changes, or a banner's number moves).
     final extras = [
       if (insight.avoidCardId != null) 'a:${insight.avoidCardId}',
+      // The hold-back attribution (_avoidSuffix) names the opponent and the
+      // reason — and the collecting reason renders the rank/suit. The avoid
+      // card can stay the same while who-is-dangerous or why flips (North's
+      // run-end → East collecting the rank), re-wording the warning; key the
+      // attribution so that re-fires the callout instead of mutating silently.
+      if (insight.avoidOpponent != null) 'ao:${insight.avoidOpponent!.name}',
+      if (insight.avoidReason != null) 'ar:${insight.avoidReason!.name}',
+      if (insight.avoidRank != null) 'ark:${insight.avoidRank!.name}',
+      if (insight.avoidSuit != null) 'asu:${insight.avoidSuit!.name}',
       if (insight.discardCardId != null) 'd:${insight.discardCardId}',
       if (insight.subjectSeat != null) 's:${insight.subjectSeat!.name}',
       // Self vs target: scorePosture and fiftyHold render materially

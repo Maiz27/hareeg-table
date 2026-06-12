@@ -324,6 +324,37 @@ void main() {
       );
     });
 
+    test('hold-back attribution changes re-key the callout', () {
+      // The avoid suffix names the opponent and reason for the SAME avoid card.
+      // When who-is-dangerous or why flips, the warning copy changes, so the
+      // situation key must change too — otherwise the callout mutates silently
+      // instead of re-firing.
+      CoachingInsight avoid({
+        required PlayerSeat opponent,
+        required CoachAvoidReason reason,
+      }) {
+        return CoachingInsight(
+          category: CoachingInsightCategory.openingProgress,
+          priority: 200,
+          avoidCardId: 'c1',
+          avoidOpponent: opponent,
+          avoidReason: reason,
+        );
+      }
+
+      final base = present(
+        avoid(opponent: PlayerSeat.north, reason: CoachAvoidReason.collecting),
+      ).situationKey;
+      final otherOpponent = present(
+        avoid(opponent: PlayerSeat.east, reason: CoachAvoidReason.collecting),
+      ).situationKey;
+      final otherReason = present(
+        avoid(opponent: PlayerSeat.north, reason: CoachAvoidReason.runEnd),
+      ).situationKey;
+      expect(base, isNot(otherOpponent));
+      expect(base, isNot(otherReason));
+    });
+
     test('a target banner missing its subject seat trips the guard', () {
       // FIX 4: the target variant names the pressed opponent, so it requires a
       // subjectSeat. In debug (asserts on, as under `flutter test`) the guard
