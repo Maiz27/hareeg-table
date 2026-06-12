@@ -324,12 +324,22 @@ void main() {
       );
     });
 
-    test('a target banner missing its subject seat is skipped, not crashed', () {
-      // FIX 4: the target variants force-unwrap subjectSeat by advisor
-      // convention. In debug the guard asserts; that the production call path
-      // returns a nullable hint (skipping the banner) rather than crashing is
-      // the release contract. Here we only pin that present() is nullable and
-      // the well-formed self variant still renders.
+    test('a target banner missing its subject seat trips the guard', () {
+      // FIX 4: the target variant names the pressed opponent, so it requires a
+      // subjectSeat. In debug (asserts on, as under `flutter test`) the guard
+      // fires; in release it returns null and skips the banner rather than
+      // force-unwrapping into a crash. Pin both: the malformed target trips the
+      // assertion here, while the well-formed self variant still renders.
+      expect(
+        () => presentOrNull(
+          const CoachingInsight(
+            category: CoachingInsightCategory.scorePosture,
+            priority: 380,
+            subjectIsSelf: false,
+          ),
+        ),
+        throwsAssertionError,
+      );
       final selfHint = presentOrNull(
         const CoachingInsight(
           category: CoachingInsightCategory.scorePosture,
