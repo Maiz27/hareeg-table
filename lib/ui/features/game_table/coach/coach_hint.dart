@@ -111,21 +111,36 @@ abstract final class CoachHintPresenter {
     final key = _situationKey(insight);
     switch (insight.category) {
       case CoachingInsightCategory.finishAvailable:
+        // A full finish plan carries its final discard: walk the player
+        // through it explicitly — lay the ringed groups, then throw the named
+        // card (warm ring). A finish-by-cover with no discard (covering the
+        // last cards empties the hand) keeps its own body; the bare trivial
+        // finish keeps the generic copy. An unopened seat learns the bypass.
+        final finishDiscardId = insight.discardCardId;
+        String finishBody;
+        if (finishDiscardId != null) {
+          finishBody = strings.coachFinishPlanBody(
+            identityForCardId(finishDiscardId),
+          );
+          if (insight.bypassesOpening) {
+            finishBody = '$finishBody ${strings.coachFinishOpensSuffix}';
+          }
+        } else if (insight.coverFinishes) {
+          finishBody = strings.coachCoverFinishBody;
+        } else {
+          finishBody = strings.coachFinishBody;
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachFinishTitle,
-          // Finish-by-cover (covering empties the hand) gets its own body so the
-          // player knows to cover the rings rather than discard; a normal finish
-          // keeps the generic "empty your hand to win" copy.
-          body: insight.coverFinishes
-              ? strings.coachCoverFinishBody
-              : strings.coachFinishBody,
+          body: finishBody,
           icon: Icons.emoji_events_outlined,
           zone: CoachZone.hand,
           intensity: CoachIntensity.popIn,
           accent: CoachAccent.finish,
           ringCardIds: insight.highlightCardIds,
           ringGroups: insight.meldGroups,
+          discardRingCardIds: [?finishDiscardId],
           situationKey: key,
         );
       case CoachingInsightCategory.fiftyAvailable:
@@ -254,17 +269,25 @@ abstract final class CoachHintPresenter {
         );
       case CoachingInsightCategory.jokerAdvice:
         final cardId = insight.jokerCardId;
+        var jokerBody = strings.coachJokerBody(
+          cardId == null ? null : identityForCardId(cardId),
+        );
+        // The swap card also anchors a playable meld (carried as a ring
+        // group): teach the order — swap first, the meld still works with
+        // the freed joker, so melding first would burn the swap.
+        if (insight.meldGroups.isNotEmpty) {
+          jokerBody = '$jokerBody ${strings.coachJokerSwapMeldSuffix}';
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachJokerTitle,
-          body: strings.coachJokerBody(
-            cardId == null ? null : identityForCardId(cardId),
-          ),
+          body: jokerBody,
           icon: Icons.swap_horiz,
           zone: CoachZone.hand,
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.coach,
           ringCardIds: insight.highlightCardIds,
+          ringGroups: insight.meldGroups,
           situationKey: key,
         );
       case CoachingInsightCategory.discardSuggestion:
@@ -276,6 +299,24 @@ abstract final class CoachHintPresenter {
         if (discardAvoid != null) {
           discardBody = '$discardBody $discardAvoid';
         }
+        // Narrated cover hold: the brain sees the legal lay-off and is
+        // deliberately keeping it — say so, the moment the card exists
+        // (silence about a freshly drawn cover reads as coach blindness).
+        final holdReason = insight.holdCoverReason;
+        final holdCoverId = insight.coverCardId;
+        if (holdReason != null && holdCoverId != null) {
+          final holdLine = switch (holdReason) {
+            CoachCoverHoldReason.jokerGuard =>
+              strings.coachHoldCoverJokerSuffix,
+            CoachCoverHoldReason.fiftyDevelopment =>
+              strings.coachHoldCoverFiftySuffix(identityForCardId(holdCoverId)),
+            CoachCoverHoldReason.ownRunExtension =>
+              strings.coachHoldCoverOwnRunSuffix(
+                identityForCardId(holdCoverId),
+              ),
+          };
+          discardBody = '$discardBody $holdLine';
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachDiscardTitle,
@@ -285,8 +326,13 @@ abstract final class CoachHintPresenter {
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.coach,
           // "Discard this" rings in the warm discard hue, not the teal keep
-          // hue; the hold-back card (if any) rings cool — it stays in hand.
-          ringCardIds: [?insight.avoidCardId],
+          // hue; the hold-back card and the held cover (with its target meld,
+          // grouped) ring cool — they stay in hand / on the table.
+          ringCardIds: [
+            ?insight.avoidCardId,
+            for (final group in insight.meldGroups) ...group,
+          ],
+          ringGroups: insight.meldGroups,
           discardRingCardIds: [?cardId],
           situationKey: key,
         );
@@ -303,21 +349,34 @@ abstract final class CoachHintPresenter {
           situationKey: key,
         );
       case CoachingInsightCategory.fiftyHold:
+        var holdBody = insight.subjectIsSelf
+            ? strings.coachFiftyHoldSelfBody(insight.subjectValue ?? 0)
+            : strings.coachFiftyHoldTargetBody(
+                opponent: insight.subjectSeat!,
+                score: insight.subjectValue ?? 0,
+              );
+        // The throw that keeps the hold alive: without it the hint says
+        // "hold" but leaves the player guessing how to end the turn (and the
+        // guess can be illegal — a finish's final discard may be cover-blocked
+        // as a plain throw).
+        final holdDiscardId = insight.discardCardId;
+        if (holdDiscardId != null) {
+          holdBody =
+              '$holdBody ${strings.coachFiftyHoldDiscardSuffix(
+                identityForCardId(holdDiscardId),
+              )}';
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachFiftyHoldTitle,
-          body: insight.subjectIsSelf
-              ? strings.coachFiftyHoldSelfBody(insight.subjectValue ?? 0)
-              : strings.coachFiftyHoldTargetBody(
-                  opponent: insight.subjectSeat!,
-                  score: insight.subjectValue ?? 0,
-                ),
+          body: holdBody,
           icon: Icons.local_fire_department,
           zone: CoachZone.hand,
           intensity: CoachIntensity.quiet,
           accent: CoachAccent.fifty,
           ringCardIds: insight.highlightCardIds,
           ringGroups: insight.meldGroups,
+          discardRingCardIds: [?holdDiscardId],
           situationKey: key,
         );
       case CoachingInsightCategory.scorePosture:
@@ -401,12 +460,19 @@ abstract final class CoachHintPresenter {
         // advisor) so the draw hint shows the shortfall instead of dropping it.
         final drawBest = insight.openingBestValue;
         final drawShortfall = insight.openingShortfall;
-        final drawBody = (drawBest != null && drawBest > 0 && drawShortfall != null)
-            ? strings.coachDrawBodyWithProgress(
-                best: drawBest,
-                shortfall: drawShortfall,
-              )
-            : strings.coachDrawBody;
+        final String drawBody;
+        if (drawBest != null && drawBest > 0 && drawShortfall != null) {
+          // Shortfall 0 = the hand already meets the opening value; the draw
+          // still comes first, so frame opening as the next step.
+          drawBody = drawShortfall <= 0
+              ? strings.coachDrawBodyCanOpen
+              : strings.coachDrawBodyWithProgress(
+                  best: drawBest,
+                  shortfall: drawShortfall,
+                );
+        } else {
+          drawBody = strings.coachDrawBody;
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachDrawTitle,
@@ -459,6 +525,7 @@ abstract final class CoachHintPresenter {
     // changes, or a banner's number moves).
     final extras = [
       if (insight.avoidCardId != null) 'a:${insight.avoidCardId}',
+      if (insight.discardCardId != null) 'd:${insight.discardCardId}',
       if (insight.subjectSeat != null) 's:${insight.subjectSeat!.name}',
       if (insight.subjectValue != null) 'v:${insight.subjectValue}',
     ].join(',');

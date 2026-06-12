@@ -607,6 +607,25 @@ class AppStrings {
       ? 'أفرِغ يدك هذا الدور لتفوز بالجولة.'
       : 'Empty your hand this turn to win the round.';
 
+  /// Full finish with an explicit plan: lay every highlighted group (fresh
+  /// melds and covers), then throw the named final discard. The final discard
+  /// is exempt from the cover block, so it may name a card that normally
+  /// cannot leave the hand.
+  String coachFinishPlanBody(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'انزِل الأوراق المميّزة على الطاولة، ثم ارمِ $name لتفوز بالجولة.'
+        : 'Lay the highlighted cards on the table, then throw the $name to '
+              'win the round.';
+  }
+
+  /// Appended to [coachFinishPlanBody] when the seat has not opened: the
+  /// full-hand finish doubles as its opening.
+  String get coachFinishOpensSuffix => isRtl
+      ? 'وهذا يُحسب افتتاحك أيضًا — إنهاء اليد كاملة يتجاوز شرط الافتتاح.'
+      : 'This counts as your opening too — finishing your whole hand bypasses '
+            'the benchmark.';
+
   String get coachFiftyTitle => isRtl ? 'خمسين!' : 'Khamsin!';
 
   String coachFiftyBody(CardIdentity? card) {
@@ -692,6 +711,13 @@ class AppStrings {
       ? 'لا توجد حركة أفضل الآن. اسحب من مجموعة السحب وواصل.'
       : 'No stronger move right now. Draw from the stock and carry on.';
 
+  /// Draw hint for an unopened seat whose hand ALREADY meets the opening
+  /// value: the draw still comes first, opening is the next step.
+  String get coachDrawBodyCanOpen => isRtl
+      ? 'اسحب ورقة أولًا — يدك تحقق قيمة الافتتاح بالفعل، ويمكنك إنزالها بعد السحب.'
+      : 'Draw first — your hand already meets the opening value, so you can '
+            'lay it down right after.';
+
   /// Draw hint for an unopened seat: the draw instruction with the opening
   /// progress folded in so the shortfall is not lost behind the draw advice.
   String coachDrawBodyWithProgress({
@@ -725,6 +751,34 @@ class AppStrings {
       ? 'أيّ منها يصلح: غطِّ بإحداها، والعب أو ارمِ الأخرى.'
       : 'Either works — cover with one, and play or discard the other.';
 
+  /// Narrated cover hold, appended to the discard hint: the named card fits a
+  /// table meld but the brain keeps it for the Fifty development posture.
+  String coachHoldCoverFiftySuffix(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'يمكن لـ$name تغطية المجموعة المميّزة، لكن أمسِكها — يدك تبني نحو خمسين، وتغطيتها الآن تضيّع ذلك.'
+        : 'The $name could cover the highlighted meld, but hold it — your '
+              'hand is building toward a Fifty, and covering it away gives '
+              'that up.';
+  }
+
+  /// Narrated cover hold: the named card extends the player's OWN table run,
+  /// so there is no rush to lay it off.
+  String coachHoldCoverOwnRunSuffix(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? '$name تمدّ مجموعتك أنت على الطاولة — لا استعجال؛ الإمساك بها يبقي خياراتك مفتوحة.'
+        : 'The $name extends your own run on the table — no rush to lay it '
+              'off; holding it keeps your options open.';
+  }
+
+  /// Narrated cover hold: the legal cover is a joker, the strongest finish
+  /// asset — never burned on a plain cover.
+  String get coachHoldCoverJokerSuffix => isRtl
+      ? 'يمكن لجوكرك تغطية المجموعة المميّزة، لكن لا تحرق الجوكر في تغطية — إنه أقوى ورقة لإنهاء يدك.'
+      : 'Your joker could cover the highlighted meld, but never burn a joker '
+            'on a cover — it is your strongest finish card.';
+
   String get coachJokerTitle => isRtl ? 'استعِد الجوكر' : 'Reclaim your joker';
 
   String coachJokerBody(CardIdentity? card) {
@@ -735,6 +789,14 @@ class AppStrings {
         ? 'استخدم $name لاستبدال الجوكر في المجموعة المميّزة على الطاولة.'
         : 'Use your $name to swap in for the joker in the highlighted meld.';
   }
+
+  /// Appended to the joker-swap hint when the swap card also anchors a
+  /// playable in-hand meld: swap first — the meld still works with the freed
+  /// joker, while melding first burns the swap.
+  String get coachJokerSwapMeldSuffix => isRtl
+      ? 'بدّل أولًا — مجموعتك تبقى صالحة والجوكر يحلّ مكان الورقة، أما إنزال المجموعة أولًا فيضيّع التبديل.'
+      : 'Swap first — your meld still works with the joker in that card\'s '
+            'place, while melding first burns the swap.';
 
   /// Appended to a discard-carrying hint when the obvious throw is materially
   /// dangerous: an opponent has been deliberately picking up matching cards.
@@ -794,16 +856,28 @@ class AppStrings {
               'you sit at $score points.';
   }
 
-  /// Fifty-hold explanation targeting a high-score opponent.
+  /// Fifty-hold explanation naming the punishable seat: the opponent whose
+  /// discard the claim would take — the seat playing immediately before the
+  /// player — never an arbitrary high scorer elsewhere at the table.
   String coachFiftyHoldTargetBody({
     required PlayerSeat opponent,
     required int score,
   }) {
     final who = seatLabel(opponent);
     return isRtl
-        ? 'يمكنك الفوز الآن (−1). خمسين تدفع −3 وتضيف +3 على $who وهو على $score نقطة.'
-        : 'You can finish now (−1). A Fifty pays −3 and adds +3 to $who, '
-              'already at $score points.';
+        ? 'يمكنك الفوز الآن (−1). خمسين على رمية $who القادمة تمنحك −3 وتضيف +3 عليه — وهو على $score نقطة.'
+        : 'You can finish now (−1). A Fifty on $who\'s next discard pays you '
+              '−3 and hits them with +3 — they already sit at $score points.';
+  }
+
+  /// Appended to the Fifty-hold hint: the throw that keeps the hold alive and
+  /// ends the turn. Names a legal plain discard (a cover-blocked card is never
+  /// recommended here).
+  String coachFiftyHoldDiscardSuffix(CardIdentity? card) {
+    final name = card != null ? cardName(card) : coachThisCard;
+    return isRtl
+        ? 'لمواصلة الانتظار، ارمِ $name.'
+        : 'To keep waiting, throw the $name.';
   }
 
   String get coachScoreSelfTitle => isRtl ? 'انتبه لنقاطك' : 'Watch your score';

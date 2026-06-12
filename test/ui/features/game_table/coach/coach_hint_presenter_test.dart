@@ -73,6 +73,28 @@ void main() {
       expect(hint.ringCardIds, ['c1', 'm1', 'm2', 'm3']);
     });
 
+    test('joker swap folds in the meld the swap card anchors', () {
+      // The swap card also forms a meld in hand: the copy must teach the
+      // order (swap first, the meld still works with the freed joker).
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.jokerAdvice,
+          priority: 750,
+          jokerCardId: 'c1',
+          highlightCardIds: ['c1', 'm1', 'm2', 'm3', 'h1', 'h2'],
+          meldGroups: [
+            ['h1', 'h2', 'c1'],
+          ],
+        ),
+      );
+      expect(hint.body, contains('swap'));
+      expect(hint.body, contains('Swap first'));
+      expect(hint.body, contains('melding first burns the swap'));
+      expect(hint.ringGroups, [
+        ['h1', 'h2', 'c1'],
+      ]);
+    });
+
     test('discard suggestion folds in a collecting hold-back warning', () {
       final hint = present(
         const CoachingInsight(
@@ -111,6 +133,53 @@ void main() {
       );
       expect(hint.body, contains('Hold back the King of Spades'));
       expect(hint.body, contains('run'));
+    });
+
+    test('discard suggestion narrates a deliberately held cover', () {
+      // The brain sees the legal lay-off and keeps it (Fifty development);
+      // the hint must say so and ring the cover with its target meld as a
+      // cool keep group — silence about a drawn cover reads as blindness.
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.discardSuggestion,
+          priority: 350,
+          discardCardId: 'd1',
+          coverCardId: 'c1',
+          coverMeldOwner: PlayerSeat.east,
+          coverMeldIndex: 0,
+          holdCoverReason: CoachCoverHoldReason.fiftyDevelopment,
+          highlightCardIds: ['d1', 'c1', 'm1', 'm2'],
+          meldGroups: [
+            ['c1', 'm1', 'm2'],
+          ],
+        ),
+      );
+      expect(
+        hint.body,
+        contains('The King of Spades could cover the highlighted meld'),
+      );
+      expect(hint.body, contains('Fifty'));
+      expect(hint.ringCardIds, containsAll(['c1', 'm1', 'm2']));
+      expect(hint.ringGroups, [
+        ['c1', 'm1', 'm2'],
+      ]);
+      expect(hint.discardRingCardIds, ['d1']);
+    });
+
+    test('discard suggestion narrates a guarded joker cover', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.discardSuggestion,
+          priority: 350,
+          discardCardId: 'd1',
+          coverCardId: 'j1',
+          holdCoverReason: CoachCoverHoldReason.jokerGuard,
+          meldGroups: [
+            ['j1', 'm1'],
+          ],
+        ),
+      );
+      expect(hint.body, contains('never burn a joker'));
     });
 
     test('take-and-finish is an urgent discard-zone win moment', () {
@@ -162,6 +231,60 @@ void main() {
       );
       expect(hint.body, contains('26'));
       expect(hint.body, contains('you'));
+    });
+
+    test('fifty-hold names the throw that keeps the hold alive', () {
+      // Playtest: the hold hint never said how to end the turn (and the
+      // obvious guess could be an illegal cover-blocked throw). The advisor
+      // now passes the Expert plan's legal discard; the copy names it and it
+      // rings warm.
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.fiftyHold,
+          priority: 860,
+          subjectSeat: PlayerSeat.west,
+          subjectValue: 27,
+          discardCardId: 'c1',
+          highlightCardIds: ['a', 'b'],
+        ),
+      );
+      expect(hint.body, contains('To keep waiting, throw the King of Spades'));
+      expect(hint.discardRingCardIds, ['c1']);
+      // The punished seat is the one whose discard the claim takes.
+      expect(hint.body, contains('next discard'));
+    });
+
+    test('finish with a plan names the final discard and rings it warm', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.finishAvailable,
+          priority: 1000,
+          discardCardId: 'c1',
+          coverFinishes: true,
+          highlightCardIds: ['a', 'b', 'c'],
+          meldGroups: [
+            ['a', 'b', 'c'],
+          ],
+        ),
+      );
+      expect(hint.body, contains('throw the King of Spades'));
+      expect(hint.body, contains('win the round'));
+      expect(hint.discardRingCardIds, ['c1']);
+      expect(hint.ringCardIds, ['a', 'b', 'c']);
+    });
+
+    test('finish that doubles as the opening teaches the bypass', () {
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.finishAvailable,
+          priority: 1000,
+          discardCardId: 'c1',
+          bypassesOpening: true,
+          highlightCardIds: ['a', 'b', 'c'],
+        ),
+      );
+      expect(hint.body, contains('throw the King of Spades'));
+      expect(hint.body, contains('opening'));
     });
 
     test('score posture banners pick the self vs target copy', () {
@@ -434,6 +557,23 @@ void main() {
       expect(hint.ringGroups, [
         ['a', 'b', 'c'],
       ]);
+    });
+
+    test('draw hint with a zero shortfall says open after drawing', () {
+      // Draw phase, but the hand already meets the opening value: the draw
+      // still comes first; opening is framed as the immediate next step.
+      final hint = present(
+        const CoachingInsight(
+          category: CoachingInsightCategory.drawStock,
+          priority: 250,
+          openingBestValue: 60,
+          openingRequirement: 51,
+          openingShortfall: 0,
+        ),
+      );
+      expect(hint.title, 'Draw a card');
+      expect(hint.body, contains('already meets'));
+      expect(hint.body, contains('Draw first'));
     });
 
     test('opening progress with no meld teaches the requirement', () {
