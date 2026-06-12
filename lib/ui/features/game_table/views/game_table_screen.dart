@@ -1339,7 +1339,9 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   /// Memoized advisor call. Recomputes only when the cheap situation signature
   /// (turn, turn phase, opened state, top discard, pending, Fifty claimant, hand
-  /// ids, own meld ids) changes, so the fifty ticker and card flights don't
+  /// ids, own meld ids, and an opponent digest — hand counts, opened bits, table
+  /// meld ids — since the advisor's hold-back/bait/threat logic reads opponent
+  /// state too) changes, so the fifty ticker and card flights don't
   /// trigger re-analysis. The turn phase is part of the key because a draw flips
   /// draw→action with the same seat: without it a draw that completes a meld
   /// could reuse the pre-draw insight (the stale-discard playtest bug). The Fifty
@@ -1379,6 +1381,36 @@ class _GameTableScreenState extends State<GameTableScreen>
           ..write(',');
       }
       key.write('|');
+    }
+    // Opponent digest. The advisor's hold-back / bait / threat logic reads
+    // opponent state too — their table melds, hand counts and opened state.
+    // Today an opponent-state change always rides a currentSeat flip that
+    // already busts the key, but that is emergent, not enforced; key the
+    // opponent state explicitly. Walk opponents in the advisor's stable
+    // anti-clockwise order over the active seats, so an eliminated seat simply
+    // drops out (the same way it does in _opponentsOf).
+    key.write('#o:');
+    final activeSeats = _controller.activeSeats;
+    var opponent = seat.nextAntiClockwise;
+    while (opponent != seat) {
+      if (activeSeats.contains(opponent)) {
+        key
+          ..write(opponent.name)
+          ..write(_controller.openingState.hasOpened(opponent) ? '1' : '0')
+          ..write('c')
+          ..write(_controller.handFor(opponent).length)
+          ..write('m:');
+        for (final meld in _controller.tableMeldsFor(opponent)) {
+          for (final card in meld.cards) {
+            key
+              ..write(card.id)
+              ..write(',');
+          }
+          key.write('|');
+        }
+        key.write(';');
+      }
+      opponent = opponent.nextAntiClockwise;
     }
     final keyStr = key.toString();
     if (keyStr != _coachInsightCacheKey) {

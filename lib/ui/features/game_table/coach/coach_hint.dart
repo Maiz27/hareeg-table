@@ -102,7 +102,7 @@ abstract final class CoachHintPresenter {
   /// Builds a presentation hint for [insight], or null when it cannot be
   /// rendered. [topDiscardIdentity] is the effective identity of the current
   /// top discard, used by the Fifty and pickup hints.
-  static CoachHint present({
+  static CoachHint? present({
     required CoachingInsight insight,
     required AppStrings strings,
     required CoachIdentityLookup identityForCardId,
@@ -352,6 +352,14 @@ abstract final class CoachHintPresenter {
           situationKey: key,
         );
       case CoachingInsightCategory.fiftyHold:
+        if (!insight.subjectIsSelf && insight.subjectSeat == null) {
+          // The target variant names the punished seat: without it the copy
+          // cannot be built. The advisor always pairs the two by construction;
+          // assert that in debug, and skip the hint in release rather than
+          // crashing on a force-unwrap.
+          assert(false, 'fiftyHold target requires subjectSeat');
+          return null;
+        }
         var holdBody = insight.subjectIsSelf
             ? strings.coachFiftyHoldSelfBody(insight.subjectValue ?? 0)
             : strings.coachFiftyHoldTargetBody(
@@ -383,6 +391,13 @@ abstract final class CoachHintPresenter {
           situationKey: key,
         );
       case CoachingInsightCategory.scorePosture:
+        if (!insight.subjectIsSelf && insight.subjectSeat == null) {
+          // The target variant names the pressed opponent; the self variant
+          // does not need a seat. Skip the banner in release if the target
+          // seat is somehow absent rather than force-unwrapping into a crash.
+          assert(false, 'scorePosture target requires subjectSeat');
+          return null;
+        }
         return CoachHint(
           category: insight.category,
           title: insight.subjectIsSelf
@@ -417,6 +432,12 @@ abstract final class CoachHintPresenter {
           situationKey: key,
         );
       case CoachingInsightCategory.opponentCloseToFinish:
+        if (insight.subjectSeat == null) {
+          // Names the near-finished opponent; the banner is meaningless
+          // without it. Assert in debug, skip in release.
+          assert(false, 'opponentCloseToFinish requires subjectSeat');
+          return null;
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachOpponentCloseTitle,
@@ -432,6 +453,12 @@ abstract final class CoachHintPresenter {
           situationKey: key,
         );
       case CoachingInsightCategory.benchmarkAlert:
+        if (insight.subjectSeat == null) {
+          // Names the benchmark owner; the copy cannot be built without it.
+          // Assert in debug, skip in release.
+          assert(false, 'benchmarkAlert requires subjectSeat');
+          return null;
+        }
         return CoachHint(
           category: insight.category,
           title: strings.coachBenchmarkTitle,
@@ -530,6 +557,11 @@ abstract final class CoachHintPresenter {
       if (insight.avoidCardId != null) 'a:${insight.avoidCardId}',
       if (insight.discardCardId != null) 'd:${insight.discardCardId}',
       if (insight.subjectSeat != null) 's:${insight.subjectSeat!.name}',
+      // Self vs target: scorePosture and fiftyHold render materially
+      // different copy for the same subject seat depending on this bit. Today
+      // self is always the south seat so the s:<seat> token differs anyway,
+      // but the key must carry the dimension, not lean on that invariant.
+      if (insight.subjectSeat != null) 'self:${insight.subjectIsSelf}',
       if (insight.subjectValue != null) 'v:${insight.subjectValue}',
       // benchmarkAlert / opening hints render the requirement in their copy;
       // without this token a raise re-worded the text but never re-keyed the

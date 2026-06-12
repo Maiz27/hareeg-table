@@ -6,6 +6,7 @@ import 'package:hareeg_table/ui/features/game_table/coach/coach_insight_flow.dar
 CoachingInsight _insight(
   CoachingInsightCategory category, {
   PlayerSeat? subjectSeat,
+  bool subjectIsSelf = false,
   int? subjectValue,
   int? openingRequirement,
   List<String> highlightCardIds = const [],
@@ -14,6 +15,7 @@ CoachingInsight _insight(
     category: category,
     priority: category.priority,
     subjectSeat: subjectSeat,
+    subjectIsSelf: subjectIsSelf,
     subjectValue: subjectValue,
     openingRequirement: openingRequirement,
     highlightCardIds: highlightCardIds,
@@ -143,6 +145,49 @@ void main() {
       expect(
         newRound.stageNote?.category,
         CoachingInsightCategory.endgameStockLow,
+      );
+    });
+
+    test('scorePosture self vs target are distinct teachings at one seat', () {
+      // Key hygiene: the self and target scorePosture variants teach
+      // materially different lessons. Self is fixed to south today so the seat
+      // token differs anyway, but the stage key must carry the self/target
+      // dimension itself — otherwise the second of the two at the same seat
+      // would be wrongly deduped as already-taught.
+      final flow = CoachInsightFlow();
+      final selfNote = flow.select(
+        insights: [
+          _insight(
+            CoachingInsightCategory.scorePosture,
+            subjectSeat: PlayerSeat.south,
+            subjectIsSelf: true,
+            subjectValue: 27,
+          ),
+        ],
+        roundNumber: 1,
+        turnKey: '1:1',
+      );
+      expect(
+        selfNote.stageNote?.category,
+        CoachingInsightCategory.scorePosture,
+      );
+
+      // A target posture at the SAME seat token in a later turn is a different
+      // lesson and must still surface (not deduped against the self note).
+      final targetNote = flow.select(
+        insights: [
+          _insight(
+            CoachingInsightCategory.scorePosture,
+            subjectSeat: PlayerSeat.south,
+            subjectValue: 29,
+          ),
+        ],
+        roundNumber: 1,
+        turnKey: '1:2',
+      );
+      expect(
+        targetNote.stageNote?.category,
+        CoachingInsightCategory.scorePosture,
       );
     });
 

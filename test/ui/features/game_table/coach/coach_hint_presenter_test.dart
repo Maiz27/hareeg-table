@@ -13,6 +13,16 @@ void main() {
   CardIdentity? lookup(String id) => id == 'c1' ? king : null;
 
   CoachHint present(CoachingInsight insight, {CardIdentity? topDiscard}) {
+    final hint = CoachHintPresenter.present(
+      insight: insight,
+      strings: strings,
+      identityForCardId: lookup,
+      topDiscardIdentity: topDiscard,
+    );
+    return hint!;
+  }
+
+  CoachHint? presentOrNull(CoachingInsight insight, {CardIdentity? topDiscard}) {
     return CoachHintPresenter.present(
       insight: insight,
       strings: strings,
@@ -285,6 +295,52 @@ void main() {
       );
       expect(hint.body, contains('throw the King of Spades'));
       expect(hint.body, contains('opening'));
+    });
+
+    test('self vs target situation keys differ even at the same seat', () {
+      // Key hygiene: scorePosture renders materially different copy for the
+      // seat itself vs a target opponent. Self is the south seat today so the
+      // seat token differs anyway, but the situation key must carry the
+      // self/target dimension on its own, not lean on that invariant — so two
+      // insights identical except subjectIsSelf must re-animate the callout.
+      const selfPosture = CoachingInsight(
+        category: CoachingInsightCategory.scorePosture,
+        priority: 380,
+        subjectSeat: PlayerSeat.south,
+        subjectIsSelf: true,
+        subjectValue: 27,
+        subjectThreshold: 31,
+      );
+      const targetPosture = CoachingInsight(
+        category: CoachingInsightCategory.scorePosture,
+        priority: 380,
+        subjectSeat: PlayerSeat.south,
+        subjectValue: 27,
+        subjectThreshold: 31,
+      );
+      expect(
+        present(selfPosture).situationKey,
+        isNot(present(targetPosture).situationKey),
+      );
+    });
+
+    test('a target banner missing its subject seat is skipped, not crashed', () {
+      // FIX 4: the target variants force-unwrap subjectSeat by advisor
+      // convention. In debug the guard asserts; that the production call path
+      // returns a nullable hint (skipping the banner) rather than crashing is
+      // the release contract. Here we only pin that present() is nullable and
+      // the well-formed self variant still renders.
+      final selfHint = presentOrNull(
+        const CoachingInsight(
+          category: CoachingInsightCategory.scorePosture,
+          priority: 380,
+          subjectSeat: PlayerSeat.south,
+          subjectIsSelf: true,
+          subjectValue: 27,
+          subjectThreshold: 31,
+        ),
+      );
+      expect(selfHint, isNotNull);
     });
 
     test('score posture banners pick the self vs target copy', () {

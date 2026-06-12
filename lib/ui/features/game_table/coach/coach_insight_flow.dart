@@ -97,9 +97,13 @@ class CoachInsightFlow {
   // deduping bait by category alone went silent on the round's second bait.
   String _stageKey(CoachingInsight insight, int roundNumber) {
     final qualifier = switch (insight.category) {
+      // Seat + self/target: scorePosture teaches materially different copy
+      // for the seat itself vs an opponent at the same seat token. Self is
+      // fixed to south today, so the seat name already differs — but the key
+      // must carry the dimension, not lean on that invariant.
       CoachingInsightCategory.scorePosture ||
       CoachingInsightCategory.opponentCloseToFinish =>
-        insight.subjectSeat?.name ?? '',
+        '${insight.subjectSeat?.name ?? ''}:${insight.subjectIsSelf}',
       // Owner + requirement: the owner is fixed per round today, but the key
       // must identify the teaching on its own, not lean on that invariant.
       CoachingInsightCategory.benchmarkAlert =>
