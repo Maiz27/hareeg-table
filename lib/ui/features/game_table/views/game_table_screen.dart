@@ -212,7 +212,10 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   // Cross-turn coach surfacing policy: stage banners show once per round each.
   // Match-lifetime state (keys embed the round number, so no reset is needed).
-  final CoachInsightFlow _coachInsightFlow = CoachInsightFlow();
+  // Reassigned on rematch: the flow's once-per-round keys embed the round
+  // number, and a rematch restarts at round 1 — reusing the old instance
+  // would collide with the previous match's seen-banner history.
+  CoachInsightFlow _coachInsightFlow = CoachInsightFlow();
 
   // Synthetic turn marker for the insight flow (the controller has no turn
   // counter): bumped whenever the seat on turn changes. Plain fields mutated
@@ -700,9 +703,18 @@ class _GameTableScreenState extends State<GameTableScreen>
   Widget build(BuildContext context) {
     final strings = context.strings;
     final humanSeat = PlayerSeat.south;
-    final isHumanTurn =
-        _controller.currentSeat == humanSeat && _canAcceptHumanInput;
+    final isHumanSeat = _controller.currentSeat == humanSeat;
+    final isHumanTurn = isHumanSeat && _canAcceptHumanInput;
     final actionGate = _tableActionGate(isHumanTurn: isHumanTurn);
+    // Track turn passage on EVERY build (CPU turns rebuild the table too),
+    // not inside the coach path: that path only runs on the human's turn, so
+    // the seat compare never saw the CPU seats in between and the counter
+    // stalled — a stage note's "for the turn it first appears in" hold then
+    // stretched across every human turn of the round.
+    if (_controller.currentSeat != _coachTurnSeat) {
+      _coachTurnSeat = _controller.currentSeat;
+      _coachTurnCounter += 1;
+    }
     final baseControlActions = isHumanTurn
         ? _controller.controlActionIdsFor(humanSeat)
         : const <String>[];
@@ -766,13 +778,22 @@ class _GameTableScreenState extends State<GameTableScreen>
     // the *display* while still computing, so the cached insights track every
     // controller-state change and never go stale across an animation (the
     // playtest "discard the card you just melded" bug).
+    // Seat-only on purpose: [isHumanTurn] folds in the transient input locks
+    // (_canAcceptHumanInput — CPU runner, deal choreography, pending action),
+    // and tying the RECOMPUTE to those reintroduces the stale-cache window
+    // compute-then-gate exists to close. Transient conditions only gate the
+    // display below.
     final coachComputes =
         !_isPractice &&
         strictness.showsProactiveHints &&
         widget.preferences.coachingTipsEnabled &&
-        isHumanTurn;
+        isHumanSeat;
     final coachActive =
         coachComputes &&
+        // The transient input locks (CPU runner / opening deal / pending
+        // action) hide the callout exactly as before — they just no longer
+        // freeze the data.
+        _canAcceptHumanInput &&
         !_pauseOpen &&
         !_scoreOpen &&
         _inspectedCard == null &&
@@ -1292,10 +1313,6 @@ class _GameTableScreenState extends State<GameTableScreen>
     final insights = _coachInsightsFor(seat);
     if (!gate || insights.isEmpty) {
       return null;
-    }
-    if (_controller.currentSeat != _coachTurnSeat) {
-      _coachTurnSeat = _controller.currentSeat;
-      _coachTurnCounter += 1;
     }
     final selection = _coachInsightFlow.select(
       insights: insights,
@@ -2577,6 +2594,12 @@ class _GameTableScreenState extends State<GameTableScreen>
         recorder: recorder,
       );
       _coachInsightCacheKey = null;
+      // Fresh banner history + turn tracking: the rematch restarts at round
+      // 1, so the old flow's per-round seen-keys would suppress the new
+      // match's stage banners.
+      _coachInsightFlow = CoachInsightFlow();
+      _coachTurnSeat = null;
+      _coachTurnCounter = 0;
       _coachInsights = const [];
       _resetHandInteraction();
       _dealChoreography = _buildDealChoreography();
