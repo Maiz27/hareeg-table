@@ -309,9 +309,29 @@ class ClassicHareegFinishPlanner {
       if (!_couldBeMeld(cards)) {
         continue;
       }
-      final resolved = ClassicHareegTablePlayPlanner.resolveMeldCards(cards);
+      var resolved = ClassicHareegTablePlayPlanner.resolveMeldCards(cards);
       if (!resolved.result.isValid) {
-        continue;
+        // An AMBIGUOUS joker (several legal identities, e.g. Q-K-joker as J
+        // or A) makes resolveMeldCards demand a choice — right for the human
+        // action surface, fatal for a finish PROOF: any legal identity
+        // proves the meld placeable, so rejecting the candidate hid whole
+        // finishes (and their Fifty claims) whenever a joker meld had more
+        // than one reading. Resolve to the highest-value variant so an
+        // unopened seat's fresh-meld value check sees its best proof.
+        ClassicHareegResolvedMeldCards? best;
+        for (final variant
+            in ClassicHareegTablePlayPlanner.resolveMeldCardVariants(cards)) {
+          if (!variant.result.isValid) {
+            continue;
+          }
+          if (best == null || variant.result.value > best.result.value) {
+            best = variant;
+          }
+        }
+        if (best == null) {
+          continue;
+        }
+        resolved = best;
       }
       final candidate = _FinishMeldCandidate(
         mask: mask,

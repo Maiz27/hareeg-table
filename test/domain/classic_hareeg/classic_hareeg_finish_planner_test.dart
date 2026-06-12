@@ -45,6 +45,70 @@ void main() {
       expect(planner.hasFinishUseContaining(nine.id), isFalse);
     });
 
+    test('an ambiguous joker meld still proves a finish (playtest)', () {
+      // Q-K-joker reads as J-Q-K or Q-K-A: resolveMeldCards demands a human
+      // choice for that ambiguity, which used to make the candidate INVALID
+      // here — hiding whole finishes (and their Fifty claims) behind a joker
+      // with more than one legal identity. Any legal identity proves the
+      // meld placeable; the planner now resolves to the best-value variant.
+      final queen = card(CardRank.queen, CardSuit.spades);
+      final king = card(CardRank.king, CardSuit.spades);
+      const joker = HareegCard.joker(deckIndex: 90, jokerIndex: 0);
+      final finalDiscard = card(CardRank.two, CardSuit.hearts);
+
+      final planner = ClassicHareegFinishPlanner([
+        queen,
+        king,
+        joker,
+        finalDiscard,
+      ]);
+
+      final parts = planner.planWithout(finalDiscard);
+      expect(parts, isNotNull);
+      expect(parts!.melds, hasLength(1));
+      expect(parts.covers, isEmpty);
+    });
+
+    test('two ambiguous joker melds plus a cover plan together (playtest)', () {
+      // The owner's screenshot hand: 3♠ 5♠ 7♠ Q♠ K♠ + two jokers + a drawn
+      // 5♥ that covers a table heart run. Full finish: 5♥ cover, the
+      // 5-joker-7♠ and Q-K-joker runs as fresh melds, 3♠ as the final
+      // discard. The ambiguous Q-K-joker used to sink the whole plan.
+      final threeSpades = card(CardRank.three, CardSuit.spades);
+      final fiveHearts = card(CardRank.five, CardSuit.hearts);
+
+      final planner = ClassicHareegFinishPlanner(
+        [
+          threeSpades,
+          card(CardRank.five, CardSuit.spades),
+          card(CardRank.seven, CardSuit.spades),
+          card(CardRank.queen, CardSuit.spades),
+          card(CardRank.king, CardSuit.spades),
+          const HareegCard.joker(deckIndex: 90, jokerIndex: 0),
+          const HareegCard.joker(deckIndex: 91, jokerIndex: 1),
+          fiveHearts,
+        ],
+        coverTargets: [
+          ClassicHareegFinishCoverTarget(
+            owner: PlayerSeat.west,
+            meldIndex: 0,
+            meldCards: [
+              card(CardRank.six, CardSuit.hearts),
+              card(CardRank.seven, CardSuit.hearts),
+              card(CardRank.eight, CardSuit.hearts),
+              card(CardRank.nine, CardSuit.hearts),
+            ],
+          ),
+        ],
+      );
+
+      final parts = planner.planWithout(threeSpades);
+      expect(parts, isNotNull);
+      expect(parts!.melds, hasLength(2));
+      expect(parts.covers, hasLength(1));
+      expect(parts.covers.single.cards.map((c) => c.id), [fiveHearts.id]);
+    });
+
     test('mixes fresh melds with cover placements', () {
       final kings = [
         card(CardRank.king, CardSuit.clubs),
