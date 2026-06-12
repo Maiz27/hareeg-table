@@ -318,9 +318,16 @@ class ClassicHareegFinishPlanner {
         // finishes (and their Fifty claims) whenever a joker meld had more
         // than one reading. Resolve to the highest-value variant so an
         // unopened seat's fresh-meld value check sees its best proof.
+        //
+        // The limit MUST be exhaustive (52) here, not the picker default (5):
+        // resolveMeldVariants enumerates SET readings before SEQUENCE readings
+        // and stops at the limit, so a multi-joker meld (e.g. 4-joker-joker)
+        // can fill all 5 slots with equal-value set readings (4 4 4 = 12) and
+        // truncate the higher sequence reading (4 5 6 = 15). The value gate
+        // below needs the TRUE maximum, so we must see every variant.
         ClassicHareegResolvedMeldCards? best;
-        for (final variant
-            in ClassicHareegTablePlayPlanner.resolveMeldCardVariants(cards)) {
+        for (final variant in ClassicHareegTablePlayPlanner
+            .resolveMeldCardVariants(cards, limit: 52)) {
           if (!variant.result.isValid) {
             continue;
           }
