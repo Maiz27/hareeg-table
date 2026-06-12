@@ -783,9 +783,10 @@ class _GameTableScreenState extends State<GameTableScreen>
         // While a selection is producing meld suggestions, that rack is the
         // active guidance; stepping aside avoids two stacked bottom callouts.
         meldSuggestions.isEmpty;
-    final coachHint = coachComputes
-        ? _buildCoachHint(strings, humanSeat, gate: coachActive)
+    final coachHints = coachComputes
+        ? _buildCoachHints(strings, humanSeat, gate: coachActive)
         : null;
+    final coachHint = coachHints?.primary;
     final coachHighlighting = _isPractice
         ? _practiceStepHighlighting(isHumanTurn: isHumanTurn)
         : CoachHighlighting.fromHint(coachHint);
@@ -1019,6 +1020,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               CoachOverlay(
                 key: const ValueKey('coach-overlay'),
                 hint: coachHint,
+                stageHint: coachHints?.stageNote,
                 highContrast: widget.preferences.highContrastCards,
               ),
             // Practice step prompt: persistent through the player's own card
@@ -1270,11 +1272,12 @@ class _GameTableScreenState extends State<GameTableScreen>
         CoachHighlighting.none;
   }
 
-  /// Builds the coaching hint to surface this frame, or null when none should
-  /// show. The caller folds the persistent conditions (tier, toggle, turn
-  /// ownership) into whether this runs at all; [gate] carries the transient
-  /// ones (blocking overlays, in-flight motion).
-  CoachHint? _buildCoachHint(
+  /// Builds the coaching hints to surface this frame — the actionable PRIMARY
+  /// hint plus an optional once-per-round STAGE note — or null when nothing
+  /// should show. The caller folds the persistent conditions (tier, toggle,
+  /// turn ownership) into whether this runs at all; [gate] carries the
+  /// transient ones (blocking overlays, in-flight motion).
+  ({CoachHint? primary, CoachHint? stageNote})? _buildCoachHints(
     AppStrings strings,
     PlayerSeat seat, {
     required bool gate,
@@ -1294,20 +1297,27 @@ class _GameTableScreenState extends State<GameTableScreen>
       _coachTurnSeat = _controller.currentSeat;
       _coachTurnCounter += 1;
     }
-    final insight = _coachInsightFlow.select(
+    final selection = _coachInsightFlow.select(
       insights: insights,
       roundNumber: _controller.roundNumber,
       turnKey: '${_controller.roundNumber}:$_coachTurnCounter',
     );
-    if (insight == null) {
-      return null;
+    CoachHint? presentOf(CoachingInsight? insight) => insight == null
+        ? null
+        : CoachHintPresenter.present(
+            insight: insight,
+            strings: strings,
+            identityForCardId: _identityForCardId,
+            topDiscardIdentity: _controller.topDiscard?.effectiveIdentity,
+          );
+    final primary = presentOf(selection.primary);
+    final stageNote = presentOf(selection.stageNote);
+    if (primary == null) {
+      // Nothing actionable this frame (rare edge: only banner insights). Let
+      // the stage note carry the callout rather than going dark.
+      return (primary: stageNote, stageNote: null);
     }
-    return CoachHintPresenter.present(
-      insight: insight,
-      strings: strings,
-      identityForCardId: _identityForCardId,
-      topDiscardIdentity: _controller.topDiscard?.effectiveIdentity,
-    );
+    return (primary: primary, stageNote: stageNote);
   }
 
   /// Memoized advisor call. Recomputes only when the cheap situation signature

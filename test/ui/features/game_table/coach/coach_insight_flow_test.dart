@@ -20,41 +20,73 @@ CoachingInsight _insight(
 
 void main() {
   group('CoachInsightFlow', () {
-    test('per-turn guidance always surfaces', () {
+    test('the primary slot always carries the actionable guidance', () {
+      // Playtest regression: a stage banner must NEVER occupy the primary
+      // slot — the player was left with "the bar was raised" and no idea how
+      // to progress the turn.
       final flow = CoachInsightFlow();
       final insights = [
+        _insight(
+          CoachingInsightCategory.benchmarkAlert,
+          subjectSeat: PlayerSeat.west,
+          openingRequirement: 60,
+        ),
+        _insight(CoachingInsightCategory.drawStock),
+      ];
+      final selection = flow.select(
+        insights: insights,
+        roundNumber: 1,
+        turnKey: '1:1',
+      );
+      expect(selection.primary?.category, CoachingInsightCategory.drawStock);
+      expect(
+        selection.stageNote?.category,
+        CoachingInsightCategory.benchmarkAlert,
+      );
+    });
+
+    test('per-turn guidance always surfaces, banners never block it', () {
+      final flow = CoachInsightFlow();
+      final insights = [
+        _insight(CoachingInsightCategory.endgameStockLow, subjectValue: 6),
         _insight(CoachingInsightCategory.discardSuggestion),
       ];
       for (var turn = 0; turn < 5; turn += 1) {
-        final selected = flow.select(
+        final selection = flow.select(
           insights: insights,
           roundNumber: 1,
           turnKey: '1:$turn',
         );
-        expect(selected?.category, CoachingInsightCategory.discardSuggestion);
+        expect(
+          selection.primary?.category,
+          CoachingInsightCategory.discardSuggestion,
+        );
       }
     });
 
-    test('a stage banner shows for one turn, then yields for the round', () {
+    test('a stage note shows for one turn, then yields for the round', () {
       final flow = CoachInsightFlow();
       final insights = [
         _insight(CoachingInsightCategory.endgameStockLow, subjectValue: 6),
         _insight(CoachingInsightCategory.discardSuggestion),
       ];
 
-      // Turn 1: the banner wins, and keeps the callout across rebuilds within
-      // the same turn.
+      // Turn 1: the note rides along, and stays across rebuilds within the
+      // same turn.
       for (var build = 0; build < 3; build += 1) {
-        final selected = flow.select(
+        final selection = flow.select(
           insights: insights,
           roundNumber: 1,
           turnKey: '1:1',
         );
-        expect(selected?.category, CoachingInsightCategory.endgameStockLow);
+        expect(
+          selection.stageNote?.category,
+          CoachingInsightCategory.endgameStockLow,
+        );
       }
 
-      // Turn 2 (same round): the banner is spent; the floor shows. The stock
-      // count moving (6 → 4) does NOT re-trigger it — same lesson.
+      // Turn 2 (same round): the note is spent. The stock count moving
+      // (6 → 4) does NOT re-trigger it — same lesson.
       final nextTurn = flow.select(
         insights: [
           _insight(CoachingInsightCategory.endgameStockLow, subjectValue: 4),
@@ -63,15 +95,22 @@ void main() {
         roundNumber: 1,
         turnKey: '1:2',
       );
-      expect(nextTurn?.category, CoachingInsightCategory.discardSuggestion);
+      expect(nextTurn.stageNote, isNull);
+      expect(
+        nextTurn.primary?.category,
+        CoachingInsightCategory.discardSuggestion,
+      );
 
-      // New round: the banner teaches once again.
+      // New round: the note teaches once again.
       final newRound = flow.select(
         insights: insights,
         roundNumber: 2,
         turnKey: '2:1',
       );
-      expect(newRound?.category, CoachingInsightCategory.endgameStockLow);
+      expect(
+        newRound.stageNote?.category,
+        CoachingInsightCategory.endgameStockLow,
+      );
     });
 
     test('a different subject seat is fresh teaching', () {
@@ -87,7 +126,7 @@ void main() {
         roundNumber: 1,
         turnKey: '1:1',
       );
-      expect(east?.subjectSeat, PlayerSeat.east);
+      expect(east.stageNote?.subjectSeat, PlayerSeat.east);
 
       final west = flow.select(
         insights: [
@@ -100,7 +139,7 @@ void main() {
         roundNumber: 1,
         turnKey: '1:2',
       );
-      expect(west?.subjectSeat, PlayerSeat.west);
+      expect(west.stageNote?.subjectSeat, PlayerSeat.west);
     });
 
     test('every benchmark raise re-alerts', () {
@@ -116,7 +155,10 @@ void main() {
         roundNumber: 1,
         turnKey: '1:1',
       );
-      expect(first?.category, CoachingInsightCategory.benchmarkAlert);
+      expect(
+        first.stageNote?.category,
+        CoachingInsightCategory.benchmarkAlert,
+      );
 
       final raised = flow.select(
         insights: [
@@ -129,7 +171,7 @@ void main() {
         roundNumber: 1,
         turnKey: '1:2',
       );
-      expect(raised?.openingRequirement, 72);
+      expect(raised.stageNote?.openingRequirement, 72);
 
       final repeat = flow.select(
         insights: [
@@ -142,10 +184,10 @@ void main() {
         roundNumber: 1,
         turnKey: '1:3',
       );
-      expect(repeat, isNull);
+      expect(repeat.stageNote, isNull);
     });
 
-    test('a spent banner lets the next unseen banner through', () {
+    test('a spent note lets the next unseen note through', () {
       final flow = CoachInsightFlow();
       final insights = [
         _insight(
@@ -162,44 +204,69 @@ void main() {
         roundNumber: 1,
         turnKey: '1:1',
       );
-      expect(turn1?.category, CoachingInsightCategory.scorePosture);
+      expect(turn1.stageNote?.category, CoachingInsightCategory.scorePosture);
+      expect(
+        turn1.primary?.category,
+        CoachingInsightCategory.discardSuggestion,
+      );
 
       final turn2 = flow.select(
         insights: insights,
         roundNumber: 1,
         turnKey: '1:2',
       );
-      expect(turn2?.category, CoachingInsightCategory.endgameStockLow);
+      expect(
+        turn2.stageNote?.category,
+        CoachingInsightCategory.endgameStockLow,
+      );
 
       final turn3 = flow.select(
         insights: insights,
         roundNumber: 1,
         turnKey: '1:3',
       );
-      expect(turn3?.category, CoachingInsightCategory.discardSuggestion);
+      expect(turn3.stageNote, isNull);
+      expect(
+        turn3.primary?.category,
+        CoachingInsightCategory.discardSuggestion,
+      );
     });
 
-    test('returns null when only spent banners remain', () {
+    test('banners alone leave the primary slot empty (caller may promote)',
+        () {
       final flow = CoachInsightFlow();
       final insights = [
         _insight(CoachingInsightCategory.endgameStockLow, subjectValue: 5),
       ];
-      expect(
-        flow.select(insights: insights, roundNumber: 1, turnKey: '1:1'),
-        isNotNull,
+      final first = flow.select(
+        insights: insights,
+        roundNumber: 1,
+        turnKey: '1:1',
       );
+      expect(first.primary, isNull);
       expect(
-        flow.select(insights: insights, roundNumber: 1, turnKey: '1:2'),
-        isNull,
+        first.stageNote?.category,
+        CoachingInsightCategory.endgameStockLow,
       );
+
+      final second = flow.select(
+        insights: insights,
+        roundNumber: 1,
+        turnKey: '1:2',
+      );
+      expect(second.primary, isNull);
+      expect(second.stageNote, isNull);
     });
 
-    test('returns null for an empty list', () {
+    test('empty list selects nothing', () {
       final flow = CoachInsightFlow();
-      expect(
-        flow.select(insights: const [], roundNumber: 1, turnKey: '1:1'),
-        isNull,
+      final selection = flow.select(
+        insights: const [],
+        roundNumber: 1,
+        turnKey: '1:1',
       );
+      expect(selection.primary, isNull);
+      expect(selection.stageNote, isNull);
     });
   });
 }
