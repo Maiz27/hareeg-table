@@ -309,9 +309,36 @@ class ClassicHareegFinishPlanner {
       if (!_couldBeMeld(cards)) {
         continue;
       }
-      final resolved = ClassicHareegTablePlayPlanner.resolveMeldCards(cards);
+      var resolved = ClassicHareegTablePlayPlanner.resolveMeldCards(cards);
       if (!resolved.result.isValid) {
-        continue;
+        // An AMBIGUOUS joker (several legal identities, e.g. Q-K-joker as J
+        // or A) makes resolveMeldCards demand a choice — right for the human
+        // action surface, fatal for a finish PROOF: any legal identity
+        // proves the meld placeable, so rejecting the candidate hid whole
+        // finishes (and their Fifty claims) whenever a joker meld had more
+        // than one reading. Resolve to the highest-value variant so an
+        // unopened seat's fresh-meld value check sees its best proof.
+        //
+        // The limit MUST be exhaustive (52) here, not the picker default (5):
+        // resolveMeldVariants enumerates SET readings before SEQUENCE readings
+        // and stops at the limit, so a multi-joker meld (e.g. 4-joker-joker)
+        // can fill all 5 slots with equal-value set readings (4 4 4 = 12) and
+        // truncate the higher sequence reading (4 5 6 = 15). The value gate
+        // below needs the TRUE maximum, so we must see every variant.
+        ClassicHareegResolvedMeldCards? best;
+        for (final variant in ClassicHareegTablePlayPlanner
+            .resolveMeldCardVariants(cards, limit: 52)) {
+          if (!variant.result.isValid) {
+            continue;
+          }
+          if (best == null || variant.result.value > best.result.value) {
+            best = variant;
+          }
+        }
+        if (best == null) {
+          continue;
+        }
+        resolved = best;
       }
       final candidate = _FinishMeldCandidate(
         mask: mask,

@@ -1,9 +1,30 @@
+import '../../domain/classic_hareeg/models/player_seat.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import '../../domain/classic_hareeg/rules/opening_rules.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
 import 'skilled_cpu_move_planner.dart';
+
+/// Why Expert holds a legal cover in hand instead of playing it.
+///
+/// Returned by [ExpertCpuMovePlanner.coverHoldReasonFor] so the coaching
+/// advisor can narrate the brain's hold instead of staying silent about a
+/// visibly coverable card.
+enum CoverHoldReason {
+  /// The cover card is a joker: never burn the strongest finish/Fifty asset
+  /// on a non-finishing cover.
+  jokerGuard,
+
+  /// Endgame Fifty-hold posture: few cards, deep stock, and the remaining
+  /// hand still develops toward a meld — shedding into covers throws the
+  /// Fifty away.
+  fiftyDevelopment,
+
+  /// The card extends the seat's OWN table run at an end: keep developing the
+  /// run rather than burning the card early.
+  ownRunExtension,
+}
 
 /// Expert CPU planner with offensive Fifty posture and opponent-aware defence.
 ///
@@ -18,6 +39,65 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
   static const _partitionLimit = 256;
   static const _fiftyHoldStockFloor = 8;
   static const _fiftyHoldHandValueFloor = 25;
+
+  /// Stock size at or below which Expert switches to its endgame posture
+  /// (shed pips into the table, deny pickups). Public so the coaching advisor
+  /// can teach the same stage shift it plays.
+  static const thinStockCount = _thinStockCount;
+
+  /// Score at or above which a seat is "near" elimination and Expert tightens
+  /// its play. Public for the coaching advisor's score-posture teaching.
+  static const highRiskScoreFloor = _highRiskScoreFloor;
+
+  /// Score at or above which an opponent becomes an elimination target.
+  /// Public for the coaching advisor's score-posture teaching.
+  static const eliminationTargetScoreFloor = _eliminationTargetScoreFloor;
+
+  /// Whether Expert would HOLD a normal finish to chase a Fifty instead:
+  /// a finishing partition exists, the stock is deep enough to keep drawing,
+  /// the hand is heavy enough to pay for the gamble, and the Fifty has a
+  /// worthwhile payoff. Public so the coaching advisor can narrate the same
+  /// posture the brain plays instead of contradicting it with a bare "you can
+  /// finish" hint.
+  ///
+  /// Payoff check: a Fifty's +3 can only land on the seat whose discard the
+  /// claimant takes — the active seat immediately BEFORE it in turn order
+  /// ([fiftyPunishTarget]). A high score elsewhere at the table is
+  /// unreachable, so it does not justify the gamble: the hold pays when the
+  /// claimant itself is at high risk (the −3 buys real breathing room) or the
+  /// punishable seat is (the +3 may eliminate them).
+  static bool holdsNormalFinishForFifty(CpuObservation observation) {
+    if (observation.finishingPartition() == null ||
+        observation.stockCount < _fiftyHoldStockFloor ||
+        handPipValue(observation.ownHand) <= _fiftyHoldHandValueFloor) {
+      return false;
+    }
+
+    if (observation.ownScore >= _highRiskScoreFloor) {
+      return true;
+    }
+    final target = fiftyPunishTarget(observation);
+    return target != null &&
+        observation.scoreFor(target) >= _highRiskScoreFloor;
+  }
+
+  /// The only seat a Fifty claimed by [observation]'s seat can punish: the
+  /// active seat immediately before it in turn order, whose discard the claim
+  /// would take. Null in the degenerate no-opponents state.
+  static PlayerSeat? fiftyPunishTarget(CpuObservation observation) {
+    final opponents = observation.opponents;
+    return opponents.isEmpty ? null : opponents.last;
+  }
+
+  /// Why Expert would HOLD [cover] in hand instead of playing it, or null when
+  /// it plays the cover. Public so the coaching advisor narrates the same hold
+  /// the brain plays (the policy's boolean hook delegates to the same check).
+  static CoverHoldReason? coverHoldReasonFor(
+    CpuObservation observation,
+    CpuLegalAction cover,
+  ) {
+    return const _ExpertCpuPlanPolicy().coverHoldReasonFor(observation, cover);
+  }
   // Endgame Fifty-hold cover posture: an opened seat with at most this many
   // cards is close enough to a finish that shedding a developing card into a
   // cover throws away its Fifty chances. (Owner's "few cards" ~ <= 4-5.)
@@ -150,44 +230,51 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
 
   @override
   bool shouldHoldNormalFinishForFifty(CpuObservation observation) {
-    if (observation.finishingPartition() == null ||
-        observation.stockCount < ExpertCpuMovePlanner._fiftyHoldStockFloor ||
-        handPipValue(observation.ownHand) <=
-            ExpertCpuMovePlanner._fiftyHoldHandValueFloor) {
-      return false;
-    }
-
-    if (observation.ownScore >= ExpertCpuMovePlanner._highRiskScoreFloor) {
-      return true;
-    }
-    return observation.opponents.any((opponent) {
-      return observation.scoreFor(opponent) >=
-          ExpertCpuMovePlanner._highRiskScoreFloor;
-    });
+    return ExpertCpuMovePlanner.holdsNormalFinishForFifty(observation);
   }
 
   @override
   bool gateJokerReplacement(CpuObservation observation) {
-    return observation.finishingPartition() != null;
+    // Eager: a valid swap is a free upgrade — the natural card moves onto the
+    // table in the joker's spot, the freed joker (the strongest finish/Fifty
+    // asset) comes to hand, scoring is card-COUNT so holding it costs
+    // nothing, and with multi-deck twins any opponent holding the other copy
+    // can steal the swap first. The old "delay until a finish is visible"
+    // posture lost the swap whenever the natural card got consumed by a meld
+    // or discard in the meantime (playtest: three natural 8s were melded,
+    // burning the 8♣ that could have reclaimed a table joker).
+    return true;
   }
 
   @override
   bool shouldHoldCover(CpuObservation observation, CpuLegalAction cover) {
+    return coverHoldReasonFor(observation, cover) != null;
+  }
+
+  /// Why Expert would hold [cover] in hand instead of playing it, or null when
+  /// the cover should be played. The boolean policy hook ([shouldHoldCover])
+  /// delegates here; the coaching advisor reads the reason so it can NARRATE
+  /// the hold the brain plays ("the drawn card fits that meld, but hold it
+  /// because…") instead of going silent about a visibly coverable card.
+  CoverHoldReason? coverHoldReasonFor(
+    CpuObservation observation,
+    CpuLegalAction cover,
+  ) {
     final cardIds = cover.descriptor.cardIds;
     if (cardIds.length != 1) {
       // Multi-card covers are not reasoned about here; preserve the prior
       // behaviour of always playing them.
-      return false;
+      return null;
     }
     final card = _cardById(observation, cardIds.single);
     if (card == null) {
-      return false;
+      return null;
     }
 
     // A cover that empties the hand wins the round outright — never hold a
     // finish, for a Fifty or anything else.
     if (observation.ownHand.length == cardIds.length) {
-      return false;
+      return null;
     }
 
     // Never burn a joker on a non-finishing cover. A held joker is the single
@@ -195,7 +282,7 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     // so playing it onto a cover is almost always a mistake — the playtest
     // "joker pushed onto a cover" bug.
     if (card.isJoker) {
-      return true;
+      return CoverHoldReason.jokerGuard;
     }
 
     // Endgame Fifty-hold posture (opened seats only). Hold a non-finishing
@@ -209,29 +296,36 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
             ExpertCpuMovePlanner._fiftyHoldCoverHandMax &&
         observation.stockCount >= ExpertCpuMovePlanner._fiftyHoldStockFloor &&
         _remainingHandDevelops(observation.ownHand, card.id)) {
-      return true;
+      return CoverHoldReason.fiftyDevelopment;
     }
 
     // Existing posture: hold a cover that extends the seat's OWN run at an end,
     // to keep developing the run rather than burning the card early.
     final target = cover.descriptor.coverTarget;
     if (target == null || target.targetSeat != observation.seat) {
-      return false;
+      return null;
     }
     final identity = card.effectiveIdentity;
     if (identity == null) {
-      return false;
+      return null;
     }
     final ownMelds = observation.tableMeldsFor(observation.seat);
     if (target.meldIndex < 0 || target.meldIndex >= ownMelds.length) {
-      return false;
+      return null;
     }
     final orders = _sequenceOrders(ownMelds[target.meldIndex]);
     if (orders == null) {
-      return false;
+      return null;
     }
-    final order = _rankOrder(identity.rank, highAce: orders.last == 14);
-    return order == orders.first - 1 || order == orders.last + 1;
+    // An ace covers EITHER end: it extends below a low-ace run (order 1, under
+    // [orders.first]) or tops a King-high run (order 14, above orders.last ==
+    // 13). [_sequenceOrders] reads the EXISTING run shape, so a King-high run
+    // carries no order-14 yet; promote the ace cover to its high reading when
+    // it sits above the King. Other ranks keep their single reading.
+    final order = _rankOrder(identity.rank, highAce: orders.last == 13);
+    return order == orders.first - 1 || order == orders.last + 1
+        ? CoverHoldReason.ownRunExtension
+        : null;
   }
 
   // True when the hand minus [excludeCardId] still has a developing meld — two
@@ -275,7 +369,7 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     // discards. The two predicates share their hold-for-fifty floors but
     // diverge on the "any opponent near-score" branch, so we keep the
     // posture-only check here to preserve behaviour exactly.
-    final profile = _OpponentThreatProfile.fromObservation(observation);
+    final profile = OpponentThreatProfile.fromObservation(observation);
     final holdForFifty = shouldHoldNormalFinishForFifty(observation);
     final hand = observation.ownHand;
     // Keep scores come from the shared disjoint best-grouping model
@@ -307,8 +401,8 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
         return keepCompare;
       }
 
-      final leftTarget = profile.fiftySetupScore(leftCard);
-      final rightTarget = profile.fiftySetupScore(rightCard);
+      final leftTarget = profile.avoidFeedingScore(leftCard);
+      final rightTarget = profile.avoidFeedingScore(rightCard);
       final targetCompare = leftTarget.compareTo(rightTarget);
       if (targetCompare != 0) {
         return targetCompare;
@@ -487,149 +581,276 @@ int _rankOrder(CardRank rank, {required bool highAce}) {
   return rank.order;
 }
 
-class _OpponentThreatProfile {
-  const _OpponentThreatProfile({
-    required this.hotRanks,
-    required this.hotSuits,
-    required this.hotIdentities,
-    required this.nearScoreRanks,
-    required this.nearScoreSuits,
-    required this.nearScoreIdentities,
-    required this.runEndThreats,
-    required this.eliminationTargetIdentities,
+/// Why an [OpponentThreat] fired.
+enum OpponentThreatKind {
+  /// The card slots directly onto the opponent's visible run on the table.
+  runEnd,
+
+  /// The opponent has been deliberately picking up matching cards from the
+  /// discard pile (rank match, or same suit at adjacent rank).
+  collecting,
+}
+
+/// One attributed discard threat: which opponent a card would help, and why.
+/// Surfaced to the coaching advisor so it can narrate the exact signal the
+/// Expert discard comparator weighs.
+class OpponentThreat {
+  /// Creates an attributed threat.
+  const OpponentThreat({
+    required this.opponent,
+    required this.kind,
+    this.rank,
+    this.suit,
   });
 
-  final Set<CardRank> hotRanks;
-  final Set<CardSuit> hotSuits;
-  final Set<String> hotIdentities;
-  final Set<CardRank> nearScoreRanks;
-  final Set<CardSuit> nearScoreSuits;
-  final Set<String> nearScoreIdentities;
-  final Set<String> runEndThreats;
-  final Set<String> eliminationTargetIdentities;
+  /// The opponent the card would help.
+  final PlayerSeat opponent;
 
-  factory _OpponentThreatProfile.fromObservation(CpuObservation observation) {
-    final hotRanks = <CardRank>{};
-    final hotSuits = <CardSuit>{};
-    final hotIdentities = <String>{};
-    final nearScoreRanks = <CardRank>{};
-    final nearScoreSuits = <CardSuit>{};
-    final nearScoreIdentities = <String>{};
-    final runEndThreats = <String>{};
-    final eliminationTargetIdentities = <String>{};
+  /// Why the card is dangerous.
+  final OpponentThreatKind kind;
 
+  /// For [OpponentThreatKind.collecting] rank matches: the collected rank.
+  final CardRank? rank;
+
+  /// For [OpponentThreatKind.collecting] suit-adjacent matches: the suit.
+  final CardSuit? suit;
+}
+
+/// Opponent-aware discard threat model shared by the Expert planner's discard
+/// comparator and the coaching advisor (CPU-first: the coach narrates the same
+/// signals the brain plays).
+///
+/// "Collecting" = what an opponent deliberately PICKED UP. A card they
+/// DISCARDED is one they did not want, so it is safe (often safest) to throw —
+/// counting discards here inverts the signal (the playtest "discard the 8,
+/// keep the dead 3s" bug). The pickup tell is additionally:
+/// - RECENT: only the last [_pickupWindow] pickups count; turn-2 tells must
+///   not still steer turn 40.
+/// - UNCONSUMED: a pickup whose identity has since appeared in that opponent's
+///   table melds is spent — the card is visibly out of their hand.
+/// - FROM A SEAT STILL BUILDING: an opened opponent down to fewer than
+///   [_collectingHandFloor] cards has stopped collecting from the pile; its
+///   stale tells are dropped (run-end fits from its table melds still count).
+/// - NARROW ON SUIT: a same-suit pickup only marks ranks within
+///   [_runDistance] (a plausible run neighbour). One clubs pickup must not
+///   poison every club in the hand — the playtest "collecting fixation" bug.
+class OpponentThreatProfile {
+  const OpponentThreatProfile._(this._tells);
+
+  static const _pickupWindow = 6;
+  static const _collectingHandFloor = 4;
+  static const _runDistance = 2;
+
+  final List<_OpponentTells> _tells;
+
+  /// Builds the profile from visible state and attributed pile history.
+  factory OpponentThreatProfile.fromObservation(CpuObservation observation) {
+    final tells = <_OpponentTells>[];
     for (final opponent in observation.opponents) {
       final score = observation.scoreFor(opponent);
-      final nearScore = score >= ExpertCpuMovePlanner._highRiskScoreFloor;
-      final eliminationTarget =
-          score >= ExpertCpuMovePlanner._eliminationTargetScoreFloor;
-      // "Collecting" = what the opponent deliberately PICKED UP. A card they
-      // DISCARDED is one they did not want, so it is safe (often safest) to
-      // throw — counting discards here inverts the signal and makes the seat
-      // hoard the very cards opponents already rejected while shedding its
-      // genuinely useful high cards (the playtest "discard the 8, keep the
-      // dead 3s" bug). Run-end cover threats below still come from table melds.
-      final cards = observation.discardHistory.lastPickupsBy(opponent, 99);
-      for (final card in cards) {
-        final identity = card.effectiveIdentity;
-        if (identity == null) {
-          continue;
-        }
-        hotRanks.add(identity.rank);
-        hotSuits.add(identity.suit);
-        hotIdentities.add(identity.key);
-        if (nearScore) {
-          nearScoreRanks.add(identity.rank);
-          nearScoreSuits.add(identity.suit);
-          nearScoreIdentities.add(identity.key);
-        }
-        if (eliminationTarget) {
-          eliminationTargetIdentities.add(identity.key);
-        }
-      }
 
+      final runEnds = <String>{};
+      // PHYSICAL card ids, not identity keys: with multi-deck twins the
+      // opponent can meld one copy while still collecting around the other —
+      // an identity match dropped that live tell. A pickup is consumed only
+      // when the exact picked-up card is now visible on the table.
+      final meldedCardIds = <String>{};
       for (final meld in observation.tableMeldsFor(opponent)) {
         for (final identity in _runEndCoverThreats(meld)) {
-          runEndThreats.add(identity.key);
+          runEnds.add(identity.key);
+        }
+        for (final card in meld.cards) {
+          meldedCardIds.add(card.id);
         }
       }
-    }
 
-    return _OpponentThreatProfile(
-      hotRanks: hotRanks,
-      hotSuits: hotSuits,
-      hotIdentities: hotIdentities,
-      nearScoreRanks: nearScoreRanks,
-      nearScoreSuits: nearScoreSuits,
-      nearScoreIdentities: nearScoreIdentities,
-      runEndThreats: runEndThreats,
-      eliminationTargetIdentities: eliminationTargetIdentities,
-    );
+      final pickups = <CardIdentity>[];
+      final stoppedCollecting =
+          observation.hasOpened(opponent) &&
+          observation.handCountFor(opponent) < _collectingHandFloor;
+      if (!stoppedCollecting) {
+        for (final card in observation.discardHistory.lastPickupsBy(
+          opponent,
+          _pickupWindow,
+        )) {
+          final identity = card.effectiveIdentity;
+          if (identity == null || meldedCardIds.contains(card.id)) {
+            continue;
+          }
+          pickups.add(identity);
+        }
+      }
+
+      if (pickups.isEmpty && runEnds.isEmpty && score == 0) {
+        continue;
+      }
+      tells.add(
+        _OpponentTells(
+          opponent: opponent,
+          nearScore: score >= ExpertCpuMovePlanner._highRiskScoreFloor,
+          eliminationTarget:
+              score >= ExpertCpuMovePlanner._eliminationTargetScoreFloor,
+          pickups: pickups,
+          runEndIdentities: runEnds,
+        ),
+      );
+    }
+    return OpponentThreatProfile._(tells);
   }
 
+  /// Relative danger of discarding [card]: how much it would help any
+  /// opponent. Weights preserve the established ladder — run-end fit (120) >
+  /// near-score identity/rank/suit (90/45/20) > plain identity/rank/suit
+  /// (35/15/5) — applied to the refined tells.
   int dangerScore(HareegCard card) {
     final identity = card.effectiveIdentity;
     if (identity == null) {
       return 40;
     }
+    var runEnd = false;
+    var nearIdentity = false, nearRank = false, nearSuit = false;
+    var hotIdentity = false, hotRank = false, hotSuit = false;
+    for (final tell in _tells) {
+      if (tell.runEndIdentities.contains(identity.key)) {
+        runEnd = true;
+      }
+      if (tell.matchesIdentity(identity)) {
+        hotIdentity = true;
+        nearIdentity = nearIdentity || tell.nearScore;
+      }
+      if (tell.matchesRank(identity)) {
+        hotRank = true;
+        nearRank = nearRank || tell.nearScore;
+      }
+      if (tell.matchesSuitAdjacent(identity)) {
+        hotSuit = true;
+        nearSuit = nearSuit || tell.nearScore;
+      }
+    }
     var score = 0;
-    if (runEndThreats.contains(identity.key)) {
+    if (runEnd) {
       score += 120;
     }
-    if (nearScoreIdentities.contains(identity.key)) {
+    if (nearIdentity) {
       score += 90;
     }
-    if (nearScoreRanks.contains(identity.rank)) {
+    if (nearRank) {
       score += 45;
     }
-    if (nearScoreSuits.contains(identity.suit)) {
+    if (nearSuit) {
       score += 20;
     }
-    if (hotIdentities.contains(identity.key)) {
+    if (hotIdentity) {
       score += 35;
     }
-    if (hotRanks.contains(identity.rank)) {
+    if (hotRank) {
       score += 15;
     }
-    if (hotSuits.contains(identity.suit)) {
+    if (hotSuit) {
       score += 5;
     }
     return score;
   }
 
-  int fiftySetupScore(HareegCard card) {
+  /// How dangerous it is to FEED [card] to a high-score opponent that is
+  /// collecting its identity — a defensive avoid-feeding tie-break, NOT an
+  /// offensive Fifty setup. (A Fifty's +3 lands only on [fiftyPunishTarget],
+  /// so this any-opponent scan cannot encode Fifty-setup intent.) The discard
+  /// comparator sheds the LOWER-scoring card, so a card a near-score /
+  /// elimination opponent is collecting scores higher and is KEPT, denying
+  /// that seat the pickup. Weighted hardest against an elimination target.
+  int avoidFeedingScore(HareegCard card) {
     final identity = card.effectiveIdentity;
     if (identity == null) {
       return 0;
     }
-    if (eliminationTargetIdentities.contains(identity.key)) {
-      return 3;
+    var best = 0;
+    for (final tell in _tells) {
+      if (!tell.matchesIdentity(identity)) {
+        continue;
+      }
+      final score = tell.eliminationTarget ? 3 : (tell.nearScore ? 2 : 1);
+      if (score > best) {
+        best = score;
+      }
     }
-    if (nearScoreIdentities.contains(identity.key)) {
-      return 2;
+    return best;
+  }
+
+  /// The strongest attributed threat against discarding [card], or null when
+  /// none. A visible run-end fit outranks a collecting tell — it is the
+  /// concrete, on-the-table danger. Used by the coaching advisor to explain a
+  /// hold-back warning ("it slots onto East's run" / "East is collecting").
+  OpponentThreat? primaryThreatFor(HareegCard card) {
+    final identity = card.effectiveIdentity;
+    if (card.isJoker || identity == null) {
+      return null;
     }
-    if (hotIdentities.contains(identity.key)) {
-      return 1;
+    // Tier order is deliberate and matches dangerScore (run-end's flat 120 tops
+    // every collecting weight): a concrete run-end fit outranks a soft
+    // collecting tell. Within a tier, attribute to the MOST DANGEROUS opponent
+    // (elimination > near-score > plain) instead of the first in seat order —
+    // when two seats both match, the coach must name the one that matters.
+    final runEndTell = _mostDangerousTell(
+      (tell) => tell.runEndIdentities.contains(identity.key),
+    );
+    if (runEndTell != null) {
+      return OpponentThreat(
+        opponent: runEndTell.opponent,
+        kind: OpponentThreatKind.runEnd,
+      );
     }
-    return 0;
+    final rankTell = _mostDangerousTell((tell) => tell.matchesRank(identity));
+    if (rankTell != null) {
+      return OpponentThreat(
+        opponent: rankTell.opponent,
+        kind: OpponentThreatKind.collecting,
+        rank: identity.rank,
+      );
+    }
+    final suitTell = _mostDangerousTell(
+      (tell) => tell.matchesSuitAdjacent(identity),
+    );
+    if (suitTell != null) {
+      return OpponentThreat(
+        opponent: suitTell.opponent,
+        kind: OpponentThreatKind.collecting,
+        suit: identity.suit,
+      );
+    }
+    return null;
+  }
+
+  /// The most dangerous tell satisfying [matches] (elimination > near-score >
+  /// plain), or null when none match. Ties keep the first in the stable
+  /// anti-clockwise seat order [_tells] is built in.
+  _OpponentTells? _mostDangerousTell(bool Function(_OpponentTells) matches) {
+    _OpponentTells? best;
+    var bestWeight = -1;
+    for (final tell in _tells) {
+      if (!matches(tell)) {
+        continue;
+      }
+      final weight = tell.eliminationTarget ? 2 : (tell.nearScore ? 1 : 0);
+      if (weight > bestWeight) {
+        bestWeight = weight;
+        best = tell;
+      }
+    }
+    return best;
   }
 
   static List<CardIdentity> _runEndCoverThreats(PlacedMeld meld) {
-    final identities = meld.cards
-        .map((card) => card.effectiveIdentity)
-        .whereType<CardIdentity>()
-        .toList(growable: false);
-    if (identities.length != meld.cards.length || identities.length < 3) {
+    // [_sequenceOrders] is high-ace aware (it reads Q-K-A as 12-13-14), so
+    // ace-high table runs produce their run-end threats too — raw rank
+    // orders read only ace-low and silently dropped them (no J threat below
+    // Q-K-A, no A threat above 10-J-Q-K).
+    final orders = _sequenceOrders(meld);
+    if (orders == null) {
       return const [];
     }
-    final suit = identities.first.suit;
-    if (identities.any((identity) => identity.suit != suit)) {
-      return const [];
-    }
-
-    final orders = identities.map((identity) => identity.rank.order).toList()
-      ..sort();
-    if (!_isConsecutiveOrders(orders)) {
+    final suit = meld.cards.first.effectiveIdentity?.suit;
+    if (suit == null) {
       return const [];
     }
 
@@ -645,21 +866,80 @@ class _OpponentThreatProfile {
     return threats;
   }
 
-  static bool _isConsecutiveOrders(List<int> orders) {
-    for (var index = 1; index < orders.length; index += 1) {
-      if (orders[index] != orders[index - 1] + 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   static CardRank? _rankByOrder(int order) {
+    // 14 is the high-ace order [_sequenceOrders] emits; no [CardRank.order]
+    // carries it, so map it back to the ace explicitly (an ace tops a
+    // 10-J-Q-K run as a legal cover).
+    if (order == 14) {
+      return CardRank.ace;
+    }
     for (final rank in CardRank.values) {
       if (rank.order == order) {
         return rank;
       }
     }
     return null;
+  }
+}
+
+/// One opponent's refined tells: filtered pile pickups, run-end fits from its
+/// visible melds, and its score posture.
+class _OpponentTells {
+  const _OpponentTells({
+    required this.opponent,
+    required this.nearScore,
+    required this.eliminationTarget,
+    required this.pickups,
+    required this.runEndIdentities,
+  });
+
+  final PlayerSeat opponent;
+  final bool nearScore;
+  final bool eliminationTarget;
+  final List<CardIdentity> pickups;
+  final Set<String> runEndIdentities;
+
+  bool matchesIdentity(CardIdentity identity) {
+    return pickups.any((pickup) => pickup.key == identity.key);
+  }
+
+  bool matchesRank(CardIdentity identity) {
+    return pickups.any((pickup) => pickup.rank == identity.rank);
+  }
+
+  bool matchesSuitAdjacent(CardIdentity identity) {
+    // Strictly adjacent: zero distance is the SAME identity, which the
+    // identity/rank tells already score — letting it through here double
+    // counted an exact-match pickup into the suit signal too.
+    return pickups.any((pickup) {
+      if (pickup.suit != identity.suit) {
+        return false;
+      }
+      // Dual ace reading: an ace reads order 1 (low) OR 14 (high), so a pickup
+      // or candidate ace must test BOTH so a K/Q neighbour of an ace-HIGH run
+      // (A-K-Q) gets adjacency heat — raw orders read ace as 1 and flagged 2/3
+      // instead. Adjacent under EITHER reading is adjacent; the zero-distance
+      // guard still excludes the same identity (an ace-vs-ace pickup is
+      // distance 0 under both readings and stays out).
+      return _suitAdjacent(pickup.rank, identity.rank);
+    });
+  }
+
+  static bool _suitAdjacent(CardRank pickupRank, CardRank identityRank) {
+    final pickupOrders = _aceReadings(pickupRank);
+    final identityOrders = _aceReadings(identityRank);
+    for (final pickupOrder in pickupOrders) {
+      for (final identityOrder in identityOrders) {
+        final distance = (pickupOrder - identityOrder).abs();
+        if (distance > 0 && distance <= OpponentThreatProfile._runDistance) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static List<int> _aceReadings(CardRank rank) {
+    return rank == CardRank.ace ? const [1, 14] : [rank.order];
   }
 }

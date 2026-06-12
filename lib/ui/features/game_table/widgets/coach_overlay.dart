@@ -22,10 +22,21 @@ import '../coach/coach_hint.dart';
 /// Place it as a direct child of the table body [Stack].
 class CoachOverlay extends StatelessWidget {
   /// Creates a coach overlay.
-  const CoachOverlay({super.key, required this.hint, required this.highContrast});
+  const CoachOverlay({
+    super.key,
+    required this.hint,
+    required this.highContrast,
+    this.stageHint,
+  });
 
   /// Hint to present.
   final CoachHint hint;
+
+  /// Optional once-per-round stage note rendered as a compact second row
+  /// under the primary hint (game-stage teaching: thin stock, score
+  /// pressure, an opponent nearly done). Suppressed during urgent pop-ins so
+  /// the win/Fifty moment stays clean.
+  final CoachHint? stageHint;
 
   /// Whether high-contrast card cues are enabled (strengthens the panel).
   final bool highContrast;
@@ -36,9 +47,11 @@ class CoachOverlay extends StatelessWidget {
     final motion = MotionScope.of(context);
     final accent = _accentColor(hint.accent);
     final isPopIn = hint.intensity == CoachIntensity.popIn;
+    final note = isPopIn ? null : stageHint;
 
     final callout = _CoachCallout(
       hint: hint,
+      stageHint: note,
       strings: strings,
       accent: accent,
       highContrast: highContrast,
@@ -46,7 +59,9 @@ class CoachOverlay extends StatelessWidget {
 
     // Re-run the entrance whenever the situation (situationKey) changes.
     final animated = TweenAnimationBuilder<double>(
-      key: ValueKey('coach-anim-${hint.situationKey}'),
+      key: ValueKey(
+        'coach-anim-${hint.situationKey}#${note?.situationKey ?? ''}',
+      ),
       tween: Tween(begin: 0, end: 1),
       duration: motion.scale(const Duration(milliseconds: 180)),
       curve: motion.curve(Curves.easeOutCubic),
@@ -107,12 +122,14 @@ class CoachOverlay extends StatelessWidget {
 class _CoachCallout extends StatelessWidget {
   const _CoachCallout({
     required this.hint,
+    required this.stageHint,
     required this.strings,
     required this.accent,
     required this.highContrast,
   });
 
   final CoachHint hint;
+  final CoachHint? stageHint;
   final AppStrings strings;
   final Color accent;
   final bool highContrast;
@@ -123,6 +140,7 @@ class _CoachCallout extends StatelessWidget {
     final panelColor = LoungeTokens.coffeeCharcoal.withValues(
       alpha: highContrast ? 0.97 : 0.92,
     );
+    final note = stageHint;
 
     final content = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -169,6 +187,36 @@ class _CoachCallout extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: LoungeTokens.bodyMuted,
               ),
+              if (note != null) ...[
+                const SizedBox(height: 3),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Icon(
+                        note.icon,
+                        color: LoungeTokens.goldAccent.withValues(alpha: 0.9),
+                        size: 12,
+                      ),
+                    ),
+                    const SizedBox(width: LoungeTokens.space2),
+                    Expanded(
+                      child: Text(
+                        note.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: LoungeTokens.bodyMuted.copyWith(
+                          fontSize: 11,
+                          color: LoungeTokens.goldAccent.withValues(
+                            alpha: 0.92,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -200,7 +248,10 @@ class _CoachCallout extends StatelessWidget {
 
     return Semantics(
       liveRegion: true,
-      label: '${strings.coachLabel}. ${hint.title}. ${hint.body}',
+      label: [
+        '${strings.coachLabel}. ${hint.title}. ${hint.body}',
+        if (note != null) '${note.title}. ${note.body}',
+      ].join(' '),
       child: panel,
     );
   }
