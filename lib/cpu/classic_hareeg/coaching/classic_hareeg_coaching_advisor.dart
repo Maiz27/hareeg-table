@@ -6,7 +6,6 @@ import '../../../domain/classic_hareeg/game/classic_hareeg_round.dart'
     show TurnPhase;
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../domain/classic_hareeg/rules/cover_rules.dart';
 import '../../../domain/classic_hareeg/models/classic_hareeg_setup.dart'
     show CpuDifficulty;
 import '../cpu_move_plan.dart' show ClassicHareegCpuMoveScenario;
@@ -194,8 +193,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     // weighed exactly that seat). Naming anyone else is factually wrong: the
     // playtest hint implied the high-score seat across the table would pay.
     final ownScore = observation.ownScore;
-    final subjectIsSelf =
-        ownScore >= ExpertCpuMovePlanner.highRiskScoreFloor;
+    final subjectIsSelf = ownScore >= ExpertCpuMovePlanner.highRiskScoreFloor;
     final target = subjectIsSelf
         ? observation.seat
         : ExpertCpuMovePlanner.fiftyPunishTarget(observation);
@@ -213,7 +211,17 @@ abstract final class ClassicHareegCoachingAdvisor {
         // drawn from the LEGAL surface, so a cover-blocked card (which cannot
         // leave as a plain discard) is never recommended. Without this the
         // hint said "hold" but left the player guessing how to end the turn.
-        discardCardId: analysis.expertDiscardId,
+        //
+        // The Expert plan's discard is null whenever its chosen move this turn
+        // is NOT a safe discard (it develops via a meld play or cover instead);
+        // the presenter then silently drops the "throw this to keep the hold
+        // alive" suffix — the exact teaching gap the suffix exists to close.
+        // Fall back to a pick off the same legal-safe-discard surface, using
+        // the advisor's standard discard chooser so the named throw matches how
+        // the discard floor picks elsewhere. Null only when no legal safe
+        // discard exists at all (a cover-only surface); the presenter copes.
+        discardCardId:
+            analysis.expertDiscardId ?? _holdSustainingThrow(analysis),
         highlightCardIds: [
           for (final meld in plan.melds)
             for (final card in meld.cards) card.id,
@@ -226,6 +234,17 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
+  // The throw that sustains a Fifty hold when the Expert plan's own move is a
+  // non-discard (a meld play or cover, so [expertDiscardId] is null). Picks off
+  // the legal-safe-discard surface via the advisor's standard discard chooser
+  // (the same `discardGuidance` the discard floor uses), so the named throw is
+  // deterministic and consistent with the rest of the advisor — and, being off
+  // the legal surface, never a cover-blocked card. Null when no legal safe
+  // discard exists (a cover-only surface); the presenter handles a null suffix.
+  static String? _holdSustainingThrow(_CoachingAnalysis analysis) {
+    return analysis.discardGuidance(keepIds: const {})?.discardCardId;
+  }
+
   // Ring groups for a full finish plan: each fresh meld, then each cover with
   // the table meld it extends (both ends of the lay-off), in play order.
   static List<List<String>> _finishPlanGroups(
@@ -233,8 +252,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     ClassicHareegFinishPlan plan,
   ) {
     final groups = <List<String>>[
-      for (final meld in plan.melds)
-        [for (final card in meld.cards) card.id],
+      for (final meld in plan.melds) [for (final card in meld.cards) card.id],
     ];
     for (final cover in plan.covers) {
       final melds = controller.tableMeldsFor(cover.targetSeat);
@@ -502,7 +520,14 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (planMeldId != null) {
       final action = ClassicHareegActionIds.describe(planMeldId);
       if (action.isMeldPlay) {
-        _emitPlayMeld(controller, seat, analysis, action.cardIds, planMeldId, out);
+        _emitPlayMeld(
+          controller,
+          seat,
+          analysis,
+          action.cardIds,
+          planMeldId,
+          out,
+        );
         return;
       }
     }
@@ -543,9 +568,10 @@ abstract final class ClassicHareegCoachingAdvisor {
   }
 
   // Emits a playMeld insight for [meldCardIds], and when the seat ALSO holds an
-  // isolated card that lays off as a cover, COMBINES it into the same hint (a
-  // second ring group + an "also lay off X" line in the presenter), so the
-  // player sees both plays at once instead of just the meld.
+  // isolated card whose lay-off the brain would lead with (an Expert-legal cover
+  // the brain is not holding — see [_isolatedCoverFor]), COMBINES it into the
+  // same hint (a second ring group + an "also lay off X" line in the presenter),
+  // so the player sees both plays at once instead of just the meld.
   static void _emitPlayMeld(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -554,18 +580,12 @@ abstract final class ClassicHareegCoachingAdvisor {
     String? meldActionId,
     List<CoachingInsight> out,
   ) {
-    var cover = _isolatedCoverFor(controller, seat, meldCardIds.toSet());
-    if (cover != null &&
-        analysis.coverHoldReasons[cover.cardId] ==
-            CoverHoldReason.fiftyDevelopment) {
-      // The brain is holding that lay-off to protect a developing Fifty —
-      // combining it into the meld hint would push the exact play the brain
-      // declined. An own-run-end hold stays combined: it is a soft timing
-      // preference, and the combined "play the meld + lay this off" display
-      // is owner-validated for that shape. (A joker never reaches here —
-      // [_isolatedCoverFor] skips jokers.)
-      cover = null;
-    }
+    final cover = _isolatedCoverFor(
+      controller,
+      seat,
+      analysis,
+      meldCardIds.toSet(),
+    );
     final highlight = <String>[...meldCardIds];
     final groups = <List<String>>[List<String>.of(meldCardIds)];
     if (cover != null) {
@@ -587,52 +607,57 @@ abstract final class ClassicHareegCoachingAdvisor {
     );
   }
 
-  // The first ISOLATED hand card (not in [exclude], not a joker, sharing no rank
-  // or near-suit with another hand card) that lays off as a cover onto any table
-  // meld (own or opponent's). Shared by the play-meld combine and the standalone
-  // lay-off hint. Returns the card, the meld's owner/index, and the meld's card
-  // ids (for highlighting), or null when no such cover exists.
-  static ({
-    String cardId,
-    PlayerSeat owner,
-    int meldIndex,
-    List<String> meldCardIds,
-  })?
-  _isolatedCoverFor(
+  // The first ISOLATED lay-off the play-meld hint can ride: a hand card that
+  // lays off as a cover onto a table meld (own or opponent's), is not part of
+  // the meld being played ([exclude]), anchors no playable in-hand meld of its
+  // own ([_hasMeldPartner] — don't ring a card teal "keep" and as a lay-off at
+  // once), and the Expert brain's posture is NOT holding.
+  //
+  // CPU-first (the same principle behind [_addCover]): the cover comes off the
+  // brain's legal cover surface ([analysis.legalCovers]), and is named ONLY
+  // when the brain would not hold it — for ANY [CoverHoldReason] (joker guard,
+  // Fifty development, own-run end), not just Fifty development. The rider's job
+  // is to narrate a lay-off the brain itself would lead with, never to push a
+  // play the brain declined; pulling the raw legal extension and suppressing
+  // only the Fifty-development hold let the coach narrate own-run-extension
+  // lay-offs the brain regards as a hold (and, when the plan's move was a meld
+  // or discard, lay-offs that were simply "not its move"). The standalone
+  // [_addCover] hint, also legal-surface/hold-posture driven, still covers a
+  // lay-off worth leading with on its own turn.
+  static _LegalCover? _isolatedCoverFor(
     ClassicHareegGameController controller,
     PlayerSeat seat,
+    _CoachingAnalysis analysis,
     Set<String> exclude,
   ) {
     final hand = controller.handFor(seat);
-    final owners = [seat, ..._opponentsOf(controller, seat)];
-    for (final owner in owners) {
-      final melds = controller.tableMeldsFor(owner);
-      for (var index = 0; index < melds.length; index += 1) {
-        for (final card in hand) {
-          final identity = card.effectiveIdentity;
-          if (card.isJoker || identity == null || exclude.contains(card.id)) {
-            continue;
-          }
-          if (_hasMeldPartner(hand, card, identity)) {
-            continue;
-          }
-          final extension = ClassicHareegCoverRules.resolveCoverExtension(
-            tableMeld: melds[index].cards,
-            candidate: card,
-          );
-          if (extension == null) {
-            continue;
-          }
-          return (
-            cardId: card.id,
-            owner: owner,
-            meldIndex: index,
-            meldCardIds: [
-              for (final meldCard in melds[index].cards) meldCard.id,
-            ],
-          );
+    for (final cover in analysis.legalCovers) {
+      if (exclude.contains(cover.cardId)) {
+        continue;
+      }
+      // Honor the brain's posture: skip any cover it is holding (joker guard,
+      // Fifty development, or own-run end). The legal surface never offers a
+      // bare joker cover, so the joker-guard branch is belt-and-braces.
+      if (analysis.coverHoldReasons[cover.cardId] != null) {
+        continue;
+      }
+      // Isolation: a card that still anchors an in-hand meld is a keeper, not a
+      // loose lay-off — ringing it as a cover would contradict the meld hint.
+      HareegCard? card;
+      for (final held in hand) {
+        if (held.id == cover.cardId) {
+          card = held;
+          break;
         }
       }
+      final identity = card?.effectiveIdentity;
+      if (card == null || card.isJoker || identity == null) {
+        continue;
+      }
+      if (_hasMeldPartner(hand, card, identity)) {
+        continue;
+      }
+      return cover;
     }
     return null;
   }
@@ -1427,8 +1452,8 @@ class _CoachingAnalysis {
 
   /// The material threat against discarding [card], or null when none —
   /// straight from the Expert brain's threat profile.
-  OpponentThreat? threatFor(HareegCard card) => threatProfile
-      .primaryThreatFor(card);
+  OpponentThreat? threatFor(HareegCard card) =>
+      threatProfile.primaryThreatFor(card);
 
   /// Picks the discard to recommend among the legal safe discards outside
   /// [keepIds], plus an optional hold-back warning.
@@ -1473,8 +1498,7 @@ class _CoachingAnalysis {
         // ceiling card is kept (mirrors the Expert comparator's value term).
         if (cardPrimary < pickPrimary ||
             (cardPrimary == pickPrimary &&
-                (score < pickScore ||
-                    (score == pickScore && pip < pickPip)))) {
+                (score < pickScore || (score == pickScore && pip < pickPip)))) {
           pick = card;
           pickPrimary = cardPrimary;
           pickScore = score;

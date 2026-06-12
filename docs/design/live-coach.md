@@ -55,7 +55,8 @@ Concretely:
   strategy.
 - The play-meld hint presents the Expert plan's exact meld when the plan
   melds, and only folds a lay-off cover in when the brain is not holding it
-  for Fifty development.
+  at all — any cover-hold reason suppresses the rider (the held cover is
+  narrated by the discard hint instead).
 - The discard floor is the Expert plan's own discard pick.
 - When the brain *declines* a visible finish (`holdsNormalFinishForFifty`),
   the coach explains the hold (`fiftyHold`) instead of contradicting it with

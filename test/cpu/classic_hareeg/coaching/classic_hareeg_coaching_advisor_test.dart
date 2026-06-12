@@ -487,20 +487,13 @@ void main() {
 
       expect(_has(insights, CoachingInsightCategory.openingProgress), isTrue);
       expect(_has(insights, CoachingInsightCategory.openNow), isFalse);
-      final insight = _find(
-        insights,
-        CoachingInsightCategory.openingProgress,
-      );
+      final insight = _find(insights, CoachingInsightCategory.openingProgress);
       expect(insight.openingRequirement, 51);
       expect(insight.openingBestValue, lessThan(51));
-      expect(
-        insight.openingShortfall,
-        51 - insight.openingBestValue!,
-      );
+      expect(insight.openingShortfall, 51 - insight.openingBestValue!);
     });
 
-    test('unopened seat is guided to open with a combined keep + discard hint',
-        () {
+    test('unopened seat is guided to open with a combined keep + discard hint', () {
       // Playtest screenshot: a fresh, unopened hand where the 4♣ anchors BOTH a
       // 4-5-6-7 club run and a set of 4s, plus a complete set of 8s. Best
       // opening partition is 46 vs a 51 requirement. The coach must surface ONE
@@ -747,8 +740,11 @@ void main() {
 
     test('combines a playable meld with an available lay-off cover', () {
       // Playtest: opened, holding a 5-6-7 club run to play AND a loose J♥ that
-      // lays off onto an 8-9-10 heart run on the table. The coach should surface
-      // BOTH in one hint — the meld to play plus the cover — not the meld alone.
+      // lays off onto NORTH's 8-9-10 heart run. The lay-off is on the legal
+      // cover surface and the brain is not holding it (it extends an opponent's
+      // run, not the seat's own — no own-run hold — and a 6-card hand is too far
+      // from a finish for the Fifty-development hold). The coach surfaces BOTH
+      // in one hint — the meld to play plus the cover — not the meld alone.
       final coverJack = _c(CardRank.jack, CardSuit.hearts);
       final hand = [
         _c(CardRank.five, CardSuit.clubs),
@@ -764,7 +760,7 @@ void main() {
         setup: _coachingSetup(),
         southHand: hand,
         tableMelds: {
-          PlayerSeat.south: [
+          PlayerSeat.north: [
             _meld([
               _c(CardRank.eight, CardSuit.hearts),
               _c(CardRank.nine, CardSuit.hearts),
@@ -774,7 +770,11 @@ void main() {
         },
         currentSeat: PlayerSeat.south,
         turnPhase: TurnPhase.action,
-        openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south, PlayerSeat.north},
+        ),
       );
 
       final insights = ClassicHareegCoachingAdvisor.adviseFor(
@@ -791,6 +791,59 @@ void main() {
         containsAll([hand[0].id, hand[1].id, hand[2].id]),
       );
     });
+
+    test(
+      'does NOT ride a cover the Expert posture holds (own-run extension)',
+      () {
+        // GAP 1 regression: opened, holding a 5-6-7 club run to play AND a J♥
+        // that lays off onto the seat's OWN 8-9-10 heart run. That lay-off is a
+        // legal cover, but the Expert brain HOLDS it as an own-run extension
+        // (keep developing the run, do not burn the card early) — a NON-Fifty
+        // hold reason. The play-meld rider narrates only a lay-off the brain
+        // would lead with, so it must present the meld ALONE and never name the
+        // held J♥. (Before honoring all hold reasons, the bespoke combine still
+        // rang this own-run cover, narrating a play the brain declined.)
+        final ownRunJack = _c(CardRank.jack, CardSuit.hearts);
+        final hand = [
+          _c(CardRank.five, CardSuit.clubs),
+          _c(CardRank.six, CardSuit.clubs),
+          _c(CardRank.seven, CardSuit.clubs),
+          ownRunJack,
+          _c(CardRank.two, CardSuit.spades),
+          _c(CardRank.nine, CardSuit.diamonds),
+        ];
+        final scenario = ClassicHareegScenario.deal(
+          setup: _coachingSetup(),
+          southHand: hand,
+          tableMelds: {
+            PlayerSeat.south: [
+              _meld([
+                _c(CardRank.eight, CardSuit.hearts),
+                _c(CardRank.nine, CardSuit.hearts),
+                _c(CardRank.ten, CardSuit.hearts),
+              ]),
+            ],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        );
+
+        final insights = ClassicHareegCoachingAdvisor.adviseFor(
+          scenario.controller,
+          PlayerSeat.south,
+        );
+
+        final insight = _find(insights, CoachingInsightCategory.playMeld);
+        expect(insight.coverCardId, isNull);
+        expect(insight.highlightCardIds, isNot(contains(ownRunJack.id)));
+        // The meld it leads with is still the club run.
+        expect(
+          insight.highlightCardIds,
+          containsAll([hand[0].id, hand[1].id, hand[2].id]),
+        );
+      },
+    );
 
     test('absent when the opened seat has no playable meld', () {
       final hand = [
@@ -926,52 +979,58 @@ void main() {
       expect(insight.coverIsChoice, isFalse);
     });
 
-    test('finish-by-cover in a cover-only endgame never blacks out (Issue A)', () {
-      // Cover-only endgame: the seat's two cards each lay off onto an opponent
-      // meld and there is no plain safe discard. The old bespoke detector
-      // blacked out here (covers on opponent melds, no own-meld cover, the
-      // lay-off hint bailed on the empty safe-discard set). The engine-plan
-      // path now surfaces the SIMPLEST win: cover the 5♠ onto East's run, then
-      // close with the 10♥ — legal as the FINAL discard even though it is
-      // cover-blocked as a plain throw.
-      final tenHearts = _c(CardRank.ten, CardSuit.hearts);
-      final fiveSpades = _c(CardRank.five, CardSuit.spades);
-      final scenario = ClassicHareegScenario.deal(
-        setup: _coachingSetup(),
-        southHand: [tenHearts, fiveSpades],
-        tableMelds: {
-          PlayerSeat.north: [
-            _meld([
-              _c(CardRank.seven, CardSuit.hearts),
-              _c(CardRank.eight, CardSuit.hearts),
-              _c(CardRank.nine, CardSuit.hearts),
-            ]),
-          ],
-          PlayerSeat.east: [
-            _meld([
-              _c(CardRank.two, CardSuit.spades),
-              _c(CardRank.three, CardSuit.spades),
-              _c(CardRank.four, CardSuit.spades),
-            ]),
-          ],
-        },
-        currentSeat: PlayerSeat.south,
-        turnPhase: TurnPhase.action,
-        openingState: ScenarioCards.openedFor(PlayerSeat.south),
-      );
+    test(
+      'finish-by-cover in a cover-only endgame never blacks out (Issue A)',
+      () {
+        // Cover-only endgame: the seat's two cards each lay off onto an opponent
+        // meld and there is no plain safe discard. The old bespoke detector
+        // blacked out here (covers on opponent melds, no own-meld cover, the
+        // lay-off hint bailed on the empty safe-discard set). The engine-plan
+        // path now surfaces the SIMPLEST win: cover the 5♠ onto East's run, then
+        // close with the 10♥ — legal as the FINAL discard even though it is
+        // cover-blocked as a plain throw.
+        final tenHearts = _c(CardRank.ten, CardSuit.hearts);
+        final fiveSpades = _c(CardRank.five, CardSuit.spades);
+        final scenario = ClassicHareegScenario.deal(
+          setup: _coachingSetup(),
+          southHand: [tenHearts, fiveSpades],
+          tableMelds: {
+            PlayerSeat.north: [
+              _meld([
+                _c(CardRank.seven, CardSuit.hearts),
+                _c(CardRank.eight, CardSuit.hearts),
+                _c(CardRank.nine, CardSuit.hearts),
+              ]),
+            ],
+            PlayerSeat.east: [
+              _meld([
+                _c(CardRank.two, CardSuit.spades),
+                _c(CardRank.three, CardSuit.spades),
+                _c(CardRank.four, CardSuit.spades),
+              ]),
+            ],
+          },
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        );
 
-      final insights = ClassicHareegCoachingAdvisor.adviseFor(
-        scenario.controller,
-        PlayerSeat.south,
-      );
+        final insights = ClassicHareegCoachingAdvisor.adviseFor(
+          scenario.controller,
+          PlayerSeat.south,
+        );
 
-      expect(insights, isNotEmpty); // regression: never black out
-      expect(insights.first.category, CoachingInsightCategory.finishAvailable);
-      expect(insights.first.coverFinishes, isTrue);
-      // The 5♠ lay-off rings as the play; the 10♥ is the named closing throw.
-      expect(insights.first.highlightCardIds, contains(fiveSpades.id));
-      expect(insights.first.discardCardId, tenHearts.id);
-    });
+        expect(insights, isNotEmpty); // regression: never black out
+        expect(
+          insights.first.category,
+          CoachingInsightCategory.finishAvailable,
+        );
+        expect(insights.first.coverFinishes, isTrue);
+        // The 5♠ lay-off rings as the play; the 10♥ is the named closing throw.
+        expect(insights.first.highlightCardIds, contains(fiveSpades.id));
+        expect(insights.first.discardCardId, tenHearts.id);
+      },
+    );
 
     test('holds for a Fifty rather than covering away a card (Issue C)', () {
       // Opened, 3 cards, deep stock, a developing diamond run (8♦-10♦). 10♠
@@ -1005,17 +1064,17 @@ void main() {
 
       expect(_has(insights, CoachingInsightCategory.playCover), isFalse);
       expect(insights.where((insight) => insight.coverFinishes), isEmpty);
-      expect(insights.first.category, CoachingInsightCategory.discardSuggestion);
+      expect(
+        insights.first.category,
+        CoachingInsightCategory.discardSuggestion,
+      );
       // Playtest regression: the hold must be NARRATED, not silent — a
       // freshly drawn cover the coach says nothing about reads as blindness.
       // The discard hint names the held 10♠, why it stays (Fifty
       // development), and never recommends throwing the held card itself.
       final discard = insights.first;
       expect(discard.coverCardId, tenSpades.id);
-      expect(
-        discard.holdCoverReason,
-        CoachCoverHoldReason.fiftyDevelopment,
-      );
+      expect(discard.holdCoverReason, CoachCoverHoldReason.fiftyDevelopment);
       expect(discard.discardCardId, isNot(tenSpades.id));
       // The held cover and its target meld ring as a keep group.
       expect(discard.meldGroups, hasLength(1));
@@ -1631,29 +1690,34 @@ void main() {
       expect(hold.discardCardId, finishingHand.last.id);
     });
 
-    test('plain finish when only an unpunishable opponent is at high score',
-        () {
-      // East acts AFTER South, so a Fifty claimed by South can never hit East
-      // — its high score does not justify the gamble. (Playtest: the hint
-      // implied the high scorer across the table would pay the +3, but only
-      // the seat discarding right before you ever does.)
-      final scenario = ClassicHareegScenario.deal(
-        setup: _coachingSetup(),
-        southHand: finishingHand,
-        scores: const {PlayerSeat.east: 27},
-        currentSeat: PlayerSeat.south,
-        turnPhase: TurnPhase.action,
-        openingState: ScenarioCards.openedFor(PlayerSeat.south),
-      );
+    test(
+      'plain finish when only an unpunishable opponent is at high score',
+      () {
+        // East acts AFTER South, so a Fifty claimed by South can never hit East
+        // — its high score does not justify the gamble. (Playtest: the hint
+        // implied the high scorer across the table would pay the +3, but only
+        // the seat discarding right before you ever does.)
+        final scenario = ClassicHareegScenario.deal(
+          setup: _coachingSetup(),
+          southHand: finishingHand,
+          scores: const {PlayerSeat.east: 27},
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.action,
+          openingState: ScenarioCards.openedFor(PlayerSeat.south),
+        );
 
-      final insights = ClassicHareegCoachingAdvisor.adviseFor(
-        scenario.controller,
-        PlayerSeat.south,
-      );
+        final insights = ClassicHareegCoachingAdvisor.adviseFor(
+          scenario.controller,
+          PlayerSeat.south,
+        );
 
-      expect(insights.first.category, CoachingInsightCategory.finishAvailable);
-      expect(_has(insights, CoachingInsightCategory.fiftyHold), isFalse);
-    });
+        expect(
+          insights.first.category,
+          CoachingInsightCategory.finishAvailable,
+        );
+        expect(_has(insights, CoachingInsightCategory.fiftyHold), isFalse);
+      },
+    );
 
     test('names the player when their own score motivates the hold', () {
       final scenario = ClassicHareegScenario.deal(
@@ -1715,6 +1779,62 @@ void main() {
       );
 
       final hold = _find(insights, CoachingInsightCategory.fiftyHold);
+      expect(hold.discardCardId, isNotNull);
+      expect(hold.discardCardId, isNot(coverJack.id));
+    });
+
+    test('hold-discard falls back to the safe surface when the plan is a cover', () {
+      // GAP 2 regression: a fiftyHold where the Expert plan's chosen move this
+      // turn is NOT a safe discard. The hand is two complete runs (9-10-J♦,
+      // 5-6-7♣) plus a J♠ that lays off onto NORTH's 8-9-10♠ run. The whole
+      // hand finishes (both runs + the J♠ as the final discard), and the brain
+      // HOLDS that finish for a Fifty (deep stock, heavy pips, West at risk).
+      // With seven cards the Fifty-development cover hold (≤5 cards) does not
+      // apply, so the brain's actual move this turn is the COVER, not a discard
+      // — meaning [expertDiscardId] is null. The hold hint must still carry a
+      // non-null throw off the legal-safe-discard surface, or the presenter
+      // silently drops the "throw this to keep the hold alive" suffix (the gap).
+      // The named throw must never be the cover-blocked J♠.
+      final coverJack = _c(CardRank.jack, CardSuit.spades);
+      final scenario = ClassicHareegScenario.deal(
+        setup: _coachingSetup(),
+        southHand: [
+          _c(CardRank.nine, CardSuit.diamonds),
+          _c(CardRank.ten, CardSuit.diamonds),
+          _c(CardRank.jack, CardSuit.diamonds),
+          _c(CardRank.five, CardSuit.clubs),
+          _c(CardRank.six, CardSuit.clubs),
+          _c(CardRank.seven, CardSuit.clubs),
+          coverJack,
+        ],
+        tableMelds: {
+          PlayerSeat.north: [
+            _meld([
+              _c(CardRank.eight, CardSuit.spades),
+              _c(CardRank.nine, CardSuit.spades),
+              _c(CardRank.ten, CardSuit.spades),
+            ]),
+          ],
+        },
+        scores: const {PlayerSeat.west: 27},
+        currentSeat: PlayerSeat.south,
+        turnPhase: TurnPhase.action,
+        openingState: const OpeningState(
+          baseRequirement: 51,
+          currentRequirement: 51,
+          openedSeats: {PlayerSeat.south, PlayerSeat.north},
+        ),
+      );
+
+      final insights = ClassicHareegCoachingAdvisor.adviseFor(
+        scenario.controller,
+        PlayerSeat.south,
+      );
+
+      final hold = _find(insights, CoachingInsightCategory.fiftyHold);
+      expect(insights.first.category, CoachingInsightCategory.fiftyHold);
+      // The fallback names a real throw off the legal-safe-discard surface —
+      // never the cover-blocked J♠.
       expect(hold.discardCardId, isNotNull);
       expect(hold.discardCardId, isNot(coverJack.id));
     });
@@ -2194,10 +2314,7 @@ void main() {
         scenario.controller,
         PlayerSeat.south,
       );
-      expect(
-        actionInsights.first.category,
-        CoachingInsightCategory.openNow,
-      );
+      expect(actionInsights.first.category, CoachingInsightCategory.openNow);
     });
   });
 
@@ -2371,8 +2488,7 @@ void main() {
   });
 
   group('recompute after a real draw (controller↔advisor regression)', () {
-    test('drawing the card that completes a set keeps the set, never sheds it',
-        () {
+    test('drawing the card that completes a set keeps the set, never sheds it', () {
       // Playtest issue B: South (unopened, draw phase) holds 8♦ 8♥ + deadwood.
       // The stock's top card is the 8♣ that completes the 8-set. After actually
       // DRAWING it through the controller, the advisor must treat the freshly
@@ -2409,10 +2525,7 @@ void main() {
       final drawResult = scenario.south.drawStock();
       expect(drawResult.isSuccess, isTrue);
       // Sanity: the 8♣ is now in hand and we are owing a discard.
-      expect(
-        scenario.south.hand.map((c) => c.id),
-        contains(eightClubs.id),
-      );
+      expect(scenario.south.hand.map((c) => c.id), contains(eightClubs.id));
 
       final insights = ClassicHareegCoachingAdvisor.adviseFor(
         scenario.controller,
@@ -2421,10 +2534,7 @@ void main() {
 
       // The surfaced hint is opening guidance that rings the completed 8-set as
       // the cards to keep — proving the advisor recomputed on the post-draw hand.
-      final opening = _find(
-        insights,
-        CoachingInsightCategory.openingProgress,
-      );
+      final opening = _find(insights, CoachingInsightCategory.openingProgress);
       expect(
         opening.highlightCardIds,
         containsAll([eightDiamonds.id, eightHearts.id, eightClubs.id]),
@@ -2487,7 +2597,8 @@ void main() {
         expect(
           categories[i - 1].priority,
           greaterThan(categories[i].priority),
-          reason: '${categories[i - 1].name} must outrank ${categories[i].name}',
+          reason:
+              '${categories[i - 1].name} must outrank ${categories[i].name}',
         );
       }
     });
