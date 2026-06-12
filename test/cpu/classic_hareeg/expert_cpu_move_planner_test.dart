@@ -122,6 +122,33 @@ void main() {
       expect(_choose(CpuDifficulty.expert, observation), finishAction);
     });
 
+    test('refuses discard onto an ace-high opponent run end', () {
+      // Q-K-A reads ace-high (12-13-14): the J slots under it as a legal
+      // cover. Raw rank orders read only ace-low, so the run produced no
+      // run-end threats and the J was thrown straight onto the run.
+      final jackHearts = card(CardRank.jack, CardSuit.hearts);
+      final fourClubs = card(CardRank.four, CardSuit.clubs);
+      final westRun = [
+        card(CardRank.queen, CardSuit.hearts),
+        card(CardRank.king, CardSuit.hearts),
+        card(CardRank.ace, CardSuit.hearts),
+      ];
+      final observation = _FakeCpuObservation(
+        legalActionIds: [discardAction(jackHearts), discardAction(fourClubs)],
+        ownHand: [jackHearts, fourClubs],
+        openingState: opened(),
+        opponentScores: const {PlayerSeat.west: 26},
+        tableMelds: {
+          PlayerSeat.west: [PlacedMeld.fromCards(westRun)],
+        },
+      );
+
+      expect(
+        _choose(CpuDifficulty.expert, observation),
+        discardAction(fourClubs),
+      );
+    });
+
     test('refuses discard adjacent to a high-score opponent run end', () {
       final nineHearts = card(CardRank.nine, CardSuit.hearts);
       final fourClubs = card(CardRank.four, CardSuit.clubs);

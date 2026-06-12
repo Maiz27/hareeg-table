@@ -645,16 +645,17 @@ class OpponentThreatProfile {
       final score = observation.scoreFor(opponent);
 
       final runEnds = <String>{};
-      final meldedIdentities = <String>{};
+      // PHYSICAL card ids, not identity keys: with multi-deck twins the
+      // opponent can meld one copy while still collecting around the other —
+      // an identity match dropped that live tell. A pickup is consumed only
+      // when the exact picked-up card is now visible on the table.
+      final meldedCardIds = <String>{};
       for (final meld in observation.tableMeldsFor(opponent)) {
         for (final identity in _runEndCoverThreats(meld)) {
           runEnds.add(identity.key);
         }
         for (final card in meld.cards) {
-          final identity = card.effectiveIdentity;
-          if (identity != null) {
-            meldedIdentities.add(identity.key);
-          }
+          meldedCardIds.add(card.id);
         }
       }
 
@@ -668,7 +669,7 @@ class OpponentThreatProfile {
           _pickupWindow,
         )) {
           final identity = card.effectiveIdentity;
-          if (identity == null || meldedIdentities.contains(identity.key)) {
+          if (identity == null || meldedCardIds.contains(card.id)) {
             continue;
           }
           pickups.add(identity);
@@ -805,21 +806,16 @@ class OpponentThreatProfile {
   }
 
   static List<CardIdentity> _runEndCoverThreats(PlacedMeld meld) {
-    final identities = meld.cards
-        .map((card) => card.effectiveIdentity)
-        .whereType<CardIdentity>()
-        .toList(growable: false);
-    if (identities.length != meld.cards.length || identities.length < 3) {
+    // [_sequenceOrders] is high-ace aware (it reads Q-K-A as 12-13-14), so
+    // ace-high table runs produce their run-end threats too — raw rank
+    // orders read only ace-low and silently dropped them (no J threat below
+    // Q-K-A, no A threat above 10-J-Q-K).
+    final orders = _sequenceOrders(meld);
+    if (orders == null) {
       return const [];
     }
-    final suit = identities.first.suit;
-    if (identities.any((identity) => identity.suit != suit)) {
-      return const [];
-    }
-
-    final orders = identities.map((identity) => identity.rank.order).toList()
-      ..sort();
-    if (!_isConsecutiveOrders(orders)) {
+    final suit = meld.cards.first.effectiveIdentity?.suit;
+    if (suit == null) {
       return const [];
     }
 
@@ -835,16 +831,13 @@ class OpponentThreatProfile {
     return threats;
   }
 
-  static bool _isConsecutiveOrders(List<int> orders) {
-    for (var index = 1; index < orders.length; index += 1) {
-      if (orders[index] != orders[index - 1] + 1) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   static CardRank? _rankByOrder(int order) {
+    // 14 is the high-ace order [_sequenceOrders] emits; no [CardRank.order]
+    // carries it, so map it back to the ace explicitly (an ace tops a
+    // 10-J-Q-K run as a legal cover).
+    if (order == 14) {
+      return CardRank.ace;
+    }
     for (final rank in CardRank.values) {
       if (rank.order == order) {
         return rank;
@@ -880,11 +873,15 @@ class _OpponentTells {
   }
 
   bool matchesSuitAdjacent(CardIdentity identity) {
-    return pickups.any(
-      (pickup) =>
-          pickup.suit == identity.suit &&
-          (pickup.rank.order - identity.rank.order).abs() <=
-              OpponentThreatProfile._runDistance,
-    );
+    // Strictly adjacent: zero distance is the SAME identity, which the
+    // identity/rank tells already score — letting it through here double
+    // counted an exact-match pickup into the suit signal too.
+    return pickups.any((pickup) {
+      if (pickup.suit != identity.suit) {
+        return false;
+      }
+      final distance = (pickup.rank.order - identity.rank.order).abs();
+      return distance > 0 && distance <= OpponentThreatProfile._runDistance;
+    });
   }
 }
