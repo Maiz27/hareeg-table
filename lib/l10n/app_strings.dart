@@ -213,6 +213,7 @@ class AppStrings {
   String get cpuNorth => _v('cpuNorth');
   String get cpuWest => _v('cpuWest');
   String get joker => _v('joker');
+  String get chooseJokerIdentity => _v('chooseJokerIdentity');
   String get unassignedJoker => _v('unassignedJoker');
   String get unassignedJokerGuided => _v('unassignedJokerGuided');
 
@@ -1558,10 +1559,10 @@ const _englishValues = {
   'giveUpFiftyTitle': 'Give up the Fifty?',
   'giveUpFiftyBodyTable':
       'Put the picked-up card back to give up this Fifty. '
-      "You'll take +17 and be out of this round.",
+      'You\'ll take +17 and be out of this round.',
   'giveUpFiftyBodyPenalty':
       'Put the picked-up card back to give up this Fifty. '
-      "You'll take the wrong-claim points penalty.",
+      'You\'ll take the wrong-claim points penalty.',
   'giveUpFiftyConfirm': 'Give up',
   'keepTrying': 'Keep trying',
   'eliminated': 'Eliminated',
@@ -1587,6 +1588,7 @@ const _englishValues = {
   'cpuNorth': 'CPU North',
   'cpuWest': 'CPU West',
   'joker': 'Joker',
+  'chooseJokerIdentity': 'Choose joker identity',
   'unassignedJoker': 'Unassigned joker.',
   'unassignedJokerGuided':
       'Unassigned joker. Pick its identity when a legal meld needs it.',
@@ -2189,6 +2191,7 @@ const _arabicValues = {
   'cpuNorth': 'الآلي شمال',
   'cpuWest': 'الآلي غرب',
   'joker': 'جوكر',
+  'chooseJokerIdentity': 'اختر هوية الجوكر',
   'unassignedJoker': 'جوكر غير محدد.',
   'unassignedJokerGuided':
       'جوكر غير محدد. اختر هويته عندما تحتاجه مجموعة قانونية.',

@@ -1569,7 +1569,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         final strings = dialogContext.strings;
         return AlertDialog(
           key: const ValueKey('joker-choice-dialog'),
-          title: const Text('Choose joker identity'),
+          title: Text(strings.chooseJokerIdentity),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 360),
             child: SingleChildScrollView(
