@@ -30,7 +30,7 @@ void main() {
 
       expect(strings.fastCpuTurns, isNot('Fast CPU turns'));
       expect(strings.fastCpuTurnsDescription, isNot(contains('CPU')));
-      expect(strings.fastCpuTurnsDescription, contains('اللاعب الآلي'));
+      expect(strings.fastCpuTurnsDescription, contains('الكمبيوتر'));
     });
 
     test('strictness feedback messages are localized in Arabic', () {
