@@ -10,6 +10,11 @@ on:
     # for fast feedback; this (and every push to main) runs the complete matrix.
     - cron: "0 3 * * *"
 
+# Opt JS-based actions onto Node 24 now; GitHub is removing the Node 20 runtime
+# they default to (deprecation forces Node 24 from 2026-09).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
