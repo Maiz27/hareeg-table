@@ -313,7 +313,10 @@ class _AssetCardSurface extends StatelessWidget {
         Image.asset(
           assetPath,
           fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
+          // Cards get scaled hard on web/desktop (a 256px source rendered into
+          // a small slot). Cubic filtering keeps the pip/index detail clean
+          // where bilinear (medium) aliases it.
+          filterQuality: FilterQuality.high,
         ),
         if (showBadge)
           if (request.revealOpacity >= 1.0)
