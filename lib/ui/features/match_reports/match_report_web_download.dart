@@ -33,7 +33,10 @@ class WebDownloadMatchReportShareGateway implements MatchReportShareGateway {
           ..href = url
           ..download = fileName
           ..style.display = 'none';
-    web.document.body?.appendChild(anchor);
+    // The anchor must be in the document for the click to trigger a download;
+    // fall back to documentElement on the off chance <body> isn't there yet.
+    final parent = web.document.body ?? web.document.documentElement;
+    parent?.appendChild(anchor);
     anchor.click();
     anchor.remove();
     web.URL.revokeObjectURL(url);
