@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import 'match_report_default_share_gateway.dart';
 
 /// MIME type used for exported match reports.
 const matchReportMimeType = 'application/json';
@@ -116,8 +117,11 @@ class MatchReportShareAttempt {
 /// Encodes, shares, and copies match reports.
 class MatchReportExporter {
   /// Creates a match report exporter.
+  ///
+  /// [shareGateway] defaults to the platform-appropriate gateway: a browser
+  /// file download on web, the `share_plus` share sheet on native.
   const MatchReportExporter({
-    this.shareGateway = const SharePlusMatchReportShareGateway(),
+    this.shareGateway = defaultMatchReportShareGateway,
     this.clipboardGateway = const SystemMatchReportClipboardGateway(),
   });
 
