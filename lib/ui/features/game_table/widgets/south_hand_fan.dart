@@ -8,6 +8,7 @@ import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../coach/coach_highlighting.dart';
+import '../table_view_scale.dart';
 
 /// South player's hand, rendered as a flex-gap fan across the bottom of the
 /// table. Each card is a `DragTarget` so the player can reorder by dragging
@@ -238,21 +239,33 @@ class _DraggableHandCard extends StatelessWidget {
     );
 
     if (!draggable) return face;
+    // The feedback rides the root overlay, outside the web "zoom to fill"
+    // transform, so it must scale itself (and its grab anchor) to match the
+    // cards painted on the table. 1.0 on native, where the table isn't scaled.
+    final tableScale = TableViewScale.of(context);
+    final feedbackSize = size * tableScale;
     return Draggable<HareegCard>(
       key: ValueKey('south-hand-drag-${card.id}'),
       data: card,
       maxSimultaneousDrags: 1,
       rootOverlay: true,
+      // Default anchor is in the child's (unscaled) coordinate space; scale it
+      // so the enlarged feedback still sits under the finger where it was
+      // grabbed.
+      dragAnchorStrategy: (draggable, context, position) =>
+          childDragAnchorStrategy(draggable, context, position) * tableScale,
       feedback: Material(
         color: Colors.transparent,
         elevation: 10,
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
+        borderRadius: BorderRadius.circular(
+          LoungeTokens.radiusCard * tableScale,
+        ),
         child: Transform.scale(
           scale: 1.07,
           child: HareegCardView(
             theme: theme,
             card: card,
-            size: size,
+            size: feedbackSize,
             visualState: state,
             coachRingColor: coachRingColor,
           ),
