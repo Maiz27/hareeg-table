@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../domain/classic_hareeg/models/playing_card.dart';
@@ -313,10 +314,12 @@ class _AssetCardSurface extends StatelessWidget {
         Image.asset(
           assetPath,
           fit: BoxFit.contain,
-          // Cards get scaled hard on web/desktop (a 256px source rendered into
-          // a small slot). Cubic filtering keeps the pip/index detail clean
-          // where bilinear (medium) aliases it.
-          filterQuality: FilterQuality.high,
+          // On web/desktop the table scales up and cubic filtering keeps the
+          // pip/index detail clean. On native the cards downscale hard
+          // (256px source into a small slot) where medium's mipmapped
+          // bilinear is both sharper and cheaper, so keep the validated
+          // medium there.
+          filterQuality: kIsWeb ? FilterQuality.high : FilterQuality.medium,
         ),
         if (showBadge)
           if (request.revealOpacity >= 1.0)
