@@ -1,0 +1,67 @@
+name: Deploy web to GitHub Pages
+
+# Builds the Flutter web bundle and publishes it to GitHub Pages so the game can
+# be tried in a browser with no install (see HT-63 / #107). Runs on every push
+# to main, and can be triggered manually (e.g. from the HT-63 branch before the
+# PR merges) via the Actions tab.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Least privilege at the workflow level; the deploy job widens its own grant to
+# the pages/id-token writes the deployment actions need.
+permissions:
+  contents: read
+
+# Only one Pages deployment at a time; cancel an in-flight run if a newer one
+# starts.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # No git credentials are needed after checkout; don't persist them.
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Project Pages are served from a sub-path (https://<user>.github.io/
+      # hareeg-table/), so the base href must match or assets 404. Hash routing
+      # means deep refresh works without a server rewrite.
+      - name: Build web
+        run: flutter build web --release --base-href "/hareeg-table/"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only the deploy job needs to write to Pages and mint the OIDC token.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

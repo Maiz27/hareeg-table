@@ -38,6 +38,9 @@ dependencies:
   cupertino_icons: ^1.0.9
   audioplayers: ^6.7.0
   share_plus: ^13.1.0
+  # Browser localStorage interop for web persistence (prefs/matches/onboarding
+  # survive a page refresh). Native builds don't reference it.
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -105,7 +108,7 @@ flutter:
     - assets/cards/sandline_lounge/
     - assets/cards/iron_rose/
     - assets/cards/wikimedia_english/
-    - assets/brand/launcher/sandline_joker_composite.png
+    - assets/brand/launcher/sandline_joker_composite.webp
     - assets/sounds/kenney_casino/
     - assets/table_surfaces/
 
