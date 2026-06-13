@@ -1,5 +1,81 @@
 # Changelog
 
+## [1.0.0-alpha.10](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.9...v1.0.0-alpha.10) (2026-06-13)
+
+
+### Features
+
+* **about:** tell the origin story on the About screen ([90fce60](https://github.com/Maiz27/hareeg-table/commit/90fce60ca2bcba9c2b25b41e5bae82d1bb86ca14))
+* **coach:** overhaul the advisor into decision-aware, stage-aware coaching ([2005e96](https://github.com/Maiz27/hareeg-table/commit/2005e96f0e3e9846aa1d0d942529ea41de95485a))
+* **coach:** present finish plans, narrated holds, and swap-first copy ([a2396bc](https://github.com/Maiz27/hareeg-table/commit/a2396bc35fbc6abe6091c9de43558f22b55d2c45))
+* **coach:** see whole finishes, narrate holds, lead with the joker swap ([e17e557](https://github.com/Maiz27/hareeg-table/commit/e17e5572d719578826265acd95be661d36c2952a))
+* **cpu:** refine the Expert opponent-threat model and expose it for the coach ([817dad6](https://github.com/Maiz27/hareeg-table/commit/817dad67c66f1e6afd297fbc1c81a094d351cc48))
+* **cpu:** sharper Fifty, cover, and joker-swap postures in the pipeline ([5fb0ce6](https://github.com/Maiz27/hareeg-table/commit/5fb0ce6051c54566d9122507044d44a9317def62))
+* **game:** persist deal seeds for reports ([abe1320](https://github.com/Maiz27/hareeg-table/commit/abe1320a9b73383976954f7f0de2840e33c8b05e))
+* **match:** add landscape match-over overlay; drop the portrait screen ([0798212](https://github.com/Maiz27/hareeg-table/commit/0798212757113f7a71fbd0710c5650c57dfb7fa5)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **reports:** add developer replay harness for exported reports ([699c11f](https://github.com/Maiz27/hareeg-table/commit/699c11f1cb19dfcc7811492b10dc5229c99b4cb4))
+* **reports:** add diagnostic log and action transcript models ([83d2f67](https://github.com/Maiz27/hareeg-table/commit/83d2f67ac6e66f25cf767bb5a65b5516d5b17f84))
+* **reports:** embed diagnostics and transcript in match reports ([23837f2](https://github.com/Maiz27/hareeg-table/commit/23837f2baddf2eb5376fcca9dd831b3f5b1e2df9))
+* **reports:** encode versioned match exports ([8760e49](https://github.com/Maiz27/hareeg-table/commit/8760e494e5210baacbd2b49db494b23005e08f73))
+* **reports:** record diagnostics and transcript at the applyAction seam ([80a3df4](https://github.com/Maiz27/hareeg-table/commit/80a3df45ce480b26f97a936acd92e2b215df3777))
+* **table:** center east/west melds into columns ([cd1018e](https://github.com/Maiz27/hareeg-table/commit/cd1018e0cdce35b01fd658d853cd507a5cf79797)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **table:** coach insight flow (once-per-round banners) + compute gating ([75eeef9](https://github.com/Maiz27/hareeg-table/commit/75eeef9d45566643538c784f897012d30b714c6d))
+* **table:** fly each placed meld to its own resting slot ([bb02559](https://github.com/Maiz27/hareeg-table/commit/bb025596f57a208408e0c4a8360039677cde80b8)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **table:** stage banners ride as a note under the primary coach hint ([37b7f2b](https://github.com/Maiz27/hareeg-table/commit/37b7f2b3708709a19b557eb8d3a699c07d939d13))
+* **table:** wire flight slots, Fifty give-up, practice pause, and match-over overlay ([c040ec5](https://github.com/Maiz27/hareeg-table/commit/c040ec5b1d354a19dd8d5894beb9ce8a3a6b9fb6)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **ui:** add match report export actions ([0e3d0ad](https://github.com/Maiz27/hareeg-table/commit/0e3d0ad5fa6acebf7947d263225b6ced6307e5ae))
+* **ui:** confirm report contents and capture diagnostics on export ([d5f636a](https://github.com/Maiz27/hareeg-table/commit/d5f636afbf8eb8c56f739c84686f4efe3b0aa23c))
+* **ui:** render the Fifty cue as a flame ([1f77abd](https://github.com/Maiz27/hareeg-table/commit/1f77abd4d5067edc5252dffc1082c36b53125787))
+* **web:** fill-viewport table scaling and back-navigation guard ([d42db4d](https://github.com/Maiz27/hareeg-table/commit/d42db4d75d26897fab28b4337f96b104b5cebc9d))
+* **web:** persist prefs, matches, and onboarding via localStorage ([8c8d2b3](https://github.com/Maiz27/hareeg-table/commit/8c8d2b3ab52bef83e67f333e9570cc06d8dd2e8d))
+
+
+### Bug Fixes
+
+* **cards:** apply cubic card filtering on web only ([20d1646](https://github.com/Maiz27/hareeg-table/commit/20d1646991377eceaa064f314968e6f361e2c64d))
+* **cards:** render card art with cubic filtering ([8d8e789](https://github.com/Maiz27/hareeg-table/commit/8d8e7894f030cf9bbaf123f5ae158692b8ceb4c9))
+* **coach:** decouple two hints from advisor invariants ([c05d5d0](https://github.com/Maiz27/hareeg-table/commit/c05d5d07c3308faa45b919e2bcbb2c97eb7c990a))
+* **coach:** lay-off rider rides the brain's posture, fiftyHold always names a throw ([b4e2b16](https://github.com/Maiz27/hareeg-table/commit/b4e2b16086abefbca6afc43ff8adfedfd317fd30))
+* **coach:** prove take-and-finish with the engine finish planner ([ed17255](https://github.com/Maiz27/hareeg-table/commit/ed1725574f6b143692a68ede8e86f67a88539794))
+* **coach:** re-key the callout when hold-back attribution changes ([e96a721](https://github.com/Maiz27/hareeg-table/commit/e96a721a68ade613071cafc4b4cfbaae96f5d6a0))
+* **coach:** re-teach each distinct bait card and re-key on benchmark raises ([48e6a3c](https://github.com/Maiz27/hareeg-table/commit/48e6a3c6b80a5aa6f2ba5365bc659d860d2465b8))
+* correct Arabic localization strings ([4f28fcc](https://github.com/Maiz27/hareeg-table/commit/4f28fcce44b34b321e95176b0b628781f1ab48df))
+* correct Arabic strings and onboarding content visibility ([b1b0f4c](https://github.com/Maiz27/hareeg-table/commit/b1b0f4c2a1574e42373f5b7cfb6a45839e6f1678))
+* **cpu:** primaryThreatFor names the most dangerous opponent per tier ([570e60d](https://github.com/Maiz27/hareeg-table/commit/570e60dcf6b8bfae500c62bf8b92f9c3fccea154))
+* **cpu:** read aces high in the collecting tell and own-run cover hold ([df3c8b4](https://github.com/Maiz27/hareeg-table/commit/df3c8b473372be21124ec23e2f723dd302fd8ac8))
+* **cpu:** tighten three opponent-threat-model edges ([74251bd](https://github.com/Maiz27/hareeg-table/commit/74251bd2b82c05db5a3fa56d83ae393239f69bcd))
+* **engine:** draw a stock-exhausted round that can never finish ([a902394](https://github.com/Maiz27/hareeg-table/commit/a9023942ed6a5a0cf2a38d7a7938c85c1f6b0774))
+* **engine:** end the round when the human is eliminated by score ([5312945](https://github.com/Maiz27/hareeg-table/commit/53129454a629192a9513e44de37233d0cdbb5e63))
+* **engine:** enumerate every joker variant for the finish-proof value gate ([a44ec12](https://github.com/Maiz27/hareeg-table/commit/a44ec12fadd906823b207fed8602ccc67a04765a))
+* **engine:** only report finishes an unopened pickup can realize ([6ab9de1](https://github.com/Maiz27/hareeg-table/commit/6ab9de1414f90ecb1b6c75f256ef6dbbc81a13df)), closes [#94](https://github.com/Maiz27/hareeg-table/issues/94)
+* **engine:** prove finishes through ambiguous-joker melds ([e458283](https://github.com/Maiz27/hareeg-table/commit/e458283536faeacae8668627298a5e7539077000))
+* **fifty:** let a doomed Fifty pickup be given up by returning the card ([5d0cc02](https://github.com/Maiz27/hareeg-table/commit/5d0cc022fdd1279afdf350c99c53fb6b72c8d84c))
+* **fifty:** take staged melds back before giving up on every tier ([f249b1f](https://github.com/Maiz27/hareeg-table/commit/f249b1fd2f95e40a0e93c1c6f5279c82abc03313)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **jokers:** keep the joker badge from hiding cards in the meld-suggestion rack ([68037de](https://github.com/Maiz27/hareeg-table/commit/68037de672e9116e78788a0373db01ad95cf7f83)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **l10n:** externalize choose joker identity dialog title ([506d9eb](https://github.com/Maiz27/hareeg-table/commit/506d9eb445151c3795780a305bb6cd4fc76d4b7e))
+* **l10n:** externalize choose joker identity dialog title ([985b4b7](https://github.com/Maiz27/hareeg-table/commit/985b4b798c396bec8eee56fefd5e45614a1c5e2b)), closes [#100](https://github.com/Maiz27/hareeg-table/issues/100)
+* **l10n:** unify AI-player term to الكمبيوتر in Arabic ([28cc374](https://github.com/Maiz27/hareeg-table/commit/28cc374c9261af3d0cf417b88b4405ae3d6d598d))
+* **reports:** harden report decoder diagnostics ([8875929](https://github.com/Maiz27/hareeg-table/commit/8875929a4ced6bef0ba5a91eb781294bee9b1a4b))
+* **reports:** ignore a negative persisted droppedCount on decode ([f850dd9](https://github.com/Maiz27/hareeg-table/commit/f850dd991921e3a2ff6fab472be32db9e24610f0))
+* **reports:** keep the canonical coach hint id and detail stock mismatches ([d880d89](https://github.com/Maiz27/hareeg-table/commit/d880d89d46af5989a5378d8ef46c6ae08a3b77f1))
+* **reports:** validate decoded report, transcript, and diagnostics (review) ([3be810c](https://github.com/Maiz27/hareeg-table/commit/3be810c708836a07813c35f95f9690c74ed875dc))
+* **table:** coach keys carry their own dimensions, presenter guards subjectSeat ([4ac1cbd](https://github.com/Maiz27/hareeg-table/commit/4ac1cbd95889a9da064976d8c8deb34f25a2b9ca))
+* **table:** coach turn tracking, seat-only recompute, rematch flow reset ([dc28f5d](https://github.com/Maiz27/hareeg-table/commit/dc28f5d938a4972a6034f12015d27dd2049a5b52))
+* **table:** localize the give-up Fifty dialog and guard its async gap ([b738bce](https://github.com/Maiz27/hareeg-table/commit/b738bce10d1e1b0f557aea2b0052354d5d4657dc)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **table:** match the playfield compact breakpoint in meld-flight geometry ([3638e30](https://github.com/Maiz27/hareeg-table/commit/3638e30c89cac74e56d765cd4a023dead2879a25)), closes [#96](https://github.com/Maiz27/hareeg-table/issues/96)
+* **ui:** abandon the match and open match-over when the human is eliminated ([087169c](https://github.com/Maiz27/hareeg-table/commit/087169c25d9a15cfcff28a7d829a35ee3a0ba2ee))
+* **ui:** bound the CPU loop auto-restart so a stalled round can't freeze ([4cc7028](https://github.com/Maiz27/hareeg-table/commit/4cc7028d8bea2f11d1e1d4199022aff85ebdf729))
+* **ui:** make picking up a discard distinct from claiming Fifty ([fd4f8fc](https://github.com/Maiz27/hareeg-table/commit/fd4f8fce46f36770312410bf5f55faae223db255))
+* **ui:** pass high-contrast to the match-over report sheet (review) ([294b7ac](https://github.com/Maiz27/hareeg-table/commit/294b7acf80f7a15cb8690371761247b0ebabceec))
+* **web:** branded loading screen and manifest orientation/theme ([17d1a05](https://github.com/Maiz27/hareeg-table/commit/17d1a058f0883502c127b161098c9beecff25432))
+* **web:** download match reports and gate splash audio on web ([51bfbfd](https://github.com/Maiz27/hareeg-table/commit/51bfbfdcc1961f488c4ef83676cbde37a84cd2cc))
+* **web:** keep the report-download anchor in the document ([b8722a5](https://github.com/Maiz27/hareeg-table/commit/b8722a513749c83df6b2c2f238dbd41f3fef778f))
+
+
+### Performance Improvements
+
+* **web:** lazy audio, webp brand mark, add web interop dep ([4aa3843](https://github.com/Maiz27/hareeg-table/commit/4aa384320ff80fc2f422aea91378e51871ed6d0b))
+
 ## [1.0.0-alpha.9](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.8...v1.0.0-alpha.9) (2026-06-08)
 
 
