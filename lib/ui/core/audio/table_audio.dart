@@ -137,6 +137,19 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
 
   @override
   Future<void> warmUp() async {
+    // Web has no SoundPool, so the staggered preload buys nothing — it just
+    // makes the page fetch all 21 .ogg samples on load. That eager fetch is
+    // both wasteful for a "quick try" link and the thing browser download
+    // managers (e.g. IDM) pounce on, popping a save dialog per sample at
+    // launch. On web we only set the global audio context here and defer each
+    // sample's player creation + source load to its first [playAsset].
+    if (kIsWeb) {
+      _initFuture ??= AudioPlayer.global.setAudioContext(
+        _tableSoundEffectAudioContext,
+      );
+      await _initFuture;
+      return;
+    }
     // The init phase awaits player creation + lowLatency/audio-context/release
     // mode setup (fast). The setSource calls fire in parallel but their
     // futures are tracked in `_sourceLoads` so [playAsset] can await only
@@ -147,6 +160,25 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
     // `source` setter).
     _initFuture ??= _initAllPlayers();
     await _initFuture;
+  }
+
+  /// Web-only lazy load: create + configure + source-load a single sample the
+  /// first time it is played, caching the player and its load future so repeat
+  /// plays reuse them. Keeps page load free of audio fetches (see [warmUp]).
+  Future<void> _ensureWebPlayer(String path) async {
+    final existing = _sourceLoads[path];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final player = AudioPlayer();
+    _players[path] = player;
+    final future = () async {
+      await _configureBasic(player);
+      await _loadSourceSafely(player, path);
+    }();
+    _sourceLoads[path] = future;
+    await future;
   }
 
   /// Asset path of the cue played the moment the splash screen mounts. Its
@@ -268,15 +300,20 @@ class _PreloadedAssetSoundPlayer implements TableSoundPlayer {
       debugPrint('[audio] play start: $path');
     }
     await warmUp();
-    // Wait specifically for this asset's source load. audioplayers' Android
-    // `WrappedPlayer` only flips `released` to false inside the `source`
-    // setter (via getOrCreatePlayer). Without that flip, both `stop()` and
-    // `resume()` short-circuit and nothing plays.
-    final loadFuture = _sourceLoads[path];
-    if (loadFuture != null) {
-      await loadFuture;
+    if (kIsWeb) {
+      // No eager preload on web — load this sample on demand the first time.
+      await _ensureWebPlayer(path);
     } else {
-      debugPrint('[audio] no load future tracked for $path');
+      // Wait specifically for this asset's source load. audioplayers' Android
+      // `WrappedPlayer` only flips `released` to false inside the `source`
+      // setter (via getOrCreatePlayer). Without that flip, both `stop()` and
+      // `resume()` short-circuit and nothing plays.
+      final loadFuture = _sourceLoads[path];
+      if (loadFuture != null) {
+        await loadFuture;
+      } else {
+        debugPrint('[audio] no load future tracked for $path');
+      }
     }
     final player = _players[path];
     if (player == null) {

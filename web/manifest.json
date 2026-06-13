@@ -3,10 +3,10 @@
     "short_name": "Hareeg Table",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#12382F",
-    "theme_color": "#12382F",
+    "background_color": "#15110E",
+    "theme_color": "#15110E",
     "description": "Offline Classic Hareeg card game built with Flutter.",
-    "orientation": "landscape",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

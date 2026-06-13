@@ -189,6 +189,8 @@ class AppStrings {
   String get wonByFifty => _v('wonByFifty');
   String get wonByFinish => _v('wonByFinish');
   String get returnToMenu => _v('returnToMenu');
+  String get leaveMatchTitle => _v('leaveMatchTitle');
+  String get leaveMatchBody => _v('leaveMatchBody');
   String get giveUpFiftyTitle => _v('giveUpFiftyTitle');
   String get giveUpFiftyBodyTable => _v('giveUpFiftyBodyTable');
   String get giveUpFiftyBodyPenalty => _v('giveUpFiftyBodyPenalty');
@@ -1556,6 +1558,9 @@ const _englishValues = {
   'wonByFifty': 'Won by Fifty',
   'wonByFinish': 'Won by finish',
   'returnToMenu': 'Return to menu',
+  'leaveMatchTitle': 'Leave the table?',
+  'leaveMatchBody':
+      'Your match is saved — you can pick it up again from the menu.',
   'giveUpFiftyTitle': 'Give up the Fifty?',
   'giveUpFiftyBodyTable':
       'Put the picked-up card back to give up this Fifty. '
@@ -2154,6 +2159,8 @@ const _arabicValues = {
   'wonByFifty': 'انتهت الجولة بإعلان حريق (خمسين) ناجح.',
   'wonByFinish': 'انتهت الجولة بإنهاء لاعب لكافة أوراقه (خروج).',
   'returnToMenu': 'العودة للقائمة الرئيسية',
+  'leaveMatchTitle': 'مغادرة الطاولة؟',
+  'leaveMatchBody': 'تم حفظ مباراتك — يمكنك استئنافها من القائمة.',
   'giveUpFiftyTitle': 'هل تريد تفويت فرصة الحريق؟',
   'giveUpFiftyBodyTable':
       'تنبيه: تحت "قوانين الطاولة الشديدة"، إذا تجاهلت فرصة إعلان الحريق وقمت بالسحب بدلاً من ذلك، ستتعرض فوراً لعقوبة +17 نقطة جزائية وسيتم استبعادك من بقية الجولة!',

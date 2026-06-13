@@ -6,7 +6,7 @@ import '../theme/lounge_tokens.dart';
 abstract final class AppBrandAssets {
   /// Production launcher-icon composite.
   static const launcherIcon =
-      'assets/brand/launcher/sandline_joker_composite.png';
+      'assets/brand/launcher/sandline_joker_composite.webp';
 }
 
 /// Compact app icon mark for menu, help, and about surfaces.

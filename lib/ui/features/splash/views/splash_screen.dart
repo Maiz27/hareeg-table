@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
@@ -68,7 +69,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _start() {
     final motion = MotionScope.of(context);
-    unawaited(AudioScope.of(context).play(TableSoundEvent.splashIntro));
+    // Web browsers block audio until a user gesture; playing the intro cue
+    // from this first-frame callback only emits a console error and loses the
+    // cue, so gate it off on web. Navigation/timing below still runs.
+    if (!kIsWeb) {
+      unawaited(AudioScope.of(context).play(TableSoundEvent.splashIntro));
+    }
     if (motion.reduced) {
       _handOff();
       return;
