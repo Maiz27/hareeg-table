@@ -259,17 +259,17 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
+    return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: LoungeTokens.space6,
         vertical: LoungeTokens.space4,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: LoungeTokens.space4),
-          data.hero,
+          Flexible(
+            child: FittedBox(fit: BoxFit.scaleDown, child: data.hero),
+          ),
           const SizedBox(height: LoungeTokens.space6),
           Text(
             data.title,
