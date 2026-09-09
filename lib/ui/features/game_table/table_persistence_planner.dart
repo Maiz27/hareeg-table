@@ -204,6 +204,11 @@ abstract final class ClassicHareegTablePersistencePlanner {
     // history entries for matches with no winner, so the archive decision keys
     // on an actual winner and nothing else.
     final hasWinner = scoreView.progress?.matchWinner != null;
+    if (hasWinner && presentation == null) {
+      throw StateError(
+        'A completed match needs its round-result presentation.',
+      );
+    }
     final action = nextRoundSnapshot == null
         ? hasWinner
               ? ClassicHareegTablePersistenceAction.archiveCompletedMatch

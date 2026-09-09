@@ -248,8 +248,12 @@ class LocalMatchRepository implements MatchRepository {
         if (existing == null) {
           throw const FormatException('Unreadable active match.');
         }
+        final rawMatchId = existing['matchId'];
+        if (rawMatchId != null && rawMatchId is! String) {
+          throw const FormatException('Unreadable active match id.');
+        }
         identity = (
-          matchId: existing['matchId'] as String? ?? '',
+          matchId: rawMatchId as String? ?? '',
           terminal: existing['terminalFacts'] != null,
         );
       }

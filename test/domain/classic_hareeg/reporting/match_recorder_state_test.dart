@@ -6,7 +6,10 @@ import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
 
 void main() {
-  ClassicHareegMatchSnapshot buildSnapshot({int seed = 7, int roundNumber = 1}) {
+  ClassicHareegMatchSnapshot buildSnapshot({
+    int seed = 7,
+    int roundNumber = 1,
+  }) {
     final round = ClassicHareegRound.deal(
       setup: ClassicHareegSetup.defaults(),
       seed: seed,
@@ -38,6 +41,21 @@ void main() {
   }
 
   group('MatchRecorderState', () {
+    test('rejects a present non-object initial snapshot', () {
+      for (final malformed in <Object>['oops', 7, <Object>[]]) {
+        final json = recorderWithActions(1).toState().toJson()
+          ..['initialSnapshot'] = malformed;
+        expect(() => MatchRecorderState.fromJson(json), throwsFormatException);
+      }
+    });
+
+    test('allows an absent or null initial snapshot', () {
+      final json = recorderWithActions(0).toState().toJson()
+        ..remove('initialSnapshot');
+      expect(MatchRecorderState.fromJson(json).initialSnapshot, isNull);
+      json['initialSnapshot'] = null;
+      expect(MatchRecorderState.fromJson(json).initialSnapshot, isNull);
+    });
     test('captures the base snapshot, entries, and next order', () {
       final state = recorderWithActions(3).toState();
 
@@ -78,9 +96,7 @@ void main() {
     test('rejects duplicate entry orders', () {
       final json = recorderWithActions(3).toState().toJson();
       final entries = json['entries']! as List<Object?>;
-      entries[2] = {
-        ...entries[1]! as Map<String, Object?>,
-      };
+      entries[2] = {...entries[1]! as Map<String, Object?>};
 
       expect(() => MatchRecorderState.fromJson(json), throwsFormatException);
     });
@@ -102,7 +118,8 @@ void main() {
     });
 
     test('rejects a negative order counter', () {
-      final json = recorderWithActions(1).toState().toJson()..['nextOrder'] = -1;
+      final json = recorderWithActions(1).toState().toJson()
+        ..['nextOrder'] = -1;
 
       expect(() => MatchRecorderState.fromJson(json), throwsFormatException);
     });

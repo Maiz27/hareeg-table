@@ -13,6 +13,38 @@ import '../../support/test_fixtures.dart';
 
 void main() {
   group('LocalMatchRepository', () {
+    test(
+      'malformed existing match id is rejected without overwriting it',
+      () async {
+        final raw = jsonEncode({
+          'matchId': 42,
+          'snapshot': <String, Object?>{},
+        });
+        final store = MemoryKeyValueStore()..values['active_match.v1'] = raw;
+        final repository = LocalMatchRepository(
+          store: store,
+          mintMatchId: () async => testMatchId,
+        );
+        await expectLater(
+          repository.saveActiveMatch(checkpointForSnapshot(_legacySnapshot())),
+          throwsFormatException,
+        );
+        expect(store.values['active_match.v1'], raw);
+      },
+    );
+
+    test('legacy missing match id does not block a valid save', () async {
+      final store = MemoryKeyValueStore()
+        ..values['active_match.v1'] = jsonEncode(_legacySnapshot().toJson());
+      final repository = LocalMatchRepository(
+        store: store,
+        mintMatchId: () async => testMatchId,
+      );
+      await repository.saveActiveMatch(
+        checkpointForSnapshot(_legacySnapshot()),
+      );
+      expect(await repository.loadActiveMatch(), isA<ActiveMatchLoaded>());
+    });
     test('saves and restores an active match snapshot', () async {
       final store = MemoryKeyValueStore();
       final repository = LocalMatchRepository(
@@ -100,36 +132,39 @@ void main() {
       expect(await repository.loadActiveMatch(), isA<ActiveMatchAbsent>());
     });
 
-    test('a checkpoint with an explicit-null nested record is preserved', () async {
-      // Present-and-null is damage, not absence, so the repository must report
-      // it and keep the bytes rather than clearing a match the player may still
-      // be able to resume from a later build.
-      final store = MemoryKeyValueStore()
-        ..values['active_match.v1'] = jsonEncode({
-          'version': 1,
-          'matchId': testMatchId,
-          'snapshot': _legacySnapshot().toJson(),
-          'eliminationRounds': <String, Object?>{},
-          'coachWasEnabled': false,
-          'fiftyCountersComplete': true,
-          'replayIneligible': false,
-          'recorderState': null,
-        });
-      final repository = LocalMatchRepository(
-        store: store,
-        mintMatchId: () async => testMatchId,
-      );
+    test(
+      'a checkpoint with an explicit-null nested record is preserved',
+      () async {
+        // Present-and-null is damage, not absence, so the repository must report
+        // it and keep the bytes rather than clearing a match the player may still
+        // be able to resume from a later build.
+        final store = MemoryKeyValueStore()
+          ..values['active_match.v1'] = jsonEncode({
+            'version': 1,
+            'matchId': testMatchId,
+            'snapshot': _legacySnapshot().toJson(),
+            'eliminationRounds': <String, Object?>{},
+            'coachWasEnabled': false,
+            'fiftyCountersComplete': true,
+            'replayIneligible': false,
+            'recorderState': null,
+          });
+        final repository = LocalMatchRepository(
+          store: store,
+          mintMatchId: () async => testMatchId,
+        );
 
-      final outcome = await repository.loadActiveMatch();
+        final outcome = await repository.loadActiveMatch();
 
-      expect(outcome, isA<ActiveMatchUnreadable>());
-      expect(
-        (outcome as ActiveMatchUnreadable).failure.kind,
-        MatchHistoryFailureKind.corrupt,
-      );
-      // Preserved, not cleared.
-      expect(store.values.containsKey('active_match.v1'), isTrue);
-    });
+        expect(outcome, isA<ActiveMatchUnreadable>());
+        expect(
+          (outcome as ActiveMatchUnreadable).failure.kind,
+          MatchHistoryFailureKind.corrupt,
+        );
+        // Preserved, not cleared.
+        expect(store.values.containsKey('active_match.v1'), isTrue);
+      },
+    );
 
     test('invalid saved match is cleared and ignored', () async {
       final store = MemoryKeyValueStore()

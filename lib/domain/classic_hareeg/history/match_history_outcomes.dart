@@ -177,9 +177,6 @@ sealed class MatchHistoryDeleteOutcome {
 class MatchHistoryDeleted extends MatchHistoryDeleteOutcome {
   /// Creates a deleted outcome.
   const MatchHistoryDeleted();
-
-  /// Whether a replay file actually existed and was removed.
-  bool get removedReplay => true;
 }
 
 /// Deletion failed. The entry is still listed and can be retried.

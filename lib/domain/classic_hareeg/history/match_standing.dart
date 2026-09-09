@@ -110,7 +110,7 @@ class MatchStanding {
     }
 
     final rawEntries = asJsonList(json['entries']);
-    if (rawEntries == null) {
+    if (rawEntries == null || rawEntries.isEmpty) {
       throw const FormatException('Invalid match standing.');
     }
 

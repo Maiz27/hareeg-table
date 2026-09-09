@@ -46,7 +46,11 @@ class MatchRecorderState {
       throw FormatException('Invalid recorder state order: $nextOrder.');
     }
 
-    final initialJson = asJsonMap(json['initialSnapshot']);
+    final rawInitial = json['initialSnapshot'];
+    final initialJson = asJsonMap(rawInitial);
+    if (rawInitial != null && initialJson == null) {
+      throw const FormatException('Invalid recorder initial snapshot.');
+    }
 
     final entries = <MatchActionTranscriptEntry>[];
     var previousOrder = -1;

@@ -3046,11 +3046,11 @@ class _GameTableScreenState extends State<GameTableScreen>
     final progress = plan.roundResultPresentation?.progress;
     final winner = progress?.matchWinner;
     if (winner == null) {
-      // The planner only selects this action with a winner, so reaching here
-      // means the two disagree. Abandoning is the safe read: never invent a
-      // history entry.
-      await matches.abandonActiveMatch();
-      return;
+      // A malformed plan must not delete the only recovery source or report
+      // a successful durable effect. The caller surfaces this as a failure.
+      throw StateError(
+        'Cannot archive a match without its winner presentation.',
+      );
     }
 
     _rememberEliminatedRoundsFromController();

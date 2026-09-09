@@ -85,6 +85,21 @@ void main() {
       expect(plan.logPath, 'archive');
     });
 
+    test('a winner without a round result cannot produce a durable plan', () {
+      expect(
+        () => ClassicHareegTablePersistencePlanner.plan(
+          isRoundOver: true,
+          activeSnapshot: null,
+          nextRoundSnapshot: null,
+          roundResult: null,
+          scoreView: _scoreView(
+            progress: _progress(matchWinner: PlayerSeat.south),
+          ),
+        ),
+        throwsStateError,
+      );
+    });
+
     test('play stopping with no winner abandons instead of archiving', () {
       // The trap this keys on: the table also produces a null next-round
       // snapshot when the human is eliminated while CPUs are still playing.

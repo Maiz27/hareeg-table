@@ -3,6 +3,15 @@ import 'package:hareeg_table/domain/classic_hareeg/history/match_standing.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 
 void main() {
+  test('standing JSON requires at least one entry', () {
+    expect(
+      () => MatchStanding.fromJson({
+        'version': matchStandingVersion,
+        'entries': <Object>[],
+      }),
+      throwsFormatException,
+    );
+  });
   group('MatchStanding.fromMatchFacts', () {
     test('ranks a four-seat clean finish by survival, not by score', () {
       final standing = MatchStanding.fromMatchFacts(
@@ -103,10 +112,9 @@ void main() {
 
       final ranks = [for (final entry in standing.entries) entry.rank];
       expect(ranks, [1, 2, 3, 4]);
-      expect(
-        {for (final entry in standing.entries) entry.seat},
-        PlayerSeat.values.toSet(),
-      );
+      expect({
+        for (final entry in standing.entries) entry.seat,
+      }, PlayerSeat.values.toSet());
     });
 
     test('rejects a winner that did not play', () {
