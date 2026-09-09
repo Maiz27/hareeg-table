@@ -247,7 +247,7 @@ Map<String, Object?> encodeMatchSnapshotV1(
     'activeFiftyClaimIsFirstDealtRound':
         snapshot.activeFiftyClaimIsFirstDealtRound,
     if (snapshot.turnJournal != null &&
-        snapshot.activeFiftyProofActions != null)
+        snapshot.activeFiftyProofActions?.isNotEmpty == true)
       'activeFiftyProofActions': snapshot.activeFiftyProofActions,
     'windowedTakeCardId': snapshot.windowedTakeCardId,
     'windowedTakeDiscarder': snapshot.windowedTakeDiscarder?.name,

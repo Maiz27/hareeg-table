@@ -170,6 +170,31 @@ void main() {
     }
   });
 
+  test('encoding an empty proof suffix omits it and round-trips', () {
+    final base = _save(_claimed());
+    final snapshot = ClassicHareegMatchSnapshot(
+      setup: base.setup,
+      hands: base.hands,
+      stock: base.stock,
+      discardPile: base.discardPile,
+      starter: base.starter,
+      currentSeat: base.currentSeat,
+      turnPhase: base.turnPhase,
+      savedAt: base.savedAt,
+      scores: base.scores,
+      turnJournal: base.turnJournal,
+      activeFiftyProofActions: const [],
+    );
+    expect(snapshot.turnJournal, isNotNull);
+    final json = snapshot.toJson();
+    expect(json.containsKey('activeFiftyProofActions'), isFalse);
+    final decoded = ClassicHareegMatchSnapshot.fromJson(
+      jsonDecode(jsonEncode(json)) as Map<String, Object?>,
+    );
+    expect(decoded.activeFiftyProofActions, isNull);
+    expect(decoded.toJson(), json);
+  });
+
   test(
     'stale, unknown and truncated scripts replan without mutating the board',
     () {
