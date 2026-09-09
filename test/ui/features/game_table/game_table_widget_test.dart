@@ -3,13 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/app/hareeg_table_app.dart';
+import 'package:hareeg_table/data/persistence/match_history_repository.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
+import 'package:hareeg_table/data/persistence/replay_file_store.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_game_controller.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
+import 'package:hareeg_table/domain/classic_hareeg/history/match_checkpoint.dart';
+import 'package:hareeg_table/domain/classic_hareeg/history/match_history_outcomes.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_theme.dart';
@@ -42,6 +47,7 @@ void main() {
       final matches = MemoryMatchRepository();
       await tester.pumpWidget(
         HareegTableApp(
+          historyRepository: MemoryMatchHistoryRepository(matches: matches),
           preferencesRepository: MemoryPreferencesRepository(),
           matchRepository: matches,
           initialRouteOverride: AppRoutes.table,
@@ -972,10 +978,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1500));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('match-over-overlay')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('match-over-overlay')), findsOneWidget);
       expect(find.text('You win the match'), findsOneWidget);
       expect(find.text('6 rounds played'), findsOneWidget);
       expect(repository.saved, isNull);
@@ -987,11 +990,201 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(
-        find.byKey(const ValueKey('match-over-overlay')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('match-over-overlay')), findsNothing);
       expect(find.byType(PhysicalTablePlayfield), findsOneWidget);
+    });
+
+    testWidgets('rematch after archiving starts a genuinely new match', (
+      tester,
+    ) async {
+      // Drives the real path: play match A to completion so it archives, then
+      // tap the in-place rematch and inspect what the table saves next.
+      //
+      // The original bug survived a weaker test. Carrying the finished match's
+      // id and terminal checkpoint into the rematch made the next save
+      // already-complete: unresumable, and its own completion would have
+      // resolved as "already published" instead of a second history entry.
+      final meldCards = [
+        _card(CardRank.seven, CardSuit.clubs, 101),
+        _card(CardRank.eight, CardSuit.clubs, 101),
+        _card(CardRank.nine, CardSuit.clubs, 101),
+      ];
+      final finalDiscard = _card(CardRank.two, CardSuit.spades, 101);
+
+      ClassicHareegMatchSnapshot nearTerminalSnapshot() => _savedSnapshot(
+        southHand: [...meldCards, finalDiscard],
+        openingState: _opened(PlayerSeat.south),
+        roundNumber: 6,
+        scores: const {
+          PlayerSeat.south: 0,
+          PlayerSeat.east: 30,
+          PlayerSeat.north: 30,
+          PlayerSeat.west: 30,
+        },
+      );
+
+      Future<void> finishVisibleMatch() async {
+        for (final label in [
+          'Seven of Clubs',
+          'Eight of Clubs',
+          'Nine of Clubs',
+        ]) {
+          await tester.tap(
+            find.bySemanticsLabel(label).first,
+            warnIfMissed: false,
+          );
+        }
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Play meld'));
+        await tester.pumpAndSettle();
+
+        final discard = find.bySemanticsLabel('Two of Spades').first;
+        final dropTarget = find.byKey(
+          const ValueKey('discard-pile-drop-target'),
+        );
+        await tester.dragFrom(
+          tester.getCenter(discard),
+          tester.getCenter(dropTarget) - tester.getCenter(discard),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 1500));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('match-over-overlay')),
+          findsOneWidget,
+        );
+      }
+
+      final firstSnapshot = nearTerminalSnapshot();
+      final firstRecorder = MatchRecorder()..captureInitialState(firstSnapshot);
+      final matches = MemoryMatchRepository(
+        checkpoint: MatchCheckpoint(
+          matchId: 'm-widget-aaaaaaaa',
+          snapshot: firstSnapshot,
+          recorderState: firstRecorder.toState(),
+        ),
+      );
+      final replayFiles = MemoryReplayFileStore();
+      final history = LocalMatchHistoryRepository(
+        store: MemoryKeyValueStore(),
+        replayFiles: replayFiles,
+        matches: matches,
+      );
+
+      await tester.pumpWidget(
+        HareegTableApp(
+          matchRepository: matches,
+          historyRepository: history,
+          // Coaching off so the sticky flag staying false after the rematch
+          // means it was reset, rather than merely being re-set by the new
+          // match also being coached.
+          preferencesRepository: MemoryPreferencesRepository()
+            ..preferences = GamePreferences.defaults().copyWith(
+              coachingTipsEnabled: false,
+            ),
+          initialRouteOverride: AppRoutes.home,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Continue'));
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      final firstMatchId = matches.savedCheckpoint!.matchId;
+
+      await finishVisibleMatch();
+
+      // Match A archived through the real path.
+      final afterFirst = await history.listSummaries();
+      expect(afterFirst, isA<MatchHistoryListed>());
+      expect(
+        (afterFirst as MatchHistoryListed).summaries.map(
+          (summary) => summary.matchId,
+        ),
+        [firstMatchId],
+      );
+      expect(await replayFiles.listKeys(), [firstMatchId]);
+      expect(matches.savedCheckpoint, isNull);
+
+      await tester.tap(
+        find.byKey(const ValueKey('match-over-overlay-rematch')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      final rematchSave = matches.savedCheckpoint;
+      expect(rematchSave, isNotNull, reason: 'the rematch saves as it plays');
+      expect(
+        rematchSave!.matchId,
+        isNot(firstMatchId),
+        reason: 'a rematch is a new match and must reserve its own id',
+      );
+      expect(
+        rematchSave.isTerminal,
+        isFalse,
+        reason: 'the rematch is live, not an already-finished match',
+      );
+      expect(rematchSave.terminalFacts, isNull);
+      expect(rematchSave.coachWasEnabled, isFalse);
+      expect(rematchSave.eliminationRounds, isEmpty);
+      expect(rematchSave.fiftyCounters.attemptsFor(PlayerSeat.south), 0);
+
+      final secondMatchId = rematchSave.matchId;
+      final beforeSecond = await history.listSummaries();
+      expect(
+        (beforeSecond as MatchHistoryListed).summaries.map(
+          (summary) => summary.matchId,
+        ),
+        [firstMatchId],
+      );
+
+      // A full CPU-driven match takes about 1,700 actions and belongs in the
+      // scenario suite. Keep this widget regression on the production seam by
+      // advancing the *same* live rematch checkpoint to a deterministic
+      // one-turn-from-finish position, then resume and finish it through the
+      // real table. This still exercises A archive -> in-place rematch -> B
+      // first save -> B completion/archive, and it fails if B inherited A's
+      // terminal checkpoint or identity because `withProgress` refuses to
+      // advance a terminal checkpoint.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      final secondSnapshot = nearTerminalSnapshot();
+      final secondRecorder = MatchRecorder()
+        ..captureInitialState(secondSnapshot);
+      matches.savedCheckpoint = rematchSave.withProgress(
+        snapshot: secondSnapshot,
+        recorderState: secondRecorder.toState(),
+      );
+
+      await tester.pumpWidget(
+        HareegTableApp(
+          matchRepository: matches,
+          historyRepository: history,
+          preferencesRepository: MemoryPreferencesRepository()
+            ..preferences = GamePreferences.defaults().copyWith(
+              coachingTipsEnabled: false,
+            ),
+          initialRouteOverride: AppRoutes.home,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Continue'));
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      await finishVisibleMatch();
+
+      final afterSecond = await history.listSummaries();
+      expect(afterSecond, isA<MatchHistoryListed>());
+      final summaryIds = (afterSecond as MatchHistoryListed).summaries
+          .map((summary) => summary.matchId)
+          .toSet();
+      expect(summaryIds, {firstMatchId, secondMatchId});
+      expect(
+        await replayFiles.listKeys(),
+        unorderedEquals([firstMatchId, secondMatchId]),
+      );
+      expect(matches.savedCheckpoint, isNull);
     });
 
     testWidgets('FiftyRing is present during a claimable Fifty window', (
@@ -1115,6 +1308,9 @@ void main() {
         );
         await tester.pumpWidget(
           HareegTableApp(
+            historyRepository: MemoryMatchHistoryRepository(
+              matches: repository,
+            ),
             preferencesRepository: MemoryPreferencesRepository(),
             matchRepository: repository,
             initialRouteOverride: AppRoutes.home,
@@ -1290,6 +1486,9 @@ void main() {
         );
         await tester.pumpWidget(
           HareegTableApp(
+            historyRepository: MemoryMatchHistoryRepository(
+              matches: repository,
+            ),
             preferencesRepository: MemoryPreferencesRepository(),
             matchRepository: repository,
             initialRouteOverride: AppRoutes.home,
@@ -1681,6 +1880,7 @@ Future<MemoryMatchRepository> _openTable(
   );
   await tester.pumpWidget(
     HareegTableApp(
+      historyRepository: MemoryMatchHistoryRepository(matches: repository),
       preferencesRepository:
           preferencesRepository ?? MemoryPreferencesRepository(),
       matchRepository: repository,

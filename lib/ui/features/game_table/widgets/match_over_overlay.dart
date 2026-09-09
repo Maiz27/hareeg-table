@@ -24,6 +24,8 @@ class MatchOverOverlay extends StatelessWidget {
     required this.onReturnToMenu,
     required this.onExportReport,
     this.highContrast = false,
+    this.archiveSaveFailed = false,
+    this.onRetryArchive,
   });
 
   /// Final round result that ended the match.
@@ -40,6 +42,8 @@ class MatchOverOverlay extends StatelessWidget {
 
   /// Starts a new match with the same setup, in place.
   final VoidCallback onRematch;
+  final bool archiveSaveFailed;
+  final VoidCallback? onRetryArchive;
 
   /// Returns to the main menu.
   final VoidCallback onReturnToMenu;
@@ -76,88 +80,102 @@ class MatchOverOverlay extends StatelessWidget {
       child: ColoredBox(
         color: Colors.black.withValues(alpha: highContrast ? 0.78 : 0.58),
         child: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 14 : 22,
-              vertical: compact ? 10 : 18,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: compact ? 640 : 720,
-                maxHeight: MediaQuery.sizeOf(context).height - 24,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 14 : 22,
+                vertical: compact ? 10 : 18,
               ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: highContrast
-                      ? Colors.black.withValues(alpha: 0.98)
-                      : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: highContrast
-                        ? const Color(0xFFFFD400)
-                        : LoungeTokens.goldAccent.withValues(alpha: 0.40),
-                    width: highContrast ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.40),
-                      blurRadius: 30,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: compact ? 640 : 720,
+                  maxHeight: MediaQuery.sizeOf(context).height - 24,
                 ),
-                child: Padding(
-                  padding: EdgeInsets.all(compact ? 12 : 18),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _Header(winner: winner, result: result, compact: compact),
-                      SizedBox(height: compact ? 10 : 14),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _Standings(
-                                rows: rows,
-                                progress: progress,
-                                winner: winner,
-                                eliminatedRound: eliminatedRound,
-                                compact: compact,
-                              ),
-                              SizedBox(height: compact ? 8 : 12),
-                              Text(
-                                strings.roundsPlayed(roundsPlayed),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: LoungeTokens.offWhiteText.withValues(
-                                    alpha: 0.66,
-                                  ),
-                                  fontSize: compact ? 11 : 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: compact ? 12 : 16),
-                      _Actions(
-                        compact: compact,
-                        onRematch: onRematch,
-                        onReturnToMenu: onReturnToMenu,
-                        onExportReport: onExportReport,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: highContrast
+                        ? Colors.black.withValues(alpha: 0.98)
+                        : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: highContrast
+                          ? const Color(0xFFFFD400)
+                          : LoungeTokens.goldAccent.withValues(alpha: 0.40),
+                      width: highContrast ? 2 : 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.40),
+                        blurRadius: 30,
+                        offset: const Offset(0, 14),
                       ),
                     ],
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(compact ? 12 : 18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Header(
+                          winner: winner,
+                          result: result,
+                          compact: compact,
+                        ),
+                        SizedBox(height: compact ? 10 : 14),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _Standings(
+                                  rows: rows,
+                                  progress: progress,
+                                  winner: winner,
+                                  eliminatedRound: eliminatedRound,
+                                  compact: compact,
+                                ),
+                                SizedBox(height: compact ? 8 : 12),
+                                Text(
+                                  strings.roundsPlayed(roundsPlayed),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: LoungeTokens.offWhiteText.withValues(
+                                      alpha: 0.66,
+                                    ),
+                                    fontSize: compact ? 11 : 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: compact ? 12 : 16),
+                        if (archiveSaveFailed) ...[
+                          Text(
+                            strings.archiveSaveFailed,
+                            textAlign: TextAlign.center,
+                          ),
+                          TextButton(
+                            onPressed: onRetryArchive,
+                            child: Text(strings.historyRetry),
+                          ),
+                        ],
+                        _Actions(
+                          compact: compact,
+                          onRematch: archiveSaveFailed ? null : onRematch,
+                          onReturnToMenu: onReturnToMenu,
+                          onExportReport: onExportReport,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -257,7 +275,9 @@ class _Standings extends StatelessWidget {
       decoration: BoxDecoration(
         color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.20)),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.20),
+        ),
       ),
       child: Column(
         children: [
@@ -401,7 +421,7 @@ class _Actions extends StatelessWidget {
   });
 
   final bool compact;
-  final VoidCallback onRematch;
+  final VoidCallback? onRematch;
   final VoidCallback onReturnToMenu;
   final VoidCallback onExportReport;
 

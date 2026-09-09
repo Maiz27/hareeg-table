@@ -58,6 +58,7 @@ void main() {
       final repository = MemoryMatchRepository(saved: snapshot);
       await tester.pumpWidget(
         HareegTableApp(
+          historyRepository: MemoryMatchHistoryRepository(),
           preferencesRepository: MemoryPreferencesRepository(),
           matchRepository: repository,
           initialRouteOverride: AppRoutes.home,

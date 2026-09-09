@@ -59,7 +59,7 @@ void main() {
       expect(plan.logPath, 'next-round');
     });
 
-    test('completed matches abandon persistence and still present result', () {
+    test('a match with a winner is archived and still presents its result', () {
       final result = _normalResult();
       final progress = _progress(matchWinner: PlayerSeat.south);
 
@@ -77,12 +77,37 @@ void main() {
       );
       expect(
         plan.action,
-        ClassicHareegTablePersistenceAction.abandonActiveMatch,
+        ClassicHareegTablePersistenceAction.archiveCompletedMatch,
       );
       expect(plan.snapshotToSave, isNull);
       expect(plan.roundResultPresentation?.nextSnapshot, isNull);
       expect(plan.shouldShowRoundResult, isTrue);
+      expect(plan.logPath, 'archive');
+    });
+
+    test('play stopping with no winner abandons instead of archiving', () {
+      // The trap this keys on: the table also produces a null next-round
+      // snapshot when the human is eliminated while CPUs are still playing.
+      // Nobody has won, so there is no completed match to record — archiving
+      // here would write a history entry for a game that never finished.
+      final plan = ClassicHareegTablePersistencePlanner.plan(
+        isRoundOver: true,
+        activeSnapshot: null,
+        nextRoundSnapshot: null,
+        roundResult: _normalResult(),
+        scoreView: _scoreView(progress: _progress()),
+      );
+
+      expect(
+        plan.scenario,
+        ClassicHareegTablePersistenceScenario.matchAbandonedWithoutWinner,
+      );
+      expect(
+        plan.action,
+        ClassicHareegTablePersistenceAction.abandonActiveMatch,
+      );
       expect(plan.logPath, 'abandon');
+      expect(plan.shouldShowRoundResult, isTrue);
     });
 
     test('completed rounds with incomplete score facts do not present', () {

@@ -1,0 +1,37 @@
+{
+  "opening": [
+    "match.saveActiveMatch(round=1, terminal=false)"
+  ],
+  "ordinary-action": [
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)"
+  ],
+  "round-crossing": [
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=1, terminal=false)",
+    "match.saveActiveMatch(round=2, terminal=false)",
+    "match.saveActiveMatch(round=2, terminal=false)"
+  ],
+  "leave-abandon": [
+    "match.abandonActiveMatch()"
+  ],
+  "terminal-save-before-archive": [
+    "match.saveActiveMatch(round=3, terminal=false)",
+    "match.saveActiveMatch(round=3, terminal=false)",
+    "match.saveActiveMatch(round=3, terminal=true)",
+    "history.archiveCompletedMatch() -> published"
+  ],
+  "archive-failure-retry": [
+    "match.saveActiveMatch(round=3, terminal=false)",
+    "match.saveActiveMatch(round=3, terminal=false)",
+    "match.saveActiveMatch(round=3, terminal=true)",
+    "history.archiveCompletedMatch() -> failed(retryable)",
+    "history.recoverPendingArchive() -> published"
+  ]
+}
