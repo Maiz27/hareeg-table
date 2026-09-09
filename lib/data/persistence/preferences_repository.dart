@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../cpu/classic_hareeg/coaching/analysis_coach_settings.dart';
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../domain/classic_hareeg/persistence/persistence_codec.dart';
 import '../../ui/core/cards/card_theme_registry.dart';
@@ -9,6 +10,8 @@ import '../../ui/features/game_table/table_hand_interaction_state.dart'
     show HandSortMode;
 import 'key_value_store.dart';
 
+export '../../cpu/classic_hareeg/coaching/analysis_coach_settings.dart'
+    show AnalysisCoachSettings, AnalysisVerbosity;
 export '../../ui/features/game_table/table_hand_interaction_state.dart'
     show HandSortMode;
 
@@ -51,6 +54,7 @@ class GamePreferences {
     required this.highContrastCards,
     required this.tableSurfaceTheme,
     required this.coachingTipsEnabled,
+    required this.analysisCoach,
   });
 
   /// Default first-run preferences.
@@ -67,6 +71,7 @@ class GamePreferences {
       highContrastCards: false,
       tableSurfaceTheme: TableSurfaceTheme.sandline,
       coachingTipsEnabled: true,
+      analysisCoach: AnalysisCoachSettings.defaults(),
     );
   }
 
@@ -110,6 +115,13 @@ class GamePreferences {
       coachingTipsEnabled:
           asJsonBool(json['coachingTipsEnabled']) ??
           defaults.coachingTipsEnabled,
+      // Absent for anything saved before the replay coach existed, and an
+      // unrecognised verbosity falls back rather than throwing: a settings
+      // field the app no longer understands is not a reason to discard the
+      // player's whole preferences file.
+      analysisCoach: AnalysisCoachSettings.fromJson(
+        asJsonMap(json['analysisCoach']),
+      ),
     );
   }
 
@@ -148,6 +160,12 @@ class GamePreferences {
   /// Selected table surface theme.
   final TableSurfaceTheme tableSurfaceTheme;
 
+  /// Verbosity and warning choices for the replay analysis coach.
+  ///
+  /// This is the saved default. Opening a replay may override it for that
+  /// session without the override ever being written back.
+  final AnalysisCoachSettings analysisCoach;
+
   /// Whether the coaching tier surfaces proactive hint callouts and the coach
   /// highlight ring. Only consulted on [TableStrictness.coaching]; other tiers
   /// never show hints regardless. Defaults to on so players who pick the
@@ -171,6 +189,7 @@ class GamePreferences {
     bool? highContrastCards,
     TableSurfaceTheme? tableSurfaceTheme,
     bool? coachingTipsEnabled,
+    AnalysisCoachSettings? analysisCoach,
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
@@ -184,6 +203,7 @@ class GamePreferences {
       highContrastCards: highContrastCards ?? this.highContrastCards,
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
       coachingTipsEnabled: coachingTipsEnabled ?? this.coachingTipsEnabled,
+      analysisCoach: analysisCoach ?? this.analysisCoach,
     );
   }
 
@@ -202,6 +222,7 @@ class GamePreferences {
       'highContrastCards': highContrastCards,
       'tableSurfaceTheme': tableSurfaceTheme.name,
       'coachingTipsEnabled': coachingTipsEnabled,
+      'analysisCoach': analysisCoach.toJson(),
     };
   }
 }
@@ -270,10 +291,8 @@ JsonMigrationStep legacyTableStrictnessMigrationStep({
         tableAids: tableAids,
         memoryJokerDisplay: memoryJokerDisplay,
       );
-      return <String, Object?>{
-        ...source,
-        'tableStrictness': migrated.name,
-      }..remove('rulePreset');
+      return <String, Object?>{...source, 'tableStrictness': migrated.name}
+        ..remove('rulePreset');
     },
   );
 }
@@ -308,8 +327,14 @@ TableStrictness _migrateStrictness({
 /// Reads the saved [HandSortMode], migrating the legacy `autoSort` bool when
 /// no explicit mode is stored. `autoSort: true` → byRank (the previous
 /// auto-sort behaviour), `autoSort: false` → manual.
-HandSortMode _readHandSortMode(Map<String, Object?> json, HandSortMode fallback) {
-  final stored = _enumByName(HandSortMode.values, asJsonString(json['handSortMode']));
+HandSortMode _readHandSortMode(
+  Map<String, Object?> json,
+  HandSortMode fallback,
+) {
+  final stored = _enumByName(
+    HandSortMode.values,
+    asJsonString(json['handSortMode']),
+  );
   if (stored != null) {
     return stored;
   }

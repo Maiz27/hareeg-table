@@ -3,6 +3,7 @@ import '../../domain/classic_hareeg/rules/opening_rules.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
+import 'cpu_table_reading.dart';
 import 'priority_cpu_move_planner.dart';
 
 /// Skilled CPU planner that scores visible table state, memory, and partitions.
@@ -11,6 +12,11 @@ import 'priority_cpu_move_planner.dart';
 /// [CpuMovePlanPipeline]; this class only supplies the per-stage scoring weights
 /// for Skilled's posture (partition push to benchmark, hot-rank memory, hold
 /// normal finishes when opponents are quiet).
+///
+/// Skilled always applies the material signal. It deliberately does **not**
+/// consume next-seat feed risk: that is Expert's edge, and Skilled keeps its
+/// own older all-opponent hot-rank read instead, which is a blunter instrument
+/// aimed at the whole table rather than the seat about to receive the card.
 class SkilledCpuMovePlanner implements CpuMovePlanner {
   /// Creates a skilled CPU move planner.
   const SkilledCpuMovePlanner();
@@ -197,6 +203,7 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
     final hotRanks = _recentPickupRanks(observation);
     final recentDiscards = _recentOpponentDiscardIdentities(observation);
     final nearElimination = _nearElimination(observation);
+    final reading = CpuTableReading.forObservation(observation);
 
     return (left, right) {
       final leftCard = left.card;
@@ -220,6 +227,19 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
       final recentCompare = boolAsc(leftRecent, rightRecent);
       if (recentCompare != 0) {
         return recentCompare;
+      }
+
+      // Material signal: between two cards the table is equally relaxed about,
+      // shed the one whose group can no longer complete. Placed after the
+      // safety tie-breaks — not feeding an opponent still outranks tidying up
+      // one's own hand — and before pips, so a dead high pair goes before a
+      // live low one.
+      final starvedCompare = boolDesc(
+        reading.isStarved(leftCard),
+        reading.isStarved(rightCard),
+      );
+      if (starvedCompare != 0) {
+        return starvedCompare;
       }
 
       final leftValue = cardPipValue(leftCard);

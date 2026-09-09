@@ -291,3 +291,34 @@ the Beginner/Casual contract via the snapshot path, so nothing regresses.
   once Skilled ships? Recommend collapsing in a single PR after step 5, with the
   snapshot becoming a constructor argument on a `LiveCpuObservation.fromSnapshot`
   used only by old tests.
+
+## 8. PRD-05 additions: the pile, the round, and the deck
+
+PRD-05's shared table reading needed three facts the interface did not carry.
+Each is a scalar or a snapshot of state every seat at the table can already
+see, and each has one production source, both adapters, the test fake, and a
+Facts/Live parity assertion in `test/cpu/classic_hareeg/cpu_observation_test.dart`.
+
+| Member | Live source | Why it had to be added |
+| --- | --- | --- |
+| `List<HareegCard> get discardPile` | `controller.discardPile` | Card death counts **copies per identity**. `topDiscard` is one card, and `DiscardHistoryView` cannot answer the question either: `cardSeenAt` is a boolean and `discardsCount` counts per rank, not per identity. Exposed complete, ordered oldest-first, duplicate-preserving, and unmodifiable. |
+| `int get roundNumber` | `controller.roundNumber` | Part of the observable key that decides Casual's per-position attention, so two identically shaped positions in different rounds are distinct decisions. |
+| `int get deckCopyCount` | `controller.setup.deckCount` | The denominator card death divides by. The deck count is player-configurable (2, 3, or 4), so a constant would declare an identity dead at a three-deck table while a third copy was still live. |
+
+### The seam description in issue #117 was wrong
+
+The issue proposed widening the seam so a CPU strategy could see its own hand
+and the visible melds. It already could: `ownHand`, `tableMeldsFor`, and
+`tableMelds` have been on this interface since the original design above. What
+was genuinely missing was the **pile contents** — and, downstream of the
+attention rule and the card-death denominator, the round number and the deck
+count. The three rows above are the whole widening; nothing else moved.
+
+### What is still deliberately absent
+
+No opponent hand, no stock identity, no future action, and no historical
+reconstruction beyond the round-scoped `DiscardHistoryView`. The invariance
+proof lives at the planner seam, where hidden state actually exists, in
+`test/cpu/classic_hareeg/table_reading_hidden_state_test.dart`: paired live
+controllers with identical public faces and entirely different hidden hands and
+stock must produce identical signals and identical plans, for every tier.

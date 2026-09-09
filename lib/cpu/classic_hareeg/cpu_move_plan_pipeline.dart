@@ -1,3 +1,4 @@
+import '../../domain/classic_hareeg/analysis/partial_hand_groups.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
@@ -6,6 +7,9 @@ import '../../domain/classic_hareeg/models/playing_card.dart';
 import 'cpu_difficulty_profile.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_observation.dart';
+
+export '../../domain/classic_hareeg/analysis/partial_hand_groups.dart'
+    show PartialGroupKind, PartialHandGroup, cardsCanMeldTogether;
 
 /// Legal action paired with its decoded descriptor.
 ///
@@ -565,12 +569,6 @@ int cardPipValue(HareegCard card) {
   return card.effectiveIdentity?.rank.value ?? 25;
 }
 
-/// Partition cap for [handKeepScores]'s complete-meld grouping. Matches the
-/// Expert planner's fan-out; keep-scoring enumerates the hand only ONCE per
-/// discard decision (group-value attribution scores every card from a single
-/// grouping), so the larger cap is cheap here.
-const int _keepScorePartitionCap = 256;
-
 /// Per-card "keep score" for every card in [hand]: the value of the meld/group
 /// the card belongs to in the hand's best DISJOINT grouping. Higher means more
 /// worth keeping; the discard logic sheds the lowest-scoring legal card.
@@ -601,28 +599,32 @@ const int _keepScorePartitionCap = 256;
 /// redundant duplicates, run/set-anchor protection) under one disjoint grouping.
 Map<String, int> handKeepScores(List<HareegCard> hand) {
   final scores = <String, int>{};
-  var leftovers = hand;
-  if (hand.length >= 3) {
-    final best = MeldPartitionEnumerator.topPartitions(
-      hand,
-      comparator: MeldPartitionRankers.byTotalValueDesc,
-      take: 1,
-      safetyCap: _keepScorePartitionCap,
-    );
-    if (best.isNotEmpty) {
-      final partition = best.first;
-      for (final meld in partition.melds) {
-        final value = meld.valueSnapshot;
-        for (final card in meld.cards) {
-          scores[card.id] = value;
-        }
+  // One derivation of the leftover set, shared with development liveness, so
+  // the two can never disagree about which cards are still developing.
+  final split = splitForPartialGroups(hand);
+  final partition = split.partition;
+  if (partition != null) {
+    for (final meld in partition.melds) {
+      final value = meld.valueSnapshot;
+      for (final card in meld.cards) {
+        scores[card.id] = value;
       }
-      leftovers = partition.cardsRemaining;
     }
   }
 
-  final partials = _bestPartials(leftovers, hand, {});
-  scores.addAll(partials.scores);
+  // One grouping algorithm in the repository: the shared selector owns the
+  // pair/two-run/solo choice, and the keep score is just each group's value
+  // applied to its members.
+  final groups = selectPartialGroups(
+    cards: split.leftovers,
+    hand: hand,
+    soloValue: _soloScore,
+  );
+  for (final group in groups) {
+    for (final card in group.cards) {
+      scores[card.id] = group.value;
+    }
+  }
 
   for (final card in hand) {
     scores.putIfAbsent(card.id, () => _soloScore(card, hand));
@@ -640,6 +642,14 @@ int discardKeepScore(HareegCard card, List<HareegCard> hand) {
 /// Solo-group value for [card]: its pip ceiling, or 0 when [hand] holds a true
 /// duplicate (another card of the same rank AND suit) — a redundant copy whose
 /// rank potential is already carried by its twin, so it is shed first.
+///
+/// Public because the shared grouping in `lib/domain/` takes the solo value as
+/// a function argument: the analysis layer must not import `lib/cpu`, so the
+/// one scoring model is passed in rather than reached for.
+int partialSoloValue(HareegCard card, List<HareegCard> hand) {
+  return _soloScore(card, hand);
+}
+
 int _soloScore(HareegCard card, List<HareegCard> hand) {
   if (card.isJoker) {
     return 1 << 20;
@@ -660,98 +670,6 @@ int _soloScore(HareegCard card, List<HareegCard> hand) {
     }
   }
   return identity.rank.value;
-}
-
-/// True when [a] and [b] can still combine into the same meld — a SET (same
-/// rank, distinct suits) or a RUN (same suit, within two ranks so a one-card gap
-/// can still be filled). This is the single definition of "two cards build
-/// toward a meld together", shared by the keep-score grouping ([_bestPartials])
-/// and the coach's "isolated card" cover gate, so the two never drift.
-///
-/// A true duplicate (same rank AND suit) returns false: it can neither join a
-/// set (which needs distinct suits) nor run with itself, so it is genuinely
-/// isolated — consistent with [discardKeepScore] treating a redundant copy as
-/// sheddable.
-bool cardsCanMeldTogether(CardIdentity a, CardIdentity b) {
-  if (a.rank == b.rank) {
-    return a.suit != b.suit; // set: distinct suits only
-  }
-  if (a.suit == b.suit) {
-    final distance = (a.rank.order - b.rank.order).abs();
-    return distance >= 1 && distance <= 2; // run within two ranks
-  }
-  return false;
-}
-
-/// Best disjoint pair / two-run / solo grouping over [cards] (the leftovers a
-/// complete-meld partition could not place), scoring each card by its chosen
-/// group's value. A pair (same rank, distinct suits) is worth `value × 2`; a
-/// two-run (same suit within two ranks) the pip sum; an unmatched card its
-/// [_soloScore]. Maximises total group value, preferring a group over leaving a
-/// card solo on ties, so developing pairs/runs are recognised rather than
-/// dissolved. Memoised on the remaining-card signature.
-({int total, Map<String, int> scores}) _bestPartials(
-  List<HareegCard> cards,
-  List<HareegCard> hand,
-  Map<String, ({int total, Map<String, int> scores})> memo,
-) {
-  if (cards.isEmpty) {
-    return (total: 0, scores: const <String, int>{});
-  }
-  final key = (cards.map((card) => card.id).toList()..sort()).join('|');
-  final cached = memo[key];
-  if (cached != null) {
-    return cached;
-  }
-
-  final anchor = cards.first;
-  final rest = cards.sublist(1);
-
-  // Candidate: anchor stays solo. Solo is the fallback (rank 0); a tying group
-  // is preferred (rank 1) so a developing pair/run is not dissolved.
-  final soloValue = _soloScore(anchor, hand);
-  final soloSub = _bestPartials(rest, hand, memo);
-  var bestTotal = soloValue + soloSub.total;
-  var bestRank = 0;
-  var bestScores = <String, int>{anchor.id: soloValue, ...soloSub.scores};
-
-  final anchorIdentity = anchor.effectiveIdentity;
-  if (anchorIdentity != null && !anchor.isJoker) {
-    for (var index = 0; index < rest.length; index += 1) {
-      final other = rest[index];
-      final otherIdentity = other.effectiveIdentity;
-      if (otherIdentity == null || other.isJoker) {
-        continue;
-      }
-      if (!cardsCanMeldTogether(anchorIdentity, otherIdentity)) {
-        continue;
-      }
-      // Developing set (pair, distinct suits) scores value × 2; developing run
-      // (same suit within two ranks) scores the pip sum.
-      final groupValue = anchorIdentity.rank == otherIdentity.rank
-          ? anchorIdentity.rank.value * 2
-          : anchorIdentity.rank.value + otherIdentity.rank.value;
-      final remaining = [
-        for (var position = 0; position < rest.length; position += 1)
-          if (position != index) rest[position],
-      ];
-      final sub = _bestPartials(remaining, hand, memo);
-      final total = groupValue + sub.total;
-      if (total > bestTotal || (total == bestTotal && bestRank == 0)) {
-        bestTotal = total;
-        bestRank = 1;
-        bestScores = <String, int>{
-          anchor.id: groupValue,
-          other.id: groupValue,
-          ...sub.scores,
-        };
-      }
-    }
-  }
-
-  final result = (total: bestTotal, scores: bestScores);
-  memo[key] = result;
-  return result;
 }
 
 /// Sum of [cardPipValue] across [cards].

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_move_plan_pipeline.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
@@ -21,6 +24,7 @@ String _lowestKeep(List<HareegCard> hand) {
 }
 
 void main() {
+  _keepScoreOracleParity();
   // The keep score of a card is the value of the single meld / group it lands in
   // within the hand's best DISJOINT grouping. Higher = more worth keeping; the
   // discard logic sheds the lowest. Because the grouping is disjoint, no card can
@@ -192,4 +196,115 @@ void main() {
       expect(discardKeepScore(joker, hand), greaterThan(1000));
     });
   });
+}
+
+// --- Sprint 04: shared partial-group extraction parity -------------------
+
+/// Compares public `handKeepScores` against the oracle frozen from the
+/// implementation as it stood *before* the shared-grouping extraction.
+///
+/// The oracle is inert JSON. Nothing regenerates it from the current code, so
+/// this cannot pass by two implementations agreeing with each other — which is
+/// the whole point of freezing it first.
+void _keepScoreOracleParity() {
+  group('handKeepScores matches the pre-edit oracle', () {
+    late Map<String, Object?> oracle;
+
+    setUpAll(() {
+      oracle =
+          jsonDecode(
+                File(
+                  'test/cpu/classic_hareeg/keep_score_oracle.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+    });
+
+    test('the oracle holds at least 60 hands', () {
+      expect((oracle['hands']! as List).length, greaterThanOrEqualTo(60));
+    });
+
+    test('every frozen hand still scores identically', () {
+      final hands = oracle['hands']! as List;
+      final mismatches = <String>[];
+
+      for (final raw in hands) {
+        final entry = raw as Map<String, Object?>;
+        final name = entry['name'] as String;
+        final cards = [
+          for (final c in entry['hand']! as List)
+            _cardFromOracle(c as Map<String, Object?>),
+        ];
+        final expected = {
+          for (final e in (entry['scores']! as Map<String, Object?>).entries)
+            e.key: e.value as int,
+        };
+
+        final actual = handKeepScores(cards);
+        if (actual.length != expected.length) {
+          mismatches.add('$name: ${actual.length} scores vs ${expected.length}');
+          continue;
+        }
+        for (final id in expected.keys) {
+          if (actual[id] != expected[id]) {
+            mismatches.add('$name/$id: ${actual[id]} vs ${expected[id]}');
+          }
+        }
+      }
+
+      expect(mismatches, isEmpty, reason: mismatches.join('\n'));
+    });
+
+    test('the order-sensitive permutations are frozen and still differ', () {
+      // The shipped matcher breaks a tie between two competing groups by
+      // first-found, which is input order. Same-suit 5,6,8 therefore groups
+      // 5-6 one way and 8-6 the other. This is preserved behaviour, not a bug
+      // being fixed, so the difference itself is asserted.
+      final hands = {
+        for (final raw in oracle['hands']! as List)
+          (raw as Map<String, Object?>)['name'] as String: raw,
+      };
+
+      Map<String, int> scoresFor(String name) {
+        final entry = hands[name]!;
+        return handKeepScores([
+          for (final c in entry['hand']! as List)
+            _cardFromOracle(c as Map<String, Object?>),
+        ]);
+      }
+
+      final ascending = scoresFor('order-568-ascending');
+      final descending = scoresFor('order-568-descending');
+
+      expect(
+        ascending,
+        isNot(equals(descending)),
+        reason:
+            'The grouping is order-sensitive by design; losing that would '
+            'mean the extraction changed keep scores.',
+      );
+      // And each side still matches what the pre-edit code produced.
+      expect(ascending['deck-0-five-spades'], 11);
+      expect(ascending['deck-0-six-spades'], 11);
+      expect(ascending['deck-0-eight-spades'], 8);
+      expect(descending['deck-0-eight-spades'], 14);
+      expect(descending['deck-0-six-spades'], 14);
+      expect(descending['deck-0-five-spades'], 5);
+    });
+  });
+}
+
+HareegCard _cardFromOracle(Map<String, Object?> json) {
+  if (json['joker'] == true) {
+    final index = int.parse((json['id']! as String).split('-')[1]);
+    return HareegCard.joker(deckIndex: index, jokerIndex: index);
+  }
+  final rankLabel = json['rank']! as String;
+  final suitName = json['suit']! as String;
+  final deckIndex = int.parse((json['id']! as String).split('-')[1]);
+  return HareegCard.standard(
+    rank: CardRank.values.firstWhere((r) => r.label == rankLabel),
+    suit: CardSuit.values.firstWhere((s) => s.name == suitName),
+    deckIndex: deckIndex,
+  );
 }

@@ -62,6 +62,29 @@ abstract interface class CpuObservation {
   /// Number of cards in the discard pile.
   int get discardCount;
 
+  /// The complete discard pile, oldest first, duplicates preserved.
+  ///
+  /// Card-death counting needs copies per identity, which neither [topDiscard]
+  /// nor [DiscardHistoryView] can supply: the history view answers "seen at
+  /// all" as a boolean and counts only per rank. Exposed as an immutable
+  /// snapshot so a planner cannot mutate live state.
+  List<HareegCard> get discardPile;
+
+  /// Round number within the current match, starting at 1.
+  ///
+  /// Part of the observable key that decides Casual's per-position attention,
+  /// so two identically shaped positions in different rounds are distinct.
+  int get roundNumber;
+
+  /// Copies of each standard card identity the table was dealt from.
+  ///
+  /// The denominator card-death divides by: an identity is dead once this many
+  /// physical copies are accounted for. It is a table setting rather than a
+  /// constant — the deck count is player-configurable — so reading it from the
+  /// observation is what keeps the signal honest at three and four decks
+  /// instead of declaring an identity dead while a third copy is still live.
+  int get deckCopyCount;
+
   /// Opening benchmark state for this round.
   OpeningState get openingState;
 
@@ -178,6 +201,9 @@ final class CpuObservationFacts implements CpuObservation {
     this.stockCount = 0,
     this.topDiscard,
     this.discardCount = 0,
+    Iterable<HareegCard> discardPile = const [],
+    this.roundNumber = 1,
+    this.deckCopyCount = 2,
     this.openingState = const OpeningState(
       baseRequirement: 30,
       currentRequirement: 30,
@@ -205,6 +231,7 @@ final class CpuObservationFacts implements CpuObservation {
     MeldPartition? finishingPartition,
   }) : legalActionIds = List.unmodifiable(legalActionIds),
        ownHand = List.unmodifiable(ownHand),
+       discardPile = List.unmodifiable(discardPile),
        _handCounts = Map.unmodifiable(handCounts),
        _tableMelds = _copyTableMelds(tableMelds),
        _scores = Map.unmodifiable({
@@ -252,6 +279,15 @@ final class CpuObservationFacts implements CpuObservation {
 
   @override
   final int discardCount;
+
+  @override
+  final List<HareegCard> discardPile;
+
+  @override
+  final int roundNumber;
+
+  @override
+  final int deckCopyCount;
 
   @override
   final OpeningState openingState;
@@ -513,6 +549,15 @@ final class LiveCpuObservation implements CpuObservation {
 
   @override
   int get discardCount => controller.discardPile.length;
+
+  @override
+  List<HareegCard> get discardPile => controller.discardPile;
+
+  @override
+  int get roundNumber => controller.roundNumber;
+
+  @override
+  int get deckCopyCount => controller.setup.deckCount;
 
   @override
   OpeningState get openingState => controller.openingState;
