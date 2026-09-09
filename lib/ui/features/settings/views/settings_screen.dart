@@ -11,6 +11,7 @@ import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../../core/theme/table_surface_theme.dart';
 import '../../game_table/widgets/table_background.dart';
+import '../../replay/widgets/analysis_coach_panel.dart' show verbosityLabel;
 import '../models/settings_section.dart';
 import 'card_theme_preview.dart';
 
@@ -307,6 +308,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _preferences.soundEnabled,
                         onChanged: (value) =>
                             _save(_preferences.copyWith(soundEnabled: value)),
+                      ),
+                    ],
+                  ),
+                ),
+                _AccordionSection(
+                  key: _sectionKeys[SettingsSection.review],
+                  icon: Icons.replay_outlined,
+                  title: strings.settingsReviewTitle,
+                  description: strings.settingsReviewSubtitle,
+                  preview: [
+                    verbosityLabel(
+                      strings,
+                      _preferences.analysisCoach.verbosity,
+                    ),
+                  ],
+                  expanded: _openSection == SettingsSection.review,
+                  onToggle: () => _toggle(SettingsSection.review),
+                  child: Column(
+                    children: [
+                      _VerbosityPicker(
+                        value: _preferences.analysisCoach.verbosity,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(
+                            analysisCoach: _preferences.analysisCoach.copyWith(
+                              verbosity: value,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const _ThinDivider(),
+                      _SwitchSetting(
+                        icon: Icons.warning_amber_outlined,
+                        title: strings.replayCardDeathWarnings,
+                        subtitle: strings.settingsReviewSubtitle,
+                        value: _preferences.analysisCoach.cardDeathWarnings,
+                        onChanged: (value) => _save(
+                          _preferences.copyWith(
+                            analysisCoach: _preferences.analysisCoach.copyWith(
+                              cardDeathWarnings: value,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -880,6 +923,52 @@ class _MotionSpeedPicker extends StatelessWidget {
         ButtonSegment(value: MotionSpeed.normal, label: Text(strings.normal)),
         ButtonSegment(value: MotionSpeed.fast, label: Text(strings.fast)),
         ButtonSegment(value: MotionSpeed.reduced, label: Text(strings.reduced)),
+      ],
+      selected: {value},
+      onSelectionChanged: (selection) => onChanged(selection.first),
+    );
+  }
+}
+
+/// Chooses how much the replay analysis coach says.
+///
+/// Matches the other settings pickers rather than introducing a fourth control
+/// idiom on the same screen.
+class _VerbosityPicker extends StatelessWidget {
+  const _VerbosityPicker({required this.value, required this.onChanged});
+
+  final AnalysisVerbosity value;
+  final ValueChanged<AnalysisVerbosity> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return SegmentedButton<AnalysisVerbosity>(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return LoungeTokens.goldAccent;
+          }
+          return LoungeTokens.coffeeCharcoal.withValues(alpha: 0.74);
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return LoungeTokens.coffeeCharcoal;
+          }
+          return LoungeTokens.offWhiteText;
+        }),
+        side: WidgetStateProperty.all(
+          BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.42)),
+        ),
+        textStyle: WidgetStateProperty.all(LoungeTokens.titleSmall),
+      ),
+      segments: [
+        for (final verbosity in AnalysisVerbosity.values)
+          ButtonSegment(
+            value: verbosity,
+            label: Text(verbosityLabel(strings, verbosity)),
+          ),
       ],
       selected: {value},
       onSelectionChanged: (selection) => onChanged(selection.first),

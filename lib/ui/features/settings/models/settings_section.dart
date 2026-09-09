@@ -18,6 +18,13 @@ enum SettingsSection {
   /// Sensory feedback: motion speed, haptics, sound.
   feel,
 
+  /// How much the analysis coach says while reviewing a finished match.
+  ///
+  /// Sits below the sections a player reaches during a game: it only matters
+  /// once a match is over, and putting it higher pushed the everyday controls
+  /// off the first screen.
+  review,
+
   /// Language selection.
   language,
 }
