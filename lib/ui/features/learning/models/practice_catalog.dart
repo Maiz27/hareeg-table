@@ -30,7 +30,8 @@ enum PracticePackId {
       PracticePackId.coreTurn => strings.practicePackCoreTitle,
       PracticePackId.tableMechanics => strings.practicePackTableTitle,
       PracticePackId.finishAndFifty => strings.practicePackFinishTitle,
-      PracticePackId.tableStrictness => strings.practicePackTableStrictnessTitle,
+      PracticePackId.tableStrictness =>
+        strings.practicePackTableStrictnessTitle,
     };
   }
 }

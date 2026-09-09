@@ -572,11 +572,7 @@ abstract final class CardPainting {
     final shortSide = size.shortestSide;
     final inset = shortSide * 0.07;
     final dotRadius = shortSide * 0.022;
-    canvas.drawCircle(
-      Offset(size.width - inset, inset),
-      dotRadius,
-      paint,
-    );
+    canvas.drawCircle(Offset(size.width - inset, inset), dotRadius, paint);
   }
 
   static List<Offset> _pipPositionsFor(CardRank rank) {

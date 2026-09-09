@@ -62,9 +62,15 @@ abstract final class SuitGlyphs {
 
   static Path _clubsPath() {
     final path = Path();
-    path.addOval(Rect.fromCircle(center: const Offset(0.5, 0.28), radius: 0.18));
-    path.addOval(Rect.fromCircle(center: const Offset(0.3, 0.58), radius: 0.18));
-    path.addOval(Rect.fromCircle(center: const Offset(0.7, 0.58), radius: 0.18));
+    path.addOval(
+      Rect.fromCircle(center: const Offset(0.5, 0.28), radius: 0.18),
+    );
+    path.addOval(
+      Rect.fromCircle(center: const Offset(0.3, 0.58), radius: 0.18),
+    );
+    path.addOval(
+      Rect.fromCircle(center: const Offset(0.7, 0.58), radius: 0.18),
+    );
     path.moveTo(0.42, 0.7);
     path.cubicTo(0.4, 0.85, 0.45, 0.9, 0.5, 0.95);
     path.cubicTo(0.55, 0.9, 0.6, 0.85, 0.58, 0.7);

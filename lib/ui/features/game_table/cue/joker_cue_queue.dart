@@ -28,9 +28,9 @@ class JokerCueQueue<T> {
     required void Function(T cue) onCueStart,
     required void Function(T cue) onCueEnd,
     required Duration Function(T cue) dwellFor,
-  })  : _onCueStart = onCueStart,
-        _onCueEnd = onCueEnd,
-        _dwellFor = dwellFor;
+  }) : _onCueStart = onCueStart,
+       _onCueEnd = onCueEnd,
+       _dwellFor = dwellFor;
 
   final void Function(T cue) _onCueStart;
   final void Function(T cue) _onCueEnd;

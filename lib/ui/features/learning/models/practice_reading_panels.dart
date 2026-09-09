@@ -66,19 +66,23 @@ abstract final class PracticeReadingPanels {
     'card-values': PracticeReadingPanel(
       title: _title,
       sections: [
-        const PracticeReadingSection(
-          lines: [_cardValuesIntro],
-        ),
+        const PracticeReadingSection(lines: [_cardValuesIntro]),
         PracticeReadingSection(
           heading: _cardValuesNumberHeading,
           lines: const [_cardValuesNumberLine],
           cardRows: [
-            PracticeCardRow(cards: [_card(CardRank.two, CardSuit.clubs)],
-                caption: _value2),
-            PracticeCardRow(cards: [_card(CardRank.five, CardSuit.diamonds)],
-                caption: _value5),
-            PracticeCardRow(cards: [_card(CardRank.nine, CardSuit.spades)],
-                caption: _value9),
+            PracticeCardRow(
+              cards: [_card(CardRank.two, CardSuit.clubs)],
+              caption: _value2,
+            ),
+            PracticeCardRow(
+              cards: [_card(CardRank.five, CardSuit.diamonds)],
+              caption: _value5,
+            ),
+            PracticeCardRow(
+              cards: [_card(CardRank.nine, CardSuit.spades)],
+              caption: _value9,
+            ),
           ],
         ),
         PracticeReadingSection(
@@ -96,17 +100,13 @@ abstract final class PracticeReadingPanels {
             ),
           ],
         ),
-        const PracticeReadingSection(
-          lines: [_cardValuesOutro],
-        ),
+        const PracticeReadingSection(lines: [_cardValuesOutro]),
       ],
     ),
     'meld-shapes': PracticeReadingPanel(
       title: _meldShapesTitle,
       sections: [
-        const PracticeReadingSection(
-          lines: [_meldShapesIntro],
-        ),
+        const PracticeReadingSection(lines: [_meldShapesIntro]),
         PracticeReadingSection(
           heading: _meldShapesSetHeading,
           lines: const [_meldShapesSetLine],
@@ -135,17 +135,13 @@ abstract final class PracticeReadingPanels {
             ),
           ],
         ),
-        const PracticeReadingSection(
-          lines: [_meldShapesOutro],
-        ),
+        const PracticeReadingSection(lines: [_meldShapesOutro]),
       ],
     ),
     'the-ace': PracticeReadingPanel(
       title: _theAceTitle,
       sections: [
-        const PracticeReadingSection(
-          lines: [_theAceIntro],
-        ),
+        const PracticeReadingSection(lines: [_theAceIntro]),
         PracticeReadingSection(
           heading: _theAceHighHeading,
           lines: const [_theAceHighLine],
@@ -192,9 +188,7 @@ abstract final class PracticeReadingPanels {
             ),
           ],
         ),
-        const PracticeReadingSection(
-          lines: [_theAceOutro],
-        ),
+        const PracticeReadingSection(lines: [_theAceOutro]),
       ],
     ),
   };
@@ -225,7 +219,8 @@ abstract final class PracticeReadingPanels {
   static String _value10Each(AppStrings s) => s.practiceCardValue10Each;
 
   // meld-shapes
-  static String _meldShapesTitle(AppStrings s) => s.practiceMeldShapesPanelTitle;
+  static String _meldShapesTitle(AppStrings s) =>
+      s.practiceMeldShapesPanelTitle;
   static String _meldShapesIntro(AppStrings s) => s.practiceMeldShapesIntro;
   static String _meldShapesSetHeading(AppStrings s) =>
       s.practiceMeldShapesSetHeading;

@@ -163,7 +163,9 @@ abstract final class TableMechanicsPracticePack {
     ];
     return PracticeLessonScript(
       lessonId: 'benchmark-pressure',
-      taughtMelds: [{for (final card in heartRun) card.id}],
+      taughtMelds: [
+        {for (final card in heartRun) card.id},
+      ],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
           ...heartRun,
@@ -267,7 +269,9 @@ abstract final class TableMechanicsPracticePack {
     final kingClubs = PracticeBoard.card(CardRank.king, CardSuit.clubs);
     return PracticeLessonScript(
       lessonId: 'set-cover',
-      taughtMelds: [{kingClubs.id}],
+      taughtMelds: [
+        {kingClubs.id},
+      ],
       buildSnapshot: () => PracticeBoard.build(
         // A pre-opened hand deals the real count: 14 dealt minus the six
         // cards already placed on the table.

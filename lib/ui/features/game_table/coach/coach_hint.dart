@@ -190,9 +190,7 @@ abstract final class CoachHintPresenter {
         final openDiscardId = insight.discardCardId;
         var body = openDiscardId == null
             ? progress
-            : '$progress ${strings.coachDiscardToBuildSuffix(
-                identityForCardId(openDiscardId),
-              )}';
+            : '$progress ${strings.coachDiscardToBuildSuffix(identityForCardId(openDiscardId))}';
         final openAvoid = _avoidSuffix(insight, strings, identityForCardId);
         if (openAvoid != null) {
           body = '$body $openAvoid';
@@ -223,9 +221,7 @@ abstract final class CoachHintPresenter {
         final meldBody = meldCoverId == null
             ? strings.coachPlayMeldBody
             : '${strings.coachPlayMeldBody} '
-                  '${strings.coachPlayMeldAlsoCoverSuffix(
-                identityForCardId(meldCoverId),
-              )}';
+                  '${strings.coachPlayMeldAlsoCoverSuffix(identityForCardId(meldCoverId))}';
         return CoachHint(
           category: insight.category,
           title: strings.coachPlayMeldTitle,
@@ -373,9 +369,7 @@ abstract final class CoachHintPresenter {
         final holdDiscardId = insight.discardCardId;
         if (holdDiscardId != null) {
           holdBody =
-              '$holdBody ${strings.coachFiftyHoldDiscardSuffix(
-                identityForCardId(holdDiscardId),
-              )}';
+              '$holdBody ${strings.coachFiftyHoldDiscardSuffix(identityForCardId(holdDiscardId))}';
         }
         return CoachHint(
           category: insight.category,
@@ -575,8 +569,7 @@ abstract final class CoachHintPresenter {
       // benchmarkAlert / opening hints render the requirement in their copy;
       // without this token a raise re-worded the text but never re-keyed the
       // callout animation.
-      if (insight.openingRequirement != null)
-        'o:${insight.openingRequirement}',
+      if (insight.openingRequirement != null) 'o:${insight.openingRequirement}',
     ].join(',');
     return '${insight.category.name}:${ids.join(',')}:$extras';
   }

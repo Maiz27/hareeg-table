@@ -67,9 +67,7 @@ abstract final class SeatMeldArrangement {
     }
     // Side footprints all share the same width (cardH + pad), so a single
     // representative column width yields a stable column count.
-    final colWidth = footprints
-        .map((f) => f.width)
-        .reduce(math.max);
+    final colWidth = footprints.map((f) => f.width).reduce(math.max);
     final maxColumns = math.max(
       1,
       ((laneSize.width + columnGap) / (colWidth + columnGap)).floor(),
@@ -82,8 +80,7 @@ abstract final class SeatMeldArrangement {
     for (var i = 0; i < footprints.length; i++) {
       final h = footprints[i].height;
       final add = col.isEmpty ? h : meldGap + h;
-      final wouldOverflow =
-          col.isNotEmpty && colHeight + add > laneSize.height;
+      final wouldOverflow = col.isNotEmpty && colHeight + add > laneSize.height;
       final canOpenColumn = columns.length + 1 < maxColumns;
       if (wouldOverflow && canOpenColumn) {
         columns.add(col);
@@ -195,10 +192,9 @@ abstract final class SeatMeldArrangement {
     for (var k = 0; k < rows.length; k++) {
       final r = rows[k];
       final rh = rowHeights[k];
-      final widths = r.map((i) => footprints[i].width).fold<double>(
-        0,
-        (s, w) => s + w,
-      );
+      final widths = r
+          .map((i) => footprints[i].width)
+          .fold<double>(0, (s, w) => s + w);
       final rowSpan = widths + math.max(0, r.length - 1) * meldGap;
       var x = math.max(0.0, (laneSize.width - rowSpan) / 2);
       for (final i in r) {
@@ -211,10 +207,7 @@ abstract final class SeatMeldArrangement {
 
     return SeatMeldLayout(
       slots: slots,
-      contentSize: Size(
-        laneSize.width,
-        math.max(laneSize.height, blockHeight),
-      ),
+      contentSize: Size(laneSize.width, math.max(laneSize.height, blockHeight)),
     );
   }
 }

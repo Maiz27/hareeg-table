@@ -92,8 +92,8 @@ class CoachHighlighting {
     }
     final group = groupOf[cardId];
     if (group != null) {
-      return LoungeTokens
-          .coachRingPalette[group % LoungeTokens.coachRingPalette.length];
+      return LoungeTokens.coachRingPalette[group %
+          LoungeTokens.coachRingPalette.length];
     }
     return null;
   }

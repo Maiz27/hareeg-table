@@ -69,7 +69,9 @@ class PlacedMeld {
       return total + (card.effectiveIdentity?.rank.value ?? 0);
     });
     return PlacedMeld(
-      cards: List.unmodifiable(MeldCardOrdering.forCards([...cards, ...coverCards])),
+      cards: List.unmodifiable(
+        MeldCardOrdering.forCards([...cards, ...coverCards]),
+      ),
       valueSnapshot: valueSnapshot,
       coverValue: coverValue + addedValue,
     );
@@ -84,7 +86,6 @@ class PlacedMeld {
     };
   }
 }
-
 
 /// Opening benchmark state for one Classic Hareeg round.
 class OpeningState {

@@ -56,9 +56,7 @@ class LearningProgress {
     final rawLessons = asJsonMap(json['lessons']);
     if (rawLessons != null) {
       for (final entry in rawLessons.entries) {
-        final status = PracticeLessonStatus.fromName(
-          asJsonString(entry.value),
-        );
+        final status = PracticeLessonStatus.fromName(asJsonString(entry.value));
         if (status != PracticeLessonStatus.notStarted) {
           lessons[entry.key] = status;
         }

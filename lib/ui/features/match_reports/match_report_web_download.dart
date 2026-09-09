@@ -28,11 +28,10 @@ class WebDownloadMatchReportShareGateway implements MatchReportShareGateway {
       web.BlobPropertyBag(type: mimeType),
     );
     final url = web.URL.createObjectURL(blob);
-    final anchor =
-        web.document.createElement('a') as web.HTMLAnchorElement
-          ..href = url
-          ..download = fileName
-          ..style.display = 'none';
+    final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+      ..href = url
+      ..download = fileName
+      ..style.display = 'none';
     // The anchor must be in the document for the click to trigger a download;
     // fall back to documentElement on the off chance <body> isn't there yet.
     final parent = web.document.body ?? web.document.documentElement;

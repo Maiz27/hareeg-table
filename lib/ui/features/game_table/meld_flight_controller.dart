@@ -6,7 +6,8 @@ import '../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart';
 import '../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
-import '../../../domain/classic_hareeg/rules/opening_rules.dart' show PlacedMeld;
+import '../../../domain/classic_hareeg/rules/opening_rules.dart'
+    show PlacedMeld;
 import 'table_card_flight_planner.dart';
 import 'table_flight_anchors.dart';
 import 'widgets/meld_flight_overlay.dart';
@@ -94,8 +95,9 @@ class MeldFlightController extends ChangeNotifier {
     // assignments, if any) into the planner so the UI's per-set animation
     // matches the per-meld decomposition the controller will commit.
     final jokerIdentities = <String, CardIdentity>{
-      for (final assignment in descriptor.jokerMeldChoice?.assignments ??
-          const <JokerMeldAssignment>[])
+      for (final assignment
+          in descriptor.jokerMeldChoice?.assignments ??
+              const <JokerMeldAssignment>[])
         assignment.jokerId: assignment.identity,
     };
     final resolved = ClassicHareegTablePlayPlanner.resolveTablePlay(
@@ -167,8 +169,7 @@ class MeldFlightController extends ChangeNotifier {
   /// Resets all flight + ghost state. Used when the CPU loop ends, when an
   /// error path bails, or when a new round is loaded.
   void clear() {
-    final hadAny =
-        _activeFlights.isNotEmpty || _pendingSettledMelds.isNotEmpty;
+    final hadAny = _activeFlights.isNotEmpty || _pendingSettledMelds.isNotEmpty;
     _activeFlights.clear();
     _pendingSettledMelds.clear();
     if (hadAny) {

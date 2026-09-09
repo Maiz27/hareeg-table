@@ -51,9 +51,10 @@ extension StrictnessUiProfile on TableStrictness {
   /// remember the declaration.
   JokerDisplay get jokerDisplay {
     return switch (this) {
-      TableStrictness.coaching || TableStrictness.standard =>
-        JokerDisplay.assisted,
-      TableStrictness.strict || TableStrictness.table => JokerDisplay.memoryReveal,
+      TableStrictness.coaching ||
+      TableStrictness.standard => JokerDisplay.assisted,
+      TableStrictness.strict ||
+      TableStrictness.table => JokerDisplay.memoryReveal,
     };
   }
 

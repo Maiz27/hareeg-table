@@ -108,7 +108,11 @@ class GeometricMotifPainter extends CustomPainter {
     final dot = Paint()
       ..color = color.withValues(alpha: opacity)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(origin.dx + s * 0.4, origin.dy + s * 0.4), 1.4, dot);
+    canvas.drawCircle(
+      Offset(origin.dx + s * 0.4, origin.dy + s * 0.4),
+      1.4,
+      dot,
+    );
   }
 
   void _paintMedallion(Canvas canvas, Size size, Paint paint) {

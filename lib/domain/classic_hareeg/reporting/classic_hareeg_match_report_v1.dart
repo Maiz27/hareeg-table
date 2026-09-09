@@ -107,8 +107,7 @@ Map<String, Object?> encodeMatchReportV1(ClassicHareegMatchReport report) {
       'roundResult': _roundResultToJson(report.roundResult!),
     if (report.matchProgress != null)
       'matchProgress': _matchProgressToJson(report.matchProgress!),
-    if (report.diagnostics != null)
-      'diagnostics': report.diagnostics!.toJson(),
+    if (report.diagnostics != null) 'diagnostics': report.diagnostics!.toJson(),
     if (report.transcript != null) 'transcript': report.transcript!.toJson(),
   };
 }

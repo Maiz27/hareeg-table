@@ -158,8 +158,7 @@ Offset resolveTableMeldSlot(
   final sideMeldTop = topInset + (compact ? 2.0 : 4.0);
   final sideMeldBottomSafe = size.height - (compact ? 12.0 : 16.0);
   final sideMeldHeight = math.max(0.0, sideMeldBottomSafe - sideMeldTop);
-  final sideMeldColumnWidth =
-      sideMeldCardSize.height + (compact ? 8.0 : 10.0);
+  final sideMeldColumnWidth = sideMeldCardSize.height + (compact ? 8.0 : 10.0);
   final sideMeldColumnGap = compact ? 8.0 : 12.0;
   final sideMeldLanePadding = compact ? 8.0 : 12.0;
   final sideMeldWidth =
@@ -249,7 +248,8 @@ Offset _meldSlotCenter({
     math.max(0.0, laneRect.width - inset * 2),
     math.max(0.0, laneRect.height - inset * 2),
   );
-  final sideFacing = slot.seat == PlayerSeat.east || slot.seat == PlayerSeat.west;
+  final sideFacing =
+      slot.seat == PlayerSeat.east || slot.seat == PlayerSeat.west;
   final footprints = [
     for (final count in counts)
       SeatMeldArrangement.footprint(
