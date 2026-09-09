@@ -128,18 +128,14 @@ class MatchHistoryEntryCard extends StatelessWidget {
                 muted: !summary.replayable,
               ),
               if (summary.replayable && onReplay != null)
-                Semantics(
-                  button: true,
-                  label: strings.replayTitle,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: LoungeTokens.tapTargetCardShort,
-                    ),
-                    child: TextButton.icon(
-                      onPressed: onReplay,
-                      icon: const Icon(Icons.movie_outlined, size: 16),
-                      label: Text(strings.replayTitle),
-                    ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: LoungeTokens.tapTargetCardShort,
+                  ),
+                  child: TextButton.icon(
+                    onPressed: onReplay,
+                    icon: const Icon(Icons.movie_outlined, size: 16),
+                    label: Text(strings.replayTitle),
                   ),
                 ),
               _StatusChip(

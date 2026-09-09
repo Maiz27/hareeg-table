@@ -55,6 +55,7 @@ class AppStrings {
   String get abandonSavedMatch => _v('abandonSavedMatch');
   String get classicModeDescription => _v('classicModeDescription');
   String get setupTitle => _v('setupTitle');
+  String get couldNotSaveSetup => _v('couldNotSaveSetup');
   String get startTable => _v('startTable');
   String get tableTitle => _v('tableTitle');
   String get humanSeat => _v('humanSeat');
@@ -1029,6 +1030,7 @@ class AppStrings {
   String get replayCoachQuiet => _v('replayCoachQuiet');
   String get replayCoachNothingToReview => _v('replayCoachNothingToReview');
   String get replayVerbosityNarrateAll => _v('replayVerbosityNarrateAll');
+  String get replayVerbosityLabel => _v('replayVerbosityLabel');
   String get replayVerbosityKeyMoments => _v('replayVerbosityKeyMoments');
   String get replayVerbosityClearMistakes => _v('replayVerbosityClearMistakes');
   String get replayCardDeathWarnings => _v('replayCardDeathWarnings');
@@ -1805,6 +1807,8 @@ const _englishValues = {
       'Four seats, anti-clockwise turns, 51 opening, covers, jokers, and Fifty.',
   'setupTitle': 'Classic Hareeg setup',
   'startTable': 'Start Table',
+  'couldNotSaveSetup':
+      'Could not save game setup. You can still start with your selected settings.',
   'tableTitle': 'Classic Hareeg Table',
   'humanSeat': 'You',
   'stock': 'Stock',
@@ -2002,6 +2006,7 @@ const _englishValues = {
   'replayCoachQuiet': 'Nothing worth flagging on this move.',
   'replayCoachNothingToReview': 'Step to a played move to see the analysis.',
   'replayVerbosityNarrateAll': 'Narrate everything',
+  'replayVerbosityLabel': 'Explanation detail',
   'replayVerbosityKeyMoments': 'Key moments',
   'replayVerbosityClearMistakes': 'Clear mistakes only',
   'replayCardDeathWarnings': 'Dead-card warnings',
@@ -2556,6 +2561,8 @@ const _arabicValues = {
       'أربعة لاعبين، رزمتين من الأوراق، والحد الأدنى للنزول هو 51 نقطة.',
   'setupTitle': 'تجهيز المباراة',
   'startTable': 'ابدأ الطاولة',
+  'couldNotSaveSetup':
+      'تعذر حفظ إعدادات اللعبة. لا يزال بإمكانك بدء اللعب بالإعدادات المحددة.',
   'tableTitle': 'طاولة حريق',
   'humanSeat': 'أنت',
   'stock': 'كومة السحب',
@@ -2739,6 +2746,7 @@ const _arabicValues = {
   'replayCoachQuiet': 'لا شيء يستحق الإشارة إليه في هذه النقلة.',
   'replayCoachNothingToReview': 'انتقل إلى نقلة مُنفّذة لعرض التحليل.',
   'replayVerbosityNarrateAll': 'شرح كل شيء',
+  'replayVerbosityLabel': 'مستوى تفصيل الشرح',
   'replayVerbosityKeyMoments': 'اللحظات المهمة',
   'replayVerbosityClearMistakes': 'الأخطاء الواضحة فقط',
   'replayCardDeathWarnings': 'تنبيهات الأوراق المنتهية',

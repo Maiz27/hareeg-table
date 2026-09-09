@@ -279,7 +279,10 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
         ReplayBranchSeed.refusalFor(frame, nextFrame: nextFrame) != null) {
       return;
     }
-    final visibility = await showBranchEntrySheet(context);
+    final visibility = await showBranchEntrySheet(
+      context,
+      highContrast: widget.preferences?.highContrastCards ?? false,
+    );
     if (!mounted || visibility == null) {
       return;
     }

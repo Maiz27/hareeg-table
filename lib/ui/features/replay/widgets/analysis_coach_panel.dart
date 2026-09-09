@@ -340,34 +340,36 @@ class _VerbosityMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return Semantics(
-      label: strings.replayCoachTitle,
-      child: DropdownButton<AnalysisVerbosity>(
-        value: settings.verbosity,
-        dropdownColor: LoungeTokens.coffeeCharcoal,
-        style: LoungeTokens.bodyMuted,
-        underline: const SizedBox.shrink(),
-        // Fills whatever width it is given instead of demanding its intrinsic
-        // one, and ellipsizes the level name rather than pushing the icon off
-        // the edge. The full value stays reachable through the semantics label
-        // and the open menu.
-        isExpanded: true,
-        onChanged: (value) {
-          if (value != null) {
-            onChanged(settings.copyWith(verbosity: value));
-          }
-        },
-        items: [
-          for (final verbosity in AnalysisVerbosity.values)
-            DropdownMenuItem(
-              value: verbosity,
-              child: Text(
-                verbosityLabel(strings, verbosity),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return MergeSemantics(
+      child: Semantics(
+        label: strings.replayVerbosityLabel,
+        child: DropdownButton<AnalysisVerbosity>(
+          value: settings.verbosity,
+          dropdownColor: LoungeTokens.coffeeCharcoal,
+          style: LoungeTokens.bodyMuted,
+          underline: const SizedBox.shrink(),
+          // Fills whatever width it is given instead of demanding its intrinsic
+          // one, and ellipsizes the level name rather than pushing the icon off
+          // the edge. The full value stays reachable through the semantics label
+          // and the open menu.
+          isExpanded: true,
+          onChanged: (value) {
+            if (value != null) {
+              onChanged(settings.copyWith(verbosity: value));
+            }
+          },
+          items: [
+            for (final verbosity in AnalysisVerbosity.values)
+              DropdownMenuItem(
+                value: verbosity,
+                child: Text(
+                  verbosityLabel(strings, verbosity),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -396,13 +398,15 @@ class _CardDeathToggle extends StatelessWidget {
             minWidth: LoungeTokens.tapTargetCardShort,
             minHeight: LoungeTokens.tapTargetCardShort,
           ),
-          child: Semantics(
-            label: strings.replayCardDeathWarnings,
-            toggled: settings.cardDeathWarnings,
-            child: Switch(
-              value: settings.cardDeathWarnings,
-              onChanged: (value) =>
-                  onChanged(settings.copyWith(cardDeathWarnings: value)),
+          child: MergeSemantics(
+            child: Semantics(
+              label: strings.replayCardDeathWarnings,
+              toggled: settings.cardDeathWarnings,
+              child: Switch(
+                value: settings.cardDeathWarnings,
+                onChanged: (value) =>
+                    onChanged(settings.copyWith(cardDeathWarnings: value)),
+              ),
             ),
           ),
         ),

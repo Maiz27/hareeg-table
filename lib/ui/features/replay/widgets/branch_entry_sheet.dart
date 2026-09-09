@@ -13,16 +13,21 @@ import '../../game_table/table_session_config.dart';
 /// invalid state the mode table exists to close.
 ///
 /// Resolves to the chosen visibility, or null when the player backs out.
-Future<BranchVisibility?> showBranchEntrySheet(BuildContext context) {
+Future<BranchVisibility?> showBranchEntrySheet(
+  BuildContext context, {
+  bool highContrast = false,
+}) {
   return showDialog<BranchVisibility>(
     context: context,
     barrierColor: LoungeTokens.overlayScrim,
-    builder: (context) => const _BranchEntryDialog(),
+    builder: (context) => _BranchEntryDialog(highContrast: highContrast),
   );
 }
 
 class _BranchEntryDialog extends StatelessWidget {
-  const _BranchEntryDialog();
+  const _BranchEntryDialog({required this.highContrast});
+
+  final bool highContrast;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +40,7 @@ class _BranchEntryDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 520),
         child: SingleChildScrollView(
           child: LoungePanel(
-            highContrast: false,
+            highContrast: highContrast,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

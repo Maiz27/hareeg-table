@@ -172,12 +172,21 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
     );
   }
 
-  void _update(ClassicHareegSetup setup) {
+  Future<void> _update(ClassicHareegSetup setup) async {
     setState(() {
       _setup = setup;
       _preferences = _preferences.copyWith(setup: setup);
     });
-    widget.preferencesRepository.savePreferences(_preferences);
+    try {
+      await widget.preferencesRepository.savePreferences(_preferences);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(context.strings.couldNotSaveSetup)),
+        );
+    }
   }
 
   Future<void> _loadPreferences() async {

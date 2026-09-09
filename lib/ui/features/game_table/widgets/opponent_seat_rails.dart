@@ -272,22 +272,24 @@ class _MaybeExpandable extends StatelessWidget {
       // The name is on the Semantics below. Web renders label and tooltip
       // both as text, so carrying both announces the rail twice.
       excludeFromSemantics: true,
-      child: Semantics(
-        button: true,
-        enabled: true,
-        label: label,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
           onTap: expand,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: minTapTarget,
-              minHeight: minTapTarget,
+          child: Semantics(
+            button: true,
+            enabled: true,
+            label: label,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: minTapTarget,
+                minHeight: minTapTarget,
+              ),
+              // Centered rather than stretched: the cards keep the size and
+              // position the blind and live rails give them, and only the
+              // reachable area around them grows.
+              child: Center(child: child),
             ),
-            // Centered rather than stretched: the cards keep the size and
-            // position the blind and live rails give them, and only the
-            // reachable area around them grows.
-            child: Center(child: child),
           ),
         ),
       ),

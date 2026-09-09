@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/cpu/classic_hareeg/coaching/analysis_coach_settings.dart';
 import 'package:hareeg_table/domain/classic_hareeg/history/match_history_outcomes.dart';
 import 'package:hareeg_table/domain/classic_hareeg/history/match_replay_record.dart';
 import 'package:hareeg_table/domain/classic_hareeg/replay/replay_branch_seed.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/match_action_transcript.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/l10n/app_strings.dart';
+import 'package:hareeg_table/data/persistence/preferences_repository.dart';
+import 'package:hareeg_table/ui/core/panels/lounge_panel.dart';
 import 'package:hareeg_table/ui/features/game_table/table_mode.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
 import 'package:hareeg_table/ui/features/replay/views/branch_sandbox_host.dart';
@@ -47,6 +48,7 @@ void main() {
     WidgetTester tester, {
     AppStrings strings = AppStrings.english,
     Size size = const Size(1688, 780),
+    bool highContrast = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 2.0;
@@ -64,6 +66,9 @@ void main() {
               ),
               historyRepository: _StaticHistoryRepository(_transcript),
               analysisCoach: AnalysisCoachSettings.defaults(),
+              preferences: GamePreferences.defaults().copyWith(
+                highContrastCards: highContrast,
+              ),
             ),
           ),
         ),
@@ -75,6 +80,17 @@ void main() {
   Finder branchControl() => find.byKey(const ValueKey('replay-branch-control'));
 
   group('the chooser', () {
+    for (final contrast in [false, true]) {
+      testWidgets('inherits replay high contrast $contrast', (tester) async {
+        await pumpReplay(tester, highContrast: contrast);
+        await tester.tap(branchControl());
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<LoungePanel>(find.byType(LoungePanel)).highContrast,
+          contrast,
+        );
+      });
+    }
     for (final strings in [AppStrings.english, AppStrings.arabic]) {
       testWidgets('opens and dismisses in ${strings.languageCode}', (
         tester,
