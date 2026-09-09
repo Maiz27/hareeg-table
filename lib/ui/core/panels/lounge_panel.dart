@@ -97,7 +97,10 @@ class LoungePanelHeader extends StatelessWidget {
     required this.subtitle,
     required this.onClose,
     required this.closeTooltip,
-  });
+  }) : assert(
+         onClose == null || closeTooltip != null,
+         'a close button must be named',
+       );
 
   /// Icon shown in the leading badge.
   final IconData icon;
@@ -108,11 +111,15 @@ class LoungePanelHeader extends StatelessWidget {
   /// Panel subtitle (muted body style).
   final String subtitle;
 
-  /// Invoked when the close button is tapped.
-  final VoidCallback onClose;
+  /// Invoked when the close button is tapped, or null for no close button.
+  ///
+  /// Null is not "a disabled close": the button is not built at all. A panel
+  /// whose contract is an exhaustive list of actions cannot carry a fourth one
+  /// that merely repeats one of them.
+  final VoidCallback? onClose;
 
-  /// Tooltip for the close button.
-  final String closeTooltip;
+  /// Tooltip for the close button. Required whenever [onClose] is non-null.
+  final String? closeTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -131,12 +138,28 @@ class LoungePanelHeader extends StatelessWidget {
             ],
           ),
         ),
-        IconButton(
-          onPressed: onClose,
-          icon: const Icon(Icons.close),
-          tooltip: closeTooltip,
-          color: LoungeTokens.mutedText,
-        ),
+        if (onClose != null)
+          // Named once. An icon-only `IconButton` publishes a button node
+          // with a tooltip and no label, so a screen reader announces an
+          // unnamed button; the name is put on the node instead, and the
+          // tooltip is excluded from semantics so web does not render it as a
+          // second copy of that name.
+          Tooltip(
+            message: closeTooltip!,
+            excludeFromSemantics: true,
+            child: MergeSemantics(
+              child: Semantics(
+                label: closeTooltip,
+                button: true,
+                enabled: true,
+                child: IconButton(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close),
+                  color: LoungeTokens.mutedText,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -183,6 +206,7 @@ class LoungePanelAction {
     required this.label,
     required this.onTap,
     required this.tone,
+    this.tooltip,
   });
 
   /// Leading icon.
@@ -190,6 +214,14 @@ class LoungePanelAction {
 
   /// Button label.
   final String label;
+
+  /// Localized tooltip, or null to publish none.
+  ///
+  /// Optional so every existing panel is untouched. It is a **pointer**
+  /// affordance: the button already publishes its name to assistive tech, and
+  /// the tooltip is deliberately excluded from semantics so the name is
+  /// announced once rather than twice.
+  final String? tooltip;
 
   /// Tap handler.
   final VoidCallback onTap;
@@ -246,6 +278,19 @@ class LoungePanelActions extends StatelessWidget {
   }
 
   Widget _buildAction(LoungePanelAction action, {required bool isPrimary}) {
+    final button = _buildButton(action, isPrimary: isPrimary);
+    final tooltip = action.tooltip;
+    if (tooltip == null) return button;
+    // The tooltip is a pointer affordance and is deliberately kept OUT of the
+    // semantics: the button's own node already carries the name, and Flutter
+    // web renders a node's label and its tooltip both as text, so a node
+    // carrying both makes a screen reader say the name twice. That is the
+    // defect round 1 reproduced on the docked branch control. The visible
+    // tooltip is unchanged.
+    return Tooltip(message: tooltip, excludeFromSemantics: true, child: button);
+  }
+
+  Widget _buildButton(LoungePanelAction action, {required bool isPrimary}) {
     if (isPrimary) {
       return FilledButton.icon(
         onPressed: action.onTap,

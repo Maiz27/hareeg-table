@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
@@ -92,12 +94,27 @@ class CoachOverlay extends StatelessWidget {
               // table-meld lanes, and the player's hand; the coach ring on the
               // referenced cards does the precise pointing. Side insets clear
               // the top-corner score / pause buttons.
+              // The side insets are a FRACTION of the width, not a constant.
+              //
+              // A fixed 54 clears the corner buttons on a wide table and eats
+              // a narrow one alive: the web build lays the table out in a
+              // canvas of fixed height 430, so the docked 390x844 sandbox is
+              // only ~199 logical pixels across. 54 a side left the callout's
+              // text column 6.7 pixels and Flutter raised "A RenderFlex
+              // overflowed by 37 pixels on the right" on every coach hint
+              // there. The fraction keeps the same clearance at the sizes that
+              // already worked -- 0.14 of 700 is 98, past the 66 it would have
+              // used -- so this only takes effect where the old value did not
+              // fit.
+              final base = compact ? 54.0 : 66.0;
+              final side = math.min(base, constraints.maxWidth * 0.14);
               return Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
+                  key: const ValueKey('coach-overlay-insets'),
                   padding: EdgeInsets.only(
-                    left: compact ? 54 : 66,
-                    right: compact ? 54 : 66,
+                    left: side,
+                    right: side,
                     top: compact ? 4 : 8,
                   ),
                   child: SizedBox(width: double.infinity, child: animated),
@@ -155,13 +172,23 @@ class _CoachCallout extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    strings.coachLabel.toUpperCase(),
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                  // Flexible, like the title beside it. This is the child that
+                  // actually overflowed: the title could already ellipsize, so
+                  // when the row ran out of room the fixed-width eyebrow was
+                  // the one with nowhere to go. Loose fit means it still draws
+                  // at its natural size wherever there is space, so nothing
+                  // changes on a table that already fitted.
+                  Flexible(
+                    child: Text(
+                      strings.coachLabel.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                   const SizedBox(width: LoungeTokens.space2),

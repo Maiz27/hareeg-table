@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../domain/classic_hareeg/models/player_seat.dart';
 import '../domain/classic_hareeg/models/playing_card.dart';
-import '../domain/classic_hareeg/models/table_strictness.dart';
 
 /// Locale-aware string catalog for user-facing copy.
 ///
@@ -200,6 +200,11 @@ class AppStrings {
   String get nextNow => _v('nextNow');
   String get menu => _v('menu');
   String get couldNotSaveTable => _v('couldNotSaveTable');
+  String get archiveRecoveryRequired => _v('archiveRecoveryRequired');
+  String get archiveSaveFailed => _v('archiveSaveFailed');
+  String get discardDamagedSave => _v('discardDamagedSave');
+  String get discardDamagedSaveWarning => _v('discardDamagedSaveWarning');
+  String get historyPlacementUnknown => _v('historyPlacementUnknown');
   String get reportTableIssue => _v('reportTableIssue');
   String get exportMatchReport => _v('exportMatchReport');
   String get matchReportShareReady => _v('matchReportShareReady');
@@ -969,6 +974,392 @@ class AppStrings {
     return '$deckCount decks  ·  ${fiftyTimerSeconds}s fifty';
   }
 
+  // --- match history and statistics ------------------------------------
+
+  String get historyTitle => _v('historyTitle');
+  String get historyMenuLabel => _v('historyMenuLabel');
+  String get historyEmptyTitle => _v('historyEmptyTitle');
+  String get historyEmptyBody => _v('historyEmptyBody');
+  String get historyLoadFailedRetryableTitle =>
+      _v('historyLoadFailedRetryableTitle');
+  String get historyLoadFailedRetryableBody =>
+      _v('historyLoadFailedRetryableBody');
+  String get historyLoadFailedCorruptTitle =>
+      _v('historyLoadFailedCorruptTitle');
+  String get historyLoadFailedCorruptBody => _v('historyLoadFailedCorruptBody');
+  String get historyRetry => _v('historyRetry');
+  String get historyCancel => _v('historyCancel');
+  String get historyDelete => _v('historyDelete');
+  String get historyDeleteTooltip => _v('historyDeleteTooltip');
+  String get historyDeleteConfirmTitle => _v('historyDeleteConfirmTitle');
+  String get historyDeleteConfirmBody => _v('historyDeleteConfirmBody');
+  String get historyDeleteFailedRetryable => _v('historyDeleteFailedRetryable');
+  String get historyDeleteFailedCorrupt => _v('historyDeleteFailedCorrupt');
+  String get historyReplayAvailable => _v('historyReplayAvailable');
+  String get historyReplayUnavailable => _v('historyReplayUnavailable');
+
+  // --- replay viewer -----------------------------------------------------
+
+  String get replayTitle => _v('replayTitle');
+
+  /// Leaves the replay. Shown in the short layout, which has no app bar.
+  String get replayBack => _v('replayBack');
+  String get replayLoading => _v('replayLoading');
+  String get replayFirst => _v('replayFirst');
+  String get replayPrevious => _v('replayPrevious');
+  String get replayNext => _v('replayNext');
+  String get replayLast => _v('replayLast');
+  String get replayPreviousRound => _v('replayPreviousRound');
+  String get replayNextRound => _v('replayNextRound');
+  String get replaySeek => _v('replaySeek');
+  String get replayDeal => _v('replayDeal');
+  String get replayRetry => _v('replayRetry');
+  String replayLoadingFrames(int count) => languageCode == 'ar'
+      ? 'تمت إعادة بناء $count خطوة'
+      : '$count steps rebuilt';
+  String get replayUnavailableTitle => _v('replayUnavailableTitle');
+  String get replayReasonDataUnusable => _v('replayReasonDataUnusable');
+  String get replayReasonReconstructionFailed =>
+      _v('replayReasonReconstructionFailed');
+  String get replayReasonMetadataInvalid => _v('replayReasonMetadataInvalid');
+  String get replayLoadFailedRetryable => _v('replayLoadFailedRetryable');
+  String get replayLoadFailedCorrupt => _v('replayLoadFailedCorrupt');
+  String get replayCoachTitle => _v('replayCoachTitle');
+  String get replayCoachQuiet => _v('replayCoachQuiet');
+  String get replayCoachNothingToReview => _v('replayCoachNothingToReview');
+  String get replayVerbosityNarrateAll => _v('replayVerbosityNarrateAll');
+  String get replayVerbosityKeyMoments => _v('replayVerbosityKeyMoments');
+  String get replayVerbosityClearMistakes => _v('replayVerbosityClearMistakes');
+  String get replayCardDeathWarnings => _v('replayCardDeathWarnings');
+  String get replayOverrideNote => _v('replayOverrideNote');
+  String get settingsReviewTitle => _v('settingsReviewTitle');
+  String get settingsReviewSubtitle => _v('settingsReviewSubtitle');
+  String get replayActionUnknown => _v('replayActionUnknown');
+
+  /// Stands in for a card the reviewer could not have identified.
+  ///
+  /// Never "Joker": naming a specific card the player did not see is worse
+  /// than admitting the card is unknown.
+  String get replayUnnamedCard => _v('replayUnnamedCard');
+  String get replayWinnerLabel => _v('replayWinnerLabel');
+
+  // --- branch-and-play sandbox --------------------------------------------
+
+  String get branchStart => _v('branchStart');
+  String get branchUnavailableComplete => _v('branchUnavailableComplete');
+  String get branchEntryTitle => _v('branchEntryTitle');
+  String get branchEntryBody => _v('branchEntryBody');
+  String get branchEntryBlind => _v('branchEntryBlind');
+  String get branchEntryBlindNote => _v('branchEntryBlindNote');
+  String get branchEntryStudy => _v('branchEntryStudy');
+  String get branchEntryStudyNote => _v('branchEntryStudyNote');
+  String get branchEntryCancel => _v('branchEntryCancel');
+  String get branchSandboxBadge => _v('branchSandboxBadge');
+  String get branchExitSandbox => _v('branchExitSandbox');
+  String get branchExitTitle => _v('branchExitTitle');
+  String get branchExitBody => _v('branchExitBody');
+  String get branchExitConfirm => _v('branchExitConfirm');
+  String get branchExitCancel => _v('branchExitCancel');
+  String get branchPauseTitle => _v('branchPauseTitle');
+  String get branchResume => _v('branchResume');
+  String get branchRestart => _v('branchRestart');
+  String get branchReturnToReplay => _v('branchReturnToReplay');
+  String get branchCoachToggle => _v('branchCoachToggle');
+  String get branchCompletionTitle => _v('branchCompletionTitle');
+  String get branchCompletionBody => _v('branchCompletionBody');
+  String get branchStudyHandClose => _v('branchStudyHandClose');
+
+  /// Title of the read-only expanded view of one revealed hand.
+  String branchStudyHandTitle(PlayerSeat seat) {
+    final who = seatLabel(seat);
+    return isRtl ? 'يد $who' : "$who's hand";
+  }
+
+  /// Semantics label for one opponent rail in study mode.
+  String branchStudyHandExpand(PlayerSeat seat) {
+    final who = seatLabel(seat);
+    return isRtl ? 'اعرض يد $who' : "Show $who's hand";
+  }
+
+  /// Round the sandbox branched from, shown in the sandbox chrome.
+  String branchFromRound(int roundNumber) {
+    return isRtl ? 'من الجولة $roundNumber' : 'From round $roundNumber';
+  }
+
+  // --- replay analysis coach ---------------------------------------------
+  //
+  // Whole sentences per case rather than glued fragments: Arabic and English
+  // do not agree on where a seat name or a card goes, and a sentence assembled
+  // from parts in the widget layer reads wrong in at least one of them.
+
+  String replayPosition(int round, int step, int total) {
+    return isRtl
+        ? 'الجولة $round · $step من $total'
+        : 'Round $round · $step of $total';
+  }
+
+  String replayRoundStart(int round) {
+    return isRtl ? 'بداية الجولة $round' : 'Round $round begins';
+  }
+
+  String replayActionLine(PlayerSeat seat, String phrase) {
+    final who = seatLabel(seat);
+    return isRtl ? '$who $phrase' : '$who $phrase';
+  }
+
+  String replayActionDraw() =>
+      isRtl ? 'سحب من المجموعة' : 'drew from the stock';
+
+  String replayActionTakeDiscard(String card) {
+    return isRtl ? 'أخذ $card من الكومة' : 'took the $card from the pile';
+  }
+
+  String replayActionUsePending(String card) {
+    return isRtl ? 'استخدم $card المأخوذة' : 'used the taken $card';
+  }
+
+  String replayActionReturnPending() {
+    return isRtl ? 'أعاد الورقة المأخوذة' : 'put the taken card back';
+  }
+
+  String replayActionReturnMelds() {
+    return isRtl ? 'سحب تشكيلات الفتح' : 'took back the opening melds';
+  }
+
+  String replayActionReturnTablePlay() {
+    return isRtl ? 'تراجع عن نقلة على الطاولة' : 'took back a table play';
+  }
+
+  String replayActionClaimFifty() {
+    return isRtl ? 'طالب بالخمسين' : 'claimed Fifty';
+  }
+
+  String replayActionPlayMeld() {
+    return isRtl ? 'أنزل تشكيلة' : 'laid down a meld';
+  }
+
+  String replayActionPlayMeldJoker() {
+    return isRtl ? 'أنزل تشكيلة بجوكر' : 'laid down a meld using a joker';
+  }
+
+  String replayActionCover(String card) {
+    return isRtl ? 'أضاف $card إلى تشكيلة' : 'laid the $card onto a meld';
+  }
+
+  String replayActionReplaceJoker(String card) {
+    return isRtl ? 'استبدل جوكرًا بـ$card' : 'swapped the $card in for a joker';
+  }
+
+  String replayActionDiscard(String card) {
+    return isRtl ? 'رمى $card' : 'discarded the $card';
+  }
+
+  String replayActionDiscardBlocked(String card) {
+    return isRtl
+        ? 'رمى $card رغم أنها تصلح للإضافة'
+        : 'discarded the $card even though it fitted a meld';
+  }
+
+  String replayActionDiscardJoker(String card) {
+    return isRtl ? 'رمى الجوكر $card' : 'discarded the joker $card';
+  }
+
+  // Insight sentences.
+
+  String replayInsightDeadDevelopment(String cards) {
+    return isRtl
+        ? 'أنت متمسّك بـ$cards، وكل الأوراق التي تُكملها ظهرت بالفعل — لم تعد هذه المجموعة قابلة للاكتمال.'
+        : 'You are holding $cards, and every card that would complete it has already appeared — that group can no longer become a meld.';
+  }
+
+  String replayInsightDeadPickup(String card) {
+    return isRtl
+        ? 'أخذتَ $card لتكمل مجموعة كل أوراقها المكمِّلة ظهرت بالفعل.'
+        : 'You took the $card into a group whose completing cards have all already appeared.';
+  }
+
+  String replayInsightFeedRisk(String card, PlayerSeat target) {
+    final who = seatLabel(target);
+    return isRtl
+        ? 'رميتَ $card إلى $who، والدليل المعروض على الطاولة يشير إلى أنها قد تفيدهم.'
+        : 'You passed the $card to $who, and what they have shown at the table suggests it may help them.';
+  }
+
+  String replayInsightSafeDiscard(String card, PlayerSeat target) {
+    final who = seatLabel(target);
+    return isRtl
+        ? 'لا شيء مما أظهره $who يشير إلى أن $card تفيدهم.'
+        : 'Nothing $who has shown suggests the $card helps them.';
+  }
+
+  String replayInsightMissedCover(String card) {
+    return isRtl
+        ? 'كانت $card تصلح للإضافة إلى تشكيلة على الطاولة في هذه النقلة.'
+        : 'The $card could have gone onto a meld already on the table this turn.';
+  }
+
+  String replayInsightCollectingTell(PlayerSeat seat, String card) {
+    final who = seatLabel(seat);
+    return isRtl
+        ? 'أخذ $who $card، وهو ما يتّسق مع ما يجمعه علنًا.'
+        : '$who took the $card, which fits what they have been collecting in the open.';
+  }
+
+  String replayInsightOpponentOpened(PlayerSeat seat) {
+    final who = seatLabel(seat);
+    return isRtl ? 'فتح $who هنا.' : '$who opened here.';
+  }
+
+  String replayInsightFiftyWindow(String card, int seconds) {
+    return isRtl
+        ? 'كانت نافذة الخمسين مفتوحة على $card، وبقي منها $seconds ثانية.'
+        : 'A Fifty window was open on the $card, with $seconds seconds left.';
+  }
+
+  // Evidence lines.
+
+  String replayEvidenceDeadIdentity(String card, int copies) {
+    return isRtl
+        ? 'كل نسخ $card ($copies) مرئية بالفعل.'
+        : 'All $copies copies of the $card are already visible.';
+  }
+
+  String replayEvidencePickup(PlayerSeat seat, String cards) {
+    final who = seatLabel(seat);
+    return isRtl
+        ? 'أخذ $who من الكومة: $cards.'
+        : '$who took from the pile: $cards.';
+  }
+
+  String replayEvidenceVisibleMeld(String cards) {
+    return isRtl
+        ? 'مكشوف على الطاولة: $cards.'
+        : 'Face up on the table: $cards.';
+  }
+
+  String replayEvidenceHandCount(PlayerSeat seat, int count) {
+    final who = seatLabel(seat);
+    return isRtl ? 'يحمل $who $count ورقة.' : '$who is holding $count cards.';
+  }
+
+  String replayEvidenceOpeningState(PlayerSeat seat, int requirement) {
+    final who = seatLabel(seat);
+    return isRtl
+        ? 'شرط الفتح لـ$who هو $requirement.'
+        : 'The opening requirement for $who is $requirement.';
+  }
+
+  String replayEvidenceFiftyWindow(String card, int seconds) {
+    return isRtl
+        ? 'نافذة الخمسين على $card، بقي $seconds ثانية.'
+        : 'Fifty window on the $card, $seconds seconds left.';
+  }
+
+  String replayEvidenceScore(PlayerSeat seat, int score) {
+    final who = seatLabel(seat);
+    return isRtl ? 'نقاط $who: $score.' : "$who's score is $score.";
+  }
+
+  String replayEvidenceNoPublicTell(PlayerSeat seat, int meldCount) {
+    final who = seatLabel(seat);
+    return isRtl
+        ? 'لم يأخذ $who من الكومة ما يناسب هذه الورقة، ولا في تشكيلاته المكشوفة ($meldCount) ما تُضاف إليه.'
+        : '$who has taken nothing from the pile that this card fits, and none of their $meldCount face-up melds accepts it.';
+  }
+
+  String replayEvidenceOwnHand(String cards) {
+    return isRtl ? 'في يدك: $cards.' : 'In your hand: $cards.';
+  }
+
+  String get historyCoachOn => _v('historyCoachOn');
+  String get historyCoachOff => _v('historyCoachOff');
+  String get historySetupHeading => _v('historySetupHeading');
+  String get historyOutcomeHeading => _v('historyOutcomeHeading');
+  String get historyWinnerLabel => _v('historyWinnerLabel');
+  String get historyPlacementLabel => _v('historyPlacementLabel');
+  String get historyRoundsLabel => _v('historyRoundsLabel');
+
+  String get statisticsTitle => _v('statisticsTitle');
+  String get statisticsMenuLabel => _v('statisticsMenuLabel');
+  String get statisticsEmptyTitle => _v('statisticsEmptyTitle');
+  String get statisticsEmptyBody => _v('statisticsEmptyBody');
+  String get statsOverallHeading => _v('statsOverallHeading');
+  String get statsByDifficultyHeading => _v('statsByDifficultyHeading');
+  String get statsByStrictnessHeading => _v('statsByStrictnessHeading');
+  String get statsByCoachHeading => _v('statsByCoachHeading');
+  String get statsCoachOnGroup => _v('statsCoachOnGroup');
+  String get statsCoachOffGroup => _v('statsCoachOffGroup');
+  String get statsGamesPlayed => _v('statsGamesPlayed');
+  String get statsWinRate => _v('statsWinRate');
+  String get statsAveragePlacement => _v('statsAveragePlacement');
+  String get statsFiftyAttemptRate => _v('statsFiftyAttemptRate');
+  String get statsFiftySuccessRate => _v('statsFiftySuccessRate');
+  String get statsAverageMargin => _v('statsAverageMargin');
+  String get statsMarginDirection => _v('statsMarginDirection');
+
+  /// Note shown while the sample is too small to read much into.
+  String statsLowDataNote(int matches) {
+    return isRtl
+        ? 'مبني على $matches مباريات فقط حتى الآن — الأرقام المبكرة تتقلب كثيراً.'
+        : 'Based on just $matches so far — early numbers move a lot.';
+  }
+
+  /// Discloses the Fifty denominator when it is smaller than games played.
+  ///
+  /// Shown per slice, because a single difficulty or coaching group can hold
+  /// unmeasured matches while the rest of the screen is fully measured.
+  String statsFiftyMeasuredNote(int measured, int played) {
+    return isRtl
+        ? 'أرقام الخمسين محسوبة من $measured من أصل $played مباريات؛ الباقي لم يُقَس.'
+        : 'Fifty figures from $measured of $played matches; the rest were never measured.';
+  }
+
+  /// One seat's final score, e.g. `You 4`.
+  String historySeatScore(PlayerSeat seat, int score) {
+    return '${seatLabel(seat)} $score';
+  }
+
+  /// The human seat's finishing position, e.g. `1st of 4`.
+  String historyPlacementValue(int placement, int seats) {
+    return isRtl ? 'المركز $placement من $seats' : '$placement of $seats';
+  }
+
+  /// Rounds dealt during a match.
+  String historyRoundsValue(int rounds) {
+    return isRtl ? '$rounds جولات' : '$rounds rounds';
+  }
+
+  /// Opening requirement shown on a history entry.
+  String historyOpeningValue(int requirement) {
+    return isRtl ? 'نزول $requirement' : '$requirement opening';
+  }
+
+  /// Joker count shown on a history entry.
+  String historyJokersValue(int jokers) {
+    return isRtl ? '$jokers جوكر' : '$jokers jokers';
+  }
+
+  /// Player-facing label for a [CpuDifficulty] profile.
+  ///
+  /// `CpuDifficulty.label` is an English-only constant, so it must never reach
+  /// the UI.
+  String cpuDifficultyLabel(CpuDifficulty difficulty) {
+    return switch (difficulty) {
+      CpuDifficulty.beginner => beginner,
+      CpuDifficulty.casual => casual,
+      CpuDifficulty.skilled => skilled,
+      CpuDifficulty.expert => expert,
+    };
+  }
+
+  /// Player-facing label for a [StarterMode].
+  String starterModeLabel(StarterMode mode) {
+    return switch (mode) {
+      StarterMode.human => youStart,
+      StarterMode.random => random,
+    };
+  }
+
   /// Player-facing label for a [TableStrictness] tier.
   String tableStrictnessLabel(TableStrictness tier) {
     if (isRtl) {
@@ -1535,6 +1926,134 @@ const _englishValues = {
   'random': 'Random',
   'openingRequirement': 'Opening requirement',
   'jokers': 'Jokers',
+  'historyTitle': 'Match history',
+  'historyMenuLabel': 'History',
+  'historyEmptyTitle': 'No saved matches yet',
+  'historyEmptyBody':
+      'Play a match through to a winner and it will be saved here, with the '
+      'setup it was played under and how it finished.',
+  'historyLoadFailedRetryableTitle': 'Could not open your history',
+  'historyLoadFailedRetryableBody':
+      'Your saved matches could not be read just now. They are still there — '
+      'try again.',
+  'historyLoadFailedCorruptTitle': 'Your saved history cannot be read',
+  'historyLoadFailedCorruptBody':
+      'The stored history data is damaged, so it cannot be opened. Trying '
+      'again will not change that.',
+  'historyRetry': 'Try again',
+  'historyCancel': 'Cancel',
+  'historyDelete': 'Delete',
+  'historyDeleteTooltip': 'Delete this match',
+  'historyDeleteConfirmTitle': 'Delete this match?',
+  'historyDeleteConfirmBody':
+      'Its summary and its replay will both be removed. This cannot be undone.',
+  'historyDeleteFailedRetryable':
+      'That match could not be deleted just now. It is still here — try again.',
+  'historyDeleteFailedCorrupt':
+      'Your saved history cannot be read, so that match cannot be removed. '
+      'Trying again will not change that.',
+  'historyReplayAvailable': 'Replay saved',
+  'historyReplayUnavailable': 'Replay unavailable',
+  'replayTitle': 'Replay',
+  'replayBack': 'Back',
+  'replayLoading': 'Rebuilding the match…',
+  'replayFirst': 'Jump to the start',
+  'replayPrevious': 'Previous step',
+  'replayNext': 'Next step',
+  'replayLast': 'Jump to the end',
+  'replayPreviousRound': 'Previous round',
+  'replayNextRound': 'Next round',
+  'replaySeek': 'Scrub through the match',
+  'replayDeal': 'The hand is dealt',
+  'replayRetry': 'Try again',
+  'replayUnavailableTitle': 'This replay cannot be opened',
+  'replayReasonDataUnusable':
+      'The saved replay for this match is missing or unreadable. The match summary is kept, but it can no longer be replayed.',
+  'replayReasonReconstructionFailed':
+      'The saved replay could not be rebuilt into a playable match. The match summary is kept, but it can no longer be replayed.',
+  'replayReasonMetadataInvalid':
+      'The saved replay does not match the game it describes, so replaying it would show the wrong thing. The match summary is kept, but it can no longer be replayed.',
+  'replayLoadFailedRetryable':
+      'The replay could not be loaded just now. This usually passes.',
+  'replayLoadFailedCorrupt':
+      'Your match history could not be read. Reopening it will not help — the stored data itself is damaged.',
+  'replayCoachTitle': 'Analysis',
+  'replayCoachQuiet': 'Nothing worth flagging on this move.',
+  'replayCoachNothingToReview': 'Step to a played move to see the analysis.',
+  'replayVerbosityNarrateAll': 'Narrate everything',
+  'replayVerbosityKeyMoments': 'Key moments',
+  'replayVerbosityClearMistakes': 'Clear mistakes only',
+  'replayCardDeathWarnings': 'Dead-card warnings',
+  'replayOverrideNote': 'Changed for this replay only.',
+  'settingsReviewTitle': 'Review & analysis',
+  'settingsReviewSubtitle':
+      'How much the analysis coach says while you replay a finished match.',
+  'replayActionUnknown': 'made a move',
+  'replayUnnamedCard': 'a card',
+  'replayWinnerLabel': 'Winner',
+  'branchStart': 'Play on from here',
+  'branchUnavailableComplete':
+      'The match is already decided at this step, so there is nothing left to '
+      'play out.',
+  'branchEntryTitle': 'Play on from here',
+  'branchEntryBody':
+      'Take the south seat from this exact position and play it out against '
+      'live opponents. Nothing you do here is saved, and your history and '
+      'statistics stay exactly as they are.',
+  'branchEntryBlind': 'Play blind',
+  'branchEntryBlindNote':
+      'Opponent hands stay hidden, exactly as they were in the real match.',
+  'branchEntryStudy': 'Study mode',
+  'branchEntryStudyNote':
+      'Every opponent hand is face up. Seeing them changes nothing about how '
+      'they play.',
+  'branchEntryCancel': 'Not now',
+  'branchSandboxBadge': 'Sandbox',
+  'branchExitSandbox': 'Leave the sandbox',
+  'branchExitTitle': 'Leave this sandbox?',
+  'branchExitBody':
+      'You have played on from the branch point. Leaving discards everything '
+      'that happened here and returns you to the replay.',
+  'branchExitConfirm': 'Discard and return',
+  'branchExitCancel': 'Keep playing',
+  'branchPauseTitle': 'Sandbox paused',
+  'branchResume': 'Resume',
+  'branchRestart': 'Restart from branch point',
+  'branchReturnToReplay': 'Return to replay',
+  'branchCoachToggle': 'Live coach',
+  'branchCompletionTitle': 'Sandbox finished',
+  'branchCompletionBody':
+      'This was an experiment: nothing was saved, and your history and '
+      'statistics are unchanged.',
+  'branchStudyHandClose': 'Close',
+  'historyCoachOn': 'Coach was on',
+  'historyCoachOff': 'No coach',
+  'historySetupHeading': 'Setup',
+  'historyOutcomeHeading': 'Result',
+  'historyWinnerLabel': 'Winner',
+  'historyPlacementLabel': 'Your place',
+  'historyRoundsLabel': 'Rounds',
+  'statisticsTitle': 'Statistics',
+  'statisticsMenuLabel': 'Stats',
+  'statisticsEmptyTitle': 'No statistics yet',
+  'statisticsEmptyBody':
+      'Finish a match and your numbers start here — win rate, placement, '
+      'Fifty rates, and scoring margin.',
+  'statsOverallHeading': 'Overall',
+  'statsByDifficultyHeading': 'By CPU difficulty',
+  'statsByStrictnessHeading': 'By table strictness',
+  'statsByCoachHeading': 'By coaching',
+  'statsCoachOnGroup': 'Coach on',
+  'statsCoachOffGroup': 'Coach off',
+  'statsGamesPlayed': 'Games played',
+  'statsWinRate': 'Win rate',
+  'statsAveragePlacement': 'Average place',
+  'statsFiftyAttemptRate': 'Fifty attempt rate',
+  'statsFiftySuccessRate': 'Fifty success rate',
+  'statsAverageMargin': 'Average margin',
+  'statsMarginDirection':
+      'Positive means you finished ahead of your best '
+      'opponent.',
   'houseRules': 'House rules',
   'edit': 'Edit',
   'normal': 'Normal',
@@ -1574,6 +2093,14 @@ const _englishValues = {
   'nextNow': 'Next now',
   'menu': 'Menu',
   'couldNotSaveTable': 'Could not save the table. You can keep playing.',
+  'archiveRecoveryRequired':
+      'Your previous match has not been saved to History yet. Retry before starting a new match.',
+  'archiveSaveFailed':
+      'The match is over, but saving it to History failed. Retry before starting a rematch.',
+  'discardDamagedSave': 'Discard damaged save?',
+  'discardDamagedSaveWarning':
+      'The active save cannot be read. Discarding it cannot be undone. Your saved History will not be deleted.',
+  'historyPlacementUnknown': 'Placement unknown',
   'reportTableIssue': 'Report table issue',
   'exportMatchReport': 'Export match report',
   'matchReportShareReady': 'Match report ready to share.',
@@ -2136,6 +2663,125 @@ const _arabicValues = {
   'random': 'اختيار عشوائي',
   'openingRequirement': 'حد النزول الأدنى',
   'jokers': 'أوراق الجوكر',
+  'historyTitle': 'سجل المباريات',
+  'historyMenuLabel': 'السجل',
+  'historyEmptyTitle': 'لا توجد مباريات محفوظة بعد',
+  'historyEmptyBody':
+      'أكمل مباراة حتى يظهر فائز، وستُحفظ هنا مع الإعدادات التي لعبت بها وكيف انتهت.',
+  'historyLoadFailedRetryableTitle': 'تعذر فتح السجل',
+  'historyLoadFailedRetryableBody':
+      'لم نتمكن من قراءة مبارياتك المحفوظة الآن. ما زالت موجودة — حاول مرة أخرى.',
+  'historyLoadFailedCorruptTitle': 'تعذّر قراءة السجل المحفوظ',
+  'historyLoadFailedCorruptBody':
+      'بيانات السجل المخزّنة تالفة ولا يمكن فتحها. إعادة المحاولة لن تغيّر ذلك.',
+  'historyRetry': 'حاول مرة أخرى',
+  'historyCancel': 'إلغاء',
+  'historyDelete': 'حذف',
+  'historyDeleteTooltip': 'احذف هذه المباراة',
+  'historyDeleteConfirmTitle': 'حذف هذه المباراة؟',
+  'historyDeleteConfirmBody':
+      'سيُحذف ملخّصها وإعادتها معاً. لا يمكن التراجع عن هذا.',
+  'historyDeleteFailedRetryable':
+      'تعذّر حذف هذه المباراة الآن. ما زالت هنا — حاول مرة أخرى.',
+  'historyDeleteFailedCorrupt':
+      'تعذّر قراءة السجل المحفوظ، لذا لا يمكن حذف هذه المباراة. إعادة المحاولة لن تغيّر ذلك.',
+  'historyReplayAvailable': 'الإعادة محفوظة',
+  'historyReplayUnavailable': 'الإعادة غير متاحة',
+  'replayTitle': 'الإعادة',
+  'replayBack': 'رجوع',
+  'replayLoading': 'جارٍ إعادة بناء المباراة…',
+  'replayFirst': 'الانتقال إلى البداية',
+  'replayPrevious': 'الخطوة السابقة',
+  'replayNext': 'الخطوة التالية',
+  'replayLast': 'الانتقال إلى النهاية',
+  'replayPreviousRound': 'الجولة السابقة',
+  'replayNextRound': 'الجولة التالية',
+  'replaySeek': 'التنقل خلال المباراة',
+  'replayDeal': 'توزيع اليد',
+  'replayRetry': 'إعادة المحاولة',
+  'replayUnavailableTitle': 'تعذّر فتح هذه الإعادة',
+  'replayReasonDataUnusable':
+      'ملف الإعادة المحفوظ لهذه المباراة مفقود أو غير قابل للقراءة. يبقى ملخّص المباراة، لكن لم تعد الإعادة ممكنة.',
+  'replayReasonReconstructionFailed':
+      'تعذّر إعادة بناء المباراة من ملف الإعادة المحفوظ. يبقى ملخّص المباراة، لكن لم تعد الإعادة ممكنة.',
+  'replayReasonMetadataInvalid':
+      'ملف الإعادة لا يطابق المباراة التي يصفها، وعرضه سيُظهر شيئًا خاطئًا. يبقى ملخّص المباراة، لكن لم تعد الإعادة ممكنة.',
+  'replayLoadFailedRetryable':
+      'تعذّر تحميل الإعادة الآن. غالبًا ما تنجح المحاولة التالية.',
+  'replayLoadFailedCorrupt':
+      'تعذّرت قراءة سجل المباريات. إعادة الفتح لن تساعد — البيانات المخزّنة نفسها تالفة.',
+  'replayCoachTitle': 'التحليل',
+  'replayCoachQuiet': 'لا شيء يستحق الإشارة إليه في هذه النقلة.',
+  'replayCoachNothingToReview': 'انتقل إلى نقلة مُنفّذة لعرض التحليل.',
+  'replayVerbosityNarrateAll': 'شرح كل شيء',
+  'replayVerbosityKeyMoments': 'اللحظات المهمة',
+  'replayVerbosityClearMistakes': 'الأخطاء الواضحة فقط',
+  'replayCardDeathWarnings': 'تنبيهات الأوراق المنتهية',
+  'replayOverrideNote': 'تم التغيير لهذه الإعادة فقط.',
+  'settingsReviewTitle': 'المراجعة والتحليل',
+  'settingsReviewSubtitle':
+      'مقدار ما يقوله مدرّب التحليل أثناء إعادة مباراة منتهية.',
+  'replayActionUnknown': 'نفّذ نقلة',
+  'replayUnnamedCard': 'ورقة',
+  'replayWinnerLabel': 'الفائز',
+  'branchStart': 'أكمل اللعب من هنا',
+  'branchUnavailableComplete':
+      'المباراة محسومة عند هذه الخطوة، فلم يبقَ ما يمكن لعبه.',
+  'branchEntryTitle': 'أكمل اللعب من هنا',
+  'branchEntryBody':
+      'تولَّ مقعد الجنوب من هذا الموضع بالضبط وأكمل المباراة أمام خصوم '
+      'أحياء. لا يُحفظ أي شيء تفعله هنا، ويبقى سجلك وإحصاءاتك كما هي '
+      'تمامًا.',
+  'branchEntryBlind': 'العب دون كشف',
+  'branchEntryBlindNote':
+      'تبقى أيدي الخصوم مخفية، تمامًا كما في المباراة الحقيقية.',
+  'branchEntryStudy': 'وضع الدراسة',
+  'branchEntryStudyNote':
+      'كل أيدي الخصوم مكشوفة. رؤيتها لا تغيّر شيئًا في طريقة لعبهم.',
+  'branchEntryCancel': 'ليس الآن',
+  'branchSandboxBadge': 'تجربة',
+  'branchExitSandbox': 'اخرج من التجربة',
+  'branchExitTitle': 'هل تخرج من هذه التجربة؟',
+  'branchExitBody':
+      'لقد أكملت اللعب من نقطة التفرّع. الخروج يتخلّص من كل ما جرى هنا '
+      'ويعيدك إلى الإعادة.',
+  'branchExitConfirm': 'تخلَّص وعُد',
+  'branchExitCancel': 'تابع اللعب',
+  'branchPauseTitle': 'التجربة متوقفة مؤقتًا',
+  'branchResume': 'استئناف',
+  'branchRestart': 'أعد البدء من نقطة التفرّع',
+  'branchReturnToReplay': 'العودة إلى الإعادة',
+  'branchCoachToggle': 'المدرب المباشر',
+  'branchCompletionTitle': 'انتهت التجربة',
+  'branchCompletionBody':
+      'كانت هذه تجربة فقط: لم يُحفظ أي شيء، وسجلك وإحصاءاتك دون تغيير.',
+  'branchStudyHandClose': 'إغلاق',
+  'historyCoachOn': 'كان المدرب مفعّلاً',
+  'historyCoachOff': 'بدون مدرب',
+  'historySetupHeading': 'الإعدادات',
+  'historyOutcomeHeading': 'النتيجة',
+  'historyWinnerLabel': 'الفائز',
+  'historyPlacementLabel': 'مركزك',
+  'historyRoundsLabel': 'الجولات',
+  'statisticsTitle': 'الإحصائيات',
+  'statisticsMenuLabel': 'إحصائياتي',
+  'statisticsEmptyTitle': 'لا توجد إحصائيات بعد',
+  'statisticsEmptyBody':
+      'أكمل مباراة وستبدأ أرقامك من هنا — نسبة الفوز والمركز ومعدلات الخمسين وفارق النقاط.',
+  'statsOverallHeading': 'الإجمالي',
+  'statsByDifficultyHeading': 'حسب مستوى الكمبيوتر',
+  'statsByStrictnessHeading': 'حسب صرامة الطاولة',
+  'statsByCoachHeading': 'حسب التدريب',
+  'statsCoachOnGroup': 'المدرب مفعّل',
+  'statsCoachOffGroup': 'المدرب متوقف',
+  'statsGamesPlayed': 'المباريات الملعوبة',
+  'statsWinRate': 'نسبة الفوز',
+  'statsAveragePlacement': 'متوسط المركز',
+  'statsFiftyAttemptRate': 'معدل محاولة الخمسين',
+  'statsFiftySuccessRate': 'معدل نجاح الخمسين',
+  'statsAverageMargin': 'متوسط الفارق',
+  'statsMarginDirection':
+      'القيمة الموجبة تعني أنك أنهيت المباراة متقدماً على أقوى منافسيك.',
   'houseRules': 'قوانين البيت/الجلسة',
   'edit': 'تعديل الإعدادات',
   'normal': 'سرعة عادية',
@@ -2172,6 +2818,14 @@ const _arabicValues = {
   'nextNow': 'الانتقال للخطوة التالية',
   'menu': 'تصفح القائمة',
   'couldNotSaveTable': 'فشل حفظ حالة المباراة في ذاكرة الجهاز التخزينية.',
+  'archiveRecoveryRequired':
+      'لم يتم حفظ مباراتك السابقة في السجل بعد. أعد المحاولة قبل بدء مباراة جديدة.',
+  'archiveSaveFailed':
+      'انتهت المباراة، لكن تعذر حفظها في السجل. أعد المحاولة قبل بدء مباراة أخرى.',
+  'discardDamagedSave': 'حذف الحفظ التالف؟',
+  'discardDamagedSaveWarning':
+      'تعذر قراءة الحفظ الحالي. لا يمكن التراجع عن حذفه. لن تُحذف المباريات المحفوظة في السجل.',
+  'historyPlacementUnknown': 'الترتيب غير معروف',
   'reportTableIssue': 'تصديرTelemetry وتقرير حالة الطاولة',
   'exportMatchReport': 'توليد تقرير النظام',
   'matchReportShareReady': 'تم تجميع بيانات وسجل تقدم المباراة بنجاح.',

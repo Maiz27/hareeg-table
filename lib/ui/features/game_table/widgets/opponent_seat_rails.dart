@@ -20,7 +20,13 @@ class OpponentHandRail extends StatelessWidget {
     required this.thinking,
     required this.eliminated,
     required this.compact,
-  });
+    this.faceUpCards = const <HareegCard>[],
+    this.onExpand,
+    this.expandLabel = '',
+  }) : assert(
+         onExpand == null || expandLabel != '',
+         'an interactive rail must carry a localized label',
+       );
 
   /// Card theme used for face-down backs.
   final HareegCardTheme theme;
@@ -43,6 +49,17 @@ class OpponentHandRail extends StatelessWidget {
   /// Whether the table is rendering in compact mode.
   final bool compact;
 
+  /// Cards to render face up, or empty for the normal hidden hand.
+  final List<HareegCard> faceUpCards;
+
+  /// Opens the read-only expanded view of a revealed hand. Null everywhere a
+  /// hand is hidden, so there is nothing to open.
+  final VoidCallback? onExpand;
+
+  /// Localized label for the expansion affordance. Only read when [onExpand]
+  /// is non-null, i.e. only in full-visibility study mode.
+  final String expandLabel;
+
   @override
   Widget build(BuildContext context) {
     final visibleCount = compact ? 9 : 12;
@@ -53,8 +70,8 @@ class OpponentHandRail extends StatelessWidget {
       visibleCount: visibleCount,
     );
     final cueSize = Size(
-      stackSize.width + (compact ? 18 : 24),
-      stackSize.height + (compact ? 14 : 18),
+      math.max(stackSize.width + (compact ? 18 : 24), _expandFloor(onExpand)),
+      math.max(stackSize.height + (compact ? 14 : 18), _expandFloor(onExpand)),
     );
     final height = math.max(
       cardSize.height + (compact ? 16 : 20),
@@ -70,12 +87,17 @@ class OpponentHandRail extends StatelessWidget {
             active: active,
             thinking: thinking,
             size: cueSize,
-            child: _CardBackStack(
-              theme: theme,
-              count: count,
-              axis: Axis.horizontal,
-              cardSize: cardSize,
-              visibleCount: visibleCount,
+            child: _MaybeExpandable(
+              onExpand: onExpand,
+              label: expandLabel,
+              child: _CardBackStack(
+                theme: theme,
+                count: count,
+                axis: Axis.horizontal,
+                cardSize: cardSize,
+                visibleCount: visibleCount,
+                faceUpCards: faceUpCards,
+              ),
             ),
           ),
         ),
@@ -98,7 +120,13 @@ class OpponentSideRail extends StatelessWidget {
     required this.eliminated,
     required this.alignRight,
     required this.compact,
-  });
+    this.faceUpCards = const <HareegCard>[],
+    this.onExpand,
+    this.expandLabel = '',
+  }) : assert(
+         onExpand == null || expandLabel != '',
+         'an interactive rail must carry a localized label',
+       );
 
   /// Card theme used for face-down backs.
   final HareegCardTheme theme;
@@ -124,6 +152,16 @@ class OpponentSideRail extends StatelessWidget {
   /// Whether the table is rendering in compact mode.
   final bool compact;
 
+  /// Cards to render face up, or empty for the normal hidden hand.
+  final List<HareegCard> faceUpCards;
+
+  /// Opens the read-only expanded view of a revealed hand.
+  final VoidCallback? onExpand;
+
+  /// Localized label for the expansion affordance. Only read when [onExpand]
+  /// is non-null, i.e. only in full-visibility study mode.
+  final String expandLabel;
+
   @override
   Widget build(BuildContext context) {
     final visibleCount = compact ? 5 : 6;
@@ -134,8 +172,8 @@ class OpponentSideRail extends StatelessWidget {
       visibleCount: visibleCount,
     );
     final cueSize = Size(
-      stackSize.width + (compact ? 14 : 18),
-      stackSize.height + (compact ? 18 : 24),
+      math.max(stackSize.width + (compact ? 14 : 18), _expandFloor(onExpand)),
+      math.max(stackSize.height + (compact ? 18 : 24), _expandFloor(onExpand)),
     );
     return Opacity(
       opacity: eliminated ? 0.28 : 1,
@@ -145,12 +183,17 @@ class OpponentSideRail extends StatelessWidget {
           active: active,
           thinking: thinking,
           size: cueSize,
-          child: _CardBackStack(
-            theme: theme,
-            count: count,
-            axis: Axis.vertical,
-            cardSize: cardSize,
-            visibleCount: visibleCount,
+          child: _MaybeExpandable(
+            onExpand: onExpand,
+            label: expandLabel,
+            child: _CardBackStack(
+              theme: theme,
+              count: count,
+              axis: Axis.vertical,
+              cardSize: cardSize,
+              visibleCount: visibleCount,
+              faceUpCards: faceUpCards,
+            ),
           ),
         ),
       ),
@@ -178,6 +221,78 @@ Size cardBackStackSize({
         ? cardSize.height
         : cardSize.height + (shown - 1) * gap,
   );
+}
+
+/// Wraps a rail's cards in a read-only tap target, or leaves them untouched.
+///
+/// Expansion is a *viewing* affordance and stays one: it opens a sheet and
+/// changes nothing. It exists only where [onExpand] is non-null, which is only
+/// where a hand is already face up, so there is no route by which tapping an
+/// opponent rail can act on that seat.
+///
+/// When it does exist it is a real control, not a bare gesture: it carries the
+/// seat's localized name, announces itself as an enabled button, and reserves
+/// the 44 dp minimum. A side rail is 32 dp wide, so without the floor the only
+/// way to reach an opponent's hand would be to hit a target narrower than a
+/// fingertip.
+/// The 44 dp floor a rail must reserve when it carries a study affordance.
+///
+/// Zero when it does not: the blind and live rails keep exactly the geometry
+/// they have always had, and only a rail a player can actually open grows to
+/// a reachable size. Without this the frame hands the target whatever the
+/// shrinking table left it — 40 dp at 320 dp wide, below the contracted floor.
+double _expandFloor(VoidCallback? onExpand) =>
+    onExpand == null ? 0 : _MaybeExpandable.minTapTarget;
+
+class _MaybeExpandable extends StatelessWidget {
+  const _MaybeExpandable({
+    required this.child,
+    required this.label,
+    this.onExpand,
+  });
+
+  final Widget child;
+
+  /// Localized name for the affordance, e.g. "Show East's hand".
+  final String label;
+
+  final VoidCallback? onExpand;
+
+  /// Minimum hit and semantics extent for a new interactive control.
+  static const double minTapTarget = 44;
+
+  @override
+  Widget build(BuildContext context) {
+    final expand = onExpand;
+    if (expand == null) {
+      return child;
+    }
+    return Tooltip(
+      message: label,
+      // The name is on the Semantics below. Web renders label and tooltip
+      // both as text, so carrying both announces the rail twice.
+      excludeFromSemantics: true,
+      child: Semantics(
+        button: true,
+        enabled: true,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: expand,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: minTapTarget,
+              minHeight: minTapTarget,
+            ),
+            // Centered rather than stretched: the cards keep the size and
+            // position the blind and live rails give them, and only the
+            // reachable area around them grows.
+            child: Center(child: child),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TurnCueFrame extends StatelessWidget {
@@ -231,6 +346,13 @@ class _TurnCueFrame extends StatelessWidget {
   }
 }
 
+/// The one place an opponent's cards are drawn.
+///
+/// Both rails funnel here, so face-up study rendering is a single additive
+/// parameter rather than three parallel changes that could disagree. Left
+/// empty — the default, and what every live, practice and blind surface
+/// passes — every card is a back, and the real identities never reach the
+/// widget tree at all: not the painter, not semantics, not a key.
 class _CardBackStack extends StatelessWidget {
   const _CardBackStack({
     required this.theme,
@@ -238,6 +360,7 @@ class _CardBackStack extends StatelessWidget {
     required this.axis,
     required this.cardSize,
     required this.visibleCount,
+    this.faceUpCards = const <HareegCard>[],
   });
 
   final HareegCardTheme theme;
@@ -246,9 +369,13 @@ class _CardBackStack extends StatelessWidget {
   final Size cardSize;
   final int visibleCount;
 
+  /// Cards to render face up, or empty to render backs.
+  final List<HareegCard> faceUpCards;
+
   @override
   Widget build(BuildContext context) {
     if (count <= 0) return const SizedBox.shrink();
+    final reveal = faceUpCards.isNotEmpty;
     final shown = math.min(count, visibleCount);
     final gap = axis == Axis.horizontal ? cardSize.width * 0.38 : 16.0;
     final width = axis == Axis.horizontal
@@ -270,8 +397,10 @@ class _CardBackStack extends StatelessWidget {
               top: axis == Axis.vertical ? i * gap : 0,
               child: HareegCardView(
                 theme: theme,
-                card: _backSeed(i),
-                faceDown: true,
+                card: reveal && i < faceUpCards.length
+                    ? faceUpCards[i]
+                    : _backSeed(i),
+                faceDown: !reveal || i >= faceUpCards.length,
                 size: cardSize,
               ),
             ),
