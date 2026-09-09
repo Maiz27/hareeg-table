@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
+import 'package:hareeg_table/domain/classic_hareeg/history/match_history_outcomes.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
@@ -12,7 +15,10 @@ void main() {
   group('LocalMatchRepository', () {
     test('saves and restores an active match snapshot', () async {
       final store = MemoryKeyValueStore();
-      final repository = LocalMatchRepository(store: store);
+      final repository = LocalMatchRepository(
+        store: store,
+        mintMatchId: () async => testMatchId,
+      );
       final round = ClassicHareegRound.deal(
         setup: ClassicHareegSetup.defaults(),
         seed: 7,
@@ -39,11 +45,12 @@ void main() {
         savedAt: DateTime.utc(2026, 5, 18),
       );
 
-      await repository.saveActiveMatch(snapshot);
+      await repository.saveActiveMatch(checkpointForSnapshot(snapshot));
 
-      final restored = await repository.loadActiveMatch();
-      expect(restored, isNotNull);
-      expect(restored!.setup.deckCount, snapshot.setup.deckCount);
+      final outcome = await repository.loadActiveMatch();
+      expect(outcome, isA<ActiveMatchLoaded>());
+      final restored = (outcome as ActiveMatchLoaded).checkpoint.snapshot;
+      expect(restored.setup.deckCount, snapshot.setup.deckCount);
       expect(
         restored.hands[PlayerSeat.south]!.first.id,
         snapshot.hands[PlayerSeat.south]!.first.id,
@@ -65,37 +72,76 @@ void main() {
 
     test('abandons an active match snapshot', () async {
       final store = MemoryKeyValueStore();
-      final repository = LocalMatchRepository(store: store);
+      final repository = LocalMatchRepository(
+        store: store,
+        mintMatchId: () async => testMatchId,
+      );
       final round = ClassicHareegRound.deal(
         setup: ClassicHareegSetup.defaults(),
         seed: 2,
       );
 
       await repository.saveActiveMatch(
-        ClassicHareegMatchSnapshot(
-          setup: round.setup,
-          hands: round.hands,
-          stock: round.stock,
-          discardPile: round.discardPile,
-          starter: round.starter,
-          currentSeat: round.currentSeat,
-          turnPhase: round.turnPhase,
-          savedAt: DateTime.utc(2026, 5, 18),
+        checkpointForSnapshot(
+          ClassicHareegMatchSnapshot(
+            setup: round.setup,
+            hands: round.hands,
+            stock: round.stock,
+            discardPile: round.discardPile,
+            starter: round.starter,
+            currentSeat: round.currentSeat,
+            turnPhase: round.turnPhase,
+            savedAt: DateTime.utc(2026, 5, 18),
+          ),
         ),
       );
       await repository.abandonActiveMatch();
 
-      expect(await repository.loadActiveMatch(), isNull);
+      expect(await repository.loadActiveMatch(), isA<ActiveMatchAbsent>());
+    });
+
+    test('a checkpoint with an explicit-null nested record is preserved', () async {
+      // Present-and-null is damage, not absence, so the repository must report
+      // it and keep the bytes rather than clearing a match the player may still
+      // be able to resume from a later build.
+      final store = MemoryKeyValueStore()
+        ..values['active_match.v1'] = jsonEncode({
+          'version': 1,
+          'matchId': testMatchId,
+          'snapshot': _legacySnapshot().toJson(),
+          'eliminationRounds': <String, Object?>{},
+          'coachWasEnabled': false,
+          'fiftyCountersComplete': true,
+          'replayIneligible': false,
+          'recorderState': null,
+        });
+      final repository = LocalMatchRepository(
+        store: store,
+        mintMatchId: () async => testMatchId,
+      );
+
+      final outcome = await repository.loadActiveMatch();
+
+      expect(outcome, isA<ActiveMatchUnreadable>());
+      expect(
+        (outcome as ActiveMatchUnreadable).failure.kind,
+        MatchHistoryFailureKind.corrupt,
+      );
+      // Preserved, not cleared.
+      expect(store.values.containsKey('active_match.v1'), isTrue);
     });
 
     test('invalid saved match is cleared and ignored', () async {
       final store = MemoryKeyValueStore()
         ..values['active_match.v1'] = '{"version":99}';
-      final repository = LocalMatchRepository(store: store);
+      final repository = LocalMatchRepository(
+        store: store,
+        mintMatchId: () async => testMatchId,
+      );
 
       final restored = await repository.loadActiveMatch();
 
-      expect(restored, isNull);
+      expect(restored, isA<ActiveMatchAbsent>());
       expect(store.values.containsKey('active_match.v1'), isFalse);
     });
   });
@@ -103,4 +149,21 @@ void main() {
 
 HareegCard _card(CardRank rank, CardSuit suit) {
   return HareegCard.standard(rank: rank, suit: suit, deckIndex: 50);
+}
+
+ClassicHareegMatchSnapshot _legacySnapshot() {
+  final round = ClassicHareegRound.deal(
+    setup: ClassicHareegSetup.defaults(),
+    seed: 4,
+  );
+  return ClassicHareegMatchSnapshot(
+    setup: round.setup,
+    hands: round.hands,
+    stock: round.stock,
+    discardPile: round.discardPile,
+    starter: round.starter,
+    currentSeat: round.currentSeat,
+    turnPhase: round.turnPhase,
+    savedAt: DateTime.utc(2026, 5, 18),
+  );
 }
