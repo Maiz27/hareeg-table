@@ -47,3 +47,10 @@ jobs:
         env:
           HAREEG_FULL_SWEEP: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && '1' || '' }}
         run: flutter test --concurrency=$(nproc)
+
+      - name: Browser test
+        # The replay file store's web adapter talks to `window.localStorage`
+        # through `dart:js_interop`, which the VM runner cannot execute — the
+        # file above carries `@TestOn('browser')` and is skipped there. Chrome
+        # is preinstalled on the runner, so the browser binding runs here.
+        run: flutter test --platform chrome test/data/persistence/replay_file_store_web_test.dart

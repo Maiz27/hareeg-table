@@ -147,15 +147,11 @@ Expert CPU tiers to compare meld choices beyond the first legal action.
 
 Reference: [meld-partition-enumerator.md](docs/design/meld-partition-enumerator.md).
 
-### `MatchOverScreen`
+### `MatchOverOverlay`
 
-Dedicated portrait screen shown after the match ends. It replaces the dead
-`RoundSummaryScreen` route and presents the winner, final standings, rounds
-played, and actions for returning to menu or starting a new match with the same
-setup.
-
-The live table still shows the final round overlay briefly before navigating to
-this screen, so the player can read the final round scoring first.
+In-table match-completion surface shown after the final round result. It presents
+the winner, final standings, rounds played, and the next actions without leaving
+the landscape table.
 
 Reference: [end-of-match-screen.md](docs/design/end-of-match-screen.md).
 
@@ -191,6 +187,149 @@ seat, active seats, the next starter, and the match winner when only one active
 seat remains.
 
 Primary code: `lib/domain/classic_hareeg/rules/match_progression_rules.dart`.
+
+### `MatchStanding`
+
+Completed-match finish order. The winner ranks first; eliminated seats rank by
+elimination order, with same-round eliminations broken by lower final score and
+then stable seat order.
+
+### `MatchCheckpoint`
+
+Durable state for one resumable match, including its stable identity and the
+record of actions captured so far. It represents either active play or a
+completed match waiting to enter history.
+
+### `PendingMatchArchive`
+
+A completed `MatchCheckpoint` waiting for idempotent publication to game
+history. It remains resumable as an archive operation until its summary is
+durable.
+
+### `MatchHistorySummary`
+
+Lightweight completed-match facts used to browse history and calculate
+statistics without loading replay data.
+
+### `MatchReplayRecord`
+
+The heavy replay data for one completed match: its starting snapshot and
+complete ordered action transcript.
+
+### `MatchStatisticsReport`
+
+Aggregate performance over stored `MatchHistorySummary` values, computed as a
+pure function with no replay data read. Reports overall figures plus three
+independent groupings — CPU difficulty, table strictness, and whether the coach
+was enabled. Fifty rates are measured only over matches whose counters were
+tracked, so a migrated legacy match's zeros never act as a measured zero, and
+every slice reports its own measured denominator.
+
+Reference: [match-statistics.md](docs/design/match-statistics.md).
+
+### `ReplayFileStore`
+
+Storage for one heavy replay payload per completed match, keyed by a *logical*
+key rather than a path. Native builds keep payloads in a no-backup directory
+(Android's `noBackupFilesDir`, an Application Support directory excluded from
+backup on iOS) over the existing `hareeg_table/local_storage` channel; the web
+build keeps them as prefixed browser-storage entries behind the same interface.
+Absence and failure stay distinct: reading an unwritten key returns nothing,
+while a backend failure throws.
+
+Reference: [replay-file-store-verification.md](docs/testing/replay-file-store-verification.md).
+
+### `MatchTerminalFacts`
+
+The immutable record of how a match ended — UTC completion time, winner, final
+scores, round count, elimination rounds — captured once at match-over. It exists
+because the match snapshot carries no winner and its active seats are
+pre-progression, so a crash before publication would otherwise force recovery to
+invent a completion time and infer a winner.
+
+Reference: [match-history-archiving.md](docs/design/match-history-archiving.md).
+
+### `MatchReplayTimeline`
+
+The single deterministic, clock-aware sequence used by report verification,
+replay review, and branch seeding.
+
+### `ReplayFrame`
+
+A stable position on a `MatchReplayTimeline`. Frames represent the initial
+state, a labelled round start, or the state after one applied action.
+
+### `ReplayBranchSeed`
+
+A detached replay state plus its time anchor, ready to continue as live play
+without treating the branch as a resumed saved match.
+
+### `TableMode`
+
+The table's explicit experience: live match, guided practice, or replay review
+(branch sandbox arrives with its first consumer). Each mode carries a
+`TableModeCapabilities` value defining which input, CPU automation, coach
+surface, visibility, and durable effects are allowed. The capability type has no
+public constructor, so a combination nobody declared cannot be built.
+
+### `BranchSandbox`
+
+A throwaway south-seat continuation from a replay frame against live CPU
+players. It never saves an active match or adds a completed match to history.
+
+### `BranchVisibility`
+
+The sandbox's opponent-hand presentation: blind or full-visibility study. It
+changes rendering only, never CPU observation, coaching evidence, or rules.
+
+### `TableReadingAnalysis`
+
+Per-seat analysis of observable table evidence shared by CPU strategy and
+replay coaching.
+
+### `CardDeathAssessment`
+
+Evidence that every physical copy of one standard card identity is accounted
+for in the perspective seat's hand, the current discard pile, or visible melds.
+
+### `DevelopmentLiveness`
+
+Whether a partial hand group still has at least one live, one-card completion
+identity.
+
+### `PartialHandGroup`
+
+One selected pair, two-card run, or solo card in the single disjoint grouping
+of a hand's leftovers after its best complete melds are removed. The same
+grouping backs CPU keep scores and development liveness, and its selection is
+order-sensitive on ties by design.
+
+### `FeedRiskAssessment`
+
+Observable evidence that a candidate discard would help the next active
+anti-clockwise seat.
+
+### `ReviewObservation`
+
+The player's own information and public evidence available up to one replay
+step. It excludes opponent hands, stock identities, and future actions.
+
+### `ReviewInsight`
+
+An analysis-coach claim whose recommendation and explanation both have support
+in a `ReviewObservation`. It cannot be constructed without at least one piece of
+`ReviewEvidence`, so "no observable evidence means no claim" is enforced by the
+type rather than by review.
+
+### `TableReadingPolicy`
+
+Difficulty-specific memory and attention applied after shared table-reading
+facts are computed. It controls believable mistakes without changing the facts.
+
+### `AnalysisCoachSettings`
+
+Review-time verbosity and warning choices used as both a saved default and a
+replay-local override.
 
 ## Contributor Notes
 
