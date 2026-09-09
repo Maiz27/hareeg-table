@@ -341,7 +341,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SwitchSetting(
                         icon: Icons.warning_amber_outlined,
                         title: strings.replayCardDeathWarnings,
-                        subtitle: strings.settingsReviewSubtitle,
+                        subtitle:
+                            strings.settingsReviewCardDeathWarningsDescription,
                         value: _preferences.analysisCoach.cardDeathWarnings,
                         onChanged: (value) => _save(
                           _preferences.copyWith(

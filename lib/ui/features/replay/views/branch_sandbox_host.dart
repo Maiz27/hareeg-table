@@ -165,8 +165,9 @@ class _BranchSandboxHostState extends State<BranchSandboxHost> {
       onPreferencesChanged: (_) {},
       clock: widget.clock,
       onSandboxActionApplied: (applied) {
+        if (!mounted) return;
         widget.onAppliedAction?.call(applied);
-        if (_session.hasDiverged) {
+        if (!mounted || _session.hasDiverged) {
           return;
         }
         setState(_session.recordAppliedAction);

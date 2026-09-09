@@ -195,10 +195,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_recoveryFailed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.strings.archiveRecoveryRequired),
+          content: Text(
+            _damagedSave
+                ? context.strings.discardDamagedSaveWarning
+                : context.strings.archiveRecoveryRequired,
+          ),
           action: SnackBarAction(
-            label: context.strings.historyRetry,
-            onPressed: _loadSavedMatch,
+            label: _damagedSave
+                ? context.strings.discardDamagedSave
+                : context.strings.historyRetry,
+            onPressed: _damagedSave ? _confirmDiscardDamaged : _loadSavedMatch,
           ),
         ),
       );
@@ -229,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _confirmDiscardDamaged() async {
     final strings = context.strings;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -249,11 +256,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || confirmed != true) return;
     try {
       await widget.matchRepository.abandonActiveMatch();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Failed to discard damaged save: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(strings.couldNotSaveTable)));
+        ).showSnackBar(SnackBar(content: Text(strings.couldNotDiscardSave)));
       }
     }
     if (mounted) await _loadSavedMatch();

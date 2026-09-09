@@ -147,7 +147,30 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(AppStrings.english.discardDamagedSave));
+      await tester.tap(find.text(AppStrings.english.newGame));
+      await tester.pumpAndSettle();
+      expect(find.byType(NewGameSetupScreen), findsNothing);
+      final snackBar = find.byType(SnackBar);
+      expect(
+        find.descendant(
+          of: snackBar,
+          matching: find.text(AppStrings.english.discardDamagedSaveWarning),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: snackBar,
+          matching: find.text(AppStrings.english.historyRetry),
+        ),
+        findsNothing,
+      );
+      await tester.tap(
+        find.descendant(
+          of: snackBar,
+          matching: find.text(AppStrings.english.discardDamagedSave),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(AppStrings.english.historyCancel));
       await tester.pumpAndSettle();

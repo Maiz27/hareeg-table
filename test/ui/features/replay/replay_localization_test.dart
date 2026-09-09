@@ -49,6 +49,28 @@ void main() {
     final catalog = entry.value;
 
     group('$label copy', () {
+      test('unresolved card groups keep a localized fallback', () {
+        final insight = ReviewInsight(
+          category: ReviewInsightCategory.deadPickup,
+          cardIds: const ['deck-unknown'],
+          evidence: [
+            ReviewEvidence(
+              kind: ReviewEvidenceKind.ownHand,
+              cardIds: ['deck-unknown'],
+            ),
+          ],
+        );
+        final presenter = _presenter(catalog);
+        expect(
+          presenter.sentenceFor(insight),
+          contains(catalog.replayUnnamedCard),
+        );
+        expect(
+          presenter.evidenceLines(insight).single,
+          contains(catalog.replayUnnamedCard),
+        );
+        expect(presenter.sentenceFor(insight), isNot(contains('deck-')));
+      });
       test('every action kind reads as a sentence', () {
         final presenter = _presenter(catalog);
 

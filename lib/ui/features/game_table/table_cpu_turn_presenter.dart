@@ -200,6 +200,7 @@ class ClassicHareegTableCpuTurnPresenter {
     ClassicHareegCpuTurnDecision decision,
     ApplyActionResult result,
   ) {
+    if (!hooks.isMounted()) return;
     hooks.onActionApplied(decision, result);
   }
 

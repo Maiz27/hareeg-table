@@ -98,6 +98,23 @@ void main() {
       expect(events, isNot(contains('persist')));
     });
 
+    test(
+      'fast-forward does not notify a host disposed during a decision',
+      () async {
+        final controller = _controllerForCpuDrawTurn();
+        final events = <String>[];
+        var mounted = true;
+        final didApply = await ClassicHareegTableCpuTurnPresenter(
+          controller: controller,
+          strategy: _DisposingCpuStrategy(() => mounted = false),
+          hooks: _hooks(events: events, isMounted: () => mounted),
+        ).fastForwardUntilRoundOver(actionLimit: 1);
+
+        expect(didApply, isTrue);
+        expect(events.where((event) => event.startsWith('applied:')), isEmpty);
+      },
+    );
+
     test('visible run stops when persistence declines continuation', () async {
       final controller = _controllerForCpuDrawTurn();
       final events = <String>[];
@@ -146,9 +163,10 @@ ClassicHareegTableCpuTurnPresenterHooks _hooks({
   required List<String> events,
   Future<bool> Function()? persistAndMaybeFinish,
   Duration Function(String actionId)? postActionDwell,
+  bool Function()? isMounted,
 }) {
   return ClassicHareegTableCpuTurnPresenterHooks(
-    isMounted: () => true,
+    isMounted: isMounted ?? () => true,
     hasRoundResultPresentation: () => false,
     log: (_) {},
     playFlightForCpuAction: (seat, actionId) async {
@@ -228,6 +246,20 @@ class _FirstLegalCpuStrategy implements CpuStrategy {
     CpuTurnSnapshot snapshot, {
     CpuObservation? observation,
   }) {
+    return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
+  }
+}
+
+class _DisposingCpuStrategy implements CpuStrategy {
+  const _DisposingCpuStrategy(this.disposeHost);
+  final void Function() disposeHost;
+
+  @override
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
+    disposeHost();
     return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
   }
 }

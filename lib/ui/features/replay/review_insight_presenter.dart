@@ -138,6 +138,7 @@ class ReviewInsightPresenter {
 
   String _joined(Iterable<String> ids) {
     final names = [for (final id in ids) ?cardName(id)];
+    if (names.isEmpty) return strings.replayUnnamedCard;
     return names.join(strings.isRtl ? '، ' : ', ');
   }
 

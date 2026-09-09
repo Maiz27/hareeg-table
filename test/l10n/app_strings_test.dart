@@ -1,8 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
+import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/l10n/app_strings.dart';
 
 void main() {
+  test('replay counts use singular English and Arabic at one', () {
+    const en = AppStrings.english;
+    const ar = AppStrings.arabic;
+    expect(en.replayInsightFiftyWindow('Ace', 1), contains('1 second left'));
+    expect(en.replayEvidenceFiftyWindow('Ace', 1), contains('1 second left'));
+    expect(en.replayEvidenceDeadIdentity('Ace', 1), contains('only copy'));
+    expect(en.replayEvidenceHandCount(PlayerSeat.east, 1), contains('1 card.'));
+    expect(ar.replayInsightFiftyWindow('آس', 1), contains('ثانية واحدة'));
+    expect(ar.replayEvidenceFiftyWindow('آس', 1), contains('ثانية واحدة'));
+    expect(ar.replayEvidenceDeadIdentity('آس', 1), contains('النسخة الوحيدة'));
+    expect(
+      ar.replayEvidenceHandCount(PlayerSeat.east, 1),
+      contains('ورقة واحدة'),
+    );
+    expect(en.replayInsightFiftyWindow('Ace', 2), contains('2 seconds'));
+    expect(en.replayEvidenceFiftyWindow('Ace', 2), contains('2 seconds'));
+    expect(en.replayEvidenceDeadIdentity('Ace', 2), contains('2 copies'));
+    expect(en.replayEvidenceHandCount(PlayerSeat.east, 2), contains('2 cards'));
+  });
   group('AppStrings strictness copy', () {
     test('English rules help uses current strictness names', () {
       final strings = AppStrings.english;
@@ -56,10 +76,7 @@ void main() {
     test('CPU difficulty labels are localized, not the enum constant', () {
       // `CpuDifficulty.label` is an English-only constant on the model.
       for (final difficulty in CpuDifficulty.values) {
-        expect(
-          AppStrings.english.cpuDifficultyLabel(difficulty),
-          isNotEmpty,
-        );
+        expect(AppStrings.english.cpuDifficultyLabel(difficulty), isNotEmpty);
         expect(
           AppStrings.arabic.cpuDifficultyLabel(difficulty),
           isNot(difficulty.label),
@@ -84,18 +101,12 @@ void main() {
 
       final pairs = <String, (String, String)>{
         'historyTitle': (english.historyTitle, arabic.historyTitle),
-        'historyMenuLabel': (
-          english.historyMenuLabel,
-          arabic.historyMenuLabel,
-        ),
+        'historyMenuLabel': (english.historyMenuLabel, arabic.historyMenuLabel),
         'historyEmptyTitle': (
           english.historyEmptyTitle,
           arabic.historyEmptyTitle,
         ),
-        'historyEmptyBody': (
-          english.historyEmptyBody,
-          arabic.historyEmptyBody,
-        ),
+        'historyEmptyBody': (english.historyEmptyBody, arabic.historyEmptyBody),
         'historyLoadFailedRetryableTitle': (
           english.historyLoadFailedRetryableTitle,
           arabic.historyLoadFailedRetryableTitle,
@@ -146,10 +157,7 @@ void main() {
           english.statsByCoachHeading,
           arabic.statsByCoachHeading,
         ),
-        'statsGamesPlayed': (
-          english.statsGamesPlayed,
-          arabic.statsGamesPlayed,
-        ),
+        'statsGamesPlayed': (english.statsGamesPlayed, arabic.statsGamesPlayed),
         'statsWinRate': (english.statsWinRate, arabic.statsWinRate),
         'statsFiftySuccessRate': (
           english.statsFiftySuccessRate,

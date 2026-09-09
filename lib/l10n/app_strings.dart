@@ -200,6 +200,7 @@ class AppStrings {
   String get nextNow => _v('nextNow');
   String get menu => _v('menu');
   String get couldNotSaveTable => _v('couldNotSaveTable');
+  String get couldNotDiscardSave => _v('couldNotDiscardSave');
   String get archiveRecoveryRequired => _v('archiveRecoveryRequired');
   String get archiveSaveFailed => _v('archiveSaveFailed');
   String get discardDamagedSave => _v('discardDamagedSave');
@@ -1034,6 +1035,8 @@ class AppStrings {
   String get replayOverrideNote => _v('replayOverrideNote');
   String get settingsReviewTitle => _v('settingsReviewTitle');
   String get settingsReviewSubtitle => _v('settingsReviewSubtitle');
+  String get settingsReviewCardDeathWarningsDescription =>
+      _v('settingsReviewCardDeathWarningsDescription');
   String get replayActionUnknown => _v('replayActionUnknown');
 
   /// Stands in for a card the reviewer could not have identified.
@@ -1211,6 +1214,11 @@ class AppStrings {
   }
 
   String replayInsightFiftyWindow(String card, int seconds) {
+    if (seconds == 1) {
+      return isRtl
+          ? 'كانت نافذة الخمسين مفتوحة على $card، وبقيت ثانية واحدة.'
+          : 'A Fifty window was open on the $card, with 1 second left.';
+    }
     return isRtl
         ? 'كانت نافذة الخمسين مفتوحة على $card، وبقي منها $seconds ثانية.'
         : 'A Fifty window was open on the $card, with $seconds seconds left.';
@@ -1219,6 +1227,11 @@ class AppStrings {
   // Evidence lines.
 
   String replayEvidenceDeadIdentity(String card, int copies) {
+    if (copies == 1) {
+      return isRtl
+          ? 'النسخة الوحيدة من $card مرئية بالفعل.'
+          : 'The only copy of the $card is already visible.';
+    }
     return isRtl
         ? 'كل نسخ $card ($copies) مرئية بالفعل.'
         : 'All $copies copies of the $card are already visible.';
@@ -1239,6 +1252,9 @@ class AppStrings {
 
   String replayEvidenceHandCount(PlayerSeat seat, int count) {
     final who = seatLabel(seat);
+    if (count == 1) {
+      return isRtl ? 'يحمل $who ورقة واحدة.' : '$who is holding 1 card.';
+    }
     return isRtl ? 'يحمل $who $count ورقة.' : '$who is holding $count cards.';
   }
 
@@ -1250,6 +1266,11 @@ class AppStrings {
   }
 
   String replayEvidenceFiftyWindow(String card, int seconds) {
+    if (seconds == 1) {
+      return isRtl
+          ? 'نافذة الخمسين على $card، بقيت ثانية واحدة.'
+          : 'Fifty window on the $card, 1 second left.';
+    }
     return isRtl
         ? 'نافذة الخمسين على $card، بقي $seconds ثانية.'
         : 'Fifty window on the $card, $seconds seconds left.';
@@ -1988,6 +2009,8 @@ const _englishValues = {
   'settingsReviewTitle': 'Review & analysis',
   'settingsReviewSubtitle':
       'How much the analysis coach says while you replay a finished match.',
+  'settingsReviewCardDeathWarningsDescription':
+      'Warn when all copies of a needed card are already visible.',
   'replayActionUnknown': 'made a move',
   'replayUnnamedCard': 'a card',
   'replayWinnerLabel': 'Winner',
@@ -2093,6 +2116,8 @@ const _englishValues = {
   'nextNow': 'Next now',
   'menu': 'Menu',
   'couldNotSaveTable': 'Could not save the table. You can keep playing.',
+  'couldNotDiscardSave':
+      'Could not confirm that the active save was discarded. Try again.',
   'archiveRecoveryRequired':
       'Your previous match has not been saved to History yet. Retry before starting a new match.',
   'archiveSaveFailed':
@@ -2717,6 +2742,8 @@ const _arabicValues = {
   'replayVerbosityKeyMoments': 'اللحظات المهمة',
   'replayVerbosityClearMistakes': 'الأخطاء الواضحة فقط',
   'replayCardDeathWarnings': 'تنبيهات الأوراق المنتهية',
+  'settingsReviewCardDeathWarningsDescription':
+      'نبّه عندما تكون كل نسخ ورقة مطلوبة مرئية بالفعل.',
   'replayOverrideNote': 'تم التغيير لهذه الإعادة فقط.',
   'settingsReviewTitle': 'المراجعة والتحليل',
   'settingsReviewSubtitle':
@@ -2818,6 +2845,7 @@ const _arabicValues = {
   'nextNow': 'الانتقال للخطوة التالية',
   'menu': 'تصفح القائمة',
   'couldNotSaveTable': 'فشل حفظ حالة المباراة في ذاكرة الجهاز التخزينية.',
+  'couldNotDiscardSave': 'تعذر تأكيد حذف الحفظ الحالي. أعد المحاولة.',
   'archiveRecoveryRequired':
       'لم يتم حفظ مباراتك السابقة في السجل بعد. أعد المحاولة قبل بدء مباراة جديدة.',
   'archiveSaveFailed':
