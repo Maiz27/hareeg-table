@@ -74,8 +74,7 @@ class JokerDisplayScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(covariant JokerDisplayScope oldWidget) {
-    return oldWidget.display != display ||
-        oldWidget.cueDuration != cueDuration;
+    return oldWidget.display != display || oldWidget.cueDuration != cueDuration;
   }
 }
 
@@ -164,10 +163,8 @@ class CardRenderRequest {
 /// Receives the live [Canvas] and the [CardRenderRequest] so themes can
 /// decorate the painted face with extras (e.g., Kenney Classic's mid-line
 /// sand stroke). Returns nothing.
-typedef CardPaintExtras = void Function(
-  Canvas canvas,
-  CardRenderRequest request,
-);
+typedef CardPaintExtras =
+    void Function(Canvas canvas, CardRenderRequest request);
 
 /// Slug used in bundled asset filenames for each rank.
 ///

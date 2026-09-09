@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../data/persistence/app_repositories.dart';
 import '../data/persistence/learning_progress_repository.dart';
+import '../data/persistence/match_history_repository.dart';
 import '../data/persistence/match_repository.dart';
 import '../data/persistence/preferences_repository.dart';
 import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
@@ -17,8 +18,13 @@ import '../ui/core/motion/motion_speed.dart';
 import '../ui/core/scopes/app_scopes.dart';
 import '../ui/core/theme/app_theme.dart';
 import '../ui/features/game_setup/views/new_game_setup_screen.dart';
+import '../ui/features/game_table/table_session_config.dart';
 import '../ui/features/game_table/views/game_table_screen.dart';
 import '../ui/features/help/views/rules_help_screen.dart';
+import '../domain/classic_hareeg/history/match_history_summary.dart';
+import '../ui/features/history/views/match_history_screen.dart';
+import '../ui/features/replay/views/match_replay_screen.dart';
+import '../ui/features/history/views/match_statistics_screen.dart';
 import '../ui/features/home/views/home_screen.dart';
 import '../ui/features/learning/models/practice_lesson_registry.dart';
 import '../ui/features/learning/practice/practice_session.dart';
@@ -45,6 +51,7 @@ class HareegTableApp extends StatefulWidget {
     this.preferencesRepository,
     this.matchRepository,
     this.learningProgressRepository,
+    this.historyRepository,
     this.initialRouteOverride,
     super.key,
   });
@@ -58,6 +65,9 @@ class HareegTableApp extends StatefulWidget {
   /// Onboarding and guided practice progress storage dependency.
   final LearningProgressRepository? learningProgressRepository;
 
+  /// Completed-match history storage dependency.
+  final MatchHistoryRepository? historyRepository;
+
   /// Test hook: bypass the splash screen and start at a specific route. When
   /// null the app shell starts at [AppRoutes.splash].
   final String? initialRouteOverride;
@@ -69,6 +79,7 @@ class HareegTableApp extends StatefulWidget {
 class _HareegTableAppState extends State<HareegTableApp> {
   late final PreferencesRepository _preferences;
   late final MatchRepository _matches;
+  late final MatchHistoryRepository _history;
   late final LearningProgressRepository _learning;
   late final LearningProgressWorkflow _learningWorkflow;
   late final Future<LearningProgress> _learningFuture;
@@ -81,6 +92,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
     super.initState();
     _preferences = widget.preferencesRepository ?? AppRepositories.preferences;
     _matches = widget.matchRepository ?? AppRepositories.matches;
+    _history = widget.historyRepository ?? AppRepositories.history;
     _learning = widget.learningProgressRepository ?? AppRepositories.learning;
     _learningWorkflow = LearningProgressWorkflow(_learning);
     // Kicked off at startup so the splash hand-off can decide between home
@@ -249,9 +261,14 @@ class _HareegTableAppState extends State<HareegTableApp> {
         AppRoutes.splash: (context) => SplashScreen(
           onContinue: () => unawaited(_continueFromSplash(context)),
         ),
-        AppRoutes.home: (context) => HomeScreen(matchRepository: _matches),
+        AppRoutes.home: (context) =>
+            HomeScreen(matchRepository: _matches, historyRepository: _history),
         AppRoutes.newGame: (context) =>
             NewGameSetupScreen(preferencesRepository: _preferences),
+        AppRoutes.history: (context) =>
+            MatchHistoryScreen(historyRepository: _history),
+        AppRoutes.statistics: (context) =>
+            MatchStatisticsScreen(historyRepository: _history),
         AppRoutes.licenses: (context) =>
             LicensesScreen(themes: CardThemeRegistry.all()),
         AppRoutes.rulesHelp: (context) => const RulesHelpScreen(),
@@ -280,11 +297,37 @@ class _HareegTableAppState extends State<HareegTableApp> {
           );
         }
 
+        if (settings.name == AppRoutes.replay) {
+          final arguments = settings.arguments;
+          if (arguments is! MatchHistorySummary) {
+            return null;
+          }
+          return MaterialPageRoute<void>(
+            builder: (context) => MatchReplayScreen(
+              summary: arguments,
+              historyRepository: _history,
+              // The saved default seeds the session. The viewer may change it
+              // for this replay, and never writes it back.
+              analysisCoach: _values.analysisCoach,
+              // Read by a branch sandbox for motion, sound and card contrast.
+              // Handed in without `onPreferencesChanged`, because a sandbox
+              // has no route back to the store.
+              preferences: _values,
+            ),
+            settings: settings,
+          );
+        }
+
         if (settings.name == AppRoutes.table) {
           final arguments = settings.arguments;
-          final snapshot = arguments is ClassicHareegMatchSnapshot
-              ? arguments
-              : null;
+          // Resuming carries the whole checkpoint — identity, recorder state,
+          // Fifty counters, eliminations, coach history — because a bare
+          // snapshot cannot express any of it, and a match resumed from one
+          // loses its earlier transcript for good.
+          final checkpoint = arguments is MatchCheckpoint ? arguments : null;
+          final snapshot =
+              checkpoint?.snapshot ??
+              (arguments is ClassicHareegMatchSnapshot ? arguments : null);
           final setup = arguments is ClassicHareegSetup
               ? arguments
               : snapshot?.setup ?? ClassicHareegSetup.defaults();
@@ -292,7 +335,11 @@ class _HareegTableAppState extends State<HareegTableApp> {
             builder: (context) => GameTableScreen(
               setup: setup,
               initialSnapshot: snapshot,
-              matchRepository: _matches,
+              initialCheckpoint: checkpoint,
+              session: TableSessionConfig.live(
+                matchRepository: _matches,
+                historyRepository: _history,
+              ),
               preferences: _values,
               onPreferencesChanged: _updatePreferences,
             ),
@@ -315,10 +362,9 @@ class _HareegTableAppState extends State<HareegTableApp> {
           return MaterialPageRoute<void>(
             builder: (context) => GameTableScreen(
               setup: session.controller.setup,
-              matchRepository: _matches,
+              session: TableSessionConfig.practice(session),
               preferences: _values,
               onPreferencesChanged: _updatePreferences,
-              practiceSession: session,
               onPracticeFinished: _persistPracticeCompletion,
               nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
             ),

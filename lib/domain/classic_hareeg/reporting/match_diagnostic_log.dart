@@ -48,8 +48,9 @@ class MatchDiagnosticLog {
     // A persisted droppedCount is a count: ignore a missing or malformed
     // (negative) value so the field never starts from a negative base.
     final parsedDropped = asJsonInt(json['droppedCount']);
-    final baseDropped =
-        parsedDropped == null || parsedDropped < 0 ? 0 : parsedDropped;
+    final baseDropped = parsedDropped == null || parsedDropped < 0
+        ? 0
+        : parsedDropped;
     log._droppedCount = baseDropped + extraDropped;
     return log;
   }

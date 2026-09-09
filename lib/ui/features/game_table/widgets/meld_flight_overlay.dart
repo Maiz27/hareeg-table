@@ -76,11 +76,7 @@ class MeldFlightOverlay extends StatelessWidget {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
           final compact = size.height <= 390 || size.width <= 700;
           final cardSize = compact ? const Size(44, 62) : const Size(58, 82);
-          final begin = resolveFlightAnchor(
-            flight.begin,
-            size,
-            cardSize,
-          );
+          final begin = resolveFlightAnchor(flight.begin, size, cardSize);
           final end = resolveFlightAnchor(
             flight.end,
             size,

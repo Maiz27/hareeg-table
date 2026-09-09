@@ -79,9 +79,8 @@ class _MatchReportConfirmDialog extends StatelessWidget {
                     icon: Icons.copy_all_outlined,
                     label: strings.copyReport,
                     tone: LoungePanelActionTone.neutral,
-                    onTap: () => Navigator.of(
-                      context,
-                    ).pop(MatchReportExportChoice.copy),
+                    onTap: () =>
+                        Navigator.of(context).pop(MatchReportExportChoice.copy),
                   ),
                 ),
               ],

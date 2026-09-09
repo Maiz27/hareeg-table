@@ -305,6 +305,11 @@ class ClassicHareegFinishPlanner {
       if (_bitCount(mask) < 3) {
         continue;
       }
+      // Every meld's known identities must share a rank (set) or suit (run).
+      // Reject impossible subsets before allocating their card lists. This is
+      // only a necessary condition: joker resolution and full validation below
+      // still decide legality and retain their original candidate order.
+      if (!_sharesRankOrSuit(mask)) continue;
       final cards = _cardsForMask(mask);
       if (!_couldBeMeld(cards)) {
         continue;
@@ -326,8 +331,11 @@ class ClassicHareegFinishPlanner {
         // truncate the higher sequence reading (4 5 6 = 15). The value gate
         // below needs the TRUE maximum, so we must see every variant.
         ClassicHareegResolvedMeldCards? best;
-        for (final variant in ClassicHareegTablePlayPlanner
-            .resolveMeldCardVariants(cards, limit: 52)) {
+        for (final variant
+            in ClassicHareegTablePlayPlanner.resolveMeldCardVariants(
+              cards,
+              limit: 52,
+            )) {
           if (!variant.result.isValid) {
             continue;
           }
@@ -363,6 +371,25 @@ class ClassicHareegFinishPlanner {
         return left.mask.compareTo(right.mask);
       });
     }
+  }
+
+  bool _sharesRankOrSuit(int mask) {
+    CardIdentity? first;
+    var sameRank = true;
+    var sameSuit = true;
+    for (var i = 0; i < _cards.length; i++) {
+      if ((mask & (1 << i)) == 0) continue;
+      final identity = _cards[i].effectiveIdentity;
+      if (identity == null) continue;
+      if (first == null) {
+        first = identity;
+      } else {
+        sameRank = sameRank && identity.rank == first.rank;
+        sameSuit = sameSuit && identity.suit == first.suit;
+        if (!sameRank && !sameSuit) return false;
+      }
+    }
+    return true;
   }
 
   List<PlacedMeld>? _partition(int targetMask) {

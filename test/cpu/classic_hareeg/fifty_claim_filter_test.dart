@@ -309,6 +309,15 @@ final class _FakeCpuObservation implements CpuObservation {
   int get discardCount => 0;
 
   @override
+  List<HareegCard> get discardPile => const [];
+
+  @override
+  int get roundNumber => 1;
+
+  @override
+  int get deckCopyCount => 2;
+
+  @override
   bool hasOpened(PlayerSeat seat) => openingState.hasOpened(seat);
 
   @override

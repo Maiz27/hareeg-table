@@ -86,7 +86,7 @@ r1#85 E action discard:deck-0-six-hearts
 r1#86 N draw draw-stock
 r1#87 N action discard:deck-1-king-hearts
 r1#88 W draw draw-stock
-r1#89 W action discard:deck-0-ace-hearts
+r1#89 W action discard:deck-1-ten-spades
 r1#90 S draw draw-stock
 r1#91 S action discard:deck-1-eight-spades
 r1#92 E draw draw-stock
@@ -94,7 +94,7 @@ r1#93 E action discard:deck-0-four-spades
 r1#94 N draw draw-stock
 r1#95 N action discard:deck-1-queen-spades
 r1#96 W draw draw-stock
-r1#97 W action discard:deck-0-ten-diamonds
+r1#97 W action discard:deck-0-ace-hearts
 r1#98 S draw draw-stock
 r1#99 S action discard:deck-0-six-diamonds
 r1#100 E draw draw-stock

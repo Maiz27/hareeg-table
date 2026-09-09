@@ -5,6 +5,7 @@ import '../rules/match_progression_rules.dart';
 import '../rules/opening_rules.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
+import 'round_seed_algorithm.dart';
 
 /// Match-level progression for completed Classic Hareeg rounds.
 ///
@@ -20,6 +21,7 @@ class ClassicHareegMatchFlow {
     required this.activeSeats,
     required this.currentStarter,
     required this.roundNumber,
+    this.roundSeedAlgorithm = RoundSeedAlgorithm.exact32,
   });
 
   /// Setup used to deal the next round.
@@ -39,6 +41,7 @@ class ClassicHareegMatchFlow {
 
   /// One-based number of the completed round.
   final int roundNumber;
+  final RoundSeedAlgorithm roundSeedAlgorithm;
 
   /// Applies [roundResult] to produce match progress, or null if no result is
   /// available yet.
@@ -79,6 +82,7 @@ class ClassicHareegMatchFlow {
     return ClassicHareegMatchSnapshot(
       setup: setup,
       hands: round.hands,
+      roundSeedAlgorithm: roundSeedAlgorithm,
       seed: round.seed,
       stock: round.stock,
       discardPile: round.discardPile,
@@ -114,7 +118,10 @@ class ClassicHareegMatchFlow {
     var hash = 0x811c9dc5; // FNV-1a 32-bit offset basis.
     void mix(int value) {
       hash = (hash ^ (value & 0xFFFFFFFF)) & 0xFFFFFFFF;
-      hash = (hash * 0x01000193) & 0xFFFFFFFF; // FNV prime.
+      hash = switch (roundSeedAlgorithm) {
+        RoundSeedAlgorithm.exact32 => fnvMultiply32(hash),
+        RoundSeedAlgorithm.legacyWeb => legacyWebFnvMultiply(hash),
+      };
     }
 
     mix(roundNumber + 1);

@@ -74,9 +74,9 @@ class TableCueChoreographer extends ChangeNotifier {
     required void Function(Object cue) onJokerCueStart,
     required void Function(Object cue) onJokerCueEnd,
     required bool Function() isMounted,
-  })  : _isMounted = isMounted,
-        _onJokerCueStart = onJokerCueStart,
-        _onJokerCueEnd = onJokerCueEnd {
+  }) : _isMounted = isMounted,
+       _onJokerCueStart = onJokerCueStart,
+       _onJokerCueEnd = onJokerCueEnd {
     _jokerQueue = JokerCueQueue<Object>(
       onCueStart: _handleJokerCueStart,
       onCueEnd: _handleJokerCueEnd,

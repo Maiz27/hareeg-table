@@ -65,7 +65,9 @@ abstract final class CoreTurnPracticePack {
     ];
     return PracticeLessonScript(
       lessonId: 'first-meld',
-      taughtMelds: [{for (final card in heartRun) card.id}],
+      taughtMelds: [
+        {for (final card in heartRun) card.id},
+      ],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
           ...heartRun,

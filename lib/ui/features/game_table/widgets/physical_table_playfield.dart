@@ -6,6 +6,7 @@ import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
+import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../coach/coach_highlighting.dart';
 import 'opponent_seat_rails.dart';
@@ -40,6 +41,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// Creates the table playfield.
   const PhysicalTablePlayfield({
     super.key,
+    this.showSouthControls = true,
     required this.theme,
     required this.stockCount,
     required this.discardPile,
@@ -88,6 +90,8 @@ class PhysicalTablePlayfield extends StatelessWidget {
     required this.activeSeats,
     this.southFlashCardId,
     this.coachHighlighting = CoachHighlighting.none,
+    this.revealedHands = const <PlayerSeat, List<HareegCard>>{},
+    this.onExpandRevealedHand,
   });
 
   /// Active card theme.
@@ -190,6 +194,14 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// Return opening melds callback.
   final VoidCallback onReturnOpeningMelds;
 
+  /// Whether the south seat's meld and opening controls render.
+  ///
+  /// Defaults to true so live play is untouched. Replay passes false: the
+  /// meld and opening-requirement chip describe decisions a reviewer cannot
+  /// make, so on a passive table they are not merely inert, they are
+  /// misleading.
+  final bool showSouthControls;
+
   /// Seconds left in the Fifty window.
   final int? fiftySecondsRemaining;
 
@@ -245,8 +257,33 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// melds (cover). Defaults to [CoachHighlighting.none] (nothing rings).
   final CoachHighlighting coachHighlighting;
 
+  /// Opponent hands to render face up, keyed by seat.
+  ///
+  /// Empty on every surface except a full-visibility study sandbox. Visibility
+  /// is rendering and only rendering: nothing downstream of this map reaches
+  /// the rules engine, the CPU policies, or what South is allowed to do.
+  final Map<PlayerSeat, List<HareegCard>> revealedHands;
+
+  /// Opens the read-only expanded view of a revealed hand.
+  final ValueChanged<PlayerSeat>? onExpandRevealedHand;
+
+  /// Face-up cards for [seat], or empty when that hand stays hidden.
+  List<HareegCard> _revealed(PlayerSeat seat) =>
+      revealedHands[seat] ?? const <HareegCard>[];
+
+  /// The expand handler for [seat], or null when there is nothing revealed to
+  /// expand — so a hidden hand has no tap target at all.
+  VoidCallback? _expandHandler(PlayerSeat seat) {
+    final open = onExpandRevealedHand;
+    if (open == null || _revealed(seat).isEmpty) {
+      return null;
+    }
+    return () => open(seat);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = context.strings;
     return LayoutBuilder(
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth;
@@ -362,9 +399,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // clear ABOVE the discard card rather than overlapping it — tapping the
         // card is always a plain pickup, tapping the ring is the conscious
         // claim. Centred over the pile and clamped on-screen.
-        final fiftyCueLeft = (visibleDiscardLeft + (pileWidth - fiftyDiameter) / 2)
-            .clamp(0.0, tableWidth - fiftyDiameter)
-            .toDouble();
+        final fiftyCueLeft =
+            (visibleDiscardLeft + (pileWidth - fiftyDiameter) / 2)
+                .clamp(0.0, tableWidth - fiftyDiameter)
+                .toDouble();
         final fiftyCueTop =
             (visibleDiscardTop - fiftyDiameter - (compact ? 6.0 : 8.0))
                 .clamp(0.0, tableHeight - fiftyDiameter)
@@ -391,6 +429,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 thinking: isCpuRunning && currentSeat == PlayerSeat.north,
                 eliminated: !activeSeats.contains(PlayerSeat.north),
                 compact: compact,
+                faceUpCards: _revealed(PlayerSeat.north),
+                onExpand: _expandHandler(PlayerSeat.north),
+                expandLabel: strings.branchStudyHandExpand(PlayerSeat.north),
               ),
             ),
             Positioned(
@@ -409,6 +450,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   eliminated: !activeSeats.contains(PlayerSeat.west),
                   alignRight: false,
                   compact: compact,
+                  faceUpCards: _revealed(PlayerSeat.west),
+                  onExpand: _expandHandler(PlayerSeat.west),
+                  expandLabel: strings.branchStudyHandExpand(PlayerSeat.west),
                 ),
               ),
             ),
@@ -428,6 +472,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   eliminated: !activeSeats.contains(PlayerSeat.east),
                   alignRight: true,
                   compact: compact,
+                  faceUpCards: _revealed(PlayerSeat.east),
+                  onExpand: _expandHandler(PlayerSeat.east),
+                  expandLabel: strings.branchStudyHandExpand(PlayerSeat.east),
                 ),
               ),
             ),
@@ -602,21 +649,22 @@ class PhysicalTablePlayfield extends StatelessWidget {
                   ),
                 ),
               ),
-            Positioned(
-              right: edgeInset,
-              bottom: controlBottom,
-              width: controlWidth,
-              child: SouthSideControls(
-                meldRequirement: meldRequirement,
-                meldSelectionValue: meldSelectionValue,
-                meldSelectionValid: meldSelectionValid,
-                meldSelectionHasOpened: meldSelectionHasOpened,
-                onPlaySelectedMeld: onPlaySelectedMeld,
-                compact: compact,
-                canReturnOpeningMelds: isHumanTurn && canReturnOpeningMelds,
-                onReturnOpeningMelds: onReturnOpeningMelds,
+            if (showSouthControls)
+              Positioned(
+                right: edgeInset,
+                bottom: controlBottom,
+                width: controlWidth,
+                child: SouthSideControls(
+                  meldRequirement: meldRequirement,
+                  meldSelectionValue: meldSelectionValue,
+                  meldSelectionValid: meldSelectionValid,
+                  meldSelectionHasOpened: meldSelectionHasOpened,
+                  onPlaySelectedMeld: onPlaySelectedMeld,
+                  compact: compact,
+                  canReturnOpeningMelds: isHumanTurn && canReturnOpeningMelds,
+                  onReturnOpeningMelds: onReturnOpeningMelds,
+                ),
               ),
-            ),
             Positioned(
               left: handHorizontalInset,
               right: handHorizontalInset,

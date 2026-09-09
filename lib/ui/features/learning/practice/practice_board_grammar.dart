@@ -162,7 +162,7 @@ abstract final class PracticeBoardGrammar {
     final ids = (stray.first.usedCardIds.toList()..sort()).join(', ');
     return [
       '${seat.name} filler cards form an unintended meld ($ids); a lesson '
-      'hand must hold no meld beyond its declared teaching cards.',
+          'hand must hold no meld beyond its declared teaching cards.',
     ];
   }
 }

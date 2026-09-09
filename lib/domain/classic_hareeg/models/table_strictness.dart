@@ -41,7 +41,8 @@ enum TableStrictness {
   /// unrecognized. Coaching is the fresh-install default and the most
   /// forgiving option, so it's the safest fallback for corrupted persistence.
   static TableStrictness fromName(String? name) {
-    return _enumByName(TableStrictness.values, name) ?? TableStrictness.coaching;
+    return _enumByName(TableStrictness.values, name) ??
+        TableStrictness.coaching;
   }
 }
 

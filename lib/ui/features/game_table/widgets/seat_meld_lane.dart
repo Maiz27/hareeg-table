@@ -134,7 +134,29 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget<HareegCard>(
+    // D13: an EMPTY OPPONENT lane must not take a pointer.
+    //
+    // The lane's shell is an `AnimatedContainer` with a transparent
+    // `BoxDecoration`, and `RenderDecoratedBox.hitTestSelf` returns true
+    // anywhere inside its rounded rect regardless of alpha. So an empty
+    // opponent lane — which has nothing to drop onto and nothing to inspect —
+    // still hit-tests across its whole box.
+    //
+    // That is not cosmetic. On the web the table is laid out in a canvas of
+    // fixed height 430 and scaled to fill, so a 390x844 portrait viewport
+    // becomes a ~198.7-wide canvas where the side lanes converge on the
+    // middle and cover the discard pile. `RenderStack` hit tests in reverse
+    // paint order and stops at the FIRST child that reports a hit, and a
+    // `DragTarget` that refuses does not hand the pointer back down — so the
+    // discard never entered the hit-test path and drag-to-discard was
+    // impossible in portrait for a real player, not only for a test driver.
+    //
+    // Deliberately narrow: SOUTH's empty lane stays interactive, because that
+    // is where a new meld is dropped, and any POPULATED lane keeps its
+    // per-meld cover and inspection behaviour untouched. Ownership and
+    // emptiness only — the accept closures are not inspected.
+    final inert = widget.melds.isEmpty && widget.owner != PlayerSeat.south;
+    final target = DragTarget<HareegCard>(
       onWillAcceptWithDetails: (details) => widget.canAcceptTable(details.data),
       onAcceptWithDetails: (details) => widget.onAcceptTable(details.data),
       builder: (context, candidates, rejected) {
@@ -302,6 +324,10 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
         return lane;
       },
     );
+    // `IgnorePointer`, not a smaller box: the lane must keep its size and its
+    // paint exactly as they are, so nothing about the table's appearance or
+    // layout moves. Only its claim on the pointer goes away.
+    return inert ? IgnorePointer(child: target) : target;
   }
 }
 
@@ -529,9 +555,8 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                         theme: theme,
                         card: cards[i],
                         size: effectiveCardSize,
-                        visualState: widget.coachHighlighting.highlights(
-                              cards[i].id,
-                            )
+                        visualState:
+                            widget.coachHighlighting.highlights(cards[i].id)
                             ? CardVisualState.coachHighlight
                             : CardVisualState.normal,
                         // A grouped cover-target meld rings in its own palette

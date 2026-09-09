@@ -6,6 +6,8 @@ import '../rules/opening_rules.dart';
 import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot_v1.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_turn_journal.dart';
+import 'round_seed_algorithm.dart';
 
 /// Serializable active Classic Hareeg match state.
 ///
@@ -58,10 +60,16 @@ class ClassicHareegMatchSnapshot {
     this.activeFiftyClaimCardId,
     this.activeFiftyClaimDiscarder,
     this.activeFiftyClaimIsFirstDealtRound,
+    this.activeFiftyProofActions,
     this.windowedTakeCardId,
     this.windowedTakeDiscarder,
     this.windowedTakeIsFirstDealtRound,
     this.discardHistoryEvents = const [],
+    this.turnJournal,
+    this.roundSeedAlgorithm,
+    this.previousDiscardSeat,
+    this.discardNextSequence,
+    this.lastReturnedPendingDiscard,
   });
 
   /// Restores a saved match from JSON-compatible data, dispatching to the
@@ -88,6 +96,14 @@ class ClassicHareegMatchSnapshot {
   /// This is v1-additive. Older saves do not contain the seed, so reports for
   /// those restored matches include a null seed instead of inventing one.
   final int? seed;
+
+  /// Exact-position discard attribution, including an intentionally absent one.
+  /// [turnJournal] distinguishes exact saves from legacy geometric inference.
+  final PlayerSeat? previousDiscardSeat;
+
+  /// Next discard-memory sequence, including gaps left by retracted pickups.
+  final int? discardNextSequence;
+  final ({PlayerSeat seat, String cardId})? lastReturnedPendingDiscard;
 
   /// Face-down stock cards.
   final List<HareegCard> stock;
@@ -143,10 +159,9 @@ class ClassicHareegMatchSnapshot {
   final bool? fiftyWindowIsFirstDealtRound;
 
   /// Physical id of the claimed card when a Fifty proof turn was active at
-  /// save time, or null. The checkpoint reverts the proof's table plays, so
-  /// the claimed card sits back in the claimant's hand as the pending
-  /// discard; restore resumes the proof turn from its start. v1-additive —
-  /// absent in older saves (no claim was ever mid-proof there).
+  /// save time, or null. Exact snapshots retain the staged plays; legacy
+  /// rollback snapshots return them to the hand and resume the proof from
+  /// its start. This claim provenance is independent of the open timer.
   final String? activeFiftyClaimCardId;
 
   /// Seat whose discard was claimed during the active proof turn, or null.
@@ -154,6 +169,13 @@ class ClassicHareegMatchSnapshot {
 
   /// Whether the active proof claim carried the first-dealt-round exception.
   final bool? activeFiftyClaimIsFirstDealtRound;
+
+  /// Unplayed actions of the claimant's validated Fifty finish, in order.
+  /// The CPU follows these; a human may choose a different legal play.
+  /// Exact saves preserve the remaining plan rather than choosing another
+  /// valid finish after resume. Absent on legacy rollback saves or when an
+  /// off-script action requires replanning from the current board.
+  final List<String>? activeFiftyProofActions;
 
   /// Physical id of a windowed discard the current seat took via plain
   /// take-discard (not claim-fifty) while the Fifty window was open, or null.
@@ -179,6 +201,13 @@ class ClassicHareegMatchSnapshot {
   /// each event through the live `recordDiscard` / `recordPickup` paths and
   /// rebuild derived indices without the wire format duplicating them.
   final List<DiscardEvent> discardHistoryEvents;
+
+  /// Active-turn provenance for an exact position. Absent on legacy saves,
+  /// whose staged plays were rolled back before serialization.
+  final ClassicHareegTurnJournalSnapshot? turnJournal;
+
+  /// Null only on recordings/saves made before deal arithmetic was versioned.
+  final RoundSeedAlgorithm? roundSeedAlgorithm;
 
   /// Converts the snapshot to JSON-compatible data in the current schema.
   Map<String, Object?> toJson() => encodeMatchSnapshotV1(this);

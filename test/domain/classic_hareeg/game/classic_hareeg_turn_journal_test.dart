@@ -80,10 +80,7 @@ void main() {
           card(CardRank.ten, CardSuit.diamonds, 101),
           card(CardRank.ten, CardSuit.hearts, 102),
         ]);
-        journal.recordOpeningMelds(
-          [tens],
-          consumedPendingDiscard: pending,
-        );
+        journal.recordOpeningMelds([tens], consumedPendingDiscard: pending);
 
         expect(journal.consumedPendingDiscard, pending);
 
@@ -184,15 +181,11 @@ void main() {
         journal.recordCoverPlay(siblingPlay);
         journal.recordFinishMelds([firstPlay.coverMeld, siblingPlay.coverMeld]);
 
-        expect(
-          journal.coverPlaysFor(owner: PlayerSeat.east, meldIndex: 0),
-          [firstPlay],
-        );
+        expect(journal.coverPlaysFor(owner: PlayerSeat.east, meldIndex: 0), [
+          firstPlay,
+        ]);
 
-        journal.removeCoverPlaysFor(
-          targetSeat: PlayerSeat.east,
-          meldIndex: 0,
-        );
+        journal.removeCoverPlaysFor(targetSeat: PlayerSeat.east, meldIndex: 0);
         journal.removeFinishMeldMatching(firstPlay.coverMeld);
 
         expect(
@@ -204,76 +197,77 @@ void main() {
       });
 
       test(
-          'rebaseCoverPlaysAfterMeldRemoval shifts later same-lane plays down',
-          () {
-        final journal = ClassicHareegTurnJournal();
-        final coverEarly = card(CardRank.six, CardSuit.hearts, 410);
-        final coverLate = card(CardRank.seven, CardSuit.hearts, 411);
-        final coverOtherSeat = card(CardRank.eight, CardSuit.hearts, 412);
-        final earlyPlay = ClassicHareegTurnCoverPlay(
-          targetSeat: PlayerSeat.south,
-          meldIndex: 0,
-          previousMeld: meld([
-            card(CardRank.three, CardSuit.hearts, 413),
-            card(CardRank.four, CardSuit.hearts, 414),
-            card(CardRank.five, CardSuit.hearts, 415),
-          ]),
-          coverMeld: PlacedMeld(cards: [coverEarly], valueSnapshot: 6),
-          previousOpeningState: opened(PlayerSeat.south),
-        );
-        final latePlay = ClassicHareegTurnCoverPlay(
-          targetSeat: PlayerSeat.south,
-          meldIndex: 2,
-          previousMeld: meld([
-            card(CardRank.three, CardSuit.spades, 416),
-            card(CardRank.four, CardSuit.spades, 417),
-            card(CardRank.five, CardSuit.spades, 418),
-          ]),
-          coverMeld: PlacedMeld(cards: [coverLate], valueSnapshot: 7),
-          previousOpeningState: opened(PlayerSeat.south),
-        );
-        final otherSeatPlay = ClassicHareegTurnCoverPlay(
-          targetSeat: PlayerSeat.east,
-          meldIndex: 2,
-          previousMeld: meld([
-            card(CardRank.three, CardSuit.clubs, 419),
-            card(CardRank.four, CardSuit.clubs, 420),
-            card(CardRank.five, CardSuit.clubs, 421),
-          ]),
-          coverMeld: PlacedMeld(cards: [coverOtherSeat], valueSnapshot: 8),
-          previousOpeningState: opened(PlayerSeat.south),
-        );
+        'rebaseCoverPlaysAfterMeldRemoval shifts later same-lane plays down',
+        () {
+          final journal = ClassicHareegTurnJournal();
+          final coverEarly = card(CardRank.six, CardSuit.hearts, 410);
+          final coverLate = card(CardRank.seven, CardSuit.hearts, 411);
+          final coverOtherSeat = card(CardRank.eight, CardSuit.hearts, 412);
+          final earlyPlay = ClassicHareegTurnCoverPlay(
+            targetSeat: PlayerSeat.south,
+            meldIndex: 0,
+            previousMeld: meld([
+              card(CardRank.three, CardSuit.hearts, 413),
+              card(CardRank.four, CardSuit.hearts, 414),
+              card(CardRank.five, CardSuit.hearts, 415),
+            ]),
+            coverMeld: PlacedMeld(cards: [coverEarly], valueSnapshot: 6),
+            previousOpeningState: opened(PlayerSeat.south),
+          );
+          final latePlay = ClassicHareegTurnCoverPlay(
+            targetSeat: PlayerSeat.south,
+            meldIndex: 2,
+            previousMeld: meld([
+              card(CardRank.three, CardSuit.spades, 416),
+              card(CardRank.four, CardSuit.spades, 417),
+              card(CardRank.five, CardSuit.spades, 418),
+            ]),
+            coverMeld: PlacedMeld(cards: [coverLate], valueSnapshot: 7),
+            previousOpeningState: opened(PlayerSeat.south),
+          );
+          final otherSeatPlay = ClassicHareegTurnCoverPlay(
+            targetSeat: PlayerSeat.east,
+            meldIndex: 2,
+            previousMeld: meld([
+              card(CardRank.three, CardSuit.clubs, 419),
+              card(CardRank.four, CardSuit.clubs, 420),
+              card(CardRank.five, CardSuit.clubs, 421),
+            ]),
+            coverMeld: PlacedMeld(cards: [coverOtherSeat], valueSnapshot: 8),
+            previousOpeningState: opened(PlayerSeat.south),
+          );
 
-        journal
-          ..recordCoverPlay(earlyPlay)
-          ..recordCoverPlay(latePlay)
-          ..recordCoverPlay(otherSeatPlay);
+          journal
+            ..recordCoverPlay(earlyPlay)
+            ..recordCoverPlay(latePlay)
+            ..recordCoverPlay(otherSeatPlay);
 
-        journal.rebaseCoverPlaysAfterMeldRemoval(
-          targetSeat: PlayerSeat.south,
-          removedIndex: 1,
-        );
+          journal.rebaseCoverPlaysAfterMeldRemoval(
+            targetSeat: PlayerSeat.south,
+            removedIndex: 1,
+          );
 
-        // Same-lane play at index 0 is at or before the removed index — stays.
-        expect(
-          journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 0),
-          hasLength(1),
-        );
-        // Same-lane play that was at index 2 should now answer to index 1.
-        expect(
-          journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 2),
-          isEmpty,
-        );
-        expect(
-          journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 1),
-          hasLength(1),
-        );
-        // Different-lane play is untouched.
-        expect(
-          journal.coverPlaysFor(owner: PlayerSeat.east, meldIndex: 2),
-          hasLength(1),
-        );
-      });
+          // Same-lane play at index 0 is at or before the removed index — stays.
+          expect(
+            journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 0),
+            hasLength(1),
+          );
+          // Same-lane play that was at index 2 should now answer to index 1.
+          expect(
+            journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 2),
+            isEmpty,
+          );
+          expect(
+            journal.coverPlaysFor(owner: PlayerSeat.south, meldIndex: 1),
+            hasLength(1),
+          );
+          // Different-lane play is untouched.
+          expect(
+            journal.coverPlaysFor(owner: PlayerSeat.east, meldIndex: 2),
+            hasLength(1),
+          );
+        },
+      );
     });
 
     group('checkpoint projection', () {
@@ -325,6 +319,24 @@ void main() {
         expect(checkpoint.consumedPendingDiscard, pending);
         expect(checkpoint.source, FinishCardSource.previousDiscard);
 
+        final restored = ClassicHareegTurnJournalSnapshot.fromJson(
+          checkpoint.toJson(),
+        );
+        expect(restored.toJson(), checkpoint.toJson());
+        expect(restored.restore().toSnapshot().toJson(), checkpoint.toJson());
+        final frozen = checkpoint.frozen();
+        expect(frozen.toJson(), checkpoint.toJson());
+        expect(
+          () => frozen.coverPlays.single.previousMeld.cards.clear(),
+          throwsUnsupportedError,
+        );
+        expect(
+          () =>
+              frozen.coverPlays.single.previousOpeningState.openedSeats.clear(),
+          throwsUnsupportedError,
+        );
+        expect(() => frozen.finishMelds.clear(), throwsUnsupportedError);
+
         // The checkpoint is a value snapshot: mutating the journal afterwards
         // must not change it.
         journal.resetForNewTurn();
@@ -373,10 +385,7 @@ void main() {
       journal.recordOpeningMelds([tens]);
 
       expect(() => journal.openingMeldsView.add(tens), throwsUnsupportedError);
-      expect(
-        () => journal.finishMeldsView.add(tens),
-        throwsUnsupportedError,
-      );
+      expect(() => journal.finishMeldsView.add(tens), throwsUnsupportedError);
     });
   });
 }

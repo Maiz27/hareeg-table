@@ -2,6 +2,7 @@ import '../../domain/classic_hareeg/models/playing_card.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
+import 'cpu_table_reading.dart';
 import 'priority_cpu_move_planner.dart';
 
 /// Casual CPU planner with immediate hand tactics but no opponent modelling.
@@ -10,6 +11,11 @@ import 'priority_cpu_move_planner.dart';
 /// table-aware posture. It takes discards that directly improve the hand,
 /// prefers compact melds, sheds high pips, and claims valid Fifties subject to
 /// the difficulty miss profile.
+///
+/// It also notices the material signal — a pair or part-run whose every
+/// completion is already accounted for — but only on the stable 40% of
+/// positions its attention policy opens. The rest of the time it keeps holding
+/// the dead draw, which is the mistake a casual player actually makes.
 class CasualCpuMovePlanner implements CpuMovePlanner {
   /// Creates a casual CPU move planner.
   const CasualCpuMovePlanner();
@@ -85,7 +91,20 @@ class _CasualCpuPlanPolicy implements CpuPlanPolicy {
   Comparator<CpuDiscardCandidate> discardComparator(
     CpuObservation observation,
   ) {
+    final reading = CpuTableReading.forObservation(observation);
+
     return (left, right) {
+      // Material signal, gated to this tier's sampled attention: a card whose
+      // group can no longer become a meld is shed before a live one, whatever
+      // the pips say.
+      final starvedCompare = boolDesc(
+        reading.isStarved(left.card),
+        reading.isStarved(right.card),
+      );
+      if (starvedCompare != 0) {
+        return starvedCompare;
+      }
+
       final valueCompare = cardPipValue(
         right.card,
       ).compareTo(cardPipValue(left.card));

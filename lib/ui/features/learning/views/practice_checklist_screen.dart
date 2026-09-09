@@ -87,10 +87,9 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
         if (lesson.id == PracticeLessonRegistry.strictnessTiersLessonId) {
           await Navigator.of(context).pushNamed(AppRoutes.strictnessExplainer);
         } else {
-          await Navigator.of(context).pushNamed(
-            AppRoutes.practiceReadingPanel,
-            arguments: lesson.id,
-          );
+          await Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.practiceReadingPanel, arguments: lesson.id);
         }
       } else {
         await Navigator.of(

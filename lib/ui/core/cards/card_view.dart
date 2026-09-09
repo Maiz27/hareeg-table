@@ -160,10 +160,7 @@ class _HareegCardViewState extends State<HareegCardView>
         tween: Tween(begin: 0.0, end: 1.0),
         weight: fadeInWeight,
       ),
-      TweenSequenceItem(
-        tween: ConstantTween(1.0),
-        weight: holdWeight,
-      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: holdWeight),
       TweenSequenceItem(
         tween: Tween(begin: 1.0, end: 0.0),
         weight: fadeOutWeight,
@@ -191,7 +188,8 @@ class _HareegCardViewState extends State<HareegCardView>
     // meld distinctly while every other state stays as the theme defines it.
     final ringColor = widget.coachRingColor;
     final overlay =
-        widget.visualState == CardVisualState.coachHighlight && ringColor != null
+        widget.visualState == CardVisualState.coachHighlight &&
+            ringColor != null
         ? CardStateOverlayStyle(
             outline: ringColor,
             outlineWidth: resolvedOverlay.outlineWidth,
@@ -205,7 +203,9 @@ class _HareegCardViewState extends State<HareegCardView>
         : scopedJokerDisplay;
     final opacityAnimation = _cueOpacity;
     final cueActive =
-        _shouldMemoryReveal && !_memoryRevealQuieted && opacityAnimation != null;
+        _shouldMemoryReveal &&
+        !_memoryRevealQuieted &&
+        opacityAnimation != null;
     final label =
         widget.semanticsLabel ??
         _defaultSemanticsLabel(context, effectiveJokerDisplay);

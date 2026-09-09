@@ -149,9 +149,7 @@ abstract final class AppTheme {
         backgroundColor: LoungeTokens.coffeeCharcoal,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          side: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.4),
-          ),
+          side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
         ),
         titleTextStyle: LoungeTokens.heading,
         contentTextStyle: LoungeTokens.body,
@@ -161,9 +159,7 @@ abstract final class AppTheme {
         contentTextStyle: LoungeTokens.body,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-          side: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.4),
-          ),
+          side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
         ),
       ),
     );

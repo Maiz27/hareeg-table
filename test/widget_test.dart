@@ -139,6 +139,12 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).last,
     );
+    // scrollUntilVisible stops as soon as the target is BUILT, which can leave
+    // it flush against the bottom edge and not hit-testable. Adding a settings
+    // section is enough to tip it over, so bring it fully into view before
+    // tapping. The assertion below is unchanged.
+    await tester.ensureVisible(find.text('About & Licenses'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('About & Licenses'));
     await tester.pumpAndSettle();
 
@@ -197,6 +203,7 @@ Widget testApp({
   String initialRoute = AppRoutes.home,
 }) {
   return HareegTableApp(
+    historyRepository: MemoryMatchHistoryRepository(),
     preferencesRepository:
         preferencesRepository ?? MemoryPreferencesRepository(),
     matchRepository: matchRepository ?? MemoryMatchRepository(),

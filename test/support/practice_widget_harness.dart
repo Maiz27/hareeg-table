@@ -6,6 +6,7 @@ import 'package:hareeg_table/data/persistence/preferences_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/core/cards/card_state.dart';
 import 'package:hareeg_table/ui/core/cards/card_view.dart';
+import 'package:hareeg_table/ui/features/game_table/table_session_config.dart';
 import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart';
 import 'package:hareeg_table/ui/features/learning/models/practice_lesson_registry.dart';
 import 'package:hareeg_table/ui/features/learning/practice/practice_session.dart';
@@ -22,6 +23,7 @@ Widget practiceApp({
   MemoryMatchRepository? matches,
 }) {
   return HareegTableApp(
+    historyRepository: MemoryMatchHistoryRepository(),
     preferencesRepository: MemoryPreferencesRepository(),
     matchRepository: matches ?? MemoryMatchRepository(),
     learningProgressRepository: learning,
@@ -37,10 +39,12 @@ Widget practiceTable(
   return MaterialApp(
     home: GameTableScreen(
       setup: session.controller.setup,
-      matchRepository: MemoryMatchRepository(),
+      // No repository is handed in at all any more. The harness used to pass
+      // two that a behavioural guard then had to remember not to use; a
+      // practice session simply has nowhere to write.
+      session: TableSessionConfig.practice(session),
       preferences: GamePreferences.defaults(),
       onPreferencesChanged: (_) {},
-      practiceSession: session,
       onPracticeFinished: (lessonId) async => onFinished(lessonId),
       nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
     ),

@@ -11,8 +11,17 @@ enum ClassicHareegTablePersistenceAction {
   /// Save the prebuilt next-round snapshot.
   saveNextRound,
 
-  /// Clear the active match because the match is complete.
+  /// Clear the active match without recording it.
+  ///
+  /// Used when play stops without a winner — the human was eliminated while
+  /// CPUs were still playing. Nothing is archived: there is no completed match
+  /// to record.
   abandonActiveMatch,
+
+  /// Record the completed match to history, then clear the active match.
+  ///
+  /// Selected only when a seat actually won.
+  archiveCompletedMatch,
 }
 
 /// Table persistence scenario selected after a controller state change.
@@ -23,8 +32,14 @@ enum ClassicHareegTablePersistenceScenario {
   /// The round ended and a next round should be saved.
   roundCompleteWithNextRound,
 
-  /// The round ended and no next round exists.
+  /// The round ended, a seat won, and the match enters history.
   matchComplete,
+
+  /// The round ended with no next round and no winner.
+  ///
+  /// The human was eliminated while CPUs remained. Play stops, but no match was
+  /// completed, so nothing is archived.
+  matchAbandonedWithoutWinner,
 
   /// The round ended, but presentation facts were incomplete.
   roundCompleteMissingPresentation,
@@ -125,6 +140,7 @@ class ClassicHareegTablePersistencePlan {
       ClassicHareegTablePersistenceAction.saveActiveMatch => 'active',
       ClassicHareegTablePersistenceAction.saveNextRound => 'next-round',
       ClassicHareegTablePersistenceAction.abandonActiveMatch => 'abandon',
+      ClassicHareegTablePersistenceAction.archiveCompletedMatch => 'archive',
     };
   }
 }
@@ -182,13 +198,29 @@ abstract final class ClassicHareegTablePersistencePlanner {
       scoreView: scoreView,
       nextRoundSnapshot: nextRoundSnapshot,
     );
+    // A null next-round snapshot is NOT the same as a completed match. It also
+    // happens when the human is eliminated while CPUs are still playing, where
+    // the table stops but nobody has won. Archiving on that signal would write
+    // history entries for matches with no winner, so the archive decision keys
+    // on an actual winner and nothing else.
+    final hasWinner = scoreView.progress?.matchWinner != null;
+    if (hasWinner && presentation == null) {
+      throw StateError(
+        'A completed match needs its round-result presentation.',
+      );
+    }
     final action = nextRoundSnapshot == null
-        ? ClassicHareegTablePersistenceAction.abandonActiveMatch
+        ? hasWinner
+              ? ClassicHareegTablePersistenceAction.archiveCompletedMatch
+              : ClassicHareegTablePersistenceAction.abandonActiveMatch
         : ClassicHareegTablePersistenceAction.saveNextRound;
     final scenario = presentation == null
         ? ClassicHareegTablePersistenceScenario.roundCompleteMissingPresentation
         : nextRoundSnapshot == null
-        ? ClassicHareegTablePersistenceScenario.matchComplete
+        ? hasWinner
+              ? ClassicHareegTablePersistenceScenario.matchComplete
+              : ClassicHareegTablePersistenceScenario
+                    .matchAbandonedWithoutWinner
         : ClassicHareegTablePersistenceScenario.roundCompleteWithNextRound;
 
     return ClassicHareegTablePersistencePlan(

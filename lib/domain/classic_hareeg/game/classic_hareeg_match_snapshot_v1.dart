@@ -6,6 +6,8 @@ import '../rules/opening_rules.dart';
 import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_turn_journal.dart';
+import 'round_seed_algorithm.dart';
 
 /// Saved-match schema version implemented by this file.
 ///
@@ -13,6 +15,16 @@ import 'classic_hareeg_round.dart';
 /// changes; the dispatcher in [ClassicHareegMatchSnapshot.fromJson] decides
 /// which decoder to run based on this number.
 const int matchSnapshotV1Version = 1;
+
+List<String>? _proofActionsFromJson(Object? value) {
+  if (value == null) return null;
+  if (value is! List ||
+      value.isEmpty ||
+      value.any((action) => action is! String || action.isEmpty)) {
+    throw const FormatException('Invalid Fifty proof actions.');
+  }
+  return List<String>.unmodifiable(value.cast<String>());
+}
 
 /// Decodes a v1-format saved match JSON object.
 ///
@@ -109,6 +121,14 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
 
   return ClassicHareegMatchSnapshot(
     setup: ClassicHareegSetup.fromJson(setupJson),
+    roundSeedAlgorithm: json['roundSeedAlgorithm'] == null
+        ? null
+        : RoundSeedAlgorithm.values
+                  .where((value) => value.name == json['roundSeedAlgorithm'])
+                  .firstOrNull ??
+              (throw const FormatException(
+                'Unsupported round seed algorithm.',
+              )),
     hands: hands,
     seed: asJsonInt(json['seed']),
     stock: _cardsFromJson(stockJson),
@@ -139,11 +159,40 @@ ClassicHareegMatchSnapshot decodeMatchSnapshotV1(Map<String, Object?> json) {
     activeFiftyClaimCardId: activeFiftyClaimCardId,
     activeFiftyClaimDiscarder: activeFiftyClaimDiscarder,
     activeFiftyClaimIsFirstDealtRound: activeFiftyClaimIsFirstDealtRound,
+    activeFiftyProofActions: _proofActionsFromJson(
+      json['activeFiftyProofActions'],
+    ),
     windowedTakeCardId: windowedTakeCardId,
     windowedTakeDiscarder: windowedTakeDiscarder,
     windowedTakeIsFirstDealtRound: windowedTakeIsFirstDealtRound,
     savedAt: savedAt,
     discardHistoryEvents: discardHistoryEvents,
+    turnJournal: json['turnJournal'] == null
+        ? null
+        : ClassicHareegTurnJournalSnapshot.fromJson(
+            asJsonMap(json['turnJournal']) ??
+                (throw const FormatException('Invalid turn journal.')),
+          ),
+    previousDiscardSeat: PlayerSeat.fromName(
+      asJsonString(json['previousDiscardSeat']),
+    ),
+    discardNextSequence: asJsonInt(json['discardNextSequence']),
+    lastReturnedPendingDiscard: json['lastReturnedPendingDiscard'] == null
+        ? null
+        : (
+            seat:
+                PlayerSeat.fromName(
+                  asJsonString(
+                    asJsonMap(json['lastReturnedPendingDiscard'])?['seat'],
+                  ),
+                ) ??
+                (throw const FormatException('Invalid returned discard seat.')),
+            cardId:
+                asJsonString(
+                  asJsonMap(json['lastReturnedPendingDiscard'])?['cardId'],
+                ) ??
+                (throw const FormatException('Invalid returned discard card.')),
+          ),
   );
 }
 
@@ -153,6 +202,20 @@ Map<String, Object?> encodeMatchSnapshotV1(
 ) {
   return {
     'version': matchSnapshotV1Version,
+    if (snapshot.roundSeedAlgorithm != null)
+      'roundSeedAlgorithm': snapshot.roundSeedAlgorithm!.name,
+    if (snapshot.turnJournal != null)
+      'turnJournal': snapshot.turnJournal!.toJson(),
+    if (snapshot.turnJournal != null) ...{
+      'previousDiscardSeat': snapshot.previousDiscardSeat?.name,
+      'discardNextSequence': snapshot.discardNextSequence,
+      'lastReturnedPendingDiscard': snapshot.lastReturnedPendingDiscard == null
+          ? null
+          : {
+              'seat': snapshot.lastReturnedPendingDiscard!.seat.name,
+              'cardId': snapshot.lastReturnedPendingDiscard!.cardId,
+            },
+    },
     'setup': snapshot.setup.toJson(),
     'seed': snapshot.seed,
     'hands': {
@@ -183,6 +246,9 @@ Map<String, Object?> encodeMatchSnapshotV1(
     'activeFiftyClaimDiscarder': snapshot.activeFiftyClaimDiscarder?.name,
     'activeFiftyClaimIsFirstDealtRound':
         snapshot.activeFiftyClaimIsFirstDealtRound,
+    if (snapshot.turnJournal != null &&
+        snapshot.activeFiftyProofActions?.isNotEmpty == true)
+      'activeFiftyProofActions': snapshot.activeFiftyProofActions,
     'windowedTakeCardId': snapshot.windowedTakeCardId,
     'windowedTakeDiscarder': snapshot.windowedTakeDiscarder?.name,
     'windowedTakeIsFirstDealtRound': snapshot.windowedTakeIsFirstDealtRound,

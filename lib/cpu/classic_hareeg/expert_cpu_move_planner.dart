@@ -4,6 +4,7 @@ import '../../domain/classic_hareeg/rules/opening_rules.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_move_plan_pipeline.dart';
 import 'cpu_observation.dart';
+import 'cpu_table_reading.dart';
 import 'skilled_cpu_move_planner.dart';
 
 /// Why Expert holds a legal cover in hand instead of playing it.
@@ -98,6 +99,7 @@ class ExpertCpuMovePlanner implements CpuMovePlanner {
   ) {
     return const _ExpertCpuPlanPolicy().coverHoldReasonFor(observation, cover);
   }
+
   // Endgame Fifty-hold cover posture: an opened seat with at most this many
   // cards is close enough to a finish that shedding a developing card into a
   // cover throws away its Fifty chances. (Owner's "few cards" ~ <= 4-5.)
@@ -371,6 +373,13 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
     // posture-only check here to preserve behaviour exactly.
     final profile = OpponentThreatProfile.fromObservation(observation);
     final holdForFifty = shouldHoldNormalFinishForFifty(observation);
+    // The shared table reading is a second, sharper defensive lens, not a
+    // replacement for the profile above. The profile scans every opponent for
+    // soft tells; the reading answers one exact question about the one seat
+    // that actually receives this card next, decided by the real cover and
+    // joker-replacement rules. Both run, and the profile's weights are
+    // untouched.
+    final reading = CpuTableReading.forObservation(observation);
     final hand = observation.ownHand;
     // Keep scores come from the shared disjoint best-grouping model
     // ([handKeepScores]): every card is scored by the value of the single meld /
@@ -391,6 +400,27 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
       final dangerCompare = leftDanger.compareTo(rightDanger);
       if (dangerCompare != 0) {
         return dangerCompare;
+      }
+
+      // Next-seat feed risk: among cards the all-opponent profile rates the
+      // same, keep the one the seat about to play would actually be handed a
+      // gift by. This is the signal Skilled does not get.
+      final feedCompare = boolAsc(
+        reading.isFeedRisk(leftCard),
+        reading.isFeedRisk(rightCard),
+      );
+      if (feedCompare != 0) {
+        return feedCompare;
+      }
+
+      // Material signal: a group that can never complete is not worth the
+      // keep score its shape earns it, so it is checked before that score.
+      final starvedCompare = boolDesc(
+        reading.isStarved(leftCard),
+        reading.isStarved(rightCard),
+      );
+      if (starvedCompare != 0) {
+        return starvedCompare;
       }
 
       // Potential-weighted: among equally (un)dangerous cards, shed the one

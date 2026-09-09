@@ -14,12 +14,15 @@ KeyValueStore createKeyValueStore() => WebLocalStorageKeyValueStore();
 /// stores now persist across reloads on web too. Access is wrapped in
 /// try/catch because `localStorage` can throw when storage is disabled
 /// (private browsing, blocked cookies) or the quota is exceeded — in those
-/// cases we degrade to a no-op read/write rather than crashing the app.
+/// cases repositories must receive the error. A failed read is not absence,
+/// and a failed write must never authorize deletion of recovery data.
 class WebLocalStorageKeyValueStore implements KeyValueStore {
   /// Creates a `localStorage`-backed store.
-  WebLocalStorageKeyValueStore();
+  WebLocalStorageKeyValueStore({web.Storage? storage})
+    : _injectedStorage = storage;
+  final web.Storage? _injectedStorage;
 
-  web.Storage get _storage => web.window.localStorage;
+  web.Storage get _storage => _injectedStorage ?? web.window.localStorage;
 
   @override
   Future<String?> loadString(String key) async {
@@ -27,7 +30,7 @@ class WebLocalStorageKeyValueStore implements KeyValueStore {
       return _storage.getItem(key);
     } catch (error) {
       debugPrint('[hareeg_table] localStorage read failed for "$key": $error');
-      return null;
+      rethrow;
     }
   }
 
@@ -37,6 +40,7 @@ class WebLocalStorageKeyValueStore implements KeyValueStore {
       _storage.setItem(key, value);
     } catch (error) {
       debugPrint('[hareeg_table] localStorage write failed for "$key": $error');
+      rethrow;
     }
   }
 
@@ -45,7 +49,10 @@ class WebLocalStorageKeyValueStore implements KeyValueStore {
     try {
       _storage.removeItem(key);
     } catch (error) {
-      debugPrint('[hareeg_table] localStorage remove failed for "$key": $error');
+      debugPrint(
+        '[hareeg_table] localStorage remove failed for "$key": $error',
+      );
+      rethrow;
     }
   }
 }

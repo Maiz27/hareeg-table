@@ -1,0 +1,1465 @@
+{
+  "note": "Pre-edit docked layout, frozen before the short-landscape redesign (A36a). Generated once from pre-edit code and never regenerated from rewritten code.",
+  "head": "6a22bfa",
+  "devicePixelRatio": 1.0,
+  "fixture": {
+    "seed": 13,
+    "matchId": "m-screen-aaaaaaaa",
+    "cursor": "atStart"
+  },
+  "textDirection": "ltr",
+  "sizes": {
+    "390x844": {
+      "viewport": {
+        "width": 390.0,
+        "height": 844.0
+      },
+      "overflowErrors": 1,
+      "overflowSummary": [
+        "A RenderFlex overflowed by 19 pixels on the right."
+      ],
+      "cardKeyCount": 82,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 390.0,
+          "height": 464.5
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 390.0,
+          "height": 464.5
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 70.86,
+          "width": 390.0,
+          "height": 52.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 14.0,
+          "top": 238.25,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 14.0,
+          "top": 238.25,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 330.0,
+          "top": 238.25,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 330.0,
+          "top": 238.25,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 6.0,
+          "top": 448.5,
+          "width": 52.0,
+          "height": 66.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 128.0,
+          "top": 220.25,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 128.0,
+          "top": 220.25,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 126.0,
+          "top": 124.86,
+          "width": 138.0,
+          "height": 58.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 66.0,
+          "top": 72.86,
+          "width": 112.0,
+          "height": 435.64
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 66.0,
+          "top": 72.86,
+          "width": 112.0,
+          "height": 435.64
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 212.0,
+          "top": 72.86,
+          "width": 112.0,
+          "height": 435.64
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 212.0,
+          "top": 72.86,
+          "width": 112.0,
+          "height": 435.64
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 126.0,
+          "top": 397.46,
+          "width": 138.0,
+          "height": 63.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 316.0,
+          "top": 464.24,
+          "width": 60.0,
+          "height": 40.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 84.0,
+          "top": 458.5,
+          "width": 222.0,
+          "height": 62.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 331.68,
+          "top": 468.5,
+          "width": 25.2,
+          "height": 50.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 520.5,
+          "width": 390.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 673.5,
+          "width": 390.0,
+          "height": 170.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 390.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "320x568": {
+      "viewport": {
+        "width": 320.0,
+        "height": 568.0
+      },
+      "overflowErrors": 1,
+      "overflowSummary": [
+        "A RenderFlex overflowed by 89 pixels on the right."
+      ],
+      "cardKeyCount": 82,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 320.0,
+          "height": 188.5
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 320.0,
+          "height": 188.5
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 64.0,
+          "width": 320.0,
+          "height": 52.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 14.0,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 14.0,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 260.0,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 260.0,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 6.0,
+          "top": 172.5,
+          "width": 52.0,
+          "height": 66.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 93.0,
+          "top": 82.25,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 93.0,
+          "top": 82.25,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 126.0,
+          "top": 118.0,
+          "width": 68.0,
+          "height": 58.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 66.0,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 166.5
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 66.0,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 166.5
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 142.0,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 166.5
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 142.0,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 166.5
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 126.0,
+          "top": 121.46,
+          "width": 68.0,
+          "height": 63.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 246.0,
+          "top": 192.5,
+          "width": 60.0,
+          "height": 40.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 84.0,
+          "top": 182.5,
+          "width": 152.0,
+          "height": 62.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 331.68,
+          "top": 192.5,
+          "width": 25.2,
+          "height": 50.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 244.5,
+          "width": 320.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 397.5,
+          "width": 320.0,
+          "height": 170.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 320.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "1024x768": {
+      "viewport": {
+        "width": 1024.0,
+        "height": 768.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 87,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 1024.0,
+          "height": 407.5
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 1024.0,
+          "height": 407.5
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 69.04,
+          "width": 1024.0,
+          "height": 64.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 26.62,
+          "top": 197.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 26.62,
+          "top": 197.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 941.38,
+          "top": 197.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 941.38,
+          "top": 197.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 10.0,
+          "top": 373.5,
+          "width": 62.0,
+          "height": 80.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 420.0,
+          "top": 169.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 420.0,
+          "top": 169.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 256.0,
+          "top": 137.04,
+          "width": 512.0,
+          "height": 70.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 92.62,
+          "top": 73.04,
+          "width": 140.0,
+          "height": 374.46
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 92.62,
+          "top": 73.04,
+          "width": 140.0,
+          "height": 374.46
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 791.38,
+          "top": 73.04,
+          "width": 140.0,
+          "height": 374.46
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 791.38,
+          "top": 73.04,
+          "width": 140.0,
+          "height": 374.46
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 256.0,
+          "top": 293.46,
+          "width": 512.0,
+          "height": 84.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 925.38,
+          "top": 397.5,
+          "width": 72.0,
+          "height": 48.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 114.62,
+          "top": 375.5,
+          "width": 794.75,
+          "height": 86.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 794.08,
+          "top": 391.5,
+          "width": 33.6,
+          "height": 68.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 463.5,
+          "width": 1024.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 616.5,
+          "width": 1024.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 1024.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "1280x800": {
+      "viewport": {
+        "width": 1280.0,
+        "height": 800.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 87,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 1280.0,
+          "height": 439.5
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 1280.0,
+          "height": 439.5
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 70.06,
+          "width": 1280.0,
+          "height": 64.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 33.28,
+          "top": 213.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 33.28,
+          "top": 213.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 1190.72,
+          "top": 213.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 1190.72,
+          "top": 213.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 10.0,
+          "top": 405.5,
+          "width": 62.0,
+          "height": 80.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 548.0,
+          "top": 185.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 548.0,
+          "top": 185.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 320.0,
+          "top": 138.06,
+          "width": 640.0,
+          "height": 70.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 99.28,
+          "top": 74.06,
+          "width": 140.0,
+          "height": 405.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 99.28,
+          "top": 74.06,
+          "width": 140.0,
+          "height": 405.44
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 1040.72,
+          "top": 74.06,
+          "width": 140.0,
+          "height": 405.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 1040.72,
+          "top": 74.06,
+          "width": 140.0,
+          "height": 405.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 320.0,
+          "top": 325.46,
+          "width": 640.0,
+          "height": 84.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 1174.72,
+          "top": 429.5,
+          "width": 72.0,
+          "height": 48.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 121.28,
+          "top": 407.5,
+          "width": 1037.44,
+          "height": 86.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 922.08,
+          "top": 423.5,
+          "width": 33.6,
+          "height": 68.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 495.5,
+          "width": 1280.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 648.5,
+          "width": 1280.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 1280.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "834x1112": {
+      "viewport": {
+        "width": 834.0,
+        "height": 1112.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 87,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 834.0,
+          "height": 751.5
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 834.0,
+          "height": 751.5
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 80.05,
+          "width": 834.0,
+          "height": 64.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 21.68,
+          "top": 369.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 21.68,
+          "top": 369.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 756.32,
+          "top": 369.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 756.32,
+          "top": 369.75,
+          "width": 56.0,
+          "height": 124.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 10.0,
+          "top": 717.5,
+          "width": 62.0,
+          "height": 80.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 325.0,
+          "top": 341.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 325.0,
+          "top": 341.75,
+          "width": 184.0,
+          "height": 180.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 210.0,
+          "top": 148.05,
+          "width": 414.0,
+          "height": 70.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 87.68,
+          "top": 84.05,
+          "width": 140.0,
+          "height": 707.45
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 87.68,
+          "top": 84.05,
+          "width": 140.0,
+          "height": 707.45
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 606.32,
+          "top": 84.05,
+          "width": 140.0,
+          "height": 707.45
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 606.32,
+          "top": 84.05,
+          "width": 140.0,
+          "height": 707.45
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 210.0,
+          "top": 637.46,
+          "width": 414.0,
+          "height": 84.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 740.32,
+          "top": 733.2,
+          "width": 72.0,
+          "height": 48.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 109.68,
+          "top": 719.5,
+          "width": 614.63,
+          "height": 86.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 699.08,
+          "top": 735.5,
+          "width": 33.6,
+          "height": 68.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 807.5,
+          "width": 834.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 960.5,
+          "width": 834.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 834.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "844x390": {
+      "viewport": {
+        "width": 844.0,
+        "height": 390.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 82,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 844.0,
+          "height": 67.44
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 844.0,
+          "height": 67.44
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 64.0,
+          "width": 844.0,
+          "height": 52.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 21.94,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 21.94,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 776.06,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 776.06,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 6.0,
+          "top": 51.44,
+          "width": 52.0,
+          "height": 66.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 355.0,
+          "top": 21.72,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 355.0,
+          "top": 21.72,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 180.0,
+          "top": 118.0,
+          "width": 484.0,
+          "height": 58.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 73.94,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 45.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 73.94,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 45.44
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 658.06,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 45.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 658.06,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 45.44
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 180.0,
+          "top": 0.4,
+          "width": 484.0,
+          "height": 63.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 762.06,
+          "top": 71.44,
+          "width": 60.0,
+          "height": 40.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 91.94,
+          "top": 61.44,
+          "width": 660.11,
+          "height": 62.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 632.56,
+          "top": 71.44,
+          "width": 25.2,
+          "height": 50.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 123.44,
+          "width": 844.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 276.44,
+          "width": 844.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 844.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "914x411": {
+      "viewport": {
+        "width": 914.0,
+        "height": 411.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 82,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 914.0,
+          "height": 81.3
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 914.0,
+          "height": 81.3
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 64.0,
+          "width": 914.0,
+          "height": 52.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 23.76,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 23.76,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 844.24,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 844.24,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 6.0,
+          "top": 65.3,
+          "width": 52.0,
+          "height": 66.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 390.0,
+          "top": 28.65,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 390.0,
+          "top": 28.65,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 180.0,
+          "top": 118.0,
+          "width": 554.0,
+          "height": 58.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 75.76,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 59.3
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 75.76,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 59.3
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 726.24,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 59.3
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 726.24,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 59.3
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 180.0,
+          "top": 14.26,
+          "width": 554.0,
+          "height": 63.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 830.24,
+          "top": 85.3,
+          "width": 60.0,
+          "height": 40.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 93.76,
+          "top": 75.3,
+          "width": 726.47,
+          "height": 62.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 667.56,
+          "top": 85.3,
+          "width": 25.2,
+          "height": 50.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 137.3,
+          "width": 914.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 290.3,
+          "width": 914.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 914.0,
+          "height": 56.0
+        }
+      ]
+    },
+    "926x428": {
+      "viewport": {
+        "width": 926.0,
+        "height": 428.0
+      },
+      "overflowErrors": 0,
+      "overflowSummary": [],
+      "cardKeyCount": 82,
+      "structuralKeys": [
+        "west-opponent-rail",
+        "east-opponent-rail",
+        "discard-pile-drop-target",
+        "north-meld-lane",
+        "west-meld-lane",
+        "east-meld-lane",
+        "south-hand-trailing-drop-target"
+      ],
+      "anchors": [
+        {
+          "type": "ReviewTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 926.0,
+          "height": 92.52
+        },
+        {
+          "type": "PhysicalTablePlayfield",
+          "left": 0.0,
+          "top": 56.0,
+          "width": 926.0,
+          "height": 92.52
+        },
+        {
+          "type": "OpponentHandRail",
+          "left": 0.0,
+          "top": 64.0,
+          "width": 926.0,
+          "height": 52.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-opponent-rail",
+          "left": 24.08,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 24.08,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-opponent-rail",
+          "left": 855.92,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "OpponentSideRail",
+          "left": 855.92,
+          "top": 108.0,
+          "width": 46.0,
+          "height": 100.0
+        },
+        {
+          "type": "TableStockPile",
+          "left": 6.0,
+          "top": 76.52,
+          "width": 52.0,
+          "height": 66.0
+        },
+        {
+          "type": "TableDiscardPile",
+          "left": 396.0,
+          "top": 34.26,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "discard-pile-drop-target",
+          "left": 396.0,
+          "top": 34.26,
+          "width": 134.0,
+          "height": 136.0
+        },
+        {
+          "type": "SeatMeldLane",
+          "key": "north-meld-lane",
+          "left": 180.0,
+          "top": 118.0,
+          "width": 566.0,
+          "height": 58.0
+        },
+        {
+          "type": "SizedBox",
+          "key": "west-meld-lane",
+          "left": 76.08,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 70.52
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 76.08,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 70.52
+        },
+        {
+          "type": "SizedBox",
+          "key": "east-meld-lane",
+          "left": 737.92,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 70.52
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 737.92,
+          "top": 66.0,
+          "width": 112.0,
+          "height": 70.52
+        },
+        {
+          "type": "SeatMeldLane",
+          "left": 180.0,
+          "top": 25.48,
+          "width": 566.0,
+          "height": 63.04
+        },
+        {
+          "type": "SouthSideControls",
+          "left": 841.92,
+          "top": 96.52,
+          "width": 60.0,
+          "height": 40.0
+        },
+        {
+          "type": "SouthHandFan",
+          "left": 94.08,
+          "top": 86.52,
+          "width": 737.85,
+          "height": 62.0
+        },
+        {
+          "type": "DragTarget<HareegCard>",
+          "key": "south-hand-trailing-drop-target",
+          "left": 673.56,
+          "top": 96.52,
+          "width": 25.2,
+          "height": 50.0
+        },
+        {
+          "type": "ReplayReviewControls",
+          "left": 0.0,
+          "top": 148.52,
+          "width": 926.0,
+          "height": 153.0
+        },
+        {
+          "type": "ReviewAnalysisRegion",
+          "left": 0.0,
+          "top": 301.52,
+          "width": 926.0,
+          "height": 151.5
+        },
+        {
+          "type": "AppBar",
+          "left": 0.0,
+          "top": 0.0,
+          "width": 926.0,
+          "height": 56.0
+        }
+      ]
+    }
+  }
+}

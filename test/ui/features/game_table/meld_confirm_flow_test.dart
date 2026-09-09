@@ -64,8 +64,8 @@ void main() {
         expect(find.byTooltip('Play selected meld'), findsOneWidget);
 
         // (c) Tapping the chip plays the meld on the live table. Active saves
-        // intentionally roll current-turn table plays back so leave/resume can
-        // replay the turn from a coherent action boundary.
+        // preserve that position and its reversible journal, in step with the
+        // recorder, rather than silently undoing an already-recorded action.
         await tester.tap(chip);
         await tester.pumpAndSettle();
 
@@ -78,15 +78,15 @@ void main() {
         final saved = repository.saved;
         expect(saved, isNotNull);
         // South started with the diamond run plus a single discard card. The
-        // saved active snapshot restores the run to hand so a resumed game can
-        // redo the current-turn meld before the final discard.
-        expect(saved!.hands[PlayerSeat.south]?.length, 4);
+        // saved active snapshot must agree with the rendered table.
+        expect(saved!.hands[PlayerSeat.south]?.length, 1);
         final southMelds = saved.tableMelds[PlayerSeat.south] ?? const [];
-        expect(southMelds, isEmpty);
+        expect(southMelds, hasLength(1));
         expect(
-          saved.hands[PlayerSeat.south]!.map((card) => card.id).toSet(),
+          southMelds.single.cards.map((card) => card.id).toSet(),
           containsAll(diamondRun.map((card) => card.id)),
         );
+        expect(saved.turnJournal, isNotNull);
       },
     );
 
@@ -149,6 +149,7 @@ Future<MemoryMatchRepository> _openTable(
   );
   await tester.pumpWidget(
     HareegTableApp(
+      historyRepository: MemoryMatchHistoryRepository(),
       preferencesRepository:
           preferencesRepository ?? MemoryPreferencesRepository(),
       matchRepository: repository,

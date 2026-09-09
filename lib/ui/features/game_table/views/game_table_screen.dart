@@ -21,6 +21,10 @@ import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
     show PlacedMeld;
 import '../../../../domain/classic_hareeg/reporting/classic_hareeg_match_report.dart';
+import '../../../../data/persistence/match_history_repository.dart';
+import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
+import '../../../../domain/classic_hareeg/history/match_id.dart';
+import '../../../../domain/classic_hareeg/history/match_terminal_facts.dart';
 import '../../../../domain/classic_hareeg/reporting/match_recorder.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
@@ -30,6 +34,7 @@ import '../../../core/audio/table_audio.dart';
 import '../../../core/feedback/lounge_toast.dart';
 import '../../../core/haptics/table_haptics.dart';
 import '../../../core/motion/motion_speed.dart';
+import '../../../core/panels/lounge_panel.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/strictness/strictness_ui_profile.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -46,7 +51,9 @@ import '../table_flight_anchors.dart';
 import '../table_flight_geometry.dart';
 import '../table_hand_interaction_state.dart';
 import '../table_interaction_planner.dart';
+import '../table_mode.dart';
 import '../table_persistence_planner.dart';
+import '../table_session_config.dart';
 import '../practice_table_run.dart';
 import '../table_session_flow_planner.dart';
 import '../../learning/practice/practice_lesson_script.dart';
@@ -72,27 +79,87 @@ import '../../match_reports/match_report_exporter.dart';
 /// CPU action through it. Visual / motion / aid / theme / haptics
 /// preferences flow in via [preferences] from the app shell so the same
 /// surface keeps responding to settings changes made from the pause overlay.
+///
+/// **What this surface is, and where its writes go, arrive together** in
+/// [session]. The two used to be independent parameters — a mode derived from
+/// "is there a practice session?" plus two repositories handed in regardless —
+/// so a caller could pair any mode with any storage and the only thing
+/// stopping a lesson from saving over a real match was a behavioural guard at
+/// the write site. [TableSessionConfig] derives both from one closed set of
+/// factories, so the branch sandbox reaches no repository because it holds
+/// none.
+/// One action that actually applied at a table, observed at the moment it
+/// succeeded.
+///
+/// Carries what the contract's applied-action transcript has to contain: who
+/// acted, the exact action id, whether it applied, and the **complete**
+/// resulting state — not a sampled digest of it. CPU actions additionally
+/// carry the tier that chose and the sorted legal set it was offered; a human
+/// action has neither, and says so with nulls rather than with a fabricated
+/// value.
+class TableAppliedAction {
+  /// Creates an applied-action record.
+  TableAppliedAction({
+    required this.seat,
+    required this.isHuman,
+    required this.actionId,
+    required this.succeeded,
+    required this.snapshot,
+    this.cpuTier,
+    Iterable<String>? legalActionIds,
+  }) : legalActionIds = legalActionIds == null
+           ? null
+           : List.unmodifiable(legalActionIds.toList()..sort());
+
+  /// Seat that acted.
+  final PlayerSeat seat;
+
+  /// Whether the human seat acted, as opposed to a CPU.
+  final bool isHuman;
+
+  /// Exact action id submitted to the controller.
+  final String actionId;
+
+  /// Whether the controller accepted it.
+  final bool succeeded;
+
+  /// Complete table state after the action applied.
+  final ClassicHareegMatchSnapshot snapshot;
+
+  /// Tier that chose, for a CPU action; null for a human one.
+  final CpuDifficulty? cpuTier;
+
+  /// Sorted legal set offered, for a CPU action; null for a human one.
+  final List<String>? legalActionIds;
+}
+
 class GameTableScreen extends StatefulWidget {
-  /// Creates a live table.
+  /// Creates a table for [session].
   const GameTableScreen({
     super.key,
     required this.setup,
-    required this.matchRepository,
+    required this.session,
     required this.preferences,
     required this.onPreferencesChanged,
     this.initialSnapshot,
+    this.initialCheckpoint,
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
-    this.practiceSession,
     this.onPracticeFinished,
     this.nextPracticeScript,
     this.reportExporter = const MatchReportExporter(),
+    this.clock,
+    this.onSandboxActionApplied,
+    this.onSandboxExit,
+    this.onSandboxRestart,
+    this.sandboxCoachEnabled = false,
+    this.onSandboxCoachToggled,
   });
 
   /// Setup used to deal the round.
   final ClassicHareegSetup setup;
 
-  /// Active match persistence.
-  final MatchRepository matchRepository;
+  /// What this surface is and where — if anywhere — its writes go.
+  final TableSessionConfig session;
 
   /// Player preferences (motion, haptics, coaching tips, theme).
   final GamePreferences preferences;
@@ -103,20 +170,47 @@ class GameTableScreen extends StatefulWidget {
   /// Saved snapshot to resume (else deal a fresh round).
   final ClassicHareegMatchSnapshot? initialSnapshot;
 
+  /// Durable checkpoint this match resumes from, when it is a resumed match.
+  ///
+  /// Carries the identity, recorder state, Fifty counters, match-wide
+  /// eliminations, and coach history that a bare snapshot cannot.
+  final MatchCheckpoint? initialCheckpoint;
+
   /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
 
   /// Report exporter used by the pause overlay diagnostic action.
   final MatchReportExporter reportExporter;
 
-  /// Non-null when this table hosts a guided practice lesson.
+  /// Clock the rules engine reads, or null for the wall clock.
   ///
-  /// Practice mode adopts the session's deterministic controller, gates every
-  /// affordance and applied action through the lesson step, suppresses CPU
-  /// autonomy and match persistence, and swaps the match chrome for the step
-  /// banner + completion overlay. Real legality and gestures are unchanged —
-  /// the lesson plays on the exact surface a real match uses.
-  final PracticeSession? practiceSession;
+  /// A branch sandbox rebases a historical Fifty window onto its own start
+  /// instant, so the seconds it has left are only assertable when the clock
+  /// can be advanced by hand instead of slept through.
+  final DateTime Function()? clock;
+
+  /// Called after every action this sandbox actually applies, CPU or South.
+  ///
+  /// Applied actions, not pointer activity: this is what arms divergence, and
+  /// a player who opened a sandbox and looked at it has changed nothing.
+  final ValueChanged<TableAppliedAction>? onSandboxActionApplied;
+
+  /// Called when the player asks to leave a sandbox, by any route.
+  ///
+  /// Pause-leave, the in-app exit control, Android system Back and browser
+  /// Back all arrive here, so the confirm-after-divergence policy exists once
+  /// rather than four times.
+  final VoidCallback? onSandboxExit;
+
+  /// Called when the player asks to replay this sandbox from its branch point.
+  final VoidCallback? onSandboxRestart;
+
+  /// Whether the sandbox's session-only live coach is currently on.
+  final bool sandboxCoachEnabled;
+
+  /// Called when the sandbox coach is toggled. Null when the archived match
+  /// had no coaching, which is what makes the toggle absent rather than off.
+  final ValueChanged<bool>? onSandboxCoachToggled;
 
   /// Called when a practice lesson's final step is demonstrated, so the app
   /// shell can persist checklist completion. The table never touches learning
@@ -197,13 +291,65 @@ class _GameTableScreenState extends State<GameTableScreen>
   DealChoreography? _dealChoreography;
   bool _pendingDealBuild = false;
   HareegCard? _inspectedCard;
+
+  /// Seat whose revealed hand is expanded, in study mode only.
+  PlayerSeat? _expandedStudySeat;
   static const _revertFlashDuration = Duration(milliseconds: 1100);
   ClassicHareegRoundResultPresentation? _roundResultPresentation;
   // Non-null while the dedicated match-over overlay is shown. The match ends
   // in place on the landscape table (no route change, no rotation); the
   // rematch restarts the controller without leaving the screen.
   ClassicHareegRoundResultPresentation? _matchOverPresentation;
+  bool _archiveSaveFailed = false;
+  bool _retryingArchive = false;
   final Map<PlayerSeat, int> _matchEliminatedRoundBySeat = {};
+
+  /// Durable checkpoint for this match, carried across saves.
+  MatchCheckpoint? _checkpoint;
+
+  final MatchIdMinter _idMinter = MatchIdMinter();
+
+  /// Id of the match this screen was opened resuming, consumed once.
+  ///
+  /// Cleared by a rematch: only the match the screen opened with may keep the
+  /// saved identity.
+  late String? _resumedMatchId = widget.initialCheckpoint?.matchId;
+
+  /// Identity for this match, resolved once and reused for every save.
+  String? _matchId;
+
+  /// Resolves this match's id, reserving a fresh one on first use.
+  ///
+  /// A resumed match keeps the id it was already saved under; only a genuinely
+  /// new match mints one, and that one is checked against stored history and
+  /// replay files so it cannot collide with — and later overwrite — a match
+  /// already on the device.
+  ///
+  /// [history] is passed in rather than read off the widget: the only caller
+  /// is inside the durable arm of the persistence dispatch, and taking it as
+  /// an argument is what keeps a repository out of scope everywhere else.
+  Future<String> _ensureMatchId(MatchHistoryRepository history) async {
+    final existing = _matchId;
+    if (existing != null) {
+      return existing;
+    }
+
+    // Only the match this screen was opened with may claim the resumed id.
+    // `widget.initialCheckpoint` never changes, so consulting it after a
+    // rematch would hand the new match the finished one's identity again.
+    final resumed = _resumedMatchId;
+    if (resumed != null) {
+      return _matchId = resumed;
+    }
+
+    return _matchId = await _idMinter.reserve(isTaken: history.isMatchIdTaken);
+  }
+
+  /// Whether coaching was available and enabled at any point this match.
+  ///
+  /// Sticky by design: the summary records whether the player had help, so
+  /// switching the coach off later does not erase having used it.
+  bool _coachWasEnabled = false;
   int _flightSerial = 0;
 
   // Coaching-tier advisor memoization. Re-running the partition enumerator on
@@ -233,7 +379,13 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   PracticeSession? get _practiceSession => _practiceRun?.session;
 
-  bool get _isPractice => _practiceRun != null;
+  /// Which kind of table surface this is.
+  ///
+  /// Read straight off the session rather than inferred from "is a practice
+  /// run present?". The old inference meant the mode and the storage handed in
+  /// were two independent facts that could disagree; now one closed set of
+  /// factories derives both, so they cannot.
+  TableMode get _mode => widget.session.mode;
 
   bool get _practiceComplete => _practiceRun?.isComplete ?? false;
 
@@ -252,21 +404,47 @@ class _GameTableScreenState extends State<GameTableScreen>
   void initState() {
     super.initState();
     AppOrientation.useLandscape();
-    _practiceRun = widget.practiceSession == null
+    final practiceSession = widget.session.practiceSession;
+    _practiceRun = practiceSession == null
         ? null
-        : PracticeTableRun(widget.practiceSession!);
+        : PracticeTableRun(practiceSession);
     final practice = _practiceRun;
-    final snapshot = widget.initialSnapshot;
+    // A branch sandbox starts from its seed's rebased snapshot. Taking it from
+    // the seed rather than from a separately-passed `initialSnapshot` keeps one
+    // owner: the host cannot hand the table a state the seed does not describe.
+    final snapshot =
+        widget.session.branchSeed?.snapshot ?? widget.initialSnapshot;
     // Practice never exports reports, so it skips the recorder entirely.
-    final recorder = practice != null ? null : MatchRecorder();
+    //
+    // A resumed match restores its recorder instead of building a fresh one.
+    // Building a fresh one is exactly the bug this sprint fixes: the new
+    // recorder would capture the resumed round as its base and the whole
+    // earlier match would vanish from the transcript.
+    final restoredState = widget.initialCheckpoint?.recorderState;
+    final recorder = practice != null
+        ? null
+        : restoredState != null
+        ? MatchRecorder.restore(restoredState)
+        : MatchRecorder();
     _recorder = recorder;
+    final resumed = widget.initialCheckpoint;
+    if (resumed != null) {
+      _checkpoint = resumed;
+      _matchEliminatedRoundBySeat.addAll(resumed.eliminationRounds);
+      _coachWasEnabled = resumed.coachWasEnabled;
+    }
     _controller = practice != null
         ? practice.controller
         : snapshot != null
-        ? ClassicHareegGameController.fromSnapshot(snapshot, recorder: recorder)
+        ? ClassicHareegGameController.fromSnapshot(
+            snapshot,
+            recorder: recorder,
+            now: widget.clock,
+          )
         : ClassicHareegGameController.fromRound(
             ClassicHareegRound.deal(setup: widget.setup),
             recorder: recorder,
+            now: widget.clock,
           );
     if (recorder != null) {
       recorder.recordPersistence(
@@ -299,7 +477,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // the player after its scripted intro (if any) plays out. The intro
     // kicks off post-frame: its pacing reads MotionScope, an inherited
     // lookup that is not safe here.
-    if (!_isPractice) {
+    if (!_mode.isPractice) {
       _scheduleTurnFlow();
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -330,7 +508,14 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography = null;
     _meldFlight.removeListener(_handleCueOrFlightChange);
     _meldFlight.dispose();
-    AppOrientation.usePortrait();
+    // A sandbox is the one table pushed over a surface that is *also*
+    // landscape. Restoring portrait on the way out drops the replay viewer
+    // underneath into its docked layout, so the player leaves a sandbox and
+    // finds the reviewer rearranged. Every other table is pushed from a
+    // portrait surface and still restores it.
+    if (!_mode.isBranch) {
+      AppOrientation.usePortrait();
+    }
     super.dispose();
   }
 
@@ -347,6 +532,62 @@ class _GameTableScreenState extends State<GameTableScreen>
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+  }
+
+  /// Opponent hands to draw face up.
+  ///
+  /// Gated on the mode capability alone, so "which surfaces reveal hands" is
+  /// answered in the mode table rather than re-decided here. Every other
+  /// surface gets an empty map and the identities never enter the widget tree.
+  Map<PlayerSeat, List<HareegCard>> _revealedHands() {
+    if (!_mode.capabilities.revealsAllHands) {
+      return const <PlayerSeat, List<HareegCard>>{};
+    }
+    return {
+      for (final seat in PlayerSeat.values)
+        if (seat != PlayerSeat.south &&
+            !_controller.removedSeats.contains(seat))
+          seat: _controller.handFor(seat),
+    };
+  }
+
+  /// Tells the host an action actually applied in this sandbox.
+  ///
+  /// The snapshot is taken here, at the success boundary, so the record is the
+  /// state the action produced rather than whatever the board settles into a
+  /// few frames later.
+  void _notifySandboxAction({
+    required PlayerSeat seat,
+    required bool isHuman,
+    required String actionId,
+    required bool succeeded,
+    Iterable<String>? legalActionIds,
+  }) {
+    if (!_mode.isBranch) return;
+    final observer = widget.onSandboxActionApplied;
+    if (observer == null) return;
+    observer(
+      TableAppliedAction(
+        seat: seat,
+        isHuman: isHuman,
+        actionId: actionId,
+        succeeded: succeeded,
+        snapshot: _controller.toPositionSnapshot(
+          savedAt: (widget.clock ?? DateTime.now)(),
+        ),
+        cpuTier: isHuman ? null : _controller.setup.cpuDifficulty,
+        legalActionIds: legalActionIds,
+      ),
+    );
+  }
+
+  /// The single exit route out of a sandbox.
+  ///
+  /// Pause-leave, the in-app exit control, Android system Back and browser
+  /// Back all land here, so "confirm only after divergence" is one policy
+  /// rather than four that drift.
+  void _requestSandboxExit() {
+    widget.onSandboxExit?.call();
   }
 
   /// Web Back-button guard: confirm before leaving an in-progress match.
@@ -376,7 +617,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         app: HareegAppMetadata.reportMetadata,
         platform: currentMatchReportPlatform(),
         generatedAt: generatedAt,
-        snapshot: _controller.toSnapshot(savedAt: generatedAt),
+        snapshot: _controller.toPositionSnapshot(savedAt: generatedAt),
         diagnostics: _recorder?.diagnostics,
         transcript: _recorder?.transcript,
       );
@@ -798,11 +1039,27 @@ class _GameTableScreenState extends State<GameTableScreen>
     // and tying the RECOMPUTE to those reintroduces the stale-cache window
     // compute-then-gate exists to close. Transient conditions only gate the
     // display below.
+    // A sandbox inherits its coach from the archived match and nothing else:
+    // `coachWasEnabled` is the only eligibility source, and the toggle it
+    // exposes lives for the session only. The stored preference is read on a
+    // live table and deliberately not consulted here, so a player who turned
+    // coaching off since cannot lose the help the archived match had — and,
+    // more importantly, one who was never eligible cannot gain it.
+    final coachAllowed = _mode.isBranch
+        ? widget.session.branchCoachEligible && widget.sandboxCoachEnabled
+        : strictness.showsProactiveHints &&
+              widget.preferences.coachingTipsEnabled;
     final coachComputes =
-        !_isPractice &&
-        strictness.showsProactiveHints &&
-        widget.preferences.coachingTipsEnabled &&
+        _mode.capabilities.coachSurface == TableCoachSurface.live &&
+        coachAllowed &&
         isHumanSeat;
+    if (coachComputes) {
+      // The fact the summary records is that coaching was available and
+      // enabled — not that it happened to produce a hint. A quiet round with
+      // nothing to say is still a round the player had help in, so this is set
+      // here rather than where an insight is emitted.
+      _coachWasEnabled = true;
+    }
     final coachActive =
         coachComputes &&
         // The transient input locks (CPU runner / opening deal / pending
@@ -823,7 +1080,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         ? _buildCoachHints(strings, humanSeat, gate: coachActive)
         : null;
     final coachHint = coachHints?.primary;
-    final coachHighlighting = _isPractice
+    final coachHighlighting = _mode.isPractice
         ? _practiceStepHighlighting(isHumanTurn: isHumanTurn)
         : CoachHighlighting.fromHint(coachHint);
     final practiceBanner = _practiceRun?.bannerState(
@@ -921,6 +1178,9 @@ class _GameTableScreenState extends State<GameTableScreen>
               activeSeats: _controller.roundActiveSeats.toSet(),
               southFlashCardId: _cues.revertFlashCardId,
               coachHighlighting: coachHighlighting,
+              revealedHands: _revealedHands(),
+              onExpandRevealedHand: (seat) =>
+                  setState(() => _expandedStudySeat = seat),
             ),
             if (_dealChoreography != null)
               Positioned.fill(
@@ -947,11 +1207,24 @@ class _GameTableScreenState extends State<GameTableScreen>
                 final safe = MediaQuery.paddingOf(context);
                 final isLarge = viewport.maxWidth >= 900;
                 final isTablet = viewport.maxWidth >= 720;
-                final buttonSize = isLarge
-                    ? 44.0
-                    : isTablet
-                    ? 38.0
-                    : 30.0;
+                // A sandbox floors its chrome at the 44 dp target B63 requires.
+                //
+                // Applied to the whole row rather than to the exit alone: a
+                // 44 dp close button beside a 30 dp pause button is not a
+                // consistent surface, and the two sit inside one Row where the
+                // odd one out reads as a mistake. Scoped to the sandbox
+                // deliberately — the live and practice tables keep the corner
+                // geometry earlier sprints accepted, and nothing here changes
+                // for them.
+                final chromeFloor = _mode.isBranch ? 44.0 : 0.0;
+                final buttonSize = math.max(
+                  chromeFloor,
+                  isLarge
+                      ? 44.0
+                      : isTablet
+                      ? 38.0
+                      : 30.0,
+                );
                 final iconSize = isLarge
                     ? 24.0
                     : isTablet
@@ -978,7 +1251,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     Positioned(
                       top: safe.top + edgeInset,
                       left: edgeInset,
-                      child: _isPractice
+                      child: _mode.isPractice
                           ? _TableChromeButton(
                               key: const ValueKey('practice-exit'),
                               tooltip: strings.practiceBackToList,
@@ -1002,7 +1275,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (!_isPractice && _canShowFastForwardRound()) ...[
+                          if (!_mode.isPractice &&
+                              _canShowFastForwardRound()) ...[
                             _TableChromeButton(
                               key: const ValueKey('table-chrome-fast-forward'),
                               tooltip: strings.skipToNextRound,
@@ -1015,10 +1289,25 @@ class _GameTableScreenState extends State<GameTableScreen>
                             ),
                             SizedBox(width: edgeInset * 0.6),
                           ],
+                          // In-app Back out of a sandbox. One of the four exit
+                          // routes B46 keeps on a single policy; it asks the
+                          // host, which confirms only after divergence.
+                          if (_mode.isBranch) ...[
+                            _TableChromeButton(
+                              key: const ValueKey('branch-exit'),
+                              tooltip: strings.branchExitSandbox,
+                              semanticsLabel: strings.branchExitSandbox,
+                              icon: Icons.close_rounded,
+                              diameter: buttonSize,
+                              iconSize: iconSize,
+                              onPressed: _requestSandboxExit,
+                            ),
+                            SizedBox(width: edgeInset * 0.6),
+                          ],
                           // Guided practice has no match to pause (and its own
                           // close button exits to the hub), so the pause
                           // control is hidden during a lesson.
-                          if (!_isPractice)
+                          if (!_mode.isPractice)
                             _TableChromeButton(
                               tooltip: strings.pauseTable,
                               icon: Icons.pause_rounded,
@@ -1087,10 +1376,17 @@ class _GameTableScreenState extends State<GameTableScreen>
 
     return PopScope(
       // Practice rides a pushed route under the hub; the system back simply
-      // pops to it. A real match owns the root stack and exits to home.
-      canPop: _isPractice,
+      // pops to it. A real match owns the root stack and exits to home. A
+      // sandbox intercepts instead, so Android system Back and browser Back
+      // reach the same exit policy as pause-leave and the in-app control
+      // rather than dropping the player out of an undiscarded experiment.
+      canPop: _mode.isPractice,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_mode.isBranch) {
+          _requestSandboxExit();
+          return;
+        }
         // On web the browser Back button lands here mid-match; confirm before
         // leaving so an accidental Back doesn't yank the player off the table
         // (the match is saved, so this is courtesy, not a data guard). Native
@@ -1135,41 +1431,64 @@ class _GameTableScreenState extends State<GameTableScreen>
               visible: _pauseOpen,
               overlayKey: 'pause-overlay',
               duration: _scaledDelay(const Duration(milliseconds: 180)),
-              child: PauseOverlay(
-                motionSpeed: widget.preferences.motionSpeed,
-                fastCpuTurns: widget.preferences.fastCpuTurns,
-                hapticsEnabled: widget.preferences.hapticsEnabled,
-                soundEnabled: widget.preferences.soundEnabled,
-                highContrastCards: widget.preferences.highContrastCards,
-                onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(motionSpeed: v),
-                ),
-                onFastCpuTurnsChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(fastCpuTurns: v),
-                ),
-                onHapticsChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(hapticsEnabled: v),
-                ),
-                onSoundChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(soundEnabled: v),
-                ),
-                onHighContrastCardsChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(highContrastCards: v),
-                ),
-                showCoachingTips: strictness.showsProactiveHints,
-                coachingTipsEnabled: widget.preferences.coachingTipsEnabled,
-                onCoachingTipsChanged: (v) => widget.onPreferencesChanged(
-                  widget.preferences.copyWith(coachingTipsEnabled: v),
-                ),
-                onResume: () => setState(() => _pauseOpen = false),
-                onReportTableIssue: () {
-                  setState(() => _pauseOpen = false);
-                  unawaited(_exportActiveMatchReport());
-                },
-                onLeave: _isPractice
-                    ? () => Navigator.of(context).pop()
-                    : _returnToMainMenu,
-              ),
+              // A sandbox gets its own pause panel rather than the live one
+              // with rows switched off. The live panel's every setting row is
+              // an `onPreferencesChanged` call, and a sandbox must not be able
+              // to change a stored preference at all — so the surface that
+              // could is simply not built, instead of built and guarded.
+              child: _mode.isBranch
+                  ? _BranchPauseOverlay(
+                      onResume: () => setState(() => _pauseOpen = false),
+                      onRestart: () {
+                        setState(() => _pauseOpen = false);
+                        widget.onSandboxRestart?.call();
+                      },
+                      onLeave: () {
+                        setState(() => _pauseOpen = false);
+                        _requestSandboxExit();
+                      },
+                      coachEnabled: widget.sandboxCoachEnabled,
+                      onCoachChanged: widget.session.branchCoachEligible
+                          ? widget.onSandboxCoachToggled
+                          : null,
+                    )
+                  : PauseOverlay(
+                      motionSpeed: widget.preferences.motionSpeed,
+                      fastCpuTurns: widget.preferences.fastCpuTurns,
+                      hapticsEnabled: widget.preferences.hapticsEnabled,
+                      soundEnabled: widget.preferences.soundEnabled,
+                      highContrastCards: widget.preferences.highContrastCards,
+                      onMotionSpeedChanged: (v) => widget.onPreferencesChanged(
+                        widget.preferences.copyWith(motionSpeed: v),
+                      ),
+                      onFastCpuTurnsChanged: (v) => widget.onPreferencesChanged(
+                        widget.preferences.copyWith(fastCpuTurns: v),
+                      ),
+                      onHapticsChanged: (v) => widget.onPreferencesChanged(
+                        widget.preferences.copyWith(hapticsEnabled: v),
+                      ),
+                      onSoundChanged: (v) => widget.onPreferencesChanged(
+                        widget.preferences.copyWith(soundEnabled: v),
+                      ),
+                      onHighContrastCardsChanged: (v) =>
+                          widget.onPreferencesChanged(
+                            widget.preferences.copyWith(highContrastCards: v),
+                          ),
+                      showCoachingTips: strictness.showsProactiveHints,
+                      coachingTipsEnabled:
+                          widget.preferences.coachingTipsEnabled,
+                      onCoachingTipsChanged: (v) => widget.onPreferencesChanged(
+                        widget.preferences.copyWith(coachingTipsEnabled: v),
+                      ),
+                      onResume: () => setState(() => _pauseOpen = false),
+                      onReportTableIssue: () {
+                        setState(() => _pauseOpen = false);
+                        unawaited(_exportActiveMatchReport());
+                      },
+                      onLeave: _mode.isPractice
+                          ? () => Navigator.of(context).pop()
+                          : _returnToMainMenu,
+                    ),
             ),
             if (_inspectedCard != null)
               _CardInspectOverlay(
@@ -1177,6 +1496,14 @@ class _GameTableScreenState extends State<GameTableScreen>
                 theme: theme,
                 strictness: strictness,
                 onClose: () => setState(() => _inspectedCard = null),
+              ),
+            if (_expandedStudySeat != null &&
+                _mode.capabilities.revealsAllHands)
+              _StudyHandOverlay(
+                seat: _expandedStudySeat!,
+                cards: _revealedHands()[_expandedStudySeat!] ?? const [],
+                theme: theme,
+                onClose: () => setState(() => _expandedStudySeat = null),
               ),
             _AnimatedOverlaySlot(
               visible: _practiceComplete,
@@ -1224,8 +1551,12 @@ class _GameTableScreenState extends State<GameTableScreen>
                           : () => _advanceToNextRound(
                               _roundResultPresentation!.nextSnapshot!,
                             ),
+                      // A sandbox never offers a route to the main menu: its
+                      // completion overlay owns both of its exits.
                       onReturnToMenu:
-                          _roundResultPresentation!.progress.matchWinner == null
+                          _mode.isBranch ||
+                              _roundResultPresentation!.progress.matchWinner ==
+                                  null
                           ? null
                           : _returnToMainMenu,
                       onDismiss: () {
@@ -1239,6 +1570,19 @@ class _GameTableScreenState extends State<GameTableScreen>
               duration: _scaledDelay(const Duration(milliseconds: 240)),
               child: _matchOverPresentation == null
                   ? const SizedBox.shrink()
+                  // A finished sandbox offers two things and no others. The
+                  // live overlay's rematch would deal a fresh real match and
+                  // its export would hand out a report for a game that never
+                  // happened, so the sandbox does not build that surface at
+                  // all rather than building it with two buttons disabled.
+                  : _mode.isBranch
+                  ? _BranchCompletionOverlay(
+                      progress: _matchOverPresentation!.progress,
+                      roundsPlayed: _controller.roundNumber,
+                      highContrast: widget.preferences.highContrastCards,
+                      onReturnToReplay: _requestSandboxExit,
+                      onRestart: () => widget.onSandboxRestart?.call(),
+                    )
                   : MatchOverOverlay(
                       result: _matchOverPresentation!.result,
                       progress: _matchOverPresentation!.progress,
@@ -1248,6 +1592,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                       ),
                       highContrast: widget.preferences.highContrastCards,
                       onRematch: _restartMatchSameSetup,
+                      archiveSaveFailed: _archiveSaveFailed,
+                      onRetryArchive: _retryingArchive ? null : _retryArchive,
                       onReturnToMenu: _returnToMainMenu,
                       onExportReport: () => unawaited(
                         _exportCompletedMatchReport(_matchOverPresentation!),
@@ -1779,7 +2125,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Lessons narrate declarations through the step banner and its notes;
     // the table's own "joker declared" cue would talk over the teaching
     // voice (both for the scripted intro and the player's taught meld).
-    if (_isPractice) return;
+    if (_mode.isPractice) return;
     final newJokers = _consumeJokerPlacements();
     if (newJokers.isEmpty) return;
     if (needsSetState && !mounted) return;
@@ -2167,6 +2513,12 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (!flowPlan.didApplyAction) {
       return;
     }
+    _notifySandboxAction(
+      seat: PlayerSeat.south,
+      isHuman: true,
+      actionId: actionId,
+      succeeded: result.isSuccess,
+    );
     if (flowPlan.shouldEnsureFiftyTicker) {
       _ensureFiftyTicker();
     }
@@ -2324,6 +2676,13 @@ class _GameTableScreenState extends State<GameTableScreen>
         ensureFiftyTicker: _ensureFiftyTicker,
         persistAndMaybeFinish: _persistAndMaybeFinish,
         postActionDwell: _postActionDwell,
+        onActionApplied: (decision, applyResult) => _notifySandboxAction(
+          seat: decision.seat,
+          isHuman: false,
+          actionId: decision.actionId,
+          succeeded: applyResult.isSuccess,
+          legalActionIds: decision.legalActionIds,
+        ),
       ),
     );
   }
@@ -2383,7 +2742,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Practice lessons have no CPU autonomy beyond the scripted intro: the
     // board waits on the player's next step even when the turn passes to
     // another seat.
-    if (_isPractice) {
+    if (!_mode.capabilities.runsCpuTurns) {
       return false;
     }
     if (_isCpuRunning ||
@@ -2408,6 +2767,12 @@ class _GameTableScreenState extends State<GameTableScreen>
       _isCpuRunning = true;
     });
     try {
+      // Divergence is reported from inside the run, at each successful apply,
+      // rather than from here. Waiting for the loop to return would leave a
+      // window — one dwell plus the next CPU decision — in which the board has
+      // already left its historical line while the sandbox still believes it
+      // has not, and leaving through the pause overlay in that window would
+      // discard real work with no confirmation.
       final result = await _cpuTurnPresenter().runVisible();
       if (!mounted) {
         return result.didApplyAction;
@@ -2426,7 +2791,8 @@ class _GameTableScreenState extends State<GameTableScreen>
       if (!hitCpuSafetyLimit || _controller.isRoundOver) {
         _cpuAutoRestarts = 0;
       }
-      final shouldAutoRestart = hitCpuSafetyLimit &&
+      final shouldAutoRestart =
+          hitCpuSafetyLimit &&
           humanRemoved &&
           _cpuAutoRestarts < _maxCpuAutoRestarts;
       setState(() {
@@ -2502,63 +2868,29 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
   }
 
+  /// Advances the match, then applies whatever durable effect that advance
+  /// implies — if this surface has any.
+  ///
+  /// The two used to be one method, which is why "does this table cross
+  /// rounds?" and "does this table write to storage?" were the same question.
+  /// A branch sandbox needs the first without the second: it deals the next
+  /// round, eliminates seats and reaches a winner exactly as live play does,
+  /// and reaches no repository because it holds none.
   Future<bool> _persistAndMaybeFinish() async {
-    // Practice never touches the active-match store and never enters the
-    // round-result / next-round pipeline; lesson completion has its own
-    // overlay driven by the session.
-    if (_isPractice) {
+    final persistencePlan = _advanceProgression();
+    // Practice drives the table from a lesson script and has its own
+    // completion overlay, so the round-result / next-round pipeline would
+    // fight it. Replay review advances nothing by itself.
+    if (persistencePlan == null) {
       return true;
     }
     final totalWatch = Stopwatch()..start();
-    final isRoundOver = _controller.isRoundOver;
-    final scoreView = _controller.scoreView;
-    // Once the human is eliminated the match is over for them: don't deal a
-    // CPU-only next round (which would also persist as a resumable spectator
-    // match). A null next-round snapshot makes the persistence plan abandon the
-    // match and the round-advance plan open match-over.
-    final shouldDealNextRound = isRoundOver && !_controller.isHumanEliminated;
-    final persistencePlan = ClassicHareegTablePersistencePlanner.plan(
-      isRoundOver: isRoundOver,
-      activeSnapshot: isRoundOver ? null : _controller.toSnapshot(),
-      nextRoundSnapshot:
-          shouldDealNextRound ? _controller.nextRoundSnapshot() : null,
-      roundResult: _controller.roundResult,
-      scoreView: scoreView,
-    );
-    _debugTableLog(
-      'persist start roundOver=$isRoundOver '
-      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
-      'stock=${_controller.stockCount} discard=${_controller.discardPile.length} '
-      'counts=${_debugSeatCounts(_controller)}',
-    );
-    var persistenceSucceeded = true;
     final persistencePath = persistencePlan.logPath;
-    try {
-      switch (persistencePlan.action) {
-        case ClassicHareegTablePersistenceAction.saveActiveMatch:
-        case ClassicHareegTablePersistenceAction.saveNextRound:
-          final snapshot = persistencePlan.snapshotToSave;
-          if (snapshot == null) {
-            throw StateError('Persistence plan is missing a snapshot.');
-          }
-          await widget.matchRepository.saveActiveMatch(snapshot);
-          _recorder?.recordPersistence(
-            type: 'saved',
-            roundNumber: _controller.roundNumber,
-            data: {'roundOver': isRoundOver},
-          );
-        case ClassicHareegTablePersistenceAction.abandonActiveMatch:
-          await widget.matchRepository.abandonActiveMatch();
-      }
-    } catch (error, stackTrace) {
-      persistenceSucceeded = false;
-      _debugTableLog('persist failed path=$persistencePath error=$error');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.strings.couldNotSaveTable)),
-        );
-      }
+    final persistenceSucceeded = await _applyDurableEffect(persistencePlan);
+    if (mounted &&
+        persistencePlan.action ==
+            ClassicHareegTablePersistenceAction.archiveCompletedMatch) {
+      setState(() => _archiveSaveFailed = !persistenceSucceeded);
     }
     totalWatch.stop();
     _debugTableLog(
@@ -2567,11 +2899,114 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
     if (!mounted) return persistenceSucceeded;
     final resultPresentation = persistencePlan.roundResultPresentation;
-    if (persistenceSucceeded && resultPresentation != null) {
+    if (resultPresentation != null &&
+        (persistenceSucceeded ||
+            persistencePlan.action ==
+                ClassicHareegTablePersistenceAction.archiveCompletedMatch)) {
       _debugTableLog('round result overlay requested');
       _showRoundResultOverlay(resultPresentation);
     }
     return persistenceSucceeded;
+  }
+
+  /// In-memory match progression: round result, next-round snapshot and the
+  /// presentation the overlay needs.
+  ///
+  /// Touches no storage. Returns null on a surface that does not run match
+  /// progression at all, per [TableModeCapabilities.runsMatchProgression].
+  ClassicHareegTablePersistencePlan? _advanceProgression() {
+    if (!_mode.capabilities.runsMatchProgression) {
+      return null;
+    }
+    final isRoundOver = _controller.isRoundOver;
+    // Once the human is eliminated the match is over for them: don't deal a
+    // CPU-only next round (which would also persist as a resumable spectator
+    // match). A null next-round snapshot makes the persistence plan abandon the
+    // match and the round-advance plan open match-over.
+    final shouldDealNextRound = isRoundOver && !_controller.isHumanEliminated;
+    _debugTableLog(
+      'persist start roundOver=$isRoundOver '
+      'current=${_controller.currentSeat.name} phase=${_controller.turnPhase} '
+      'stock=${_controller.stockCount} discard=${_controller.discardPile.length} '
+      'counts=${_debugSeatCounts(_controller)}',
+    );
+    return ClassicHareegTablePersistencePlanner.plan(
+      isRoundOver: isRoundOver,
+      activeSnapshot: isRoundOver ? null : _controller.toPositionSnapshot(),
+      nextRoundSnapshot: shouldDealNextRound
+          ? _controller.nextRoundSnapshot()
+          : null,
+      roundResult: _controller.roundResult,
+      scoreView: _controller.scoreView,
+    );
+  }
+
+  /// Applies [plan]'s durable effect, if this surface has durable storage.
+  ///
+  /// Exhaustive over the sealed persistence variants with no `default`, so a
+  /// third variant added later is a compile error rather than a silent write.
+  /// The ephemeral arm has **no repository in scope at all** — the write
+  /// methods are not expressible there, which is what makes a sandbox write
+  /// impossible rather than merely skipped.
+  Future<bool> _applyDurableEffect(
+    ClassicHareegTablePersistencePlan plan,
+  ) async {
+    switch (widget.session.persistence) {
+      case EphemeralTablePersistence():
+        return true;
+      case DurableTablePersistence(
+        :final matchRepository,
+        :final historyRepository,
+      ):
+        return _writeDurableEffect(plan, matchRepository, historyRepository);
+    }
+  }
+
+  Future<bool> _writeDurableEffect(
+    ClassicHareegTablePersistencePlan plan,
+    MatchRepository matches,
+    MatchHistoryRepository history,
+  ) async {
+    final persistencePath = plan.logPath;
+    try {
+      switch (plan.action) {
+        case ClassicHareegTablePersistenceAction.saveActiveMatch:
+        case ClassicHareegTablePersistenceAction.saveNextRound:
+          final snapshot = plan.snapshotToSave;
+          if (snapshot == null) {
+            throw StateError('Persistence plan is missing a snapshot.');
+          }
+          await matches.saveActiveMatch(
+            await _checkpointFor(snapshot, history),
+          );
+          _recorder?.recordPersistence(
+            type: 'saved',
+            roundNumber: _controller.roundNumber,
+            // Read off the plan, not the controller: the planner branches on
+            // exactly this, so the diagnostic cannot drift from the decision
+            // it is describing.
+            data: {
+              'roundOver':
+                  plan.scenario !=
+                  ClassicHareegTablePersistenceScenario.activeRound,
+            },
+          );
+        case ClassicHareegTablePersistenceAction.abandonActiveMatch:
+          await matches.abandonActiveMatch();
+        case ClassicHareegTablePersistenceAction.archiveCompletedMatch:
+          await _archiveCompletedMatch(plan, matches, history);
+      }
+    } catch (error, stackTrace) {
+      _debugTableLog('persist failed path=$persistencePath error=$error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.strings.couldNotSaveTable)),
+        );
+      }
+      return false;
+    }
+    return true;
   }
 
   void _showRoundResultOverlay(
@@ -2596,6 +3031,103 @@ class _GameTableScreenState extends State<GameTableScreen>
       matchEndDelay: _scaledDelay(_matchEndOverlayDwell),
     );
     _scheduleRoundAdvance(advancePlan, presentation);
+  }
+
+  /// Records the completed match to history.
+  ///
+  /// The terminal checkpoint is saved **before** publication starts, so a kill
+  /// between here and the summary write leaves a record the next launch can
+  /// finish rather than a match that silently never happened.
+  Future<void> _archiveCompletedMatch(
+    ClassicHareegTablePersistencePlan plan,
+    MatchRepository matches,
+    MatchHistoryRepository history,
+  ) async {
+    final progress = plan.roundResultPresentation?.progress;
+    final winner = progress?.matchWinner;
+    if (winner == null) {
+      // A malformed plan must not delete the only recovery source or report
+      // a successful durable effect. The caller surfaces this as a failure.
+      throw StateError(
+        'Cannot archive a match without its winner presentation.',
+      );
+    }
+
+    _rememberEliminatedRoundsFromController();
+
+    final facts =
+        _checkpoint?.terminalFacts ??
+        MatchTerminalFacts(
+          completedAt: DateTime.now(),
+          winner: winner,
+          finalScores: progress!.scores,
+          roundCount: _controller.roundNumber,
+          eliminationRounds: Map<PlayerSeat, int>.of(
+            _matchEliminatedRoundBySeat,
+          ),
+          // Only migrated/ineligible matches can lack pre-resume history. Missing
+          // rounds are recorded as unknown, not invented from the current round.
+          unknownEliminationSeats: {
+            if (_checkpoint?.replayIneligible == true)
+              for (final seat in PlayerSeat.values)
+                if (seat != winner &&
+                    !progress.activeSeats.contains(seat) &&
+                    !_matchEliminatedRoundBySeat.containsKey(seat))
+                  seat,
+          },
+          seats: PlayerSeat.values,
+        );
+
+    final terminal = _checkpoint?.isTerminal == true
+        ? _checkpoint!
+        : (await _checkpointFor(
+            _controller.toSnapshot(),
+            history,
+          )).terminalize(facts);
+    _checkpoint = terminal;
+
+    await matches.saveActiveMatch(terminal);
+    final outcome = await history.archiveCompletedMatch(terminal);
+
+    _recorder?.recordPersistence(
+      type: 'archived',
+      roundNumber: _controller.roundNumber,
+      data: {'outcome': outcome.runtimeType.toString()},
+    );
+
+    if (outcome is MatchArchivePublishFailed) {
+      // The pending record survives, so the next launch retries. Surfacing it
+      // as a save failure keeps the existing "couldn't save" path honest.
+      throw StateError('Archive failed: ${outcome.failure}');
+    }
+  }
+
+  /// Builds the durable checkpoint for [snapshot].
+  ///
+  /// The recorder state and the match-wide elimination map travel with the
+  /// snapshot because neither can be reconstructed after a restart: the
+  /// recorder used to be recreated on resume, losing every earlier action, and
+  /// the controller only ever knows about eliminations from its own round.
+  Future<MatchCheckpoint> _checkpointFor(
+    ClassicHareegMatchSnapshot snapshot,
+    MatchHistoryRepository history,
+  ) async {
+    _rememberEliminatedRoundsFromController();
+    final matchId = await _ensureMatchId(history);
+    final existing = _checkpoint;
+    final base =
+        existing ?? MatchCheckpoint(matchId: matchId, snapshot: snapshot);
+    final updated = base
+        .withProgress(
+          snapshot: snapshot,
+          recorderState: _recorder?.toState(),
+          eliminationRounds: Map<PlayerSeat, int>.of(
+            _matchEliminatedRoundBySeat,
+          ),
+        )
+        .withCoachEnabled(_coachWasEnabled);
+    _checkpoint = updated;
+    return updated;
   }
 
   void _rememberEliminatedRoundsFromController() {
@@ -2639,6 +3171,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   /// Starts a fresh match with the same setup without leaving the table.
   void _restartMatchSameSetup() {
+    if (_archiveSaveFailed || _retryingArchive) return;
     // Settings may have been retuned mid-match via the pause overlay; mirror
     // what just played, exactly like the old route-based rematch did.
     final setup = _controller.setup;
@@ -2647,12 +3180,26 @@ class _GameTableScreenState extends State<GameTableScreen>
     _dealChoreography?.dispose();
     _dealChoreography = null;
     _matchEliminatedRoundBySeat.clear();
-    final recorder = _isPractice ? null : MatchRecorder();
+
+    // A rematch is a *new* match, so every match-lifetime fact has to go with
+    // the old one. Carrying the id and checkpoint over would save the rematch
+    // under the finished match's identity — and because the old checkpoint is
+    // terminal and `withProgress` preserves its terminal facts, the rematch
+    // would be stored as an already-completed match: unresumable, and its own
+    // completion would resolve as "already published" instead of producing a
+    // second history entry.
+    _matchId = null;
+    _resumedMatchId = null;
+    _checkpoint = null;
+    _coachWasEnabled = false;
+
+    final recorder = _mode.isPractice ? null : MatchRecorder();
     _recorder = recorder;
     setState(() {
       _controller = ClassicHareegGameController.fromRound(
         ClassicHareegRound.deal(setup: setup),
         recorder: recorder,
+        now: widget.clock,
       );
       _coachInsightCacheKey = null;
       // Fresh banner history + turn tracking: the rematch restarts at round
@@ -2683,6 +3230,23 @@ class _GameTableScreenState extends State<GameTableScreen>
     }
     _ensureFiftyTicker();
     _scheduleTurnFlow();
+  }
+
+  Future<void> _retryArchive() async {
+    if (_retryingArchive) return;
+    final plan = _advanceProgression();
+    if (plan == null ||
+        plan.action !=
+            ClassicHareegTablePersistenceAction.archiveCompletedMatch) {
+      return;
+    }
+    setState(() => _retryingArchive = true);
+    final saved = await _applyDurableEffect(plan);
+    if (!mounted) return;
+    setState(() {
+      _archiveSaveFailed = !saved;
+      _retryingArchive = false;
+    });
   }
 
   Future<void> _exportCompletedMatchReport(
@@ -2741,6 +3305,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       _controller = ClassicHareegGameController.fromSnapshot(
         snapshot,
         recorder: _recorder,
+        now: widget.clock,
       );
       // The coach memo is tied to the previous controller instance; drop it so
       // the new round computes fresh insights instead of risking a stale cache
@@ -2763,6 +3328,280 @@ class _GameTableScreenState extends State<GameTableScreen>
   }
 }
 
+/// Pause panel for a branch sandbox.
+///
+/// Deliberately not [PauseOverlay] with rows switched off. Every settings row
+/// on the live panel is an `onPreferencesChanged` call, and a sandbox must not
+/// be able to write a preference at all — so the panel that could is never
+/// built. What is left is what a sandbox actually offers: resume, the
+/// session-only coach, a restart from the branch point, and the way out.
+class _BranchPauseOverlay extends StatelessWidget {
+  const _BranchPauseOverlay({
+    required this.onResume,
+    required this.onRestart,
+    required this.onLeave,
+    required this.coachEnabled,
+    this.onCoachChanged,
+  });
+
+  final VoidCallback onResume;
+  final VoidCallback onRestart;
+  final VoidCallback onLeave;
+  final bool coachEnabled;
+
+  /// Null when the archived match had no coaching, which is what makes the
+  /// toggle **absent** rather than present-and-off: a player who was never
+  /// eligible has nothing to switch on.
+  final ValueChanged<bool>? onCoachChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final coach = onCoachChanged;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onResume,
+      child: ColoredBox(
+        color: LoungeTokens.overlayScrim,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {},
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: SingleChildScrollView(
+                child: LoungePanel(
+                  highContrast: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LoungePanelHeader(
+                        icon: Icons.science_outlined,
+                        title: strings.branchPauseTitle,
+                        subtitle: strings.branchSandboxBadge,
+                        onClose: onResume,
+                        closeTooltip: strings.close,
+                      ),
+                      if (coach != null) ...[
+                        const SizedBox(height: LoungeTokens.space4),
+                        MergeSemantics(
+                          child: Tooltip(
+                            message: strings.branchCoachToggle,
+                            // Pointer affordance only: the switch's own title
+                            // already names it, and web renders a node's
+                            // tooltip as a second copy of its label.
+                            excludeFromSemantics: true,
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: SwitchListTile.adaptive(
+                                key: const ValueKey('branch-coach-toggle'),
+                                contentPadding: EdgeInsets.zero,
+                                value: coachEnabled,
+                                onChanged: coach,
+                                title: Text(
+                                  strings.branchCoachToggle,
+                                  style: LoungeTokens.bodyMuted,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: LoungeTokens.space5),
+                      LoungePanelActions(
+                        primary: LoungePanelAction(
+                          icon: Icons.play_arrow_rounded,
+                          label: strings.branchResume,
+                          tooltip: strings.branchResume,
+                          tone: LoungePanelActionTone.primary,
+                          onTap: onResume,
+                        ),
+                        secondary: LoungePanelAction(
+                          icon: Icons.logout_rounded,
+                          label: strings.branchExitSandbox,
+                          tooltip: strings.branchExitSandbox,
+                          tone: LoungePanelActionTone.danger,
+                          onTap: onLeave,
+                        ),
+                        tertiary: LoungePanelAction(
+                          icon: Icons.restart_alt_rounded,
+                          label: strings.branchRestart,
+                          tooltip: strings.branchRestart,
+                          tone: LoungePanelActionTone.neutral,
+                          onTap: onRestart,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Completion panel for a finished branch sandbox.
+///
+/// Exactly two ways out, because those are the only two that make sense for a
+/// game that never happened. The live [MatchOverOverlay]'s rematch would deal
+/// a fresh **real** match and its export would hand out a report for an
+/// experiment, so that surface is not built here rather than built with two
+/// buttons greyed out.
+class _BranchCompletionOverlay extends StatelessWidget {
+  const _BranchCompletionOverlay({
+    required this.progress,
+    required this.roundsPlayed,
+    required this.highContrast,
+    required this.onReturnToReplay,
+    required this.onRestart,
+  });
+
+  final MatchProgressState progress;
+  final int roundsPlayed;
+  final bool highContrast;
+  final VoidCallback onReturnToReplay;
+  final VoidCallback onRestart;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final winner = progress.matchWinner;
+    return ColoredBox(
+      color: LoungeTokens.overlayScrim,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            child: LoungePanel(
+              highContrast: highContrast,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  LoungePanelHeader(
+                    icon: Icons.science_outlined,
+                    title: strings.branchCompletionTitle,
+                    subtitle: winner == null
+                        ? strings.branchSandboxBadge
+                        : '${strings.replayWinnerLabel}: '
+                              '${strings.seatLabel(winner)}',
+                    // No close button, deliberately. B51 makes the completion
+                    // panel's action list exhaustive at two, and a header
+                    // close that returned to the replay would be a third
+                    // control publishing a duplicate of one of them.
+                    onClose: null,
+                    closeTooltip: null,
+                  ),
+                  const SizedBox(height: LoungeTokens.space4),
+                  Text(
+                    strings.branchCompletionBody,
+                    style: LoungeTokens.bodyMuted,
+                  ),
+                  const SizedBox(height: LoungeTokens.space3),
+                  Text(
+                    strings.roundsPlayed(roundsPlayed),
+                    style: LoungeTokens.bodyMuted,
+                  ),
+                  const SizedBox(height: LoungeTokens.space5),
+                  LoungePanelActions(
+                    primary: LoungePanelAction(
+                      icon: Icons.movie_outlined,
+                      label: strings.branchReturnToReplay,
+                      tooltip: strings.branchReturnToReplay,
+                      tone: LoungePanelActionTone.primary,
+                      onTap: onReturnToReplay,
+                    ),
+                    secondary: LoungePanelAction(
+                      icon: Icons.restart_alt_rounded,
+                      label: strings.branchRestart,
+                      tooltip: strings.branchRestart,
+                      tone: LoungePanelActionTone.neutral,
+                      onTap: onRestart,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Read-only expanded view of one revealed opponent hand, in study mode.
+///
+/// Viewing only: it carries no action affordance of any kind, and the seat it
+/// shows is not South, so nothing here can make an opponent hand playable.
+class _StudyHandOverlay extends StatelessWidget {
+  const _StudyHandOverlay({
+    required this.seat,
+    required this.cards,
+    required this.theme,
+    required this.onClose,
+  });
+
+  final PlayerSeat seat;
+  final List<HareegCard> cards;
+  final HareegCardTheme theme;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onClose,
+      child: ColoredBox(
+        color: LoungeTokens.overlayScrim,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {},
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: SingleChildScrollView(
+                child: LoungePanel(
+                  highContrast: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      LoungePanelHeader(
+                        icon: Icons.visibility_outlined,
+                        title: strings.branchStudyHandTitle(seat),
+                        subtitle: strings.branchEntryStudy,
+                        onClose: onClose,
+                        closeTooltip: strings.branchStudyHandClose,
+                      ),
+                      const SizedBox(height: LoungeTokens.space4),
+                      Wrap(
+                        key: const ValueKey('study-hand-cards'),
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final card in cards)
+                            HareegCardView(
+                              theme: theme,
+                              card: card,
+                              size: const Size(46, 66),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Softly-rounded chrome button used for the score / pause shortcuts in the
 /// table's top corners. Matches the open-need pill's surface treatment
 /// (charcoal fill, hairline border, soft shadow) so the corner controls read
@@ -2775,6 +3614,7 @@ class _TableChromeButton extends StatelessWidget {
     required this.onPressed,
     this.diameter = 40,
     this.iconSize = 22,
+    this.semanticsLabel,
     super.key,
   });
 
@@ -2784,6 +3624,14 @@ class _TableChromeButton extends StatelessWidget {
   final double diameter;
   final double iconSize;
 
+  /// Explicit accessible name, when the icon alone is not enough.
+  ///
+  /// Opt-in rather than defaulted from [tooltip]: the corner chrome the live
+  /// and practice tables ship is unchanged by this sprint, and giving every
+  /// one of those buttons a new label would be a change to surfaces nobody
+  /// asked me to touch.
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(diameter * 0.32);
@@ -2791,22 +3639,62 @@ class _TableChromeButton extends StatelessWidget {
       borderRadius: radius,
       side: BorderSide(color: Colors.white.withValues(alpha: 0.10), width: 1),
     );
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
-        shape: shape,
-        elevation: 4,
-        shadowColor: Colors.black.withValues(alpha: 0.38),
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onPressed,
-          child: SizedBox.square(
-            dimension: diameter,
-            child: Icon(icon, color: LoungeTokens.offWhiteText, size: iconSize),
+    final label = semanticsLabel;
+    // The label wraps the tooltip rather than sitting inside it: `Tooltip`
+    // publishes its own semantics node, so a label added underneath would
+    // arrive as a *second* node and the outer one — the one a hit test and
+    // `getSemantics` land on — would still be an unnamed button.
+    return _MaybeLabelled(
+      label: label,
+      child: Tooltip(
+        message: tooltip,
+        // Excluded from semantics only where an explicit label exists: web
+        // renders a node's label and tooltip both as text, so a control
+        // carrying both says its name twice. Where there is no label the
+        // tooltip IS the name, and it stays in the tree.
+        excludeFromSemantics: label != null,
+        child: Material(
+          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+          shape: shape,
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: 0.38),
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onPressed,
+            child: SizedBox.square(
+              dimension: diameter,
+              child: Icon(
+                icon,
+                color: LoungeTokens.offWhiteText,
+                size: iconSize,
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Names a control for assistive technology, or leaves it alone.
+class _MaybeLabelled extends StatelessWidget {
+  const _MaybeLabelled({required this.child, this.label});
+
+  final Widget child;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = this.label;
+    if (label == null) {
+      return child;
+    }
+    // Merged, so the button role and the name arrive as one node rather than
+    // as a named box containing an anonymous button. The role is restated
+    // here rather than inherited from the `InkWell` underneath, because the
+    // outer node is the one a hit test and a screen reader land on.
+    return MergeSemantics(
+      child: Semantics(label: label, button: true, enabled: true, child: child),
     );
   }
 }

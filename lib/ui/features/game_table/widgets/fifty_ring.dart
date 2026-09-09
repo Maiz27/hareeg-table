@@ -93,10 +93,7 @@ class _FiftyRingState extends State<FiftyRing>
         return SizedBox.square(
           dimension: widget.diameter,
           child: CustomPaint(
-            painter: _FiftyRingPainter(
-              progress: progress,
-              pulse: pulseValue,
-            ),
+            painter: _FiftyRingPainter(progress: progress, pulse: pulseValue),
             child: Center(
               child: Text(
                 '$remaining',

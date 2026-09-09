@@ -28,6 +28,7 @@ void main() {
 
     await tester.pumpWidget(
       HareegTableApp(
+        historyRepository: MemoryMatchHistoryRepository(),
         preferencesRepository: preferences,
         matchRepository: matches,
         initialRouteOverride: AppRoutes.home,

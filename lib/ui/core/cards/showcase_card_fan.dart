@@ -257,11 +257,10 @@ class _ShowcaseCardFanState extends State<ShowcaseCardFan>
     return _SlotMotion(
       // Cards rise from below the rest pose. Outer cards travel slightly
       // further so they "sweep" up into place rather than slot straight in.
-      extraDy: positionInverse *
-          (widget.height * (0.34 + distFromCentre * 0.04)),
+      extraDy:
+          positionInverse * (widget.height * (0.34 + distFromCentre * 0.04)),
       // Hand tilts more dramatically while flying, settling at rest angle.
-      extraAngle:
-          positionInverse * 0.12 * (cardIndex < 2 ? 1 : -1),
+      extraAngle: positionInverse * 0.12 * (cardIndex < 2 ? 1 : -1),
       // Translation scale uses easeOutBack — outer cards briefly fan WIDER
       // than rest then settle. Centre card barely moves (overshoot is tiny).
       translateScale: 0.55 + 0.45 * translateEase,
@@ -360,10 +359,7 @@ class _FannedCardSlot extends StatelessWidget {
       ),
     );
     return Transform.translate(
-      offset: Offset(
-        restDx * motion.translateScale,
-        restDy + motion.extraDy,
-      ),
+      offset: Offset(restDx * motion.translateScale, restDy + motion.extraDy),
       child: Transform.rotate(
         angle: restAngle + motion.extraAngle,
         alignment: Alignment.bottomCenter,

@@ -21,6 +21,7 @@ class ClassicHareegTableCpuTurnPresenterHooks {
     required this.ensureFiftyTicker,
     required this.persistAndMaybeFinish,
     required this.postActionDwell,
+    required this.onActionApplied,
   });
 
   /// Whether the host widget can still receive callbacks.
@@ -56,6 +57,24 @@ class ClassicHareegTableCpuTurnPresenterHooks {
 
   /// Dwell to wait after one CPU action.
   final Duration Function(String actionId) postActionDwell;
+
+  /// Runs the instant a CPU action applies, before any dwell or persistence.
+  ///
+  /// Separate from [persistAndMaybeFinish] because the two answer different
+  /// questions: persistence asks what should be *written*, this asks what is
+  /// already *true*. A sandbox that only learned about divergence when the run
+  /// settled could be left through the pause overlay mid-run, with the board
+  /// already changed and no confirmation shown.
+  ///
+  /// Carries the runner's own decision and result rather than being a bare
+  /// ping: the decision already holds the seat, the exact action id and the
+  /// sorted legal set the strategy was offered, and dropping them here would
+  /// mean reconstructing facts the runner had in hand.
+  final void Function(
+    ClassicHareegCpuTurnDecision decision,
+    ApplyActionResult result,
+  )
+  onActionApplied;
 }
 
 /// Runs Classic Hareeg CPU turns in table presentation modes.
@@ -104,6 +123,7 @@ class ClassicHareegTableCpuTurnPresenter {
         onLegalActions: _onLegalActions,
         onActionChosen: _onActionChosen,
         beforeApply: _beforeApply,
+        onActionApplied: _onActionApplied,
         afterApply: _afterApply,
         beforeNextAction: _beforeNextAction,
       ),
@@ -119,6 +139,9 @@ class ClassicHareegTableCpuTurnPresenter {
         strategy: strategy,
         humanSeat: humanSeat,
         actionLimit: actionLimit,
+        // Silent about presentation, not about game state: a fast-forwarded
+        // action changes the board exactly as much as a visible one does.
+        hooks: ClassicHareegCpuTurnHooks(onActionApplied: _onActionApplied),
       );
       final result = await runner.run();
       didApplyAny = didApplyAny || result.didApplyAction;
@@ -171,6 +194,14 @@ class ClassicHareegTableCpuTurnPresenter {
     );
     hooks.capturePlacedJokersForAction(decision.actionId);
     return hooks.isMounted();
+  }
+
+  void _onActionApplied(
+    ClassicHareegCpuTurnDecision decision,
+    ApplyActionResult result,
+  ) {
+    if (!hooks.isMounted()) return;
+    hooks.onActionApplied(decision, result);
   }
 
   Future<bool> _afterApply(

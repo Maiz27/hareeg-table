@@ -63,7 +63,8 @@ class MeldSuggestionRack extends StatelessWidget {
             children: [
               // Separators go between groups only — a trailing one would pad
               // the rack asymmetrically after the last suggestion.
-              for (final (index, suggestion) in suggestions.take(3).indexed) ...[
+              for (final (index, suggestion)
+                  in suggestions.take(3).indexed) ...[
                 if (index > 0) const SizedBox(width: 10),
                 _SuggestionGroup(
                   theme: theme,

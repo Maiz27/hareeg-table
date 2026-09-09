@@ -8,6 +8,8 @@ import '../rules/opening_rules.dart';
 import 'classic_hareeg_discard_history.dart';
 import 'classic_hareeg_match_snapshot.dart';
 import 'classic_hareeg_round.dart';
+import 'classic_hareeg_turn_journal.dart';
+import 'round_seed_algorithm.dart';
 
 /// Hydrates persisted Classic Hareeg snapshots into live match state.
 ///
@@ -24,15 +26,27 @@ abstract final class ClassicHareegMatchRestoration {
     // (field absent) fall back to the legacy geometric guess, which can
     // mis-attribute the Fifty penalty once a seat has been removed from the
     // round.
-    final previousDiscardSeat = snapshot.discardPile.isEmpty
+    final previousDiscardSeat = snapshot.turnJournal != null
+        ? snapshot.previousDiscardSeat
+        : snapshot.discardPile.isEmpty
         ? null
         : snapshot.fiftyWindowDiscarder ??
               snapshot.currentSeat.previousAntiClockwise;
     final shouldRestoreFiftyWindow =
-        snapshot.discardPile.isNotEmpty && snapshot.turnPhase == TurnPhase.draw;
+        snapshot.discardPile.isNotEmpty &&
+        snapshot.turnPhase == TurnPhase.draw &&
+        (snapshot.turnJournal == null || snapshot.fiftyWindowDiscarder != null);
 
-    final discardHistory = DiscardHistory();
-    for (final event in snapshot.discardHistoryEvents) {
+    final discardHistory = snapshot.turnJournal == null
+        ? DiscardHistory()
+        : DiscardHistory.fromEvents(
+            snapshot.discardHistoryEvents,
+            nextSequence: snapshot.discardNextSequence,
+          );
+    for (final event
+        in snapshot.turnJournal == null
+            ? snapshot.discardHistoryEvents
+            : const <DiscardEvent>[]) {
       switch (event.kind) {
         case DiscardEventKind.discard:
           discardHistory.recordDiscard(event.seat, event.card);
@@ -69,6 +83,7 @@ abstract final class ClassicHareegMatchRestoration {
       turnPhase: snapshot.turnPhase,
       pendingDiscard: snapshot.pendingDiscard,
       previousDiscardSeat: previousDiscardSeat,
+      lastReturnedPendingDiscard: snapshot.lastReturnedPendingDiscard,
       fiftyWindow: shouldRestoreFiftyWindow
           ? ClassicHareegFiftyRules.openWindow(
               discarder: previousDiscardSeat!,
@@ -87,10 +102,9 @@ abstract final class ClassicHareegMatchRestoration {
           : null,
       // Resume a Fifty proof turn when one was active at save time. The
       // proof is untimed, so unlike windows it restores without any clock
-      // guard; the claimed card already sits in the hand (pending discard)
-      // because the checkpoint reverted the proof's table plays. The three
-      // fields restore as a unit: a partial save never leaks a dangling
-      // discarder or exception flag without its claim.
+      // guard. Exact snapshots may already have used the claimed card;
+      // legacy rollback snapshots return it to the hand. Claim provenance
+      // restores as a unit, without dangling discarder or exception fields.
       activeFiftyClaimCardId: _resumesFiftyClaim(snapshot)
           ? snapshot.activeFiftyClaimCardId
           : null,
@@ -101,6 +115,10 @@ abstract final class ClassicHareegMatchRestoration {
           _resumesFiftyClaim(snapshot) &&
           (snapshot.activeFiftyClaimIsFirstDealtRound ??
               (snapshot.roundNumber == 1)),
+      activeFiftyProofActions:
+          _resumesFiftyClaim(snapshot) && snapshot.turnJournal != null
+          ? snapshot.activeFiftyProofActions
+          : null,
       // Resume a windowed take-discard's Fifty provenance. Like the proof, the
       // taken card sits back in the hand as the pending discard after the
       // checkpoint reverts the turn's table plays, so finishing on it again
@@ -120,6 +138,9 @@ abstract final class ClassicHareegMatchRestoration {
           ? FinishCardSource.stock
           : FinishCardSource.previousDiscard,
       discardHistory: discardHistory,
+      turnJournal: snapshot.turnJournal,
+      roundSeedAlgorithm:
+          snapshot.roundSeedAlgorithm ?? legacyLocalRoundSeedAlgorithm,
     );
   }
 }
@@ -163,13 +184,17 @@ class ClassicHareegRestoredMatchState {
     required this.turnPhase,
     required this.turnSource,
     DiscardHistory? discardHistory,
+    this.turnJournal,
+    this.roundSeedAlgorithm = RoundSeedAlgorithm.exact32,
     this.pendingDiscard,
     this.previousDiscardSeat,
+    this.lastReturnedPendingDiscard,
     this.fiftyWindow,
     this.fiftyWindowOpenedAt,
     this.activeFiftyClaimCardId,
     this.activeFiftyClaimDiscarder,
     this.activeFiftyClaimIsFirstDealtRound = false,
+    this.activeFiftyProofActions,
     this.windowedTakeCardId,
     this.windowedTakeDiscarder,
     this.windowedTakeIsFirstDealtRound = false,
@@ -177,6 +202,7 @@ class ClassicHareegRestoredMatchState {
 
   /// Restored setup.
   final ClassicHareegSetup setup;
+  final ({PlayerSeat seat, String cardId})? lastReturnedPendingDiscard;
 
   /// Restored rules.
   final ClassicHareegRules rules;
@@ -242,6 +268,9 @@ class ClassicHareegRestoredMatchState {
   /// exception.
   final bool activeFiftyClaimIsFirstDealtRound;
 
+  /// Remaining committed CPU proof steps, absent on legacy saves.
+  final List<String>? activeFiftyProofActions;
+
   /// Physical id of a windowed discard taken via plain take-discard during an
   /// open window at save time, or null. Lets the resumed turn's finish score as
   /// a Fifty even though claim-fifty was never pressed.
@@ -255,6 +284,8 @@ class ClassicHareegRestoredMatchState {
 
   /// Source of the turn card for finish validation.
   final FinishCardSource turnSource;
+  final ClassicHareegTurnJournalSnapshot? turnJournal;
+  final RoundSeedAlgorithm roundSeedAlgorithm;
 
   /// Restored per-round discard memory (live, mutable). Pre-populated from
   /// the snapshot when the saved match carried `discardHistoryEvents`;

@@ -1,0 +1,1573 @@
+{
+  "note": "Frozen pre-edit handKeepScores oracle. Generated from the implementation as it stood before the Sprint 04 partial-group extraction. Inert data: do not regenerate from rewritten code.",
+  "hands": [
+    {
+      "name": "all-solo-3",
+      "hand": [
+        {
+          "id": "deck-0-two-spades",
+          "rank": "2",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-hearts",
+          "rank": "7",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-diamonds": 10,
+        "deck-0-seven-hearts": 7,
+        "deck-0-two-spades": 2
+      }
+    },
+    {
+      "name": "all-solo-5",
+      "hand": [
+        {
+          "id": "deck-0-ace-spades",
+          "rank": "A",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-four-hearts",
+          "rank": "4",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-diamonds",
+          "rank": "8",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-jack-clubs",
+          "rank": "J",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-spades": 10,
+        "deck-0-eight-diamonds": 8,
+        "deck-0-four-hearts": 4,
+        "deck-0-jack-clubs": 10,
+        "deck-0-six-spades": 6
+      }
+    },
+    {
+      "name": "cross-suit-10",
+      "hand": [
+        {
+          "id": "deck-0-ten-clubs",
+          "rank": "10",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-diamonds",
+          "rank": "10",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-hearts",
+          "rank": "10",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ten-clubs": 30,
+        "deck-0-ten-diamonds": 30,
+        "deck-0-ten-hearts": 30
+      }
+    },
+    {
+      "name": "cross-suit-3",
+      "hand": [
+        {
+          "id": "deck-0-three-clubs",
+          "rank": "3",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-diamonds",
+          "rank": "3",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-hearts",
+          "rank": "3",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-three-clubs": 9,
+        "deck-0-three-diamonds": 9,
+        "deck-0-three-hearts": 9
+      }
+    },
+    {
+      "name": "cross-suit-6",
+      "hand": [
+        {
+          "id": "deck-0-six-clubs",
+          "rank": "6",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-diamonds",
+          "rank": "6",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-hearts",
+          "rank": "6",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-six-clubs": 18,
+        "deck-0-six-diamonds": 18,
+        "deck-0-six-hearts": 18
+      }
+    },
+    {
+      "name": "cross-suit-Q",
+      "hand": [
+        {
+          "id": "deck-0-queen-clubs",
+          "rank": "Q",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-queen-diamonds",
+          "rank": "Q",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-queen-hearts",
+          "rank": "Q",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-queen-clubs": 30,
+        "deck-0-queen-diamonds": 30,
+        "deck-0-queen-hearts": 30
+      }
+    },
+    {
+      "name": "duplicate-7",
+      "hand": [
+        {
+          "id": "deck-0-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-1-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-spades": 0,
+        "deck-1-seven-spades": 0
+      }
+    },
+    {
+      "name": "duplicate-7-with-pair",
+      "hand": [
+        {
+          "id": "deck-0-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-1-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-hearts",
+          "rank": "7",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-hearts": 14,
+        "deck-0-seven-spades": 14,
+        "deck-1-seven-spades": 0
+      }
+    },
+    {
+      "name": "duplicate-K-and-run",
+      "hand": [
+        {
+          "id": "deck-0-king-clubs",
+          "rank": "K",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-1-king-clubs",
+          "rank": "K",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-queen-clubs",
+          "rank": "Q",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-clubs": 20,
+        "deck-0-queen-clubs": 20,
+        "deck-1-king-clubs": 0
+      }
+    },
+    {
+      "name": "joker-alone",
+      "hand": [
+        {
+          "id": "deck-0-joker-0",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        }
+      ],
+      "scores": {
+        "deck-0-joker-0": 1048576
+      }
+    },
+    {
+      "name": "joker-with-pair",
+      "hand": [
+        {
+          "id": "deck-0-joker-0",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        },
+        {
+          "id": "deck-0-four-spades",
+          "rank": "4",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-four-hearts",
+          "rank": "4",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-four-hearts": 12,
+        "deck-0-four-spades": 12,
+        "deck-0-joker-0": 12
+      }
+    },
+    {
+      "name": "joker-with-run",
+      "hand": [
+        {
+          "id": "deck-0-joker-0",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        },
+        {
+          "id": "deck-0-eight-clubs",
+          "rank": "8",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-nine-clubs",
+          "rank": "9",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-clubs": 27,
+        "deck-0-joker-0": 27,
+        "deck-0-nine-clubs": 27
+      }
+    },
+    {
+      "name": "mixed-competing-groups",
+      "hand": [
+        {
+          "id": "deck-0-five-hearts",
+          "rank": "5",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-hearts",
+          "rank": "6",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-hearts",
+          "rank": "7",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-five-hearts": 18,
+        "deck-0-five-spades": 5,
+        "deck-0-seven-hearts": 18,
+        "deck-0-six-hearts": 18
+      }
+    },
+    {
+      "name": "mixed-joker-duplicate-solo",
+      "hand": [
+        {
+          "id": "deck-0-joker-0",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        },
+        {
+          "id": "deck-0-queen-spades",
+          "rank": "Q",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-1-queen-spades",
+          "rank": "Q",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-four-diamonds",
+          "rank": "4",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-four-diamonds": 4,
+        "deck-0-joker-0": 1048576,
+        "deck-0-queen-spades": 0,
+        "deck-1-queen-spades": 0
+      }
+    },
+    {
+      "name": "mixed-pair-run-solo",
+      "hand": [
+        {
+          "id": "deck-0-three-spades",
+          "rank": "3",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-hearts",
+          "rank": "3",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-nine-clubs",
+          "rank": "9",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-clubs",
+          "rank": "10",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-diamonds": 10,
+        "deck-0-nine-clubs": 19,
+        "deck-0-ten-clubs": 19,
+        "deck-0-three-hearts": 6,
+        "deck-0-three-spades": 6
+      }
+    },
+    {
+      "name": "mixed-six-card",
+      "hand": [
+        {
+          "id": "deck-0-ace-hearts",
+          "rank": "A",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-two-hearts",
+          "rank": "2",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-diamonds",
+          "rank": "7",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-jack-clubs",
+          "rank": "J",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-clubs",
+          "rank": "K",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-hearts": 12,
+        "deck-0-jack-clubs": 20,
+        "deck-0-king-clubs": 20,
+        "deck-0-seven-diamonds": 14,
+        "deck-0-seven-spades": 14,
+        "deck-0-two-hearts": 12
+      }
+    },
+    {
+      "name": "mixed-two-runs-same-suit",
+      "hand": [
+        {
+          "id": "deck-0-two-clubs",
+          "rank": "2",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-clubs",
+          "rank": "3",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-nine-clubs",
+          "rank": "9",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-clubs",
+          "rank": "10",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-nine-clubs": 19,
+        "deck-0-ten-clubs": 19,
+        "deck-0-three-clubs": 5,
+        "deck-0-two-clubs": 5
+      }
+    },
+    {
+      "name": "order-568-ascending",
+      "hand": [
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-spades",
+          "rank": "8",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-spades": 8,
+        "deck-0-five-spades": 11,
+        "deck-0-six-spades": 11
+      }
+    },
+    {
+      "name": "order-568-descending",
+      "hand": [
+        {
+          "id": "deck-0-eight-spades",
+          "rank": "8",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-spades": 14,
+        "deck-0-five-spades": 5,
+        "deck-0-six-spades": 14
+      }
+    },
+    {
+      "name": "order-568-middle-first",
+      "hand": [
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-spades",
+          "rank": "8",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-spades": 8,
+        "deck-0-five-spades": 11,
+        "deck-0-six-spades": 11
+      }
+    },
+    {
+      "name": "pair-2",
+      "hand": [
+        {
+          "id": "deck-0-two-spades",
+          "rank": "2",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-two-hearts",
+          "rank": "2",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-two-hearts": 4,
+        "deck-0-two-spades": 4
+      }
+    },
+    {
+      "name": "pair-2-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-two-spades",
+          "rank": "2",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-two-hearts",
+          "rank": "2",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-clubs": 7,
+        "deck-0-two-hearts": 4,
+        "deck-0-two-spades": 4
+      }
+    },
+    {
+      "name": "pair-5",
+      "hand": [
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-five-hearts",
+          "rank": "5",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-five-hearts": 10,
+        "deck-0-five-spades": 10
+      }
+    },
+    {
+      "name": "pair-5-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-five-hearts",
+          "rank": "5",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-five-hearts": 10,
+        "deck-0-five-spades": 10,
+        "deck-0-seven-clubs": 7
+      }
+    },
+    {
+      "name": "pair-9",
+      "hand": [
+        {
+          "id": "deck-0-nine-spades",
+          "rank": "9",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-nine-hearts",
+          "rank": "9",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-nine-hearts": 18,
+        "deck-0-nine-spades": 18
+      }
+    },
+    {
+      "name": "pair-9-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-nine-spades",
+          "rank": "9",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-nine-hearts",
+          "rank": "9",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-nine-hearts": 18,
+        "deck-0-nine-spades": 18,
+        "deck-0-seven-clubs": 7
+      }
+    },
+    {
+      "name": "pair-A",
+      "hand": [
+        {
+          "id": "deck-0-ace-spades",
+          "rank": "A",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ace-hearts",
+          "rank": "A",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-hearts": 20,
+        "deck-0-ace-spades": 20
+      }
+    },
+    {
+      "name": "pair-A-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-ace-spades",
+          "rank": "A",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ace-hearts",
+          "rank": "A",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-hearts": 20,
+        "deck-0-ace-spades": 20,
+        "deck-0-seven-clubs": 7
+      }
+    },
+    {
+      "name": "pair-J",
+      "hand": [
+        {
+          "id": "deck-0-jack-spades",
+          "rank": "J",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-jack-hearts",
+          "rank": "J",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-jack-hearts": 20,
+        "deck-0-jack-spades": 20
+      }
+    },
+    {
+      "name": "pair-J-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-jack-spades",
+          "rank": "J",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-jack-hearts",
+          "rank": "J",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-jack-hearts": 20,
+        "deck-0-jack-spades": 20,
+        "deck-0-seven-clubs": 7
+      }
+    },
+    {
+      "name": "pair-K",
+      "hand": [
+        {
+          "id": "deck-0-king-spades",
+          "rank": "K",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-hearts",
+          "rank": "K",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-hearts": 20,
+        "deck-0-king-spades": 20
+      }
+    },
+    {
+      "name": "pair-K-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-king-spades",
+          "rank": "K",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-hearts",
+          "rank": "K",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-hearts": 20,
+        "deck-0-king-spades": 20,
+        "deck-0-seven-clubs": 7
+      }
+    },
+    {
+      "name": "run-23",
+      "hand": [
+        {
+          "id": "deck-0-two-diamonds",
+          "rank": "2",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-diamonds",
+          "rank": "3",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-three-diamonds": 5,
+        "deck-0-two-diamonds": 5
+      }
+    },
+    {
+      "name": "run-23-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-two-diamonds",
+          "rank": "2",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-three-diamonds",
+          "rank": "3",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 8,
+        "deck-0-three-diamonds": 5,
+        "deck-0-two-diamonds": 5
+      }
+    },
+    {
+      "name": "run-46",
+      "hand": [
+        {
+          "id": "deck-0-four-diamonds",
+          "rank": "4",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-diamonds",
+          "rank": "6",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-four-diamonds": 10,
+        "deck-0-six-diamonds": 10
+      }
+    },
+    {
+      "name": "run-46-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-four-diamonds",
+          "rank": "4",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-six-diamonds",
+          "rank": "6",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 8,
+        "deck-0-four-diamonds": 10,
+        "deck-0-six-diamonds": 10
+      }
+    },
+    {
+      "name": "run-910",
+      "hand": [
+        {
+          "id": "deck-0-nine-diamonds",
+          "rank": "9",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-diamonds",
+          "rank": "10",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-nine-diamonds": 19,
+        "deck-0-ten-diamonds": 19
+      }
+    },
+    {
+      "name": "run-910-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-nine-diamonds",
+          "rank": "9",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-ten-diamonds",
+          "rank": "10",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 8,
+        "deck-0-nine-diamonds": 19,
+        "deck-0-ten-diamonds": 19
+      }
+    },
+    {
+      "name": "run-A2",
+      "hand": [
+        {
+          "id": "deck-0-ace-diamonds",
+          "rank": "A",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-two-diamonds",
+          "rank": "2",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-diamonds": 12,
+        "deck-0-two-diamonds": 12
+      }
+    },
+    {
+      "name": "run-A2-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-ace-diamonds",
+          "rank": "A",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-two-diamonds",
+          "rank": "2",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-diamonds": 12,
+        "deck-0-eight-hearts": 8,
+        "deck-0-two-diamonds": 12
+      }
+    },
+    {
+      "name": "run-JK",
+      "hand": [
+        {
+          "id": "deck-0-jack-diamonds",
+          "rank": "J",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-jack-diamonds": 20,
+        "deck-0-king-diamonds": 20
+      }
+    },
+    {
+      "name": "run-JK-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-jack-diamonds",
+          "rank": "J",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 8,
+        "deck-0-jack-diamonds": 20,
+        "deck-0-king-diamonds": 20
+      }
+    },
+    {
+      "name": "run-QK",
+      "hand": [
+        {
+          "id": "deck-0-queen-diamonds",
+          "rank": "Q",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-king-diamonds": 20,
+        "deck-0-queen-diamonds": 20
+      }
+    },
+    {
+      "name": "run-QK-plus-solo",
+      "hand": [
+        {
+          "id": "deck-0-queen-diamonds",
+          "rank": "Q",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-king-diamonds",
+          "rank": "K",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 8,
+        "deck-0-king-diamonds": 20,
+        "deck-0-queen-diamonds": 20
+      }
+    },
+    {
+      "name": "solo-10",
+      "hand": [
+        {
+          "id": "deck-9-ten-spades",
+          "rank": "10",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-9-ten-spades": 10
+      }
+    },
+    {
+      "name": "solo-2",
+      "hand": [
+        {
+          "id": "deck-1-two-spades",
+          "rank": "2",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-1-two-spades": 2
+      }
+    },
+    {
+      "name": "solo-3",
+      "hand": [
+        {
+          "id": "deck-2-three-spades",
+          "rank": "3",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-2-three-spades": 3
+      }
+    },
+    {
+      "name": "solo-4",
+      "hand": [
+        {
+          "id": "deck-3-four-spades",
+          "rank": "4",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-3-four-spades": 4
+      }
+    },
+    {
+      "name": "solo-5",
+      "hand": [
+        {
+          "id": "deck-4-five-spades",
+          "rank": "5",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-4-five-spades": 5
+      }
+    },
+    {
+      "name": "solo-6",
+      "hand": [
+        {
+          "id": "deck-5-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-5-six-spades": 6
+      }
+    },
+    {
+      "name": "solo-7",
+      "hand": [
+        {
+          "id": "deck-6-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-6-seven-spades": 7
+      }
+    },
+    {
+      "name": "solo-8",
+      "hand": [
+        {
+          "id": "deck-7-eight-spades",
+          "rank": "8",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-7-eight-spades": 8
+      }
+    },
+    {
+      "name": "solo-9",
+      "hand": [
+        {
+          "id": "deck-8-nine-spades",
+          "rank": "9",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-8-nine-spades": 9
+      }
+    },
+    {
+      "name": "solo-A",
+      "hand": [
+        {
+          "id": "deck-0-ace-spades",
+          "rank": "A",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-ace-spades": 10
+      }
+    },
+    {
+      "name": "solo-J",
+      "hand": [
+        {
+          "id": "deck-10-jack-spades",
+          "rank": "J",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-10-jack-spades": 10
+      }
+    },
+    {
+      "name": "solo-K",
+      "hand": [
+        {
+          "id": "deck-12-king-spades",
+          "rank": "K",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-12-king-spades": 10
+      }
+    },
+    {
+      "name": "solo-Q",
+      "hand": [
+        {
+          "id": "deck-11-queen-spades",
+          "rank": "Q",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-11-queen-spades": 10
+      }
+    },
+    {
+      "name": "suit-gap-clubs",
+      "hand": [
+        {
+          "id": "deck-0-six-clubs",
+          "rank": "6",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-clubs",
+          "rank": "8",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-clubs": 14,
+        "deck-0-six-clubs": 14
+      }
+    },
+    {
+      "name": "suit-gap-diamonds",
+      "hand": [
+        {
+          "id": "deck-0-six-diamonds",
+          "rank": "6",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-diamonds",
+          "rank": "8",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-diamonds": 14,
+        "deck-0-six-diamonds": 14
+      }
+    },
+    {
+      "name": "suit-gap-hearts",
+      "hand": [
+        {
+          "id": "deck-0-six-hearts",
+          "rank": "6",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-hearts",
+          "rank": "8",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-hearts": 14,
+        "deck-0-six-hearts": 14
+      }
+    },
+    {
+      "name": "suit-gap-spades",
+      "hand": [
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-eight-spades",
+          "rank": "8",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-eight-spades": 14,
+        "deck-0-six-spades": 14
+      }
+    },
+    {
+      "name": "suit-run-clubs",
+      "hand": [
+        {
+          "id": "deck-0-six-clubs",
+          "rank": "6",
+          "suit": "clubs",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-clubs",
+          "rank": "7",
+          "suit": "clubs",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-clubs": 13,
+        "deck-0-six-clubs": 13
+      }
+    },
+    {
+      "name": "suit-run-diamonds",
+      "hand": [
+        {
+          "id": "deck-0-six-diamonds",
+          "rank": "6",
+          "suit": "diamonds",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-diamonds",
+          "rank": "7",
+          "suit": "diamonds",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-diamonds": 13,
+        "deck-0-six-diamonds": 13
+      }
+    },
+    {
+      "name": "suit-run-hearts",
+      "hand": [
+        {
+          "id": "deck-0-six-hearts",
+          "rank": "6",
+          "suit": "hearts",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-hearts",
+          "rank": "7",
+          "suit": "hearts",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-hearts": 13,
+        "deck-0-six-hearts": 13
+      }
+    },
+    {
+      "name": "suit-run-spades",
+      "hand": [
+        {
+          "id": "deck-0-six-spades",
+          "rank": "6",
+          "suit": "spades",
+          "joker": false
+        },
+        {
+          "id": "deck-0-seven-spades",
+          "rank": "7",
+          "suit": "spades",
+          "joker": false
+        }
+      ],
+      "scores": {
+        "deck-0-seven-spades": 13,
+        "deck-0-six-spades": 13
+      }
+    },
+    {
+      "name": "two-jokers",
+      "hand": [
+        {
+          "id": "deck-0-joker-0",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        },
+        {
+          "id": "deck-1-joker-1",
+          "rank": null,
+          "suit": null,
+          "joker": true
+        }
+      ],
+      "scores": {
+        "deck-0-joker-0": 1048576,
+        "deck-1-joker-1": 1048576
+      }
+    }
+  ]
+}

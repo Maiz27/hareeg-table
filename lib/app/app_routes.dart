@@ -16,6 +16,22 @@ abstract final class AppRoutes {
   /// restarts without leaving landscape.
   static const table = '/table';
 
+  /// Completed-match history browser.
+  static const history = '/history';
+
+  /// Step-through review of one completed match (arguments:
+  /// [MatchHistorySummary]).
+  ///
+  /// Pushed rather than substituted, so Back returns to the history list the
+  /// player came from.
+  static const replay = '/replay';
+
+  /// Aggregate statistics over completed matches.
+  ///
+  /// A peer of [history] rather than a child of it: the two cross-link by
+  /// replacing each other, so toggling never grows the route stack.
+  static const statistics = '/statistics';
+
   /// Local settings surface.
   static const settings = '/settings';
 

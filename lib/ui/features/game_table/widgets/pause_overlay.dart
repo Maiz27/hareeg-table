@@ -152,7 +152,8 @@ class PauseOverlay extends StatelessWidget {
                                           settings: _settingsList(strings),
                                           strings: strings,
                                           onResume: onResume,
-                                          onReportTableIssue: onReportTableIssue,
+                                          onReportTableIssue:
+                                              onReportTableIssue,
                                           onLeave: onLeave,
                                         );
                                 },

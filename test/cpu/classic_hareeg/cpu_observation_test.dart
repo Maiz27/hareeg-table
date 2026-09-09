@@ -141,6 +141,131 @@ void main() {
     });
   });
 
+  group('the discard pile, round number, and deck copies', () {
+    test('the live pile is complete, ordered, and duplicate-preserving', () {
+      // Card death counts copies per identity, which neither `topDiscard` nor
+      // the history view can answer: the history reports "seen at all" as a
+      // boolean and counts only per rank.
+      final pile = [
+        _card(CardRank.four, CardSuit.hearts, deckIndex: 0),
+        _card(CardRank.nine, CardSuit.spades, deckIndex: 0),
+        _card(CardRank.four, CardSuit.hearts, deckIndex: 1),
+      ];
+      final controller = _controllerWithDiscardPile(pile);
+      final observation = LiveCpuObservation(
+        controller: controller,
+        seat: PlayerSeat.east,
+        legalActionIds: const [ClassicHareegActionIds.drawStock],
+        difficulty: CpuDifficulty.expert,
+      );
+
+      expect(
+        observation.discardPile.map((card) => card.id),
+        pile.map((card) => card.id),
+        reason: 'oldest first, in pile order',
+      );
+      expect(observation.discardPile, hasLength(3));
+      expect(
+        observation.discardPile
+            .where(
+              (card) =>
+                  card.identity ==
+                  const CardIdentity(
+                    rank: CardRank.four,
+                    suit: CardSuit.hearts,
+                  ),
+            )
+            .length,
+        2,
+        reason: 'both physical copies survive, not one deduplicated entry',
+      );
+      expect(observation.discardCount, observation.discardPile.length);
+    });
+
+    test('the returned pile rejects mutation', () {
+      final controller = _controllerWithDiscardPile([
+        _card(CardRank.four, CardSuit.hearts, deckIndex: 0),
+      ]);
+      final observation = LiveCpuObservation(
+        controller: controller,
+        seat: PlayerSeat.east,
+        legalActionIds: const [ClassicHareegActionIds.drawStock],
+        difficulty: CpuDifficulty.expert,
+      );
+
+      expect(
+        () => observation.discardPile.add(
+          _card(CardRank.two, CardSuit.clubs, deckIndex: 0),
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => CpuObservationFacts(
+          discardPile: [_card(CardRank.two, CardSuit.clubs, deckIndex: 0)],
+        ).discardPile.add(_card(CardRank.three, CardSuit.clubs, deckIndex: 0)),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('the live round number and deck copies come from the table', () {
+      final setup = ClassicHareegSetup.defaults().copyWith(deckCount: 3);
+      final controller = _controllerWithDiscardPile(const [], setup: setup);
+      final observation = LiveCpuObservation(
+        controller: controller,
+        seat: PlayerSeat.east,
+        legalActionIds: const [ClassicHareegActionIds.drawStock],
+        difficulty: CpuDifficulty.expert,
+      );
+
+      expect(observation.roundNumber, controller.roundNumber);
+      expect(observation.deckCopyCount, 3);
+      // Not a constant: a three-deck table must not declare an identity dead
+      // after two copies are seen.
+      expect(observation.deckCopyCount, controller.setup.deckCount);
+    });
+
+    test('the value adapter defaults keep existing planner tests compiling', () {
+      final facts = CpuObservationFacts();
+      expect(facts.discardPile, isEmpty);
+      expect(facts.roundNumber, 1);
+      expect(facts.deckCopyCount, 2);
+    });
+
+    test('Facts and Live agree on one constructed position', () {
+      // Parity, so a planner test built on the value adapter is evidence about
+      // the adapter the game actually runs.
+      final pile = [
+        _card(CardRank.four, CardSuit.hearts, deckIndex: 0),
+        _card(CardRank.nine, CardSuit.spades, deckIndex: 0),
+        _card(CardRank.four, CardSuit.hearts, deckIndex: 1),
+      ];
+      final setup = ClassicHareegSetup.defaults().copyWith(deckCount: 4);
+      final controller = _controllerWithDiscardPile(pile, setup: setup);
+      final live = LiveCpuObservation(
+        controller: controller,
+        seat: PlayerSeat.east,
+        legalActionIds: const [ClassicHareegActionIds.drawStock],
+        difficulty: CpuDifficulty.expert,
+      );
+      final facts = CpuObservationFacts(
+        seat: PlayerSeat.east,
+        difficulty: CpuDifficulty.expert,
+        discardPile: pile,
+        discardCount: pile.length,
+        roundNumber: controller.roundNumber,
+        deckCopyCount: setup.deckCount,
+      );
+
+      expect(
+        facts.discardPile.map((card) => card.id).toList(),
+        live.discardPile.map((card) => card.id).toList(),
+      );
+      expect(facts.discardPile.length, live.discardPile.length);
+      expect(facts.roundNumber, live.roundNumber);
+      expect(facts.deckCopyCount, live.deckCopyCount);
+    });
+  });
+
   test('FakeCpuObservation can be constructed for strategy unit tests', () {
     final observation = _FakeCpuObservation(
       seat: PlayerSeat.north,
@@ -175,6 +300,35 @@ ClassicHareegGameController _controllerForCpuDrawTurn({
       hands: hands,
       stock: round.stock,
       discardPile: [discarded],
+      starter: round.starter,
+      currentSeat: PlayerSeat.east,
+      turnPhase: TurnPhase.draw,
+      savedAt: DateTime.utc(2026, 5, 23),
+    ),
+  );
+}
+
+ClassicHareegGameController _controllerWithDiscardPile(
+  List<HareegCard> pile, {
+  ClassicHareegSetup? setup,
+}) {
+  final resolved = setup ?? ClassicHareegSetup.defaults();
+  final round = ClassicHareegRound.deal(setup: resolved, seed: 11);
+  final hands = _mutableHands(round);
+  final pileIds = pile.map((card) => card.id).toSet();
+  for (final hand in hands.values) {
+    hand.removeWhere((card) => pileIds.contains(card.id));
+  }
+
+  return ClassicHareegGameController.fromSnapshot(
+    ClassicHareegMatchSnapshot(
+      setup: resolved,
+      hands: hands,
+      stock: [
+        for (final card in round.stock)
+          if (!pileIds.contains(card.id)) card,
+      ],
+      discardPile: pile,
       starter: round.starter,
       currentSeat: PlayerSeat.east,
       turnPhase: TurnPhase.draw,

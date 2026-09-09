@@ -34,12 +34,84 @@ void main() {
           containsAllInOrder([
             'flight:${PlayerSeat.east.name}:${ClassicHareegActionIds.drawStock}',
             'capture:${ClassicHareegActionIds.drawStock}',
+            // The apply is announced here, before any of the work that
+            // follows it: everything below this line can suspend, and the
+            // board has already moved.
+            'applied:east:draw-stock:true',
             'emit-jokers',
             'drop:${PlayerSeat.east.name}',
             'ensure-fifty',
             'persist',
           ]),
         );
+      },
+    );
+
+    test('the apply is announced before persistence, not after it', () async {
+      // The ordering above is the whole point of the hook, so assert it as an
+      // index comparison rather than only as a subsequence: a notification
+      // that arrived after persistence would still satisfy a loose "contains
+      // both" check, and that is exactly the shape of the defect this closes.
+      final controller = _controllerForCpuDrawTurn();
+      final events = <String>[];
+
+      await ClassicHareegTableCpuTurnPresenter(
+        controller: controller,
+        strategy: const _FirstLegalCpuStrategy(),
+        actionLimit: 1,
+        hooks: _hooks(
+          events: events,
+          persistAndMaybeFinish: () async {
+            events.add('persist');
+            return true;
+          },
+          postActionDwell: (actionId) {
+            events.add('dwell:$actionId');
+            return Duration.zero;
+          },
+        ),
+      ).runVisible();
+
+      final applied = events.firstWhere((e) => e.startsWith('applied:'));
+      expect(applied, 'applied:east:draw-stock:true');
+      expect(events.indexOf(applied), lessThan(events.indexOf('persist')));
+    });
+
+    test('a fast-forwarded action is announced too', () async {
+      // Fast-forward is silent about *presentation*. It is not silent about
+      // game state: an action applied here changes the board exactly as much
+      // as a visible one, and an observer that only heard about visible
+      // actions would think a fast-forwarded round never happened.
+      final controller = _controllerForCpuDrawTurn();
+      final events = <String>[];
+
+      final didApply = await ClassicHareegTableCpuTurnPresenter(
+        controller: controller,
+        strategy: const _FirstLegalCpuStrategy(),
+        hooks: _hooks(events: events),
+      ).fastForwardUntilRoundOver(actionLimit: 3);
+
+      expect(didApply, isTrue);
+      expect(events.where((event) => event.startsWith('applied:')), isNotEmpty);
+      // And it stayed silent about presentation.
+      expect(events, isNot(contains(startsWith('flight:'))));
+      expect(events, isNot(contains('persist')));
+    });
+
+    test(
+      'fast-forward does not notify a host disposed during a decision',
+      () async {
+        final controller = _controllerForCpuDrawTurn();
+        final events = <String>[];
+        var mounted = true;
+        final didApply = await ClassicHareegTableCpuTurnPresenter(
+          controller: controller,
+          strategy: _DisposingCpuStrategy(() => mounted = false),
+          hooks: _hooks(events: events, isMounted: () => mounted),
+        ).fastForwardUntilRoundOver(actionLimit: 1);
+
+        expect(didApply, isTrue);
+        expect(events.where((event) => event.startsWith('applied:')), isEmpty);
       },
     );
 
@@ -91,9 +163,10 @@ ClassicHareegTableCpuTurnPresenterHooks _hooks({
   required List<String> events,
   Future<bool> Function()? persistAndMaybeFinish,
   Duration Function(String actionId)? postActionDwell,
+  bool Function()? isMounted,
 }) {
   return ClassicHareegTableCpuTurnPresenterHooks(
-    isMounted: () => true,
+    isMounted: isMounted ?? () => true,
     hasRoundResultPresentation: () => false,
     log: (_) {},
     playFlightForCpuAction: (seat, actionId) async {
@@ -110,6 +183,14 @@ ClassicHareegTableCpuTurnPresenterHooks _hooks({
     },
     dropPendingSettledFor: (seat) {
       events.add('drop:${seat.name}');
+    },
+    onActionApplied: (decision, result) {
+      // The payload is part of the contract, not decoration: an applied-action
+      // record that could not name the seat, the exact action or whether it
+      // succeeded would leave the sandbox transcript reconstructing them.
+      events.add(
+        'applied:${decision.seat.name}:${decision.actionId}:${result.isSuccess}',
+      );
     },
     ensureFiftyTicker: () {
       events.add('ensure-fifty');
@@ -165,6 +246,20 @@ class _FirstLegalCpuStrategy implements CpuStrategy {
     CpuTurnSnapshot snapshot, {
     CpuObservation? observation,
   }) {
+    return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
+  }
+}
+
+class _DisposingCpuStrategy implements CpuStrategy {
+  const _DisposingCpuStrategy(this.disposeHost);
+  final void Function() disposeHost;
+
+  @override
+  CpuMoveIntent chooseMove(
+    CpuTurnSnapshot snapshot, {
+    CpuObservation? observation,
+  }) {
+    disposeHost();
     return CpuMoveIntent(actionId: snapshot.legalActionIds.first);
   }
 }

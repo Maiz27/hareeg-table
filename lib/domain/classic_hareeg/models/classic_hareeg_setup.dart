@@ -86,7 +86,9 @@ class ClassicHareegSetup {
   factory ClassicHareegSetup.fromJson(Map<String, Object?> json) {
     final defaults = ClassicHareegSetup.defaults();
     return ClassicHareegSetup(
-      cpuDifficulty: CpuDifficulty.fromName(asJsonString(json['cpuDifficulty'])),
+      cpuDifficulty: CpuDifficulty.fromName(
+        asJsonString(json['cpuDifficulty']),
+      ),
       starterMode: StarterMode.fromName(asJsonString(json['starterMode'])),
       openingRequirement: _positiveIntOrDefault(
         json['openingRequirement'],

@@ -88,6 +88,7 @@ class ClassicHareegCpuTurnHooks {
     this.onLegalActions,
     this.onActionChosen,
     this.beforeApply,
+    this.onActionApplied,
     this.afterApply,
     this.beforeNextAction,
   });
@@ -108,6 +109,21 @@ class ClassicHareegCpuTurnHooks {
   /// Runs after an action has been chosen but before it is applied.
   final Future<bool> Function(ClassicHareegCpuTurnDecision decision)?
   beforeApply;
+
+  /// Runs the instant a CPU action has applied successfully.
+  ///
+  /// Deliberately synchronous and deliberately *before* [afterApply]. Anything
+  /// that must be true the moment game state changed belongs here, because
+  /// [afterApply] persists and dwells: between the apply and its return the
+  /// loop is suspended with the board already advanced, and an observer that
+  /// waits for it sees a window in which the state has moved but nothing has
+  /// been told. A sandbox learning it has diverged is exactly that kind of
+  /// fact.
+  final void Function(
+    ClassicHareegCpuTurnDecision decision,
+    ApplyActionResult result,
+  )?
+  onActionApplied;
 
   /// Runs after an action is applied successfully.
   final Future<bool> Function(
@@ -275,6 +291,8 @@ class ClassicHareegCpuTurnRunner {
 
       appliedActionCount += 1;
       appliedDecisions.add(decision);
+      // Before the first await that follows the apply: see [onActionApplied].
+      hooks.onActionApplied?.call(decision, applyResult);
 
       final afterApplyStop = _stopResultFor(
         ClassicHareegCpuTurnLoopPlanner.afterApplyHookGate(
@@ -324,8 +342,7 @@ class ClassicHareegCpuTurnRunner {
     final humanIsRemoved = controller.removedSeats.contains(humanSeat);
     return ClassicHareegCpuTurnLoopPlanner.turnGate(
       isRoundOver: controller.isRoundOver,
-      isHumanTurn:
-          !humanIsRemoved && controller.currentSeat == humanSeat,
+      isHumanTurn: !humanIsRemoved && controller.currentSeat == humanSeat,
       appliedActionCount: appliedActionCount,
       actionLimit: actionLimit,
     );

@@ -46,10 +46,6 @@ final class DiscardHistoryRoundMemoryRecorder implements RoundMemoryRecorder {
 
   @override
   void onReturnPendingDiscard(PlayerSeat seat, HareegCard card) {
-    _history.retract(
-      seat: seat,
-      card: card,
-      kind: DiscardEventKind.pickup,
-    );
+    _history.retract(seat: seat, card: card, kind: DiscardEventKind.pickup);
   }
 }
