@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.0-alpha.11](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.10...v1.0.0-alpha.11) (2026-09-09)
+
+
+### Features
+
+* **cpu:** add public table reading and replay analysis coaching ([a6c7147](https://github.com/Maiz27/hareeg-table/commit/a6c7147356b239c539c8e0e90b213acfba2a3379))
+* **history:** add history statistics and recovery navigation ([063df40](https://github.com/Maiz27/hareeg-table/commit/063df40528a06d263b2f736f770e5c518e3a7cd4))
+* **history:** persist recoverable archives across native and web stores ([a7f7a74](https://github.com/Maiz27/hareeg-table/commit/a7f7a744dc410aa8f5bbca8db47be97ac3ef1004))
+* **replay:** add responsive review controls and analysis settings ([0418345](https://github.com/Maiz27/hareeg-table/commit/041834576b20b3aa15fe5af21bf558be3e8a12c4))
+* **replay:** preserve exact match state and deterministic recordings ([2133521](https://github.com/Maiz27/hareeg-table/commit/213352118a3bf61bba2ccfb081d28123c547f2f1))
+* **sandbox:** branch recorded positions into isolated playable sessions ([3ec95d9](https://github.com/Maiz27/hareeg-table/commit/3ec95d9bca72359769664993a1907a03966b80bd))
+* **table:** add replay session capabilities and accessible controls ([ab235ea](https://github.com/Maiz27/hareeg-table/commit/ab235eac85dde384167ea89835874714227f8598))
+
+
+### Bug Fixes
+
+* **persistence:** reject malformed state without discarding recovery data ([f8b5e9b](https://github.com/Maiz27/hareeg-table/commit/f8b5e9bed73bbc671cd83d221576646e82e3b929))
+* **replay:** address recovery and CI review findings ([3d2f2ca](https://github.com/Maiz27/hareeg-table/commit/3d2f2ca0724869af8798bfad3311ea7c4bc2ae86))
+* **replay:** omit empty Fifty proof suffixes from saves ([605a1a3](https://github.com/Maiz27/hareeg-table/commit/605a1a38fbb0539e390274624d2c2a2cf44e180a))
+* **replay:** show readable verbosity choices in narrow layouts ([b418de9](https://github.com/Maiz27/hareeg-table/commit/b418de9a90353e8c08bffc06eace9a2ccc108c62))
+* **ui:** guard sandbox callbacks and clarify save recovery ([f7de432](https://github.com/Maiz27/hareeg-table/commit/f7de432ed573b3e3af3d3ac12c6839d988e1acd6))
+* **ui:** handle setup save errors and accessible replay controls ([6b42ef0](https://github.com/Maiz27/hareeg-table/commit/6b42ef0739b087795a91334f362e788767640fc7))
+
 ## [1.0.0-alpha.10](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.9...v1.0.0-alpha.10) (2026-06-13)
 
 
