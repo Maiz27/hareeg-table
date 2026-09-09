@@ -185,7 +185,7 @@ void main() {
     // default filters to key moments, and a walk that only ever saw the
     // filtered view could not tell "the analysis is silent here" from "the
     // analysis does not work".
-    await tester.tap(find.byType(DropdownButton<AnalysisVerbosity>).first);
+    await tester.tap(find.byType(PopupMenuButton<AnalysisVerbosity>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text(strings.replayVerbosityNarrateAll).last);
     await tester.pumpAndSettle(const Duration(seconds: 30));

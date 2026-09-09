@@ -340,35 +340,58 @@ class _VerbosityMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return MergeSemantics(
-      child: Semantics(
-        label: strings.replayVerbosityLabel,
-        child: DropdownButton<AnalysisVerbosity>(
-          value: settings.verbosity,
-          dropdownColor: LoungeTokens.coffeeCharcoal,
-          style: LoungeTokens.bodyMuted,
-          underline: const SizedBox.shrink(),
-          // Fills whatever width it is given instead of demanding its intrinsic
-          // one, and ellipsizes the level name rather than pushing the icon off
-          // the edge. The full value stays reachable through the semantics label
-          // and the open menu.
-          isExpanded: true,
-          onChanged: (value) {
-            if (value != null) {
-              onChanged(settings.copyWith(verbosity: value));
-            }
-          },
-          items: [
-            for (final verbosity in AnalysisVerbosity.values)
-              DropdownMenuItem(
-                value: verbosity,
-                child: Text(
-                  verbosityLabel(strings, verbosity),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    // The closed control keeps its original row and height. Only the popup
+    // sizes to its contents, with viewport constraints and wrapping labels.
+    // DropdownButton ties menu width to the anchor; its wider-menu option can
+    // position a wide RTL menu outside the viewport on supported Flutter SDKs.
+    return Tooltip(
+      message: strings.replayVerbosityLabel,
+      excludeFromSemantics: true,
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          label: strings.replayVerbosityLabel,
+          child: PopupMenuButton<AnalysisVerbosity>(
+            // The outer tooltip already supplies the localized pointer hint
+            // without duplicating the merged accessibility label.
+            tooltip: '',
+            initialValue: settings.verbosity,
+            color: LoungeTokens.coffeeCharcoal,
+            onSelected: (value) =>
+                onChanged(settings.copyWith(verbosity: value)),
+            itemBuilder: (context) => [
+              for (final verbosity in AnalysisVerbosity.values)
+                PopupMenuItem(
+                  value: verbosity,
+                  child: Text(
+                    verbosityLabel(strings, verbosity),
+                    style: LoungeTokens.bodyMuted,
+                  ),
                 ),
+            ],
+            child: SizedBox(
+              height: kMinInteractiveDimension,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      verbosityLabel(strings, settings.verbosity),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: LoungeTokens.bodyMuted,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    size: 24,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.grey.shade700,
+                  ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );

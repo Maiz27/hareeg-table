@@ -367,7 +367,7 @@ void main() {
             await _pumpAt(tester, size, strings: language);
             _overflows(tester);
 
-            final menu = find.byType(DropdownButton<AnalysisVerbosity>);
+            final menu = find.byType(PopupMenuButton<AnalysisVerbosity>);
             expect(menu, findsOneWidget);
 
             await tester.tap(menu, warnIfMissed: false);
@@ -382,8 +382,8 @@ void main() {
 
             expect(
               tester
-                  .widget<DropdownButton<AnalysisVerbosity>>(menu)
-                  .value,
+                  .widget<PopupMenuButton<AnalysisVerbosity>>(menu)
+                  .initialValue,
               AnalysisVerbosity.narrateAll,
             );
           },
