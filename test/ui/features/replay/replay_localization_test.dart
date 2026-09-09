@@ -69,6 +69,7 @@ void main() {
           presenter.evidenceLines(insight).single,
           contains(catalog.replayUnnamedCard),
         );
+        expect(presenter.evidenceLines(insight).single, isNot(contains('deck-')));
         expect(presenter.sentenceFor(insight), isNot(contains('deck-')));
       });
       test('every action kind reads as a sentence', () {
