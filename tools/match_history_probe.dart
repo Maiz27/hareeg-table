@@ -90,7 +90,9 @@ class _ProbeAppState extends State<_ProbeApp> {
   }
 
   void _check(String label, bool condition, [String? detail]) {
-    _emit(condition ? _Step.pass(label) : _Step.fail(label, detail ?? 'failed'));
+    _emit(
+      condition ? _Step.pass(label) : _Step.fail(label, detail ?? 'failed'),
+    );
   }
 
   Future<void> _run(String phase, Future<void> Function() body) async {
@@ -132,7 +134,11 @@ class _ProbeAppState extends State<_ProbeApp> {
   /// replay verification and the match would publish non-replayable — which is
   /// exactly the hole that made an earlier version of this probe unable to
   /// prove anything about replay files.
-  ({MatchRecorder recorder, ClassicHareegMatchSnapshot finalState, PlayerSeat? winner})
+  ({
+    MatchRecorder recorder,
+    ClassicHareegMatchSnapshot finalState,
+    PlayerSeat? winner,
+  })
   _playRealMatch({int actionLimit = 3000, ClassicHareegSetup? setup}) {
     var clock = DateTime.utc(2026, 1, 1);
     DateTime now() => clock;
@@ -283,51 +289,54 @@ class _ProbeAppState extends State<_ProbeApp> {
     await _matches.abandonActiveMatch();
     _check('H1 history starts empty', (await _historyIds()).isEmpty);
 
-    const seeds = <({
-      String id,
-      CpuDifficulty difficulty,
-      TableStrictness strictness,
-      bool coach,
-      bool countersMeasured,
-      bool keepReplay,
-    })>[
-      (
-        id: 'm-browse1-aaaaaaaa',
-        difficulty: CpuDifficulty.casual,
-        strictness: TableStrictness.coaching,
-        coach: true,
-        countersMeasured: true,
-        keepReplay: true,
-      ),
-      (
-        id: 'm-browse2-bbbbbbbb',
-        difficulty: CpuDifficulty.casual,
-        strictness: TableStrictness.standard,
-        coach: false,
-        // The unmeasured entry: its zeros mean unknown, and the statistics
-        // screen must disclose the smaller Fifty denominator because of it.
-        countersMeasured: false,
-        keepReplay: true,
-      ),
-      (
-        id: 'm-browse3-cccccccc',
-        difficulty: CpuDifficulty.expert,
-        strictness: TableStrictness.strict,
-        coach: false,
-        countersMeasured: true,
-        // Its replay file is removed below, so listing repairs it to
-        // non-replayable and the entry must still be shown.
-        keepReplay: false,
-      ),
-      (
-        id: 'm-browse4-dddddddd',
-        difficulty: CpuDifficulty.expert,
-        strictness: TableStrictness.table,
-        coach: true,
-        countersMeasured: true,
-        keepReplay: true,
-      ),
-    ];
+    const seeds =
+        <
+          ({
+            String id,
+            CpuDifficulty difficulty,
+            TableStrictness strictness,
+            bool coach,
+            bool countersMeasured,
+            bool keepReplay,
+          })
+        >[
+          (
+            id: 'm-browse1-aaaaaaaa',
+            difficulty: CpuDifficulty.casual,
+            strictness: TableStrictness.coaching,
+            coach: true,
+            countersMeasured: true,
+            keepReplay: true,
+          ),
+          (
+            id: 'm-browse2-bbbbbbbb',
+            difficulty: CpuDifficulty.casual,
+            strictness: TableStrictness.standard,
+            coach: false,
+            // The unmeasured entry: its zeros mean unknown, and the statistics
+            // screen must disclose the smaller Fifty denominator because of it.
+            countersMeasured: false,
+            keepReplay: true,
+          ),
+          (
+            id: 'm-browse3-cccccccc',
+            difficulty: CpuDifficulty.expert,
+            strictness: TableStrictness.strict,
+            coach: false,
+            countersMeasured: true,
+            // Its replay file is removed below, so listing repairs it to
+            // non-replayable and the entry must still be shown.
+            keepReplay: false,
+          ),
+          (
+            id: 'm-browse4-dddddddd',
+            difficulty: CpuDifficulty.expert,
+            strictness: TableStrictness.table,
+            coach: true,
+            countersMeasured: true,
+            keepReplay: true,
+          ),
+        ];
 
     for (final seed in seeds) {
       // Played under the seed's own setup, so the entry the screen renders
@@ -555,6 +564,7 @@ class _ProbeAppState extends State<_ProbeApp> {
 
     PlayerSeat? winner;
     var applied = 0;
+    String? firstPostResumeAction;
     while (applied < 3000) {
       if (controller.isRoundOver) {
         winner = controller.scoreView.progress?.matchWinner;
@@ -576,6 +586,8 @@ class _ProbeAppState extends State<_ProbeApp> {
       if (actionId == null || !controller.applyAction(actionId).isSuccess) {
         break;
       }
+      // Observe the applied command independently of the recorder under test.
+      firstPostResumeAction ??= actionId;
       applied++;
       clock = clock.add(const Duration(seconds: 1));
     }
@@ -590,9 +602,11 @@ class _ProbeAppState extends State<_ProbeApp> {
       return;
     }
 
-    final all = [for (final entry in recorder.transcript!.entries) entry.actionId];
+    final all = [
+      for (final entry in recorder.transcript!.entries) entry.actionId,
+    ];
     final namedPre = before.last;
-    final namedPost = all.length > before.length ? all[before.length] : null;
+    final namedPost = firstPostResumeAction;
     _emit(
       _Step.info(
         'G3a named pre-stop action [${before.length - 1}]: $namedPre; '
@@ -602,7 +616,7 @@ class _ProbeAppState extends State<_ProbeApp> {
 
     _check(
       'G3 transcript spans the kill: ${before.length} pre + '
-      '${all.length - before.length} post',
+          '${all.length - before.length} post',
       all.length > before.length,
       '$all',
     );
@@ -613,7 +627,9 @@ class _ProbeAppState extends State<_ProbeApp> {
     );
     _check(
       'G4a the named post-resume action sits at index ${before.length}',
-      namedPost != null && all[before.length] == namedPost,
+      namedPost != null &&
+          all.length > before.length &&
+          all[before.length] == namedPost,
       '$namedPost',
     );
 

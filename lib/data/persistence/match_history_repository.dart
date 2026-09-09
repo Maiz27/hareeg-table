@@ -375,8 +375,8 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
 
       final index = summaries.indexWhere((s) => s.matchId == matchId);
       if (index < 0) {
-        // Nothing to repair. Not an error: a concurrent delete is a perfectly
-        // good reason for the entry to be gone.
+        // No target remains to repair (for example, after a concurrent delete).
+        // Report the missing entry without recreating it.
         return MatchReplayRepairFailed(
           MatchHistoryFailure(
             kind: MatchHistoryFailureKind.corrupt,
@@ -653,7 +653,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
       try {
         await _store.remove(pendingKey);
       } catch (error) {
-        return MatchArchivePublishFailed(_retryable('Orphan marker clear', error, matchId: matchId));
+        return MatchArchivePublishFailed(
+          _retryable('Orphan marker clear', error, matchId: matchId),
+        );
       }
       return MatchArchivePublishFailed(
         MatchHistoryFailure(

@@ -67,7 +67,13 @@ summary and one replay, or on a typed retryable failure.
 | step 2 | terminal checkpoint and pending record | publishes |
 | step 3 | replay file already written | rewrites it byte-identically; one file results |
 | step 4 | summary already in the index | does not duplicate it |
-| step 5 | pending record with no checkpoint, summary present | clears the pending record only |
+| step 5 | terminal checkpoint with no pending record, summary already durable | recreates the pending record, recognizes the existing summary, then clears both markers without rewriting the replay |
+
+A pending record without a matching terminal checkpoint is an orphan-recovery
+case, not a crash point in this ordered sequence. If its summary exists,
+recovery clears only the pending record. If the summary is also absent after
+successful reads, recovery clears the data-less marker and reports the loss.
+Read failures remain failures and never count as evidence of absence.
 
 A terminal checkpoint is never offered as a game to continue. The home screen
 filters it out, so a completed-but-unpublished match cannot be resumed as though

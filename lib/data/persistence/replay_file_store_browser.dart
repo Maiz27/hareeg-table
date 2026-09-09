@@ -28,11 +28,10 @@ abstract interface class ReplayBrowserStorage {
 /// appear alongside, the key/value entries the preferences, active-match, and
 /// learning-progress repositories write to the same origin.
 ///
-/// Unlike `WebLocalStorageKeyValueStore`, a failed write throws instead of
-/// degrading to a silent no-op. A dropped preference is a small annoyance; a
-/// silently dropped replay payload would let a match be published as replayable
-/// with nothing behind it, which is exactly the dead link this store exists to
-/// prevent.
+/// Like the key/value store, this adapter propagates write failures. Silently
+/// dropping a replay payload would let a match be published as replayable with
+/// nothing behind it. Failed archives retain their recovery data; this store
+/// does not prune existing matches to make room.
 class WebReplayFileStore implements ReplayFileStore {
   /// Creates a browser-storage replay store.
   WebReplayFileStore({required ReplayBrowserStorage storage})

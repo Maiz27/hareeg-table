@@ -360,6 +360,8 @@ void main() {
       final c = s.controller;
       expect(c.fiftyClaimant, PlayerSeat.south);
       final westCount = c.cardCountFor(PlayerSeat.west);
+      final eastCount = c.cardCountFor(PlayerSeat.east);
+      final northCount = c.cardCountFor(PlayerSeat.north);
 
       driveTakeAndFinish(s);
 
@@ -381,8 +383,8 @@ void main() {
         westCount + 3,
         reason: 'the windowed discarder (west) still eats remaining + 3',
       );
-      expect(c.scores[PlayerSeat.east], c.cardCountFor(PlayerSeat.east));
-      expect(c.scores[PlayerSeat.north], c.cardCountFor(PlayerSeat.north));
+      expect(c.scores[PlayerSeat.east], eastCount);
+      expect(c.scores[PlayerSeat.north], northCount);
     });
 
     test('round 1 take-discard finish uses the first-round -1 exception', () {

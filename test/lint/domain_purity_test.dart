@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Lint test: `lib/domain/` stays pure Dart, per ADR 0001.
 ///
-/// Two properties, because one without the other is not worth much:
+/// Three properties, checked together:
 ///
 /// 1. No domain file imports `package:flutter`.
 /// 2. No domain file imports anything under `lib/ui`, `lib/app`, or
@@ -25,11 +25,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// All three properties hold today. This test is what keeps them holding.
 void main() {
   final root = _projectRoot();
-  final domainFiles = Directory('${root.path}/lib/domain')
-      .listSync(recursive: true)
-      .whereType<File>()
-      .where((file) => file.path.endsWith('.dart'))
-      .toList(growable: false);
+  final domainDirectory = Directory('${root.path}/lib/domain');
+  final domainFiles = domainDirectory.existsSync()
+      ? domainDirectory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.dart'))
+            .toList(growable: false)
+      : const <File>[];
 
   test('lib/domain exists and has files to check', () {
     // A guard against the whole suite silently passing because the directory
@@ -125,9 +128,7 @@ List<String> _importsOf(String source) {
     '''^\\s*(?:import|export)\\s+['"]([^'"]+)['"]''',
     multiLine: true,
   );
-  return [
-    for (final match in expression.allMatches(source)) match.group(1)!,
-  ];
+  return [for (final match in expression.allMatches(source)) match.group(1)!];
 }
 
 /// Resolves [import] to a repo-relative `lib/...` path, or null when it does

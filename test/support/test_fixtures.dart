@@ -78,8 +78,7 @@ class MemoryMatchRepository implements MatchRepository {
     ClassicHareegMatchSnapshot? saved,
     MatchCheckpoint? checkpoint,
   }) : savedCheckpoint =
-           checkpoint ??
-           (saved == null ? null : checkpointForSnapshot(saved));
+           checkpoint ?? (saved == null ? null : checkpointForSnapshot(saved));
 
   /// The stored checkpoint.
   MatchCheckpoint? savedCheckpoint;
@@ -373,10 +372,9 @@ HistoryHarness historyHarness({
       continue;
     }
     // Written straight through the inner store so seeding does not inflate the
-    // call counters the tests assert on.
-    unawaited(
-      replayFiles.inner.writeFile(summary.matchId, '{"seeded":true}'),
-    );
+    // call counters the tests assert on. MemoryReplayFileStore writes its map
+    // before returning its Future (no await); this is not asynchronous I/O.
+    unawaited(replayFiles.inner.writeFile(summary.matchId, '{"seeded":true}'));
   }
 
   return (
