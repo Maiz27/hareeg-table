@@ -27,6 +27,7 @@ import 'classic_hareeg_finish_planner.dart';
 import 'classic_hareeg_match_flow.dart';
 import 'classic_hareeg_match_restoration.dart';
 import 'classic_hareeg_match_snapshot.dart';
+import 'round_seed_algorithm.dart';
 import 'classic_hareeg_meld_play_eligibility.dart';
 import 'classic_hareeg_mistake_consequence_planner.dart';
 import 'classic_hareeg_round.dart';
@@ -125,6 +126,7 @@ class ClassicHareegGameController {
            entry.key: List<HareegCard>.of(entry.value),
        },
        _seed = round.seed,
+       _roundSeedAlgorithm = RoundSeedAlgorithm.exact32,
        _stock = List<HareegCard>.of(round.stock),
        _discardPile = List<HareegCard>.of(round.discardPile),
        _tableMelds = {
@@ -159,11 +161,49 @@ class ClassicHareegGameController {
     DateTime Function()? now,
     MatchRecorder? recorder,
   }) {
-    return ClassicHareegGameController._fromRestoredMatch(
+    final controller = ClassicHareegGameController._fromRestoredMatch(
       ClassicHareegMatchRestoration.fromSnapshot(snapshot, rules: rules),
       now: now,
       recorder: recorder,
     );
+    final claim = controller._activeFiftyClaim;
+    final script = claim?.script;
+    if (claim != null && script != null) {
+      // Persisted action encodings may be stale after an update. Validate the
+      // whole suffix once through real rules, without mutating the restored
+      // board or recording speculative actions. The private constructor does
+      // not recurse through this validation.
+      var valid = false;
+      try {
+        final probe = ClassicHareegGameController._fromRestoredMatch(
+          ClassicHareegMatchRestoration.fromSnapshot(snapshot, rules: rules),
+          now: controller._now,
+        );
+        valid = true;
+        for (final action in script) {
+          final result = probe.applyAction(action);
+          if (!result.isSuccess || result.wasReverted) {
+            valid = false;
+            break;
+          }
+        }
+        // The encoder always stores a complete suffix including the discard.
+        // A legal but truncated plan is stale too; replan it from the board.
+        valid =
+            valid &&
+            probe.roundResult?.type == RoundOutcomeType.fiftyFinish &&
+            probe.roundResult?.winner == snapshot.currentSeat;
+      } catch (_) {
+        // A stale plan must not make an otherwise loadable board unusable.
+        valid = false;
+      }
+      if (!valid) {
+        claim
+          ..script = null
+          ..scriptIndex = 0;
+      }
+    }
+    return controller;
   }
 
   ClassicHareegGameController._fromRestoredMatch(
@@ -176,6 +216,7 @@ class ClassicHareegGameController {
        rules = restored.rules,
        _hands = restored.hands,
        _seed = restored.seed,
+       _roundSeedAlgorithm = restored.roundSeedAlgorithm,
        _stock = restored.stock,
        _discardPile = restored.discardPile,
        _tableMelds = restored.tableMelds,
@@ -190,21 +231,27 @@ class ClassicHareegGameController {
        _phase = restored.turnPhase,
        _pendingDiscard = restored.pendingDiscard,
        _previousDiscardSeat = restored.previousDiscardSeat,
+       _lastReturnedPendingDiscard = restored.lastReturnedPendingDiscard,
        _fiftyWindow = restored.fiftyWindow,
        _fiftyWindowOpenedAt = restored.fiftyWindowOpenedAt,
        _roundOutcome = null,
        _roundResult = null,
        _discardHistory = restored.discardHistory,
-       _turnJournal = ClassicHareegTurnJournal(source: restored.turnSource) {
+       _turnJournal =
+           restored.turnJournal?.restore() ??
+           ClassicHareegTurnJournal(source: restored.turnSource) {
     final claimCardId = restored.activeFiftyClaimCardId;
     final claimDiscarder = restored.activeFiftyClaimDiscarder;
     if (claimCardId != null && claimDiscarder != null) {
-      // Resume the saved Fifty proof turn. The CPU script rebuilds lazily
-      // from the restored hand + table when the surface is next polled.
+      // Keep the committed proof suffix for exact saves. Older saves have no
+      // script and re-plan lazily from their restored hand and table.
       _activeFiftyClaim = _ActiveFiftyClaim(
         claimedCardId: claimCardId,
         discarder: claimDiscarder,
         isFirstDealtRound: restored.activeFiftyClaimIsFirstDealtRound,
+        script: restored.activeFiftyProofActions == null
+            ? null
+            : List.unmodifiable(restored.activeFiftyProofActions!),
       );
     }
     final windowedTakeCardId = restored.windowedTakeCardId;
@@ -238,6 +285,7 @@ class ClassicHareegGameController {
   final MatchRecorder? _recorder;
   final Map<PlayerSeat, List<HareegCard>> _hands;
   final int? _seed;
+  final RoundSeedAlgorithm _roundSeedAlgorithm;
   final List<HareegCard> _stock;
   final List<HareegCard> _discardPile;
   final Map<PlayerSeat, List<PlacedMeld>> _tableMelds;
@@ -397,6 +445,7 @@ class ClassicHareegGameController {
       activeSeats: _activeSeats,
       currentStarter: _starter,
       roundNumber: _roundNumber,
+      roundSeedAlgorithm: _roundSeedAlgorithm,
     );
   }
 
@@ -494,27 +543,58 @@ class ClassicHareegGameController {
 
   /// Snapshots the live game state for persistence.
   ClassicHareegMatchSnapshot toSnapshot({DateTime? savedAt}) {
+    return _snapshot(savedAt: savedAt, exact: false);
+  }
+
+  /// Captures the visible position and reversible turn state together. Use for
+  /// replay frames and recorded checkpoints; a rollback snapshot cannot be
+  /// paired with a transcript that still contains the rolled-back actions.
+  ClassicHareegMatchSnapshot toPositionSnapshot({DateTime? savedAt}) {
+    return _snapshot(savedAt: savedAt, exact: true);
+  }
+
+  ClassicHareegMatchSnapshot _snapshot({
+    DateTime? savedAt,
+    required bool exact,
+  }) {
     final effectiveSavedAt = savedAt ?? DateTime.now().toUtc();
-    final resumeState = ClassicHareegTurnCheckpoint(
-      currentSeat: _currentSeat,
-      hands: _hands,
-      tableMelds: _tableMelds,
-      openingState: _openingState,
-      pendingDiscard: _pendingDiscard,
-      journalSnapshot: _turnJournal.toSnapshot(),
-    ).toSnapshotState();
+    final resumeState = exact
+        ? null
+        : ClassicHareegTurnCheckpoint(
+            currentSeat: _currentSeat,
+            hands: _hands,
+            tableMelds: _tableMelds,
+            openingState: _openingState,
+            pendingDiscard: _pendingDiscard,
+            journalSnapshot: _turnJournal.toSnapshot(),
+          ).toSnapshotState();
     return ClassicHareegMatchSnapshot(
       setup: setup,
-      hands: resumeState.hands,
+      roundSeedAlgorithm: _roundSeedAlgorithm,
+      hands:
+          resumeState?.hands ??
+          {
+            for (final entry in _hands.entries)
+              entry.key: List<HareegCard>.of(entry.value),
+          },
       seed: _seed,
       stock: List<HareegCard>.of(_stock),
       discardPile: List<HareegCard>.of(_discardPile),
-      tableMelds: resumeState.tableMelds,
+      tableMelds:
+          resumeState?.tableMelds ??
+          {
+            for (final entry in _tableMelds.entries)
+              entry.key: List<PlacedMeld>.of(entry.value),
+          },
       starter: _starter,
       currentSeat: _currentSeat,
       turnPhase: _phase,
-      pendingDiscard: resumeState.pendingDiscard,
-      openingState: resumeState.openingState,
+      pendingDiscard: exact ? _pendingDiscard : resumeState!.pendingDiscard,
+      openingState: exact ? _openingState : resumeState!.openingState,
+      turnJournal: exact ? _turnJournal.toSnapshot() : null,
+      previousDiscardSeat: exact ? _previousDiscardSeat : null,
+      discardNextSequence: exact ? _discardHistory.nextSequence : null,
+      lastReturnedPendingDiscard: exact ? _lastReturnedPendingDiscard : null,
       // Persist the *displayed* scores (the round-result overlay folded in),
       // not the raw pre-round baseline. At round-over `_scores` still holds the
       // baseline and the round delta lives only in the `roundProgress` overlay;
@@ -533,14 +613,15 @@ class ClassicHareegGameController {
       // round number (lost when roundNumber is absent on an old/partial save).
       fiftyWindowDiscarder: _fiftyWindow?.discarder,
       fiftyWindowIsFirstDealtRound: _fiftyWindow?.isFirstDealtRound,
-      // A mid-proof Fifty claim is persistent turn state: the checkpoint
-      // reverts the proof's table plays (the claimed card lands back in the
-      // hand as the pending discard) and these fields let restore resume the
-      // proof turn — never a live window, which stays restore-gated to draw
-      // phase with its ancient-stamp fallback.
+      // Claim provenance survives both exact and rollback projections.
+      // Only the exact board can retain the current proof suffix; attaching
+      // it to a rolled-back hand would skip plays that still need applying.
       activeFiftyClaimCardId: _activeFiftyClaim?.claimedCardId,
       activeFiftyClaimDiscarder: _activeFiftyClaim?.discarder,
       activeFiftyClaimIsFirstDealtRound: _activeFiftyClaim?.isFirstDealtRound,
+      activeFiftyProofActions: exact
+          ? _activeFiftyClaim?.remainingActions
+          : null,
       // A plain windowed take-discard mid-turn is persistent Fifty provenance:
       // the checkpoint reverts the turn's plays and the taken card lands back as
       // the pending discard, so these let restore re-tag the finish as a Fifty
@@ -805,10 +886,12 @@ class ClassicHareegGameController {
         phase: phase,
         data: {
           'before': {
-            for (final entry in scoresBefore.entries) entry.key.name: entry.value,
+            for (final entry in scoresBefore.entries)
+              entry.key.name: entry.value,
           },
           'after': {
-            for (final entry in scoresAfter.entries) entry.key.name: entry.value,
+            for (final entry in scoresAfter.entries)
+              entry.key.name: entry.value,
           },
         },
       );
@@ -836,9 +919,7 @@ class ClassicHareegGameController {
         roundNumber: round,
         seat: seat,
         phase: phase,
-        data: {
-          if (claimantAfter != null) 'claimant': claimantAfter.name,
-        },
+        data: {if (claimantAfter != null) 'claimant': claimantAfter.name},
       );
     }
 
@@ -1891,6 +1972,11 @@ class ClassicHareegGameController {
       final fiftyDiscarder = claim?.discarder ?? windowedTake!.discarder;
       final firstRound =
           claim?.isFirstDealtRound ?? windowedTake!.isFirstDealtRound;
+      if (fiftyProofComplete &&
+          (_recorder?.hasRecordedFiftyClaim(_currentSeat, _roundNumber) ??
+              false)) {
+        _recorder?.recordFiftySuccess(_currentSeat);
+      }
       _activeFiftyClaim = null;
       _windowedDiscardTake = null;
       _fiftyWindow = null;
@@ -2602,6 +2688,10 @@ class ClassicHareegGameController {
   /// the live state (the proof stays completable — every prefix of plays
   /// leaves a plannable remainder, and retracts restore the planned shape).
   void _onActionApplied(String actionId) {
+    // Claim application just installed this plan. The claim itself is not a
+    // proof step; treating it as an off-script play would discard the plan
+    // before the first save or replay frame can capture it.
+    if (actionId == ClassicHareegActionIds.claimFifty) return;
     final claim = _activeFiftyClaim;
     final script = claim?.script;
     if (claim == null || script == null) {
@@ -3450,12 +3540,19 @@ class _ActiveFiftyClaim {
   /// Whether the claim window carried the first-dealt-round -1 exception.
   final bool isFirstDealtRound;
 
-  /// Ordered proof action ids for CPU play-out. Null until resolved; rebuilt
-  /// lazily from the live state (e.g. after a snapshot restore).
+  /// Ordered proof action ids for CPU play-out. Exact saves retain the
+  /// unplayed suffix; legacy saves and off-script plays rebuild lazily.
   List<String>? script;
 
   /// Index of the next unplayed script step.
   int scriptIndex = 0;
+
+  /// Detached suffix: advancing the live script cannot alter a saved frame.
+  List<String>? get remainingActions {
+    final actions = script;
+    if (actions == null || scriptIndex >= actions.length) return null;
+    return List.unmodifiable(actions.skip(scriptIndex));
+  }
 }
 
 /// Provenance of a windowed discard taken via plain `take-discard` during an

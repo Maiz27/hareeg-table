@@ -2,6 +2,7 @@ import '../models/player_seat.dart';
 import '../models/playing_card.dart';
 import '../rules/finish_rules.dart';
 import '../rules/opening_rules.dart';
+import '../persistence/persistence_codec.dart';
 import 'physical_card_match.dart';
 
 /// Reversible table-play journal for the active turn.
@@ -387,5 +388,142 @@ class ClassicHareegTurnJournalSnapshot {
 
   /// Source of the card that enabled this turn's possible finish.
   final FinishCardSource source;
-}
 
+  /// Detaches every collection so replay consumers cannot rewrite history.
+  ClassicHareegTurnJournalSnapshot frozen() {
+    PlacedMeld meld(PlacedMeld value) => PlacedMeld(
+      cards: List.unmodifiable(value.cards),
+      valueSnapshot: value.valueSnapshot,
+      coverValue: value.coverValue,
+    );
+    OpeningState opening(OpeningState value) => OpeningState(
+      baseRequirement: value.baseRequirement,
+      currentRequirement: value.currentRequirement,
+      openedSeats: Set.unmodifiable(value.openedSeats),
+      benchmarkOwner: value.benchmarkOwner,
+      isLocked: value.isLocked,
+    );
+    return ClassicHareegTurnJournalSnapshot(
+      finishMelds: List.unmodifiable(finishMelds.map(meld)),
+      openingMelds: List.unmodifiable(openingMelds.map(meld)),
+      turnMelds: List.unmodifiable(
+        turnMelds.map(
+          (play) => ClassicHareegTurnMeldPlay(
+            owner: play.owner,
+            meld: meld(play.meld),
+            consumedPendingDiscard: play.consumedPendingDiscard,
+          ),
+        ),
+      ),
+      coverPlays: List.unmodifiable(
+        coverPlays.map(
+          (play) => ClassicHareegTurnCoverPlay(
+            targetSeat: play.targetSeat,
+            meldIndex: play.meldIndex,
+            previousMeld: meld(play.previousMeld),
+            coverMeld: meld(play.coverMeld),
+            previousOpeningState: opening(play.previousOpeningState),
+            consumedPendingDiscard: play.consumedPendingDiscard,
+          ),
+        ),
+      ),
+      consumedPendingDiscard: consumedPendingDiscard,
+      source: source,
+    );
+  }
+
+  /// Restores the exact active-turn provenance, rather than undoing its plays.
+  factory ClassicHareegTurnJournalSnapshot.fromJson(Map<String, Object?> json) {
+    Map<String, Object?> object(Object? value) =>
+        asJsonMap(value) ??
+        (throw const FormatException('Invalid turn journal object.'));
+    List<Object?> list(String key) =>
+        asJsonList(json[key]) ??
+        (throw FormatException('Missing turn journal $key.'));
+    PlayerSeat seat(Object? value) =>
+        PlayerSeat.fromName(asJsonString(value)) ??
+        (throw const FormatException('Invalid turn journal seat.'));
+    HareegCard? card(Object? value) =>
+        value == null ? null : HareegCard.fromJson(object(value));
+    final source = FinishCardSource.values
+        .where((value) => value.name == json['source'])
+        .firstOrNull;
+    if (source == null) {
+      throw const FormatException('Invalid turn journal source.');
+    }
+    return ClassicHareegTurnJournalSnapshot(
+      finishMelds: List.unmodifiable(
+        list('finishMelds').map((value) => PlacedMeld.fromJson(object(value))),
+      ),
+      openingMelds: List.unmodifiable(
+        list('openingMelds').map((value) => PlacedMeld.fromJson(object(value))),
+      ),
+      turnMelds: List.unmodifiable(
+        list('turnMelds').map((value) {
+          final play = object(value);
+          return ClassicHareegTurnMeldPlay(
+            owner: seat(play['owner']),
+            meld: PlacedMeld.fromJson(object(play['meld'])),
+            consumedPendingDiscard: card(play['consumedPendingDiscard']),
+          );
+        }),
+      ),
+      coverPlays: List.unmodifiable(
+        list('coverPlays').map((value) {
+          final play = object(value);
+          final index = asJsonInt(play['meldIndex']);
+          if (index == null || index < 0) {
+            throw const FormatException('Invalid cover index.');
+          }
+          return ClassicHareegTurnCoverPlay(
+            targetSeat: seat(play['targetSeat']),
+            meldIndex: index,
+            previousMeld: PlacedMeld.fromJson(object(play['previousMeld'])),
+            coverMeld: PlacedMeld.fromJson(object(play['coverMeld'])),
+            previousOpeningState: OpeningState.fromJson(
+              object(play['previousOpeningState']),
+            ),
+            consumedPendingDiscard: card(play['consumedPendingDiscard']),
+          );
+        }),
+      ),
+      consumedPendingDiscard: card(json['consumedPendingDiscard']),
+      source: source,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'source': source.name,
+    'finishMelds': [for (final meld in finishMelds) meld.toJson()],
+    'openingMelds': [for (final meld in openingMelds) meld.toJson()],
+    'turnMelds': [
+      for (final play in turnMelds)
+        {
+          'owner': play.owner.name,
+          'meld': play.meld.toJson(),
+          'consumedPendingDiscard': play.consumedPendingDiscard?.toJson(),
+        },
+    ],
+    'coverPlays': [
+      for (final play in coverPlays)
+        {
+          'targetSeat': play.targetSeat.name,
+          'meldIndex': play.meldIndex,
+          'previousMeld': play.previousMeld.toJson(),
+          'coverMeld': play.coverMeld.toJson(),
+          'previousOpeningState': play.previousOpeningState.toJson(),
+          'consumedPendingDiscard': play.consumedPendingDiscard?.toJson(),
+        },
+    ],
+    'consumedPendingDiscard': consumedPendingDiscard?.toJson(),
+  };
+
+  ClassicHareegTurnJournal restore() => ClassicHareegTurnJournal(
+    finishMelds: finishMelds,
+    openingMelds: openingMelds,
+    turnMelds: turnMelds,
+    coverPlays: coverPlays,
+    consumedPendingDiscard: consumedPendingDiscard,
+    source: source,
+  );
+}

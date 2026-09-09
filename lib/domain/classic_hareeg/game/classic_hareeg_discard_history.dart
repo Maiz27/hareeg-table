@@ -130,6 +130,33 @@ class DiscardHistory implements DiscardHistoryView {
       _pickupIndicesBySeat = _emptySeatIndexMap(),
       _countsByRank = List<int>.filled(CardRank.values.length, 0);
 
+  /// Restores exact event numbering without collapsing gaps from undo actions.
+  factory DiscardHistory.fromEvents(
+    Iterable<DiscardEvent> events, {
+    int? nextSequence,
+  }) {
+    final history = DiscardHistory();
+    for (final event in events) {
+      if (event.sequence < history._nextSequence) {
+        throw const FormatException('Discard sequence is not increasing.');
+      }
+      history._nextSequence = event.sequence;
+      switch (event.kind) {
+        case DiscardEventKind.discard:
+          history.recordDiscard(event.seat, event.card);
+        case DiscardEventKind.pickup:
+          history.recordPickup(event.seat, event.card);
+      }
+    }
+    if (nextSequence != null) {
+      if (nextSequence < history._nextSequence) {
+        throw const FormatException('Invalid next discard sequence.');
+      }
+      history._nextSequence = nextSequence;
+    }
+    return history;
+  }
+
   /// Restores discard memory from persisted JSON-compatible data.
   ///
   /// The wire format only persists the chronological event stream; per-seat
@@ -165,6 +192,8 @@ class DiscardHistory implements DiscardHistoryView {
   final Map<String, int> _identityCounts = {};
   int _jokersDiscarded = 0;
   int _nextSequence = 0;
+
+  int get nextSequence => _nextSequence;
 
   /// Full chronological event stream, oldest first.
   Iterable<DiscardEvent> get events => List.unmodifiable(_events);

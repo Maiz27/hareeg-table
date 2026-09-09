@@ -7,6 +7,8 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
 
 import 'classic_hareeg_scenario.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_snapshot.dart';
 
 /// Deterministic Fifty (Khamsin) scoring scenarios.
 ///
@@ -42,8 +44,11 @@ void main() {
   //   final discard:      9S
   // The discard (3C) is genuinely used in meld A, satisfying the
   // "Fifty must use the discarded card" rule.
-  final topDiscardThreeClubs =
-      ScenarioCards.card(CardRank.three, CardSuit.clubs, deckIndex: 1);
+  final topDiscardThreeClubs = ScenarioCards.card(
+    CardRank.three,
+    CardSuit.clubs,
+    deckIndex: 1,
+  );
   final southWinningHand = <HareegCard>[
     ScenarioCards.card(CardRank.three, CardSuit.diamonds, deckIndex: 1),
     ScenarioCards.card(CardRank.three, CardSuit.hearts, deckIndex: 1),
@@ -68,8 +73,12 @@ void main() {
     ScenarioCards.card(CardRank.ten, CardSuit.diamonds, deckIndex: 2),
   ];
 
-  ClassicHareegScenario dealSouthFiftyClaim({required int roundNumber}) {
+  ClassicHareegScenario dealSouthFiftyClaim({
+    required int roundNumber,
+    MatchRecorder? recorder,
+  }) {
     return ClassicHareegScenario.deal(
+      recorder: recorder,
       // Permissive tier is irrelevant to a *valid* finish, but use Table so
       // the same setup shape mirrors the wrong-claim tests; a valid finish
       // never triggers the mistake path.
@@ -110,94 +119,139 @@ void main() {
 
   group('Successful Fifty finish scoring', () {
     test(
-      'successful Fifty finish applies the documented score deltas to the '
-      'live scores',
+      'resume during Fifty proof preserves the played meld and counts success once',
       () {
-        // Round 2 -> NOT the first-round exception, so winner delta is -3.
-        final s = dealSouthFiftyClaim(roundNumber: 2);
-        final c = s.controller;
-
-        // Sanity: the window opened for south against west's discard.
-        expect(
-          c.fiftyClaimant,
-          PlayerSeat.south,
-          reason: 'Fifty window should be open for south',
+        final recorder = MatchRecorder();
+        final game = dealSouthFiftyClaim(roundNumber: 2, recorder: recorder);
+        expect(game.south.claimFifty().isSuccess, isTrue);
+        final first = game.controller.cpuActionIdsFor(PlayerSeat.south).first;
+        expect(first, startsWith('play-meld:'));
+        expect(game.controller.applyAction(first).isSuccess, isTrue);
+        final snapshot = ClassicHareegMatchSnapshot.fromJson(
+          game.controller.toPositionSnapshot(savedAt: fixedClock).toJson(),
         );
-
-        // Read remaining counts BEFORE the claim (south is the winner; its
-        // count is irrelevant to the winner delta).
-        final westCount = c.cardCountFor(PlayerSeat.west);
-        final eastCount = c.cardCountFor(PlayerSeat.east);
-        final northCount = c.cardCountFor(PlayerSeat.north);
-        expect(westCount, 2);
-        expect(eastCount, 2);
-        expect(northCount, 2);
-
-        final result = s.south.claimFifty();
-        expect(
-          result.isSuccess,
-          isTrue,
-          reason: 'claimFifty should succeed for a genuine finish; got: '
-              '"${result.message}"',
-        );
-        driveProof(c);
-        expect(c.isRoundOver, isTrue);
-        expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
-
-        final scores = c.scores;
-        // Winner south: -3 (round 2, no first-round exception).
-        expect(
-          scores[PlayerSeat.south],
-          -3,
-          reason: 'winner delta should be -3',
-        );
-        // Discarder west: remaining + 3.
-        expect(
-          scores[PlayerSeat.west],
-          westCount + 3,
-          reason: 'fifty discarder delta should be remaining(+3)',
-        );
-        // Other active seats: their remaining counts.
-        expect(scores[PlayerSeat.east], eastCount);
-        expect(scores[PlayerSeat.north], northCount);
-      },
-    );
-
-    test(
-      'successful Fifty deltas survive a round advance '
-      '(nextRoundSnapshot baseline)',
-      () {
-        final s = dealSouthFiftyClaim(roundNumber: 2);
-        final c = s.controller;
-        final claim = s.south.claimFifty();
-        expect(claim.isSuccess, isTrue, reason: claim.message);
-        driveProof(c);
-
-        final displayed = Map<PlayerSeat, int>.from(c.scores);
-
-        final next = c.nextRoundSnapshot(savedAt: fixedClock);
-        expect(
-          next,
-          isNotNull,
-          reason: 'a non-match-ending Fifty round should produce a next round',
-        );
-
-        final advanced = ClassicHareegGameController.fromSnapshot(
-          next!,
+        final resumedRecorder = MatchRecorder.restore(recorder.toState());
+        final restored = ClassicHareegGameController.fromSnapshot(
+          snapshot,
+          recorder: resumedRecorder,
           now: now,
         );
-
-        // The Fifty deltas must be folded into the next round's baseline.
-        for (final seat in next.activeSeats) {
-          expect(
-            advanced.scores[seat],
-            displayed[seat],
-            reason: 'next-round baseline for $seat must equal the displayed '
-                'Fifty score',
-          );
-        }
+        expect(restored.isFiftyProofTurn, isTrue);
+        expect(
+          restored.handFor(PlayerSeat.south).map((c) => c.id),
+          game.south.hand.map((c) => c.id),
+        );
+        expect(
+          restored.legalActionIdsFor(PlayerSeat.south),
+          game.controller.legalActionIdsFor(PlayerSeat.south),
+        );
+        driveProof(restored);
+        expect(restored.isRoundOver, isTrue);
+        expect(resumedRecorder.fiftyCounters.successesFor(PlayerSeat.south), 1);
       },
     );
+    test(
+      'explicit proven claim counts one success, including recorder persistence',
+      () {
+        final recorder = MatchRecorder();
+        final game = dealSouthFiftyClaim(roundNumber: 2, recorder: recorder);
+        expect(game.south.claimFifty().isSuccess, isTrue);
+        expect(recorder.fiftyCounters.attemptsFor(PlayerSeat.south), 1);
+        expect(recorder.fiftyCounters.successesFor(PlayerSeat.south), 0);
+        driveProof(game.controller);
+        expect(game.controller.isRoundOver, isTrue);
+        expect(recorder.fiftyCounters.successesFor(PlayerSeat.south), 1);
+        expect(
+          MatchRecorder.restore(
+            recorder.toState(),
+          ).fiftyCounters.successesFor(PlayerSeat.south),
+          1,
+        );
+        expect(game.controller.applyAction('claim-fifty').isSuccess, isFalse);
+        expect(recorder.fiftyCounters.successesFor(PlayerSeat.south), 1);
+      },
+    );
+    test('successful Fifty finish applies the documented score deltas to the '
+        'live scores', () {
+      // Round 2 -> NOT the first-round exception, so winner delta is -3.
+      final s = dealSouthFiftyClaim(roundNumber: 2);
+      final c = s.controller;
+
+      // Sanity: the window opened for south against west's discard.
+      expect(
+        c.fiftyClaimant,
+        PlayerSeat.south,
+        reason: 'Fifty window should be open for south',
+      );
+
+      // Read remaining counts BEFORE the claim (south is the winner; its
+      // count is irrelevant to the winner delta).
+      final westCount = c.cardCountFor(PlayerSeat.west);
+      final eastCount = c.cardCountFor(PlayerSeat.east);
+      final northCount = c.cardCountFor(PlayerSeat.north);
+      expect(westCount, 2);
+      expect(eastCount, 2);
+      expect(northCount, 2);
+
+      final result = s.south.claimFifty();
+      expect(
+        result.isSuccess,
+        isTrue,
+        reason:
+            'claimFifty should succeed for a genuine finish; got: '
+            '"${result.message}"',
+      );
+      driveProof(c);
+      expect(c.isRoundOver, isTrue);
+      expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
+
+      final scores = c.scores;
+      // Winner south: -3 (round 2, no first-round exception).
+      expect(scores[PlayerSeat.south], -3, reason: 'winner delta should be -3');
+      // Discarder west: remaining + 3.
+      expect(
+        scores[PlayerSeat.west],
+        westCount + 3,
+        reason: 'fifty discarder delta should be remaining(+3)',
+      );
+      // Other active seats: their remaining counts.
+      expect(scores[PlayerSeat.east], eastCount);
+      expect(scores[PlayerSeat.north], northCount);
+    });
+
+    test('successful Fifty deltas survive a round advance '
+        '(nextRoundSnapshot baseline)', () {
+      final s = dealSouthFiftyClaim(roundNumber: 2);
+      final c = s.controller;
+      final claim = s.south.claimFifty();
+      expect(claim.isSuccess, isTrue, reason: claim.message);
+      driveProof(c);
+
+      final displayed = Map<PlayerSeat, int>.from(c.scores);
+
+      final next = c.nextRoundSnapshot(savedAt: fixedClock);
+      expect(
+        next,
+        isNotNull,
+        reason: 'a non-match-ending Fifty round should produce a next round',
+      );
+
+      final advanced = ClassicHareegGameController.fromSnapshot(
+        next!,
+        now: now,
+      );
+
+      // The Fifty deltas must be folded into the next round's baseline.
+      for (final seat in next.activeSeats) {
+        expect(
+          advanced.scores[seat],
+          displayed[seat],
+          reason:
+              'next-round baseline for $seat must equal the displayed '
+              'Fifty score',
+        );
+      }
+    });
 
     test(
       'successful Fifty deltas survive a toSnapshot round-trip at round-over',
@@ -229,7 +283,8 @@ void main() {
           expect(
             restored.scores[seat],
             displayed[seat],
-            reason: 'restored score for $seat ('
+            reason:
+                'restored score for $seat ('
                 '${restored.scores[seat]}) must equal the displayed Fifty '
                 'score (${displayed[seat]}). If these differ, toSnapshot '
                 'dropped the Fifty delta — the reported bug.',
@@ -252,24 +307,45 @@ void main() {
     // The winning hand partitions hand + taken 3C into two sets plus one final
     // discard: {3C,3D,3H} + {KS,KD,KH}, discard 9S. The taken 3C is melded, so
     // the finish genuinely uses the windowed card.
-    final threeDiamonds =
-        ScenarioCards.card(CardRank.three, CardSuit.diamonds, deckIndex: 1);
-    final threeHearts =
-        ScenarioCards.card(CardRank.three, CardSuit.hearts, deckIndex: 1);
-    final kingSpades =
-        ScenarioCards.card(CardRank.king, CardSuit.spades, deckIndex: 1);
-    final kingDiamonds =
-        ScenarioCards.card(CardRank.king, CardSuit.diamonds, deckIndex: 1);
-    final kingHearts =
-        ScenarioCards.card(CardRank.king, CardSuit.hearts, deckIndex: 1);
-    final nineSpades =
-        ScenarioCards.card(CardRank.nine, CardSuit.spades, deckIndex: 1);
+    final threeDiamonds = ScenarioCards.card(
+      CardRank.three,
+      CardSuit.diamonds,
+      deckIndex: 1,
+    );
+    final threeHearts = ScenarioCards.card(
+      CardRank.three,
+      CardSuit.hearts,
+      deckIndex: 1,
+    );
+    final kingSpades = ScenarioCards.card(
+      CardRank.king,
+      CardSuit.spades,
+      deckIndex: 1,
+    );
+    final kingDiamonds = ScenarioCards.card(
+      CardRank.king,
+      CardSuit.diamonds,
+      deckIndex: 1,
+    );
+    final kingHearts = ScenarioCards.card(
+      CardRank.king,
+      CardSuit.hearts,
+      deckIndex: 1,
+    );
+    final nineSpades = ScenarioCards.card(
+      CardRank.nine,
+      CardSuit.spades,
+      deckIndex: 1,
+    );
 
     void driveTakeAndFinish(ClassicHareegScenario s) {
       expect(s.south.takeDiscard().isSuccess, isTrue);
       expect(
-        s.south.playMeld([topDiscardThreeClubs, threeDiamonds, threeHearts])
-            .isSuccess,
+        s.south.playMeld([
+          topDiscardThreeClubs,
+          threeDiamonds,
+          threeHearts,
+        ]).isSuccess,
         isTrue,
       );
       expect(
@@ -279,100 +355,95 @@ void main() {
       expect(s.south.discard(nineSpades).isSuccess, isTrue);
     }
 
-    test(
-      'take-discard then finish scores -3 with the documented deltas',
-      () {
-        final s = dealSouthFiftyClaim(roundNumber: 2);
-        final c = s.controller;
-        expect(c.fiftyClaimant, PlayerSeat.south);
-        final westCount = c.cardCountFor(PlayerSeat.west);
+    test('take-discard then finish scores -3 with the documented deltas', () {
+      final s = dealSouthFiftyClaim(roundNumber: 2);
+      final c = s.controller;
+      expect(c.fiftyClaimant, PlayerSeat.south);
+      final westCount = c.cardCountFor(PlayerSeat.west);
 
-        driveTakeAndFinish(s);
+      driveTakeAndFinish(s);
 
-        expect(c.isRoundOver, isTrue);
-        expect(
-          c.roundOutcome,
-          RoundOutcomeType.fiftyFinish,
-          reason: 'finishing on the windowed discard is a Fifty even when the '
-              'card was taken via take-discard rather than claim-fifty',
-        );
-        expect(
-          c.scores[PlayerSeat.south],
-          -3,
-          reason: 'winner delta is the -3 Fifty, never a normal -1',
-        );
-        expect(
-          c.scores[PlayerSeat.west],
-          westCount + 3,
-          reason: 'the windowed discarder (west) still eats remaining + 3',
-        );
-        expect(c.scores[PlayerSeat.east], c.cardCountFor(PlayerSeat.east));
-        expect(c.scores[PlayerSeat.north], c.cardCountFor(PlayerSeat.north));
-      },
-    );
+      expect(c.isRoundOver, isTrue);
+      expect(
+        c.roundOutcome,
+        RoundOutcomeType.fiftyFinish,
+        reason:
+            'finishing on the windowed discard is a Fifty even when the '
+            'card was taken via take-discard rather than claim-fifty',
+      );
+      expect(
+        c.scores[PlayerSeat.south],
+        -3,
+        reason: 'winner delta is the -3 Fifty, never a normal -1',
+      );
+      expect(
+        c.scores[PlayerSeat.west],
+        westCount + 3,
+        reason: 'the windowed discarder (west) still eats remaining + 3',
+      );
+      expect(c.scores[PlayerSeat.east], c.cardCountFor(PlayerSeat.east));
+      expect(c.scores[PlayerSeat.north], c.cardCountFor(PlayerSeat.north));
+    });
 
-    test(
-      'round 1 take-discard finish uses the first-round -1 exception',
-      () {
-        // The exception must ride the take path exactly as it does the claim
-        // path: a round-1 Fifty scores the winner -1, not -3.
-        final s = dealSouthFiftyClaim(roundNumber: 1);
-        final c = s.controller;
+    test('round 1 take-discard finish uses the first-round -1 exception', () {
+      // The exception must ride the take path exactly as it does the claim
+      // path: a round-1 Fifty scores the winner -1, not -3.
+      final s = dealSouthFiftyClaim(roundNumber: 1);
+      final c = s.controller;
 
-        driveTakeAndFinish(s);
+      driveTakeAndFinish(s);
 
-        expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
-        expect(
-          c.scores[PlayerSeat.south],
-          -1,
-          reason: 'first dealt round Fifty exception applies to the take path',
-        );
-      },
-    );
+      expect(c.roundOutcome, RoundOutcomeType.fiftyFinish);
+      expect(
+        c.scores[PlayerSeat.south],
+        -1,
+        reason: 'first dealt round Fifty exception applies to the take path',
+      );
+    });
 
-    test(
-      'windowed take provenance survives a mid-turn save/restore',
-      () {
-        // The user's "Fifty never sticks in a real game" history: the app
-        // autosaves after every action, so a take-discard can be persisted
-        // mid-turn before the finish. Restore must keep the Fifty provenance or
-        // the resumed finish silently reverts to -1.
-        final s = dealSouthFiftyClaim(roundNumber: 2);
-        final c = s.controller;
-        expect(s.south.takeDiscard().isSuccess, isTrue);
+    test('windowed take provenance survives a mid-turn save/restore', () {
+      // The user's "Fifty never sticks in a real game" history: the app
+      // autosaves after every action, so a take-discard can be persisted
+      // mid-turn before the finish. Restore must keep the Fifty provenance or
+      // the resumed finish silently reverts to -1.
+      final s = dealSouthFiftyClaim(roundNumber: 2);
+      final c = s.controller;
+      expect(s.south.takeDiscard().isSuccess, isTrue);
 
-        // Save mid-turn (card taken, not yet melded) and restore a fresh engine.
-        final restored = ClassicHareegGameController.fromSnapshot(
-          c.toSnapshot(savedAt: fixedClock),
-          now: now,
-        );
-        final r = ClassicHareegScenario.fromController(restored);
+      // Save mid-turn (card taken, not yet melded) and restore a fresh engine.
+      final restored = ClassicHareegGameController.fromSnapshot(
+        c.toSnapshot(savedAt: fixedClock),
+        now: now,
+      );
+      final r = ClassicHareegScenario.fromController(restored);
 
-        // Finish on the restored controller using the taken card.
-        expect(
-          r.south.playMeld([topDiscardThreeClubs, threeDiamonds, threeHearts])
-              .isSuccess,
-          isTrue,
-        );
-        expect(
-          r.south.playMeld([kingSpades, kingDiamonds, kingHearts]).isSuccess,
-          isTrue,
-        );
-        expect(r.south.discard(nineSpades).isSuccess, isTrue);
+      // Finish on the restored controller using the taken card.
+      expect(
+        r.south.playMeld([
+          topDiscardThreeClubs,
+          threeDiamonds,
+          threeHearts,
+        ]).isSuccess,
+        isTrue,
+      );
+      expect(
+        r.south.playMeld([kingSpades, kingDiamonds, kingHearts]).isSuccess,
+        isTrue,
+      );
+      expect(r.south.discard(nineSpades).isSuccess, isTrue);
 
-        expect(restored.isRoundOver, isTrue);
-        expect(
-          restored.roundOutcome,
-          RoundOutcomeType.fiftyFinish,
-          reason: 'a windowed take resumed from a snapshot still finishes Fifty',
-        );
-        expect(
-          restored.scores[PlayerSeat.south],
-          -3,
-          reason: 'restored windowed finish scores -3, not a dropped -1',
-        );
-      },
-    );
+      expect(restored.isRoundOver, isTrue);
+      expect(
+        restored.roundOutcome,
+        RoundOutcomeType.fiftyFinish,
+        reason: 'a windowed take resumed from a snapshot still finishes Fifty',
+      );
+      expect(
+        restored.scores[PlayerSeat.south],
+        -3,
+        reason: 'restored windowed finish scores -3, not a dropped -1',
+      );
+    });
 
     test(
       'after the window expires, the same take-discard finish is a normal -1',
@@ -425,8 +496,11 @@ void main() {
     // South claims Fifty but holds a hand that cannot finish with the top
     // discard. Top discard = 2 of spades; south's hand has no meld using it
     // and cannot partition into melds + one discard.
-    final unwinnableTopDiscard =
-        ScenarioCards.card(CardRank.two, CardSuit.spades, deckIndex: 3);
+    final unwinnableTopDiscard = ScenarioCards.card(
+      CardRank.two,
+      CardSuit.spades,
+      deckIndex: 3,
+    );
     final southStuckHand = <HareegCard>[
       ScenarioCards.card(CardRank.four, CardSuit.hearts, deckIndex: 3),
       ScenarioCards.card(CardRank.seven, CardSuit.clubs, deckIndex: 3),
@@ -454,69 +528,69 @@ void main() {
       );
     }
 
-    test('wrong Fifty claim under Table tier penalizes the claimant by +17',
-        () {
-      final s = dealWrongClaim(TableStrictness.table);
-      final c = s.controller;
-      expect(c.fiftyClaimant, PlayerSeat.south);
+    test(
+      'wrong Fifty claim under Table tier penalizes the claimant by +17',
+      () {
+        final s = dealWrongClaim(TableStrictness.table);
+        final c = s.controller;
+        expect(c.fiftyClaimant, PlayerSeat.south);
 
-      final priorSouth = c.scores[PlayerSeat.south] ?? 0;
-      final result = s.south.claimFifty();
-      // Prove-it flow: the claim is accepted unproven; the consequence fires
-      // when the turn ends without a proof.
-      expect(result.isSuccess, isTrue, reason: result.message);
-      expect(c.isFiftyProofTurn, isTrue);
-      expect(
-        (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
-        0,
-        reason: 'no claim-time fee in the prove-it flow',
-      );
+        final priorSouth = c.scores[PlayerSeat.south] ?? 0;
+        final result = s.south.claimFifty();
+        // Prove-it flow: the claim is accepted unproven; the consequence fires
+        // when the turn ends without a proof.
+        expect(result.isSuccess, isTrue, reason: result.message);
+        expect(c.isFiftyProofTurn, isTrue);
+        expect(
+          (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
+          0,
+          reason: 'no claim-time fee in the prove-it flow',
+        );
 
-      final exit = c.applyAction(
-        'discard:${southStuckHand.first.id}',
-      );
-      expect(exit.isSuccess, isTrue, reason: exit.message);
+        final exit = c.applyAction('discard:${southStuckHand.first.id}');
+        expect(exit.isSuccess, isTrue, reason: exit.message);
 
-      expect(
-        c.removedSeats.contains(PlayerSeat.south),
-        isTrue,
-        reason: 'Table tier should remove south from the round',
-      );
-      expect(
-        (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
-        17,
-        reason: 'Table tier wrong Fifty claim should charge +17',
-      );
-    });
+        expect(
+          c.removedSeats.contains(PlayerSeat.south),
+          isTrue,
+          reason: 'Table tier should remove south from the round',
+        );
+        expect(
+          (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
+          17,
+          reason: 'Table tier wrong Fifty claim should charge +17',
+        );
+      },
+    );
 
-    test('wrong Fifty claim under Strict tier penalizes the claimant by +3',
-        () {
-      final s = dealWrongClaim(TableStrictness.strict);
-      final c = s.controller;
-      expect(c.fiftyClaimant, PlayerSeat.south);
+    test(
+      'wrong Fifty claim under Strict tier penalizes the claimant by +3',
+      () {
+        final s = dealWrongClaim(TableStrictness.strict);
+        final c = s.controller;
+        expect(c.fiftyClaimant, PlayerSeat.south);
 
-      final priorSouth = c.scores[PlayerSeat.south] ?? 0;
-      final result = s.south.claimFifty();
-      expect(result.isSuccess, isTrue, reason: result.message);
-      expect(c.isFiftyProofTurn, isTrue);
+        final priorSouth = c.scores[PlayerSeat.south] ?? 0;
+        final result = s.south.claimFifty();
+        expect(result.isSuccess, isTrue, reason: result.message);
+        expect(c.isFiftyProofTurn, isTrue);
 
-      final exit = c.applyAction(
-        'discard:${southStuckHand.first.id}',
-      );
-      expect(exit.isSuccess, isTrue, reason: exit.message);
+        final exit = c.applyAction('discard:${southStuckHand.first.id}');
+        expect(exit.isSuccess, isTrue, reason: exit.message);
 
-      // Strict tier penalizes at the unproven exit but does NOT remove from
-      // the round — the turn ends normally.
-      expect(
-        c.removedSeats.contains(PlayerSeat.south),
-        isFalse,
-        reason: 'Strict tier should not remove south',
-      );
-      expect(
-        (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
-        3,
-        reason: 'Strict tier wrong Fifty claim should charge +3',
-      );
-    });
+        // Strict tier penalizes at the unproven exit but does NOT remove from
+        // the round — the turn ends normally.
+        expect(
+          c.removedSeats.contains(PlayerSeat.south),
+          isFalse,
+          reason: 'Strict tier should not remove south',
+        );
+        expect(
+          (c.scores[PlayerSeat.south] ?? 0) - priorSouth,
+          3,
+          reason: 'Strict tier wrong Fifty claim should charge +3',
+        );
+      },
+    );
   });
 }
