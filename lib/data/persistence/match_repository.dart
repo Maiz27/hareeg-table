@@ -141,7 +141,13 @@ class LocalMatchRepository implements MatchRepository {
                 'roundSeedAlgorithm': legacyLocalRoundSeedAlgorithm.name,
               }),
         );
-        await saveActiveMatch(repaired);
+        try {
+          await saveActiveMatch(repaired);
+        } catch (_) {
+          // This write avoids repeating the upgrade; it is not required to
+          // resume the valid checkpoint already held in memory. Normal saves
+          // still enforce archive protection and report storage failures.
+        }
         return ActiveMatchLoaded(repaired);
       } on FormatException catch (error) {
         return ActiveMatchUnreadable(

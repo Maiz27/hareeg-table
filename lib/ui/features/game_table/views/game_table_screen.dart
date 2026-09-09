@@ -3391,14 +3391,17 @@ class _BranchPauseOverlay extends StatelessWidget {
                             // already names it, and web renders a node's
                             // tooltip as a second copy of its label.
                             excludeFromSemantics: true,
-                            child: SwitchListTile.adaptive(
-                              key: const ValueKey('branch-coach-toggle'),
-                              contentPadding: EdgeInsets.zero,
-                              value: coachEnabled,
-                              onChanged: coach,
-                              title: Text(
-                                strings.branchCoachToggle,
-                                style: LoungeTokens.bodyMuted,
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: SwitchListTile.adaptive(
+                                key: const ValueKey('branch-coach-toggle'),
+                                contentPadding: EdgeInsets.zero,
+                                value: coachEnabled,
+                                onChanged: coach,
+                                title: Text(
+                                  strings.branchCoachToggle,
+                                  style: LoungeTokens.bodyMuted,
+                                ),
                               ),
                             ),
                           ),

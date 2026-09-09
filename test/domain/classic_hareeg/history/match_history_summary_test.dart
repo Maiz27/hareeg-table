@@ -120,6 +120,11 @@ void main() {
       expect(() => MatchHistorySummary.fromJson(json), throwsFormatException);
     });
 
+    test('an invalid decoded match id is corrupt data', () {
+      final json = buildSummary().toJson()..['matchId'] = '../escape';
+      expect(() => MatchHistorySummary.fromJson(json), throwsFormatException);
+    });
+
     test('rejects a summary missing a required field', () {
       final json = buildSummary().toJson()..remove('winner');
 

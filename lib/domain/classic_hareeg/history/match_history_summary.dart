@@ -70,6 +70,9 @@ class MatchHistorySummary {
     if (completedAt == null) {
       throw const FormatException('Invalid history summary timestamp.');
     }
+    if (!isValidMatchId(matchId)) {
+      throw FormatException('Invalid history summary match id "$matchId".');
+    }
 
     return MatchHistorySummary(
       matchId: matchId,

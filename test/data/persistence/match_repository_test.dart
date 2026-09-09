@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/match_repository.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dart';
+import 'package:hareeg_table/domain/classic_hareeg/game/round_seed_algorithm.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/history/match_history_outcomes.dart';
@@ -13,6 +14,40 @@ import '../../support/test_fixtures.dart';
 
 void main() {
   group('LocalMatchRepository', () {
+    for (final failWrite in [false, true]) {
+      test('checkpoint upgrade remains resumable with failWrite=$failWrite', () async {
+        final snapshotJson = _legacySnapshot().toJson()..remove('roundSeedAlgorithm');
+        final checkpoint = checkpointForSnapshot(
+          ClassicHareegMatchSnapshot.fromJson(snapshotJson),
+        );
+        expect(checkpoint.snapshot.roundSeedAlgorithm, isNull);
+        final raw = jsonEncode(checkpoint.toJson());
+        final store = _RepairWriteStore(failWrite: failWrite)
+          ..values['active_match.v1'] = raw;
+        final repository = LocalMatchRepository(
+          store: store,
+          mintMatchId: () async => throw StateError('Must preserve identity'),
+        );
+
+        final outcome = await repository.loadActiveMatch();
+
+        expect(store.writeAttempts, 1);
+        expect(outcome, isA<ActiveMatchLoaded>());
+        final loaded = (outcome as ActiveMatchLoaded).checkpoint;
+        expect(loaded.matchId, checkpoint.matchId);
+        expect(loaded.snapshot.roundSeedAlgorithm, legacyLocalRoundSeedAlgorithm);
+        final expectedSnapshot = {...checkpoint.snapshot.toJson(),
+          'roundSeedAlgorithm': legacyLocalRoundSeedAlgorithm.name};
+        expect(loaded.snapshot.toJson(), expectedSnapshot);
+        if (failWrite) {
+          expect(store.values['active_match.v1'], raw);
+        } else {
+          expect(jsonDecode(store.values['active_match.v1']!), loaded.toJson());
+          expect(await repository.loadActiveMatch(), isA<ActiveMatchLoaded>());
+          expect(store.writeAttempts, 1, reason: 'The upgrade is written once.');
+        }
+      });
+    }
     test(
       'malformed existing match id is rejected without overwriting it',
       () async {
@@ -184,6 +219,21 @@ void main() {
 
 HareegCard _card(CardRank rank, CardSuit suit) {
   return HareegCard.standard(rank: rank, suit: suit, deckIndex: 50);
+}
+
+class _RepairWriteStore extends MemoryKeyValueStore {
+  _RepairWriteStore({required this.failWrite});
+  final bool failWrite;
+  int writeAttempts = 0;
+
+  @override
+  Future<void> saveString(String key, String value) async {
+    if (key == 'active_match.v1') {
+      writeAttempts++;
+      if (failWrite) throw StateError('Injected upgrade write failure');
+    }
+    await super.saveString(key, value);
+  }
 }
 
 ClassicHareegMatchSnapshot _legacySnapshot() {

@@ -52,14 +52,17 @@ way to pick a winner between them.
 5. Remove the pending archive.
 6. Remove the terminal checkpoint.
 
-The replay lands before the summary so a summary is never durable while pointing
-at a file that does not exist.
+For a verified transcript, the replay lands before its replayable summary is
+published. An unverifiable transcript instead produces a non-replayable summary
+without a replay file. A file lost after publication is handled by the drift
+repair described below.
 
 ## What each crash point converges to
 
 `MatchHistoryRepository.recoverPendingArchive()` runs on app start and before
-starting or continuing a match. Every interruption converges on exactly one
-summary and one replay, or on a typed retryable failure.
+starting or continuing a match. Publication recovery converges on one summary,
+paired with a replay file when the transcript verifies and without one when it
+does not, or reports a typed failure while preserving recoverable data.
 
 | Died after | What recovery finds | What it does |
 | --- | --- | --- |

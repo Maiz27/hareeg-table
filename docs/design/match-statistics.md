@@ -54,7 +54,7 @@ seat.
 | Metric | Numerator | Denominator | Null when |
 | --- | --- | --- | --- |
 | Win rate | matches whose winner is south | games played | no matches |
-| Average placement | sum of `southPlacement` | games played | no matches |
+| Average placement | sum of valid `southPlacement` values | matches with a valid placement (`knownPlacements`) | no valid placement |
 | Fifty attempt rate | measured matches with at least one south attempt | `fiftyMeasuredMatches` | nothing measured |
 | Fifty success rate | south successes across measured matches | south attempts across measured matches | no attempts |
 | Average scoring margin | sum of per-match margins | matches that have one | no match has one |

@@ -585,6 +585,24 @@ void main() {
   });
 
   group('a duplicated summary id is corruption on every path', () {
+    test('an invalid decoded id reports corruption without changing the index', () async {
+      final summary = historySummary(matchId: testMatchId).toJson()
+        ..['matchId'] = '../escape';
+      final raw = jsonEncode({
+        'version': matchHistoryIndexVersion,
+        'summaries': [summary],
+      });
+      store.values[LocalMatchHistoryRepository.indexKey] = raw;
+
+      final outcome = await repository.listSummaries();
+
+      expect(outcome, isA<MatchHistoryListFailed>());
+      expect((outcome as MatchHistoryListFailed).failure.kind,
+          MatchHistoryFailureKind.corrupt);
+      expect(store.values[LocalMatchHistoryRepository.indexKey], raw);
+      expect(replayFiles.files, isEmpty);
+    });
+
     /// Writes an index holding the same match twice.
     Future<void> seedDuplicate() async {
       await repository.archiveCompletedMatch(terminalWithRecorder());
