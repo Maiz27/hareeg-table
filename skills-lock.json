@@ -29,7 +29,7 @@
       "source": "dart-lang/skills",
       "sourceType": "github",
       "skillPath": "skills/dart-use-pattern-matching/SKILL.md",
-      "computedHash": "4cedbb7502ced27f1f986ae0f9275c0d7b3e1f5bb8ac3e5eaa826695b88d0b90"
+      "computedHash": "13e68b97b4208178a72dae8080fc80592f47eb72425acdadfa906d088ef95f8c"
     },
     "flutter-add-integration-test": {
       "source": "flutter/skills",
