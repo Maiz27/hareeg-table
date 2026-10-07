@@ -173,6 +173,21 @@ Curves: `easeOutCubic` for things arriving, `easeInCubic` for leaving,
 curves, keeps flights but shortens them, and drops idle pulses and celebration
 particles entirely.
 
+### 6.1 Celebration and impact — Current
+
+Two moments are allowed to be loud (principle 4), both one-shot and
+pointer-transparent (`lib/ui/core/motion/celebration.dart`):
+
+- **Match won:** fireworks and confetti over the match-over standings —
+  nine bursts and drifting confetti in the lounge palette, about three
+  seconds, then silence. Only when the player wins.
+- **Fifty strike:** on any seat's Fifty claim and on a round won on a Fifty —
+  a flame flash, two shockwaves from the table's centre, a *50* slammed down
+  in the display face, embers, and a short shake of the whole table.
+
+Under reduced motion the fireworks and shake are skipped and the strike is a
+brief glow.
+
 ## 7. The table
 
 ### 7.1 Layout contract (landscape) — Current structure, Target treatment
@@ -339,28 +354,33 @@ rest.
 
 ## 12. Enforcement
 
-- **Goldens:** each table size class plus key states (your turn, CPU turn,
-  coach visible, Fifty, eliminated seat, match over) gets a golden test.
-- **Token lint:** extend `test/lint/` with a test that flags raw `Color(`,
-  `Duration(milliseconds:` and `fontSize:` literals under `lib/ui/features/`
-  (with an allowlist for justified exceptions).
+- **Token ratchet** (`test/lint/design_token_ratchet_test.dart`): pins the
+  count of raw `Color(0x…)` and `Duration(milliseconds: …)` literals under
+  `lib/ui/features/` as a ceiling. Counts may fall, never rise; lower the
+  ceiling in the same change that removes literals.
+- **Goldens:** deliberately not pixel goldens. Rasterised text and blur
+  differ across Flutter versions and machines, so pixel goldens would fail on
+  unrelated toolchain upgrades. Layout is guarded instead by the existing
+  geometry tests (frozen replay oracle, hand-span parity, coach docking).
 - PR checklist: a UI change names the contract sections it touches.
 
 ## 13. Rollout plan
 
 1. **Foundation** — done: bundled fonts, typography / elevation / motion
-   tokens in `AppTheme`, screen headers on the felt. Remaining: migrate the
-   literal durations in feature code onto the motion tokens.
+   tokens in `AppTheme`, screen headers on the felt. Literal durations equal
+   to a token now use it; the rest are held by the token ratchet.
 2. **Table** — done: inset playing surface, foreshortened rail, perspective
    surface and lamp, card shadows, centred stock, seat plates, docked coach
    card, HUD capsule, open-need chip.
 3. **Table panels** — done: score book (7.5), pause (inset settings tray,
    at-a-glance standings), round result (medallion header, display headline,
-   delta chips). Next: match-over in the same language, Fifty moment.
+   delta chips), match-over (trophy medallion, display headline, win
+   fireworks), Fifty strike (6.1).
 4. **Menus** — done: home, setup, guided practice (progress ring, numbered
-   lesson medallions), settings (section cards with icon medallions). Next:
-   history / stats rows and tiles, rules help.
-5. **Goldens and lint** — still to land.
+   lesson medallions), settings (section cards with icon medallions), history
+   (placement medallions, gold-edged wins) and stats tiles. Rules help keeps
+   its existing layout under the new type and header.
+5. **Enforcement** — done: token ratchet (section 12).
 
 ## 14. Decisions taken
 
