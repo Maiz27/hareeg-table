@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft for owner review. Sections marked **Current** codify what the app already
+Accepted and in rollout (see section 13). Sections marked **Current** codify what the app already
 ships (mostly in `lib/ui/core/theme/lounge_tokens.dart` and
 `lib/ui/core/theme/app_theme.dart`). Sections marked **Target** are the
 redesign: they are binding for new UI work once accepted, and existing screens
@@ -220,24 +220,25 @@ engine; web and low-end Android must keep working):
   the felt.
 - **Light:** a warm overhead pool on the centre fading to a vignette at the
   rim. It's part of the surface theme, painted once and cached.
-- **Perspective:** the playfield layer (meld lanes, centre, opponent rails) may
-  tilt back up to 10° using `Matrix4` perspective. **The player's hand and
-  all HUD stay flat and unscaled.** Off when reduced motion is on or when the
-  screen is shorter than 360 dp.
+- **No perspective tilt.** Considered and rejected: the playfield geometry
+  is shared with `table_flight_geometry.dart` so card flights land on their
+  slots, and a `Matrix4` tilt would make every flight visibly miss. Depth
+  comes from the rim, light and shadows instead.
 - **Card depth:** L1 shadows on all table cards. Selected cards lift
   (`translateY −8 dp`, stronger shadow, `motionQuick`).
-- **Hand fan:** the hand may sit on a shallow arc (≤ 6° total rotation spread,
-  ≤ 10 dp sag) when it fits; it falls back to a flat row when the hand would
-  drop below the 44 dp card tap target.
+- **Hand:** a flat row. An arc was considered and left out: hand reorder by
+  drag and the 44 dp card tap target both rely on the row's straight slots.
 - **Flights:** draw, discard and meld placement animate as card flights
   (`motionFlight`) with a brief flip for face changes.
 
 ### 7.4 Coach UI — Target
 
 The coach (Coaching strictness, the setup default) renders as an L3 **coach
-card**, never as a full-width banner across the north seat. It sits in the
-free centre-top band or beside the hand, can collapse to a chip, and uses the
-coach hue family for its accent only.
+card** docked in the top-start corner, beside the score button and clear of
+the west seat plate, sized to stop short of the north seat (rail centred,
+plate on its far side). Up to four body lines. Tables too narrow to dock it
+(the sandbox panel, small phones) fall back to the full-width strip. The
+coach hue family is used for its accent only.
 
 ## 8. Components
 
@@ -292,8 +293,8 @@ table, replay and sandbox. Size classes for the table:
 
 | Class | Landscape height | Treatment |
 | --- | --- | --- |
-| Compact | < 400 dp | No perspective tilt, compact rails, flat hand if needed |
-| Regular | 400–700 dp | Full 2.5D treatment |
+| Compact | < 400 dp | Thinner rail, compact rails and plates, full-width coach fallback |
+| Regular | 400–700 dp | Full rim, seat plates, docked coach card |
 | Expanded (tablet / web desktop) | > 700 dp | Table max width with rim; HUD stays at table corners, not screen corners |
 
 ## 10. Accessibility and localization
@@ -324,21 +325,33 @@ rest.
 
 ## 13. Rollout plan
 
-1. **Foundation:** bundle fonts, add elevation/motion/typography tokens, wire
-   them into `AppTheme`, migrate literal durations. Low risk, visible
-   everywhere.
-2. **Table, part 1:** seat plates, coach card relocation, HUD chips.
-3. **Table, part 2:** rim and light per surface theme, perspective playfield,
-   card lift and flights, hand fan.
-4. **Menus:** home IA, setup option cards, screen header, history/stats rows
-   and tiles.
-5. **Goldens and lint** land alongside each step, not after.
+1. **Foundation** — done: bundled fonts, typography / elevation / motion
+   tokens wired into `AppTheme`, screen header restyled. Remaining: migrate
+   the literal durations in feature code onto the motion tokens.
+2. **Table, part 1** — done: rim and inlay on every surface, CPU seat
+   plates, coach docked as a card clear of the north seat, HUD edges unified.
+3. **Table, part 2** — next: card flights polish, Fifty moment staging,
+   match-over screen in the display face.
+4. **Menus** — done for home (adaptive primary action, hero stage, tiles)
+   and setup (option cards, pinned Start Table). Next: history / stats rows
+   and tiles, settings sections.
+5. **Goldens and lint** — still to land.
 
-## 14. Open decisions (owner)
+## 14. Decisions taken
 
-1. Font pair: Reem Kufi + IBM Plex Sans Arabic, or another bilingual pair.
-2. CPU seat identity: keep the current `CPU North / West / East` labels (`strings.seatLabel`) or introduce named personas.
-3. Perspective tilt: ship on by default, or behind a table setting.
-4. Hand fan vs flat row as the default.
-5. Whether the stock and open-need move from screen corners into the table
-   centre once the rim exists.
+The owner handed the redesign over to be led without their input, so these
+were decided rather than left open. Each is easy to revisit.
+
+1. **Fonts:** Reem Kufi (display) + IBM Plex Sans Arabic (UI). Numerals use
+   Plex with tabular figures: Reem Kufi's round zero reads as the letter O.
+2. **Seat identity:** the existing `CPU North / West / East` labels stay (as
+   tooltip and semantics). The plate itself shows the match score in a
+   medallion with an elimination-danger arc, plus a hand-size pill. No
+   invented personas.
+3. **Perspective tilt:** dropped (section 7.3).
+4. **Hand:** stays a flat row; selected cards already lift.
+5. **Stock and open-need** stay in the bottom corners; they sit on the rim
+   edge naturally now that the rail frames the table.
+6. **Player (South) plate:** not added. Both bottom corners share their edge
+   columns with the side rails, and the hand hue already marks the player's
+   turn; the player's score is one tap away in the score sheet.
