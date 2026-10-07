@@ -5,6 +5,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import 'seat_plate.dart';
 
 /// Modal-style score overlay shown above the table when the score button is
 /// tapped. Visually matches the home menu's coffee-charcoal + sand-line
@@ -19,7 +20,11 @@ class ScoreOverlay extends StatelessWidget {
     required this.currentSeat,
     required this.roundNumber,
     required this.onClose,
+    this.eliminationScore = 31,
   });
+
+  /// Score at which a seat is out of the match; the heat bars run to it.
+  final int eliminationScore;
 
   /// Per-seat match scores.
   final Map<PlayerSeat, int> scores;
@@ -103,6 +108,7 @@ class ScoreOverlay extends StatelessWidget {
                               fit: FlexFit.loose,
                               child: SingleChildScrollView(
                                 child: _ScoreList(
+                                  eliminationScore: eliminationScore,
                                   seats: seats,
                                   scores: scores,
                                   activeSeats: activeSeats,
@@ -133,6 +139,7 @@ class ScoreOverlay extends StatelessWidget {
 
 class _ScoreList extends StatelessWidget {
   const _ScoreList({
+    required this.eliminationScore,
     required this.seats,
     required this.scores,
     required this.activeSeats,
@@ -140,6 +147,7 @@ class _ScoreList extends StatelessWidget {
     required this.currentSeat,
   });
 
+  final int eliminationScore;
   final List<PlayerSeat> seats;
   final Map<PlayerSeat, int> scores;
   final List<PlayerSeat> activeSeats;
@@ -150,7 +158,14 @@ class _ScoreList extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.feltGreen.withValues(alpha: 0.55),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            LoungeTokens.feltSpotlight.withValues(alpha: 0.6),
+            LoungeTokens.feltGreen.withValues(alpha: 0.5),
+          ],
+        ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.2)),
       ),
@@ -158,6 +173,7 @@ class _ScoreList extends StatelessWidget {
         children: [
           for (var i = 0; i < seats.length; i++) ...[
             _ScoreRow(
+              eliminationScore: eliminationScore,
               seat: seats[i],
               score: scores[seats[i]] ?? 0,
               eliminated: !activeSeats.contains(seats[i]),
@@ -181,6 +197,7 @@ class _ScoreList extends StatelessWidget {
 
 class _ScoreRow extends StatelessWidget {
   const _ScoreRow({
+    required this.eliminationScore,
     required this.seat,
     required this.score,
     required this.eliminated,
@@ -188,6 +205,7 @@ class _ScoreRow extends StatelessWidget {
     required this.isCurrent,
   });
 
+  final int eliminationScore;
   final PlayerSeat seat;
   final int score;
   final bool eliminated;
@@ -200,9 +218,6 @@ class _ScoreRow extends StatelessWidget {
     final nameColor = eliminated
         ? LoungeTokens.mutedText
         : LoungeTokens.offWhiteText;
-    final scoreColor = eliminated
-        ? LoungeTokens.mutedText
-        : (isCurrent ? LoungeTokens.fiftyFlame : LoungeTokens.goldAccent);
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -210,108 +225,155 @@ class _ScoreRow extends StatelessWidget {
         vertical: LoungeTokens.space2,
       ),
       decoration: BoxDecoration(
-        color: isCurrent
-            ? LoungeTokens.goldAccent.withValues(alpha: 0.08)
-            : Colors.transparent,
+        gradient: isCurrent
+            ? LinearGradient(
+                colors: [
+                  LoungeTokens.goldAccent.withValues(alpha: 0.14),
+                  LoungeTokens.goldAccent.withValues(alpha: 0.0),
+                ],
+              )
+            : null,
       ),
-      child: Row(
-        children: [
-          _SeatBadge(seat: seat, eliminated: eliminated, highlight: isCurrent),
-          const SizedBox(width: LoungeTokens.space3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  strings.seatLabel(seat),
-                  style: TextStyle(
-                    color: nameColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    letterSpacing: 0.2,
-                    decoration: eliminated ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                if (isStarter || isCurrent || eliminated) ...[
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+      child: Opacity(
+        opacity: eliminated ? 0.55 : 1,
+        child: Row(
+          children: [
+            ScoreMedallion(
+              diameter: 40,
+              score: score,
+              eliminationScore: eliminationScore,
+              active: isCurrent && !eliminated,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      if (isCurrent)
-                        _StatusTag(
-                          label: strings.turn,
-                          color: LoungeTokens.fiftyFlame,
+                      Icon(
+                        seat == PlayerSeat.south
+                            ? Icons.person_outline
+                            : Icons.smart_toy_outlined,
+                        size: 15,
+                        color: LoungeTokens.sandLine,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          strings.seatLabel(seat),
+                          overflow: TextOverflow.ellipsis,
+                          style: LoungeTokens.title.copyWith(
+                            color: nameColor,
+                            decoration: eliminated
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
                         ),
-                      if (isStarter)
-                        _StatusTag(
-                          label: strings.starter,
-                          color: LoungeTokens.goldAccent,
-                        ),
-                      if (eliminated)
-                        _StatusTag(
-                          label: strings.out,
-                          color: LoungeTokens.deepRed,
-                        ),
+                      ),
+                      if (isStarter || isCurrent || eliminated) ...[
+                        const SizedBox(width: LoungeTokens.space2),
+                        if (isCurrent)
+                          _StatusTag(
+                            label: strings.turn,
+                            color: LoungeTokens.goldAccent,
+                          ),
+                        if (isStarter) ...[
+                          const SizedBox(width: 4),
+                          _StatusTag(
+                            label: strings.starter,
+                            color: LoungeTokens.sandLine,
+                          ),
+                        ],
+                        if (eliminated) ...[
+                          const SizedBox(width: 4),
+                          _StatusTag(
+                            label: strings.out,
+                            color: LoungeTokens.invalidAction,
+                          ),
+                        ],
+                      ],
                     ],
                   ),
+                  const SizedBox(height: LoungeTokens.space2),
+                  _HeatBar(score: score, limit: eliminationScore),
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: LoungeTokens.space3),
-          Text(
-            '$score',
-            style: TextStyle(
-              color: scoreColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 22,
-              letterSpacing: 0.4,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SeatBadge extends StatelessWidget {
-  const _SeatBadge({
-    required this.seat,
-    required this.eliminated,
-    required this.highlight,
-  });
+/// How far a seat has run toward the elimination line: sand while safe,
+/// warming to flame as it closes in, with the line itself marked.
+class _HeatBar extends StatelessWidget {
+  const _HeatBar({required this.score, required this.limit});
 
-  final PlayerSeat seat;
-  final bool eliminated;
-  final bool highlight;
+  final int score;
+  final int limit;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = eliminated
-        ? LoungeTokens.mutedText
-        : (highlight ? LoungeTokens.fiftyFlame : LoungeTokens.offWhiteText);
-    final borderColor = eliminated
-        ? LoungeTokens.mutedText.withValues(alpha: 0.4)
-        : (highlight
-              ? LoungeTokens.fiftyFlame.withValues(alpha: 0.55)
-              : LoungeTokens.sandLine.withValues(alpha: 0.4));
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: LoungeTokens.feltRaised,
-        shape: BoxShape.circle,
-        border: Border.all(color: borderColor, width: highlight ? 1.4 : 1.0),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        seat == PlayerSeat.south ? Icons.person : Icons.smart_toy_outlined,
-        size: 18,
-        color: iconColor,
-      ),
+    final fraction = limit <= 0 ? 0.0 : (score / limit).clamp(0.0, 1.0);
+    final color = Color.lerp(
+      LoungeTokens.sandLine,
+      LoungeTokens.fiftyFlame,
+      ((fraction - 0.45) / 0.55).clamp(0.0, 1.0),
+    )!;
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 6,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                FractionallySizedBox(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: fraction,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [LoungeTokens.sandLine, color],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.4),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: LoungeTokens.space2),
+        Icon(
+          Icons.local_fire_department_outlined,
+          size: 13,
+          color: LoungeTokens.fiftyFlame.withValues(alpha: 0.8),
+        ),
+        Text(
+          '$limit',
+          style: LoungeTokens.numericChip.copyWith(
+            fontSize: 11,
+            color: LoungeTokens.mutedText,
+          ),
+        ),
+      ],
     );
   }
 }

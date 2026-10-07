@@ -110,6 +110,48 @@ class SeatPlate extends StatelessWidget {
   }
 }
 
+/// The score medallion shared by the seat plates and the score sheet: the
+/// score, ringed by an arc that fills and warms toward elimination.
+class ScoreMedallion extends StatelessWidget {
+  /// Creates a score medallion.
+  const ScoreMedallion({
+    super.key,
+    required this.diameter,
+    required this.score,
+    required this.eliminationScore,
+    this.active = false,
+  });
+
+  /// Medallion diameter.
+  final double diameter;
+
+  /// Score shown in the medallion.
+  final int score;
+
+  /// Score at which a seat is eliminated.
+  final int eliminationScore;
+
+  /// Whether to draw the active (gold) edge and glow.
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = MotionScope.of(context);
+    return _Medallion(
+      diameter: diameter,
+      score: score,
+      cardCount: 0,
+      danger: eliminationScore <= 0
+          ? 0
+          : (score / eliminationScore).clamp(0.0, 1.0),
+      active: active,
+      thinking: false,
+      duration: motion.scale(LoungeTokens.motionEmphasis),
+      curve: motion.curve(Curves.easeOutCubic),
+    );
+  }
+}
+
 class _Medallion extends StatelessWidget {
   const _Medallion({
     required this.diameter,
