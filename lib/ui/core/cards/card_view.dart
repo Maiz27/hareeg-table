@@ -213,26 +213,46 @@ class _HareegCardViewState extends State<HareegCardView>
       container: true,
       excludeSemantics: true,
       label: label,
-      child: AnimatedSwitcher(
-        duration: motion.scale(const Duration(milliseconds: 120)),
-        switchInCurve: motion.curve(Curves.easeOut),
-        switchOutCurve: motion.curve(Curves.easeIn),
-        child: SizedBox.fromSize(
-          key: ValueKey(
-            '${widget.theme.id}-${widget.card.id}-'
-            '${widget.visualState}-$effectiveJokerDisplay',
+      // Every card rests on the table with a soft contact shadow, so fanned
+      // hands, stacked piles and melds read as layered physical cards
+      // (design contract 3.2, L1). Drawn behind the card, outside its size.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.size.shortestSide * 0.1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x4D000000),
+              offset: Offset(0, 1.5),
+              blurRadius: 3,
+            ),
+            BoxShadow(
+              color: Color(0x29000000),
+              offset: Offset(0, 5),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: AnimatedSwitcher(
+          duration: motion.scale(const Duration(milliseconds: 120)),
+          switchInCurve: motion.curve(Curves.easeOut),
+          switchOutCurve: motion.curve(Curves.easeIn),
+          child: SizedBox.fromSize(
+            key: ValueKey(
+              '${widget.theme.id}-${widget.card.id}-'
+              '${widget.visualState}-$effectiveJokerDisplay',
+            ),
+            size: widget.size,
+            child: cueActive
+                ? AnimatedBuilder(
+                    animation: opacityAnimation,
+                    builder: (context, _) => _buildSurface(
+                      effectiveJokerDisplay,
+                      opacityAnimation.value,
+                      overlay,
+                    ),
+                  )
+                : _buildSurface(effectiveJokerDisplay, 1.0, overlay),
           ),
-          size: widget.size,
-          child: cueActive
-              ? AnimatedBuilder(
-                  animation: opacityAnimation,
-                  builder: (context, _) => _buildSurface(
-                    effectiveJokerDisplay,
-                    opacityAnimation.value,
-                    overlay,
-                  ),
-                )
-              : _buildSurface(effectiveJokerDisplay, 1.0, overlay),
         ),
       ),
     );

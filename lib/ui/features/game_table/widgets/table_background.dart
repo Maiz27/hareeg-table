@@ -7,19 +7,42 @@ import '../../../core/theme/lounge_tokens.dart';
 import '../../../core/theme/table_surface_theme.dart';
 
 /// Static visual base of the table.
+///
+/// Paints the table as an object seen from the player's chair (design
+/// contract section 7.3): the surface is foreshortened in perspective, lit by
+/// a lamp above the centre, and framed by a rail that is thin on the far side
+/// and deep on the near side. With [insetChild], the foreground sits inside
+/// the rail, on the playing surface, rather than running under it.
 class TableBackground extends StatelessWidget {
   /// Creates a table background.
   const TableBackground({
     super.key,
     this.surface = TableSurfaceTheme.sandline,
+    this.insetChild = false,
     this.child,
   });
 
   /// Active table surface theme.
   final TableSurfaceTheme surface;
 
+  /// Whether [child] is laid out inside the rail. Surfaces whose geometry is
+  /// frozen (the replay screen) keep the full-bleed layout and a thin rail.
+  final bool insetChild;
+
   /// Optional foreground content.
   final Widget? child;
+
+  /// Rail thickness per side for a table of [size]: far (top) rail thinnest,
+  /// near (bottom) rail deepest, so the frame itself reads in perspective.
+  static EdgeInsets railInsets(Size size) {
+    if (size.width < 500 || size.height < 260) {
+      return const EdgeInsets.fromLTRB(5, 4, 5, 8);
+    }
+    if (size.height <= 380) {
+      return const EdgeInsets.fromLTRB(11, 7, 11, 15);
+    }
+    return const EdgeInsets.fromLTRB(15, 9, 15, 21);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,27 +53,60 @@ class TableBackground extends StatelessWidget {
       TableSurfaceTheme.sapphire => const _SapphireSurface(),
       TableSurfaceTheme.clay => const _ClaySurface(),
     };
+    final rail = _railFor(surface);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(child: background),
-        // The table's physical edge: a padded rail with a brass hairline and
-        // an inner shadow falling onto the surface, so every surface theme
-        // reads as an object in a room rather than a flat colour field
-        // (design contract section 7.3).
-        Positioned.fill(
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: TableRimPainter(rail: _railFor(surface)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final insets = insetChild
+            ? railInsets(size)
+            : EdgeInsets.all(size.height <= 360 ? 7 : 10);
+        final radius = _feltRadius(size);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const Positioned.fill(child: ColoredBox(color: Color(0xFF0E0A07))),
+            // The surface, foreshortened: the far side recedes, so the
+            // medallion and weave read as a plane seen from the chair.
+            Positioned.fill(
+              child: Padding(
+                padding: insets,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: RepaintBoundary(
+                    child: _PerspectiveSurface(child: background),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        if (child != null) Positioned.fill(child: child!),
-      ],
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: TableRimPainter(
+                      rail: rail,
+                      insets: insets,
+                      radius: radius,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (child != null)
+              Positioned.fill(
+                child: insetChild
+                    ? Padding(padding: insets, child: child)
+                    : child!,
+              ),
+          ],
+        );
+      },
     );
+  }
+
+  static double _feltRadius(Size size) {
+    if (size.width < 500 || size.height < 260) return 10;
+    return size.height <= 380 ? 18 : 26;
   }
 
   static TableRail _railFor(TableSurfaceTheme surface) => switch (surface) {
@@ -60,50 +116,113 @@ class TableBackground extends StatelessWidget {
   };
 }
 
+/// Tilts a surface back in perspective, overscaled so the receding far edge
+/// still covers the whole playing area.
+class _PerspectiveSurface extends StatelessWidget {
+  const _PerspectiveSurface({required this.child});
+
+  final Widget child;
+
+  /// Backward tilt of the playing surface, in radians.
+  static const tilt = 0.55;
+
+  @override
+  Widget build(BuildContext context) {
+    // Negative X rotation tips the top edge away from the viewer; pivoting
+    // on the near edge keeps the side of the table by the player full size.
+    return Transform(
+      alignment: Alignment.bottomCenter,
+      transform: Matrix4.identity()
+        ..setEntry(3, 2, 0.0011)
+        ..rotateX(-tilt)
+        ..scaleByDouble(1.6, 1.6, 1, 1),
+      child: Stack(fit: StackFit.expand, children: [child, const _LampLight()]),
+    );
+  }
+}
+
+/// A warm pool of lamp light on the centre of the table, falling off to the
+/// edges. Painted on the surface so it shares the surface's perspective.
+class _LampLight extends StatelessWidget {
+  const _LampLight();
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, 0.15),
+            radius: 0.85,
+            colors: [
+              Color(0x24FFD9A0),
+              Color(0x0AFFD9A0),
+              Color(0x00000000),
+              Color(0x47000000),
+            ],
+            stops: [0, 0.35, 0.68, 1],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Rail material painted around the table surface.
 enum TableRail {
   /// Dark walnut leather rail with a brass inlay (lounge default).
-  walnut(Color(0xFF1C120B), Color(0xFF3A2516), Color(0xFFC9A15A)),
+  walnut(Color(0xFF1C120B), Color(0xFF4A2F1B), Color(0xFFC9A15A)),
 
   /// Deeper oak rail for the light wood tabletop.
-  oak(Color(0xFF3B2614), Color(0xFF6B4A2C), Color(0xFFE3C48A)),
+  oak(Color(0xFF3B2614), Color(0xFF7A5634), Color(0xFFE3C48A)),
 
   /// Near-black rail with a cool silver inlay for the sapphire velvet.
-  ebony(Color(0xFF0A0C12), Color(0xFF1E2230), Color(0xFFB9C2D6));
+  ebony(Color(0xFF0A0C12), Color(0xFF2A3042), Color(0xFFB9C2D6));
 
   const TableRail(this.outer, this.inner, this.inlay);
 
   /// Outer (shadowed) edge of the rail.
   final Color outer;
 
-  /// Lit inner crest of the rail.
+  /// Lit crest of the rail.
   final Color inner;
 
   /// Metal inlay hairline between rail and surface.
   final Color inlay;
 }
 
-/// Paints the table rail, inlay, and the rail's shadow onto the surface.
+/// Paints the rail around the surface: a rounded leather rail lit from the
+/// lamp above, its inner wall visible on the far side, the shadow it casts
+/// onto the surface, and a brass inlay at the seam.
 class TableRimPainter extends CustomPainter {
   /// Creates a rim painter for [rail].
-  const TableRimPainter({required this.rail});
+  const TableRimPainter({
+    required this.rail,
+    required this.insets,
+    required this.radius,
+  });
 
   /// Rail material.
   final TableRail rail;
 
+  /// Rail thickness per side.
+  final EdgeInsets insets;
+
+  /// Corner radius of the playing surface.
+  final double radius;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.shortestSide <= 0) return;
-    final compact = size.height <= 360;
-    final railWidth = compact ? 7.0 : 10.0;
-    final cornerRadius = compact ? 18.0 : 26.0;
     final outer = Offset.zero & size;
     final surface = RRect.fromRectAndRadius(
-      outer.deflate(railWidth),
-      Radius.circular(cornerRadius),
+      insets.deflateRect(outer),
+      Radius.circular(radius),
     );
 
-    // Rail body: everything outside the rounded surface.
+    // Rail body: everything outside the surface. Lit from above, so the near
+    // rail's top face is brightest at its inner lip and falls into shadow at
+    // the screen edge; the far rail is seen at a grazing angle and stays dark.
     final railPath = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(outer)
@@ -114,49 +233,120 @@ class TableRimPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [rail.inner, rail.outer, rail.outer, rail.inner],
-          stops: const [0, 0.18, 0.82, 1],
+          colors: [
+            rail.outer,
+            Color.lerp(rail.outer, rail.inner, 0.55)!,
+            Color.lerp(rail.outer, rail.inner, 0.7)!,
+            rail.inner,
+            rail.outer,
+          ],
+          stops: [
+            0,
+            insets.top / size.height,
+            0.5,
+            1 - insets.bottom / size.height,
+            1,
+          ],
         ).createShader(outer),
     );
 
-    // Crest highlight along the rail so it reads as rounded, not flat.
+    // Rounded crest highlight running around the rail.
+    final crest = RRect.fromLTRBR(
+      surface.left - insets.left * 0.45,
+      surface.top - insets.top * 0.45,
+      surface.right + insets.right * 0.45,
+      surface.bottom + insets.bottom * 0.45,
+      Radius.circular(radius + insets.left * 0.45),
+    );
     canvas.drawRRect(
-      surface.inflate(railWidth * 0.5),
+      crest,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = railWidth * 0.35
-        ..color = Colors.white.withValues(alpha: 0.05),
+        ..strokeWidth = math.max(1.5, insets.top * 0.45)
+        ..color = Colors.white.withValues(alpha: 0.06)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
     );
 
-    // Shadow the rail casts onto the surface.
+    // Darkened outer edge where the rail turns down out of view.
+    canvas.drawRect(
+      outer.deflate(0.75),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = Colors.black.withValues(alpha: 0.45),
+    );
+
     canvas.save();
     canvas.clipRRect(surface);
-    for (var i = 0; i < 4; i++) {
-      final spread = (compact ? 4.0 : 6.0) * (i + 1);
+    // Inner wall of the far rail, visible from the chair.
+    final wall = math.max(2.0, insets.top * 0.45);
+    canvas.drawRect(
+      Rect.fromLTWH(surface.left, surface.top, surface.width, wall),
+      Paint()
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [rail.inner.withValues(alpha: 0.9), rail.outer],
+            ).createShader(
+              Rect.fromLTWH(surface.left, surface.top, surface.width, wall),
+            ),
+    );
+    // Shadow the rail casts onto the surface: deepest under the far rail.
+    final shadowDepth = math.max(6.0, insets.left * 1.1);
+    for (var i = 0; i < 3; i++) {
+      final spread = shadowDepth * (i + 1) * 0.6;
       canvas.drawRRect(
-        surface.inflate(spread * 0.2),
+        surface.inflate(spread * 0.25),
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = spread
-          ..color = Colors.black.withValues(alpha: 0.10)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, spread * 0.6),
+          ..color = Colors.black.withValues(alpha: 0.12)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, spread * 0.5),
       );
     }
+    canvas.drawRect(
+      Rect.fromLTWH(
+        surface.left,
+        surface.top,
+        surface.width,
+        shadowDepth * 2.5,
+      ),
+      Paint()
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.32),
+                Colors.black.withValues(alpha: 0),
+              ],
+            ).createShader(
+              Rect.fromLTWH(
+                surface.left,
+                surface.top,
+                surface.width,
+                shadowDepth * 2.5,
+              ),
+            ),
+    );
     canvas.restore();
 
-    // Brass inlay where rail meets surface.
+    // Brass inlay at the seam.
     canvas.drawRRect(
       surface,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..color = rail.inlay.withValues(alpha: 0.55),
+        ..strokeWidth = 1.2
+        ..color = rail.inlay.withValues(alpha: 0.6),
     );
   }
 
   @override
   bool shouldRepaint(covariant TableRimPainter oldDelegate) =>
-      oldDelegate.rail != rail;
+      oldDelegate.rail != rail ||
+      oldDelegate.insets != insets ||
+      oldDelegate.radius != radius;
 }
 
 class _SandlineSurface extends StatelessWidget {

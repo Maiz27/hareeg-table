@@ -9,6 +9,7 @@ import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../coach/coach_highlighting.dart';
+import '../table_flight_geometry.dart' show resolveStockPileRect;
 import 'opponent_seat_rails.dart';
 import 'seat_plate.dart';
 import 'seat_meld_lane.dart';
@@ -95,7 +96,13 @@ class PhysicalTablePlayfield extends StatelessWidget {
     this.onExpandRevealedHand,
     this.seatScores = const <PlayerSeat, int>{},
     this.eliminationScore = 31,
+    this.centerStock = false,
   });
+
+  /// Whether the stock sits at the table's centre beside the discard (the
+  /// live table) rather than in the bottom-start corner. The replay surface
+  /// keeps the corner: its geometry is frozen and restated elsewhere.
+  final bool centerStock;
 
   /// Running match score per seat, shown on the CPU seat plates. Empty when
   /// the surface has no match score (the plates then show hand size only).
@@ -422,6 +429,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
         // Seat plates (design contract 7.2). North sits beside its rail;
         // west / east sit above theirs, inside the rail column so they never
         // reach into the side meld lanes.
+        final stockRect = resolveStockPileRect(Size(tableWidth, tableHeight));
         final northStack = cardBackStackSize(
           count: cardCounts[PlayerSeat.north] ?? 0,
           axis: Axis.horizontal,
@@ -534,19 +542,20 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: compact ? 6 : 10,
-              bottom: stockBottom,
-              child: TableStockPile(
-                theme: theme,
-                count: stockCount,
-                cardSize: tableCardSize,
-                compact: compact,
-                canDraw: isHumanTurn && canDrawStock,
-                onDraw: onDrawStock,
-                coachHighlight: coachHighlighting.highlightStock,
+            if (!centerStock)
+              Positioned(
+                left: compact ? 6 : 10,
+                bottom: stockBottom,
+                child: TableStockPile(
+                  theme: theme,
+                  count: stockCount,
+                  cardSize: tableCardSize,
+                  compact: compact,
+                  canDraw: isHumanTurn && canDrawStock,
+                  onDraw: onDrawStock,
+                  coachHighlight: coachHighlighting.highlightStock,
+                ),
               ),
-            ),
             Positioned(
               top: discardTop,
               left: discardLeft,
@@ -675,6 +684,22 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 coachHighlighting: coachHighlighting,
               ),
             ),
+            // The stock sits at the centre beside the discard, like the
+            // pot on a real table; layered above the discard and the meld lanes' empty headroom so a tap on
+            // the pile always draws (see resolveStockPileRect).
+            if (centerStock)
+              Positioned.fromRect(
+                rect: stockRect,
+                child: TableStockPile(
+                  theme: theme,
+                  count: stockCount,
+                  cardSize: tableCardSize,
+                  compact: compact,
+                  canDraw: isHumanTurn && canDrawStock,
+                  onDraw: onDrawStock,
+                  coachHighlight: coachHighlighting.highlightStock,
+                ),
+              ),
             if (activeFiftySeconds != null)
               Positioned(
                 left: fiftyCueLeft,

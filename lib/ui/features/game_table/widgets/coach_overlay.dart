@@ -109,12 +109,13 @@ class CoachOverlay extends StatelessWidget {
               final base = compact ? 54.0 : 66.0;
               final side = math.min(base, constraints.maxWidth * 0.14);
               // Where there is room, dock as a card in the top-start corner
-              // beside the score button instead, stopping short of the north
-              // seat (rail centred, seat plate on its far side), so the coach
-              // no longer hides whose turn it is (design contract 7.4). The
-              // full-width strip below stays the fallback for narrow tables.
+              // (the HUD capsule owns the other one), stopping short of the
+              // north seat (rail centred, seat plate on its far side), so the
+              // coach no longer hides whose turn it is (design contract 7.4).
+              // The full-width strip below stays the fallback for narrow
+              // tables.
               // The start inset also clears the west seat plate, which sits
-              // in the rail column under the score button.
+              // in the rail column at the table's start edge.
               final dockedStart = math.max(side, compact ? 64.0 : 80.0);
               final dockedWidth =
                   constraints.maxWidth / 2 - _northSeatClearance - dockedStart;

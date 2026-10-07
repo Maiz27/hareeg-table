@@ -1093,6 +1093,10 @@ class _GameTableScreenState extends State<GameTableScreen>
 
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
+      // Everything (playfield, chrome, coach, flights) lays out on the
+      // playing surface inside the rail, sharing one coordinate space so
+      // flights still land on their slots.
+      insetChild: true,
       child: JokerDisplayScope(
         display: jokerDisplay,
         cueDuration: _activeJokerVisualCueDuration(strictness),
@@ -1100,6 +1104,7 @@ class _GameTableScreenState extends State<GameTableScreen>
           children: [
             PhysicalTablePlayfield(
               theme: theme,
+              centerStock: true,
               seatScores: _mode.isPractice
                   ? const <PlayerSeat, int>{}
                   : _controller.scores,
@@ -1224,21 +1229,23 @@ class _GameTableScreenState extends State<GameTableScreen>
                 final buttonSize = math.max(
                   chromeFloor,
                   isLarge
-                      ? 44.0
+                      ? 40.0
                       : isTablet
-                      ? 38.0
+                      ? 34.0
                       : 30.0,
                 );
                 final iconSize = isLarge
-                    ? 24.0
+                    ? 20.0
                     : isTablet
-                    ? 21.0
-                    : 17.0;
-                final edgeInset = isLarge
                     ? 18.0
+                    : 16.0;
+                // The chrome now sits on the playing surface inside the rail,
+                // so it needs only a hairline of breathing room.
+                final edgeInset = isLarge
+                    ? 10.0
                     : isTablet
-                    ? 14.0
-                    : 10.0;
+                    ? 8.0
+                    : 6.0;
                 // Side safe-insets are deliberately ignored: in landscape the
                 // OS pads an entire short edge for a punch-hole that actually
                 // sits vertically centered (and for system bars hidden by
@@ -1247,90 +1254,78 @@ class _GameTableScreenState extends State<GameTableScreen>
                 // flush. The top corners are clear on side-cutout devices, so
                 // the chrome matches the rest of the table: cosmetic inset
                 // only.
+                // One slim lounge capsule in the top-end corner holds every
+                // table control (design contract 8, HUD): it takes a single
+                // corner instead of two and reads as part of the table rather
+                // than loose app buttons. Each segment keeps its own tooltip,
+                // key and accessible name.
+                final segments = <Widget>[
+                  if (_mode.isPractice)
+                    _TableChromeButton(
+                      key: const ValueKey('practice-exit'),
+                      tooltip: strings.practiceBackToList,
+                      icon: Icons.close_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                  else
+                    _TableChromeButton(
+                      tooltip: strings.scores,
+                      icon: Icons.leaderboard_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _scoreOpen = true),
+                    ),
+                  if (!_mode.isPractice && _canShowFastForwardRound())
+                    _TableChromeButton(
+                      key: const ValueKey('table-chrome-fast-forward'),
+                      tooltip: strings.skipToNextRound,
+                      icon: Icons.fast_forward_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: _isFastForwardingRound
+                          ? () {}
+                          : () => unawaited(_fastForwardRound()),
+                    ),
+                  // In-app Back out of a sandbox. One of the four exit routes
+                  // B46 keeps on a single policy; it asks the host, which
+                  // confirms only after divergence.
+                  if (_mode.isBranch)
+                    _TableChromeButton(
+                      key: const ValueKey('branch-exit'),
+                      tooltip: strings.branchExitSandbox,
+                      semanticsLabel: strings.branchExitSandbox,
+                      icon: Icons.close_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: _requestSandboxExit,
+                    ),
+                  // Guided practice has no match to pause (its own close
+                  // button exits to the hub), so pause is hidden in a lesson.
+                  if (!_mode.isPractice)
+                    _TableChromeButton(
+                      tooltip: strings.pauseTable,
+                      icon: Icons.pause_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _pauseOpen = true),
+                    ),
+                ];
+                final capsuleWidth = segments.length * buttonSize + 8;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Practice swaps the score shortcut for an exit back to
-                    // the hub; lesson boards have no match score to inspect.
-                    Positioned(
-                      top: safe.top + edgeInset,
-                      left: edgeInset,
-                      child: _mode.isPractice
-                          ? _TableChromeButton(
-                              key: const ValueKey('practice-exit'),
-                              tooltip: strings.practiceBackToList,
-                              icon: Icons.close_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () => Navigator.of(context).pop(),
-                            )
-                          : _TableChromeButton(
-                              tooltip: strings.scores,
-                              icon: Icons.bar_chart_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () =>
-                                  setState(() => _scoreOpen = true),
-                            ),
-                    ),
                     Positioned(
                       top: safe.top + edgeInset,
                       right: edgeInset,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!_mode.isPractice &&
-                              _canShowFastForwardRound()) ...[
-                            _TableChromeButton(
-                              key: const ValueKey('table-chrome-fast-forward'),
-                              tooltip: strings.skipToNextRound,
-                              icon: Icons.fast_forward_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: _isFastForwardingRound
-                                  ? () {}
-                                  : () => unawaited(_fastForwardRound()),
-                            ),
-                            SizedBox(width: edgeInset * 0.6),
-                          ],
-                          // In-app Back out of a sandbox. One of the four exit
-                          // routes B46 keeps on a single policy; it asks the
-                          // host, which confirms only after divergence.
-                          if (_mode.isBranch) ...[
-                            _TableChromeButton(
-                              key: const ValueKey('branch-exit'),
-                              tooltip: strings.branchExitSandbox,
-                              semanticsLabel: strings.branchExitSandbox,
-                              icon: Icons.close_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: _requestSandboxExit,
-                            ),
-                            SizedBox(width: edgeInset * 0.6),
-                          ],
-                          // Guided practice has no match to pause (and its own
-                          // close button exits to the hub), so the pause
-                          // control is hidden during a lesson.
-                          if (!_mode.isPractice)
-                            _TableChromeButton(
-                              tooltip: strings.pauseTable,
-                              icon: Icons.pause_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () =>
-                                  setState(() => _pauseOpen = true),
-                            ),
-                        ],
-                      ),
+                      child: _TableHudCapsule(children: segments),
                     ),
                     if (_cues.feedback != null)
                       Positioned(
-                        top:
-                            safe.top +
-                            edgeInset +
-                            math.max(0.0, (buttonSize - 34) / 2),
-                        left: edgeInset + buttonSize + 14,
-                        right: edgeInset + buttonSize + 14,
+                        top: safe.top + edgeInset,
+                        left: edgeInset + 70,
+                        right: edgeInset + capsuleWidth + 14,
                         child: Align(
                           alignment: Alignment.topLeft,
                           child: IgnorePointer(
@@ -1416,6 +1411,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               overlayKey: 'score-overlay',
               duration: _scaledDelay(const Duration(milliseconds: 180)),
               child: ScoreOverlay(
+                eliminationScore: _controller.rules.eliminationScore,
                 scores: _controller.scores,
                 activeSeats: _controller.activeSeats,
                 starter: _controller.starter,
@@ -1457,6 +1453,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                           : null,
                     )
                   : PauseOverlay(
+                      scores: _controller.scores,
+                      eliminationScore: _controller.rules.eliminationScore,
                       motionSpeed: widget.preferences.motionSpeed,
                       fastCpuTurns: widget.preferences.fastCpuTurns,
                       hapticsEnabled: widget.preferences.hapticsEnabled,
@@ -3638,11 +3636,6 @@ class _TableChromeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(diameter * 0.32);
-    final shape = RoundedRectangleBorder(
-      borderRadius: radius,
-      side: const BorderSide(color: LoungeTokens.edgeL2),
-    );
     final label = semanticsLabel;
     // The label wraps the tooltip rather than sitting inside it: `Tooltip`
     // publishes its own semantics node, so a label added underneath would
@@ -3658,22 +3651,58 @@ class _TableChromeButton extends StatelessWidget {
         // tooltip IS the name, and it stays in the tree.
         excludeFromSemantics: label != null,
         child: Material(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
-          shape: shape,
-          elevation: 4,
-          shadowColor: Colors.black.withValues(alpha: 0.38),
+          type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: radius,
+            customBorder: const StadiumBorder(),
             onTap: onPressed,
             child: SizedBox.square(
               dimension: diameter,
-              child: Icon(
-                icon,
-                color: LoungeTokens.offWhiteText,
-                size: iconSize,
-              ),
+              child: Icon(icon, color: LoungeTokens.sandLine, size: iconSize),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The table's control capsule: lacquered charcoal with a brass edge, its
+/// segments split by hairlines.
+class _TableHudCapsule extends StatelessWidget {
+  const _TableHudCapsule({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xF2241A12), Color(0xF2140F0B)],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+        ),
+        boxShadow: LoungeTokens.elevationL2,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0)
+                Container(
+                  width: 1,
+                  height: 14,
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+                ),
+              children[i],
+            ],
+          ],
         ),
       ),
     );
