@@ -333,7 +333,7 @@ class _MeldCtaButton extends StatelessWidget {
         border: Border.all(
           color: isCta
               ? Colors.white.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.08),
+              : LoungeTokens.edgeL2,
         ),
         boxShadow: [
           BoxShadow(

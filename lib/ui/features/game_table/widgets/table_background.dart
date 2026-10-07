@@ -35,10 +35,128 @@ class TableBackground extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Positioned.fill(child: background),
+        // The table's physical edge: a padded rail with a brass hairline and
+        // an inner shadow falling onto the surface, so every surface theme
+        // reads as an object in a room rather than a flat colour field
+        // (design contract section 7.3).
+        Positioned.fill(
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: TableRimPainter(rail: _railFor(surface)),
+              ),
+            ),
+          ),
+        ),
         if (child != null) Positioned.fill(child: child!),
       ],
     );
   }
+
+  static TableRail _railFor(TableSurfaceTheme surface) => switch (surface) {
+    TableSurfaceTheme.wood => TableRail.oak,
+    TableSurfaceTheme.sapphire => TableRail.ebony,
+    _ => TableRail.walnut,
+  };
+}
+
+/// Rail material painted around the table surface.
+enum TableRail {
+  /// Dark walnut leather rail with a brass inlay (lounge default).
+  walnut(Color(0xFF1C120B), Color(0xFF3A2516), Color(0xFFC9A15A)),
+
+  /// Deeper oak rail for the light wood tabletop.
+  oak(Color(0xFF3B2614), Color(0xFF6B4A2C), Color(0xFFE3C48A)),
+
+  /// Near-black rail with a cool silver inlay for the sapphire velvet.
+  ebony(Color(0xFF0A0C12), Color(0xFF1E2230), Color(0xFFB9C2D6));
+
+  const TableRail(this.outer, this.inner, this.inlay);
+
+  /// Outer (shadowed) edge of the rail.
+  final Color outer;
+
+  /// Lit inner crest of the rail.
+  final Color inner;
+
+  /// Metal inlay hairline between rail and surface.
+  final Color inlay;
+}
+
+/// Paints the table rail, inlay, and the rail's shadow onto the surface.
+class TableRimPainter extends CustomPainter {
+  /// Creates a rim painter for [rail].
+  const TableRimPainter({required this.rail});
+
+  /// Rail material.
+  final TableRail rail;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.shortestSide <= 0) return;
+    final compact = size.height <= 360;
+    final railWidth = compact ? 7.0 : 10.0;
+    final cornerRadius = compact ? 18.0 : 26.0;
+    final outer = Offset.zero & size;
+    final surface = RRect.fromRectAndRadius(
+      outer.deflate(railWidth),
+      Radius.circular(cornerRadius),
+    );
+
+    // Rail body: everything outside the rounded surface.
+    final railPath = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(outer)
+      ..addRRect(surface);
+    canvas.drawPath(
+      railPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [rail.inner, rail.outer, rail.outer, rail.inner],
+          stops: const [0, 0.18, 0.82, 1],
+        ).createShader(outer),
+    );
+
+    // Crest highlight along the rail so it reads as rounded, not flat.
+    canvas.drawRRect(
+      surface.inflate(railWidth * 0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = railWidth * 0.35
+        ..color = Colors.white.withValues(alpha: 0.05),
+    );
+
+    // Shadow the rail casts onto the surface.
+    canvas.save();
+    canvas.clipRRect(surface);
+    for (var i = 0; i < 4; i++) {
+      final spread = (compact ? 4.0 : 6.0) * (i + 1);
+      canvas.drawRRect(
+        surface.inflate(spread * 0.2),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = spread
+          ..color = Colors.black.withValues(alpha: 0.10)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, spread * 0.6),
+      );
+    }
+    canvas.restore();
+
+    // Brass inlay where rail meets surface.
+    canvas.drawRRect(
+      surface,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = rail.inlay.withValues(alpha: 0.55),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant TableRimPainter oldDelegate) =>
+      oldDelegate.rail != rail;
 }
 
 class _SandlineSurface extends StatelessWidget {

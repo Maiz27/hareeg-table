@@ -103,17 +103,38 @@ void main() {
   });
 
   group('CoachOverlay spacing on the sizes that already worked', () {
-    testWidgets('a wide table keeps its fixed inset', (tester) async {
+    testWidgets('a wide table docks the card clear of the north seat', (
+      tester,
+    ) async {
       // 0.14 of 930 is 130, well past the 66 the wide table uses, so the
       // fraction must not be what applies here.
       await _pumpAt(tester, const Size(930, 430), strings: AppStrings.english);
       expect(tester.takeException(), isNull);
-      final overlay = tester.widget<Padding>(
-        find.byKey(const ValueKey('coach-overlay-insets')),
+      final insets = find.byKey(const ValueKey('coach-overlay-insets'));
+      final inset = tester
+          .widget<Padding>(insets)
+          .padding
+          .resolve(TextDirection.ltr);
+      // Clear of the score button and the west seat plate beneath it.
+      expect(inset.left, 80);
+      // The card ends before the north rail, which is centred on the table.
+      final card = tester.getRect(
+        find.descendant(of: insets, matching: find.byType(SizedBox)).first,
       );
-      final inset = overlay.padding.resolve(TextDirection.ltr);
-      expect(inset.left, 66);
-      expect(inset.right, 66);
+      expect(card.right, lessThanOrEqualTo(930 / 2 - 100));
+      expect(card.width, greaterThanOrEqualTo(200));
+    });
+
+    testWidgets('Arabic docks the card on the start (right) side', (
+      tester,
+    ) async {
+      await _pumpAt(tester, const Size(930, 430), strings: AppStrings.arabic);
+      expect(tester.takeException(), isNull);
+      final insets = find.byKey(const ValueKey('coach-overlay-insets'));
+      final card = tester.getRect(
+        find.descendant(of: insets, matching: find.byType(SizedBox)).first,
+      );
+      expect(card.left, greaterThanOrEqualTo(930 / 2 + 100));
     });
 
     testWidgets('the docked width uses the fraction instead', (tester) async {

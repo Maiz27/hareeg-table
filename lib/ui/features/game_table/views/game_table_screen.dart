@@ -1100,6 +1100,10 @@ class _GameTableScreenState extends State<GameTableScreen>
           children: [
             PhysicalTablePlayfield(
               theme: theme,
+              seatScores: _mode.isPractice
+                  ? const <PlayerSeat, int>{}
+                  : _controller.scores,
+              eliminationScore: _controller.rules.eliminationScore,
               stockCount: visibleStockCount,
               discardPile: _controller.discardPile,
               topDiscard: _controller.topDiscard,
@@ -3637,7 +3641,7 @@ class _TableChromeButton extends StatelessWidget {
     final radius = BorderRadius.circular(diameter * 0.32);
     final shape = RoundedRectangleBorder(
       borderRadius: radius,
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.10), width: 1),
+      side: const BorderSide(color: LoungeTokens.edgeL2),
     );
     final label = semanticsLabel;
     // The label wraps the tooltip rather than sitting inside it: `Tooltip`

@@ -10,6 +10,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../coach/coach_highlighting.dart';
 import 'opponent_seat_rails.dart';
+import 'seat_plate.dart';
 import 'seat_meld_lane.dart';
 import 'south_hand_fan.dart';
 import 'south_meld_controls.dart';
@@ -92,7 +93,16 @@ class PhysicalTablePlayfield extends StatelessWidget {
     this.coachHighlighting = CoachHighlighting.none,
     this.revealedHands = const <PlayerSeat, List<HareegCard>>{},
     this.onExpandRevealedHand,
+    this.seatScores = const <PlayerSeat, int>{},
+    this.eliminationScore = 31,
   });
+
+  /// Running match score per seat, shown on the CPU seat plates. Empty when
+  /// the surface has no match score (the plates then show hand size only).
+  final Map<PlayerSeat, int> seatScores;
+
+  /// Score at which a seat is eliminated; drives the plates' danger arc.
+  final int eliminationScore;
 
   /// Active card theme.
   final HareegCardTheme theme;
@@ -409,6 +419,33 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 .toDouble();
         final activeFiftySeconds = isHumanTurn ? fiftySecondsRemaining : null;
 
+        // Seat plates (design contract 7.2). North sits beside its rail;
+        // west / east sit above theirs, inside the rail column so they never
+        // reach into the side meld lanes.
+        final northStack = cardBackStackSize(
+          count: cardCounts[PlayerSeat.north] ?? 0,
+          axis: Axis.horizontal,
+          cardSize: opponentCardSize,
+          visibleCount: compact ? 9 : 12,
+        );
+        final northCueWidth = northStack.width + (compact ? 18 : 24);
+        final northCueHeight = northStack.height + (compact ? 14 : 18);
+        final medallion = SeatPlate.medallionSize(compact: compact);
+        // Deliberately unkeyed: string-keyed widgets are layout anchors in
+        // the replay screen's frozen geometry oracle, and the plates add no
+        // geometry the oracle guards.
+        Widget seatPlate(PlayerSeat seat, Axis axis) => SeatPlate(
+          label: strings.seatLabel(seat),
+          cardCount: cardCounts[seat] ?? 0,
+          score: seatScores[seat],
+          eliminationScore: eliminationScore,
+          active: currentSeat == seat,
+          thinking: isCpuRunning && currentSeat == seat,
+          eliminated: !activeSeats.contains(seat),
+          compact: compact,
+          axis: axis,
+        );
+
         // Discard drop is handled by [_DiscardPile] itself so a card released
         // ON the pile gets routed (the previous wide field rectangle was
         // hidden behind the pile's tap gesture detector and the drop
@@ -433,6 +470,25 @@ class PhysicalTablePlayfield extends StatelessWidget {
                 onExpand: _expandHandler(PlayerSeat.north),
                 expandLabel: strings.branchStudyHandExpand(PlayerSeat.north),
               ),
+            ),
+            // On the end side of the north rail: the start-side corner is
+            // where the coach card docks.
+            PositionedDirectional(
+              top: topInset + math.max(0.0, (northCueHeight - medallion) / 2),
+              start: tableWidth / 2 + northCueWidth / 2 + (compact ? 8 : 12),
+              child: seatPlate(PlayerSeat.north, Axis.horizontal),
+            ),
+            Positioned(
+              left: edgeInset,
+              width: sideRailWidth,
+              bottom: tableHeight - sideRailTop + (compact ? 6 : 10),
+              child: Center(child: seatPlate(PlayerSeat.west, Axis.vertical)),
+            ),
+            Positioned(
+              right: edgeInset,
+              width: sideRailWidth,
+              bottom: tableHeight - sideRailTop + (compact ? 6 : 10),
+              child: Center(child: seatPlate(PlayerSeat.east, Axis.vertical)),
             ),
             Positioned(
               left: edgeInset,
