@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/rules/match_progression_rules.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/motion/celebration.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Dedicated, full-table landscape overlay shown when a match ends.
@@ -71,7 +72,7 @@ class MatchOverOverlay extends StatelessWidget {
         return left.index.compareTo(right.index);
       });
 
-    return GestureDetector(
+    final overlay = GestureDetector(
       key: const ValueKey('match-over-overlay'),
       // Terminal surface: swallow background taps so the finished table behind
       // it can't be interacted with. The actions below are the only way out.
@@ -196,6 +197,15 @@ class MatchOverOverlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+    // You won: fireworks and confetti over the standings, once.
+    if (winner != PlayerSeat.south) return overlay;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        overlay,
+        const Positioned.fill(child: CelebrationFireworks()),
+      ],
     );
   }
 

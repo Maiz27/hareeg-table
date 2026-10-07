@@ -68,6 +68,7 @@ import '../widgets/match_over_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
+import '../../../core/motion/celebration.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../../match_reports/match_report_export_flow.dart';
@@ -270,6 +271,20 @@ class _GameTableScreenState extends State<GameTableScreen>
   int _cpuAutoRestarts = 0;
   static const _maxCpuAutoRestarts = 12;
   bool _scoreOpen = false;
+
+  /// Bumped for every Fifty strike; drives the strike overlay and the
+  /// table's impact shake.
+  int _fiftyStrikeSerial = 0;
+  bool _fiftyStrikeVisible = false;
+
+  void _triggerFiftyStrike() {
+    if (!mounted) return;
+    setState(() {
+      _fiftyStrikeSerial++;
+      _fiftyStrikeVisible = true;
+    });
+  }
+
   bool _pauseOpen = false;
   Set<String>? _placedJokerSnapshot;
   // Single owner of every "schedule a cue, then rebuild" mechanism the
@@ -1368,6 +1383,15 @@ class _GameTableScreenState extends State<GameTableScreen>
                 key: ValueKey('meld-flight-${meld.serial}'),
                 child: MeldFlightOverlay(flight: meld, theme: theme),
               ),
+            if (_fiftyStrikeVisible)
+              Positioned.fill(
+                key: ValueKey('fifty-strike-$_fiftyStrikeSerial'),
+                child: FiftyStrike(
+                  onDone: () {
+                    if (mounted) setState(() => _fiftyStrikeVisible = false);
+                  },
+                ),
+              ),
           ],
         ),
       ),
@@ -1405,7 +1429,12 @@ class _GameTableScreenState extends State<GameTableScreen>
             // Positioned.fill so the scaler gets tight full-screen constraints
             // (a non-positioned Stack child is loose, which would let the
             // FittedBox collapse to the design canvas size in the corner).
-            Positioned.fill(child: _ZoomToFillTable(child: body)),
+            Positioned.fill(
+              child: ImpactShake(
+                serial: _fiftyStrikeSerial,
+                child: _ZoomToFillTable(child: body),
+              ),
+            ),
             _AnimatedOverlaySlot(
               visible: _scoreOpen,
               overlayKey: 'score-overlay',
@@ -2549,6 +2578,8 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   Future<void> _playSound(TableSoundEvent? event) async {
     if (event == null) return;
+    // A Fifty claim, by any seat, is the table's loudest moment.
+    if (event == TableSoundEvent.fiftyClaim) _triggerFiftyStrike();
     await _audio.play(event);
   }
 
@@ -3020,6 +3051,9 @@ class _GameTableScreenState extends State<GameTableScreen>
       return;
     }
     _rememberEliminatedRoundsFromController();
+    if (presentation.result.type == RoundOutcomeType.fiftyFinish) {
+      _triggerFiftyStrike();
+    }
     unawaited(_haptics.fire(TableHapticEvent.roundEnd));
     unawaited(_audio.play(TableSoundEvent.roundEnd));
     setState(() {
