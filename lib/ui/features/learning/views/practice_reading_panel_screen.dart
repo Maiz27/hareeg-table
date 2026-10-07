@@ -5,6 +5,7 @@ import '../../../../data/persistence/learning_progress_repository.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/scopes/app_scopes.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../models/practice_reading_panels.dart';
@@ -86,8 +87,15 @@ class _PracticeReadingPanelScreenState
             LoungeTokens.space8,
           ),
           children: [
-            for (final section in panel.sections) ...[
-              _SectionCard(section: section),
+            for (final (i, section) in panel.sections.indexed) ...[
+              _SectionCard(
+                section: section,
+                number: panel.sections
+                    .take(i + 1)
+                    .where((s) => s.heading != null)
+                    .length,
+                lead: i == 0 && section.heading == null,
+              ),
               const SizedBox(height: LoungeTokens.space3),
             ],
             const SizedBox(height: LoungeTokens.space3),
@@ -104,9 +112,19 @@ class _PracticeReadingPanelScreenState
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.section});
+  const _SectionCard({
+    required this.section,
+    required this.number,
+    required this.lead,
+  });
 
   final PracticeReadingSection section;
+
+  /// Position among the panel's headed sections, shown on its medallion.
+  final int number;
+
+  /// Whether this is the panel's unheaded opening paragraph, set as a lead.
+  final bool lead;
 
   @override
   Widget build(BuildContext context) {
@@ -116,28 +134,38 @@ class _SectionCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(LoungeTokens.space4),
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
-        ),
-      ),
+      decoration: loungeLitPanel(
+        strength: lead ? 0.12 : 0.05,
+        edge: lead
+            ? LoungeTokens.goldAccent.withValues(alpha: 0.45)
+            : LoungeTokens.sandLine.withValues(alpha: 0.18),
+      ).copyWith(boxShadow: lead ? LoungeTokens.elevationL2 : const []),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (heading != null) ...[
-            Text(
-              heading(strings),
-              style: LoungeTokens.body.copyWith(fontWeight: FontWeight.w700),
+            Row(
+              children: [
+                LoungeMedallion.label(
+                  label: '$number',
+                  size: 28,
+                  tone: LoungeMedallionTone.lit,
+                ),
+                const SizedBox(width: LoungeTokens.space3),
+                Expanded(
+                  child: Text(heading(strings), style: LoungeTokens.title),
+                ),
+              ],
             ),
-            const SizedBox(height: LoungeTokens.space2),
+            const SizedBox(height: LoungeTokens.space3),
           ],
           for (var i = 0; i < section.lines.length; i++) ...[
             if (i > 0) const SizedBox(height: LoungeTokens.space2),
             Text(
               section.lines[i](strings),
-              style: LoungeTokens.bodyMuted.copyWith(height: 1.4),
+              style: lead
+                  ? LoungeTokens.body.copyWith(fontSize: 15, height: 1.45)
+                  : LoungeTokens.bodyMuted.copyWith(height: 1.4),
             ),
           ],
           for (final row in section.cardRows) ...[
