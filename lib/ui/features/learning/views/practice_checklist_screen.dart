@@ -144,11 +144,18 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
                 ),
                 const SizedBox(height: LoungeTokens.space5),
                 for (final pack in PracticePackId.values) ...[
-                  _PackHeader(title: pack.title(strings)),
+                  _PackHeader(
+                    title: pack.title(strings),
+                    completed: _progress.completedCount([
+                      for (final l in PracticeCatalog.lessonsIn(pack)) l.id,
+                    ]),
+                    total: PracticeCatalog.lessonsIn(pack).length,
+                  ),
                   const SizedBox(height: LoungeTokens.space3),
                   for (final lesson in PracticeCatalog.lessonsIn(pack))
                     _LessonTile(
                       key: ValueKey('practice-lesson-tile-${lesson.id}'),
+                      number: lessonIds.indexOf(lesson.id) + 1,
                       lesson: lesson,
                       status: _progress.statusFor(lesson.id),
                       onStart: () => _startLesson(lesson),
@@ -183,61 +190,142 @@ class _PracticeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final fraction = total == 0 ? 0.0 : completed / total;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(strings.practiceIntro, style: LoungeTokens.bodyMuted),
-        const SizedBox(height: LoungeTokens.space4),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    strings.practiceProgress(completed, total),
-                    style: LoungeTokens.heading,
-                  ),
-                  const SizedBox(height: LoungeTokens.space2),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: total == 0 ? 0 : completed / total,
-                      minHeight: 6,
-                      backgroundColor: LoungeTokens.coffeeCharcoal.withValues(
-                        alpha: 0.5,
-                      ),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        LoungeTokens.goldAccent,
-                      ),
+    // A progress card: the lessons done as a ring, lit like the table.
+    return Container(
+      padding: const EdgeInsets.all(LoungeTokens.space4),
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(-0.8, -0.6),
+          radius: 1.4,
+          colors: [
+            LoungeTokens.goldAccent.withValues(alpha: 0.12),
+            LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+        ),
+        boxShadow: LoungeTokens.elevationL2,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox.square(
+                dimension: 64,
+                child: CustomPaint(
+                  painter: _ProgressRingPainter(fraction: fraction),
+                  child: Center(
+                    child: Text(
+                      '$completed',
+                      style: LoungeTokens.numericDisplay.copyWith(fontSize: 22),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: LoungeTokens.space4),
-            TextButton.icon(
+              const SizedBox(width: LoungeTokens.space4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.practiceProgress(completed, total),
+                      style: LoungeTokens.heading,
+                    ),
+                    const SizedBox(height: LoungeTokens.space1),
+                    // Kept as the linear readout too: it is what assistive
+                    // tech and the existing tests read as progress.
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: fraction,
+                        minHeight: 4,
+                        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(
+                          alpha: 0.5,
+                        ),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          LoungeTokens.goldAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: LoungeTokens.space3),
+          Text(strings.practiceIntro, style: LoungeTokens.bodyMuted),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton.icon(
               onPressed: onReplayIntro,
               icon: const Icon(Icons.replay_outlined, size: 18),
               label: Text(strings.practiceReplayIntro),
               style: TextButton.styleFrom(
-                foregroundColor: LoungeTokens.mutedText,
+                foregroundColor: LoungeTokens.goldAccent,
                 // The theme minimum is full-width; shrink to row content.
                 minimumSize: const Size(0, 40),
               ),
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
 
+class _ProgressRingPainter extends CustomPainter {
+  const _ProgressRingPainter({required this.fraction});
+
+  final double fraction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(4);
+    canvas.drawArc(
+      rect,
+      0,
+      6.2832,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..color = LoungeTokens.sandLine.withValues(alpha: 0.16),
+    );
+    if (fraction > 0) {
+      canvas.drawArc(
+        rect,
+        -1.5708,
+        6.2832 * fraction,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..strokeCap = StrokeCap.round
+          ..color = LoungeTokens.goldAccent,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressRingPainter oldDelegate) =>
+      oldDelegate.fraction != fraction;
+}
+
 class _PackHeader extends StatelessWidget {
-  const _PackHeader({required this.title});
+  const _PackHeader({
+    required this.title,
+    required this.completed,
+    required this.total,
+  });
 
   final String title;
+  final int completed;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
@@ -246,9 +334,19 @@ class _PackHeader extends StatelessWidget {
         Text(title, style: LoungeTokens.heading),
         const SizedBox(width: LoungeTokens.space3),
         Expanded(
-          child: Divider(
+          child: Container(
             height: 1,
             color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+          ),
+        ),
+        const SizedBox(width: LoungeTokens.space3),
+        Text(
+          '$completed/$total',
+          style: LoungeTokens.numericChip.copyWith(
+            fontSize: 12,
+            color: completed == total && total > 0
+                ? LoungeTokens.goldAccent
+                : LoungeTokens.mutedText,
           ),
         ),
       ],
@@ -259,6 +357,7 @@ class _PackHeader extends StatelessWidget {
 class _LessonTile extends StatelessWidget {
   const _LessonTile({
     super.key,
+    required this.number,
     required this.lesson,
     required this.status,
     required this.onStart,
@@ -266,6 +365,8 @@ class _LessonTile extends StatelessWidget {
     required this.onUnskip,
   });
 
+  /// Position of the lesson across the whole course, shown on its medallion.
+  final int number;
   final PracticeLesson lesson;
   final PracticeLessonStatus status;
   final VoidCallback onStart;
@@ -283,8 +384,9 @@ class _LessonTile extends StatelessWidget {
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
         color: LoungeTokens.coffeeCharcoal.withValues(alpha: muted ? 0.3 : 0.5),
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(color: look.borderColor),
+        boxShadow: muted ? null : LoungeTokens.elevationL2,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +394,11 @@ class _LessonTile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(look.badgeIcon, size: 20, color: look.badgeColor),
+              _LessonMedallion(
+                number: number,
+                status: status,
+                icon: look.badgeIcon,
+              ),
               const SizedBox(width: LoungeTokens.space3),
               Expanded(
                 child: Column(
@@ -415,6 +521,60 @@ class _LessonTile extends StatelessWidget {
         statusLabel: strings.practiceStatusCompleted,
       ),
     };
+  }
+}
+
+/// A lesson's number on a lacquered medallion; gold with a check once done,
+/// faded when skipped.
+class _LessonMedallion extends StatelessWidget {
+  const _LessonMedallion({
+    required this.number,
+    required this.status,
+    required this.icon,
+  });
+
+  final int number;
+  final PracticeLessonStatus status;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final done = status == PracticeLessonStatus.completed;
+    final skipped = status == PracticeLessonStatus.skipped;
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: done
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFE8B95A), LoungeTokens.goldAccent],
+              )
+            : const RadialGradient(
+                center: Alignment(-0.3, -0.4),
+                colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+              ),
+        border: Border.all(
+          color: done
+              ? LoungeTokens.goldAccent
+              : LoungeTokens.sandLine.withValues(alpha: skipped ? 0.18 : 0.4),
+        ),
+      ),
+      child: done
+          ? Icon(icon, size: 18, color: LoungeTokens.coffeeCharcoal)
+          : skipped
+          ? Icon(icon, size: 16, color: LoungeTokens.mutedText)
+          : Text(
+              '$number',
+              style: LoungeTokens.numericChip.copyWith(
+                fontSize: 13,
+                color: LoungeTokens.sandLine,
+              ),
+            ),
+    );
   }
 }
 

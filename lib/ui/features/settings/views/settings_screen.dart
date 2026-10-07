@@ -482,83 +482,143 @@ class _AccordionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onToggle,
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: LoungeTokens.space3,
-                horizontal: LoungeTokens.space2,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Icon(icon, color: LoungeTokens.goldAccent, size: 20),
-                  ),
-                  const SizedBox(width: LoungeTokens.space3),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: LoungeTokens.heading),
-                        const SizedBox(height: 3),
-                        Text(description, style: LoungeTokens.bodyMuted),
-                        if (preview.isNotEmpty && !expanded) ...[
-                          const SizedBox(height: LoungeTokens.space2),
-                          Wrap(
-                            spacing: LoungeTokens.space2,
-                            runSpacing: LoungeTokens.space1,
-                            children: [
-                              for (final pill in preview) _PreviewPill(pill),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: LoungeTokens.space2),
-                  _RotatingChevron(expanded: expanded),
+    // Each section is a card on the felt (design contract 8, option card):
+    // an icon medallion, a raised surface, and a gold edge with warm light
+    // while it is open.
+    return AnimatedContainer(
+      duration: LoungeTokens.motionStandard,
+      curve: Curves.easeOutCubic,
+      margin: EdgeInsets.only(bottom: isLast ? 0 : LoungeTokens.space3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: expanded
+              ? [
+                  Color.lerp(
+                    LoungeTokens.coffeeCharcoal,
+                    LoungeTokens.goldAccent,
+                    0.08,
+                  )!.withValues(alpha: 0.85),
+                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.7),
+                ]
+              : [
+                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
+                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.38),
                 ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(
+          color: expanded
+              ? LoungeTokens.goldAccent.withValues(alpha: 0.45)
+              : LoungeTokens.sandLine.withValues(alpha: 0.16),
+        ),
+        boxShadow: expanded ? LoungeTokens.elevationL2 : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+              child: Padding(
+                padding: const EdgeInsets.all(LoungeTokens.space4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _IconMedallion(icon: icon, lit: expanded),
+                    const SizedBox(width: LoungeTokens.space3),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: LoungeTokens.heading),
+                          const SizedBox(height: 3),
+                          Text(description, style: LoungeTokens.bodyMuted),
+                          if (preview.isNotEmpty && !expanded) ...[
+                            const SizedBox(height: LoungeTokens.space2),
+                            Wrap(
+                              spacing: LoungeTokens.space2,
+                              runSpacing: LoungeTokens.space1,
+                              children: [
+                                for (final pill in preview) _PreviewPill(pill),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: LoungeTokens.space2),
+                    _RotatingChevron(expanded: expanded),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: ClipRect(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              opacity: expanded ? 1 : 0,
-              child: expanded
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        LoungeTokens.space2,
-                        LoungeTokens.space2,
-                        LoungeTokens.space2,
-                        LoungeTokens.space5,
-                      ),
-                      child: child,
-                    )
-                  : const SizedBox(width: double.infinity),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: ClipRect(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                opacity: expanded ? 1 : 0,
+                child: expanded
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          LoungeTokens.space4,
+                          0,
+                          LoungeTokens.space4,
+                          LoungeTokens.space5,
+                        ),
+                        child: child,
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section's icon on a small lacquered medallion, warmed while open.
+class _IconMedallion extends StatelessWidget {
+  const _IconMedallion({required this.icon, required this.lit});
+
+  final IconData icon;
+  final bool lit;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: LoungeTokens.motionStandard,
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          center: Alignment(-0.3, -0.45),
+          colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
         ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            color: LoungeTokens.sandLine.withValues(alpha: 0.18),
-          ),
-      ],
+        border: Border.all(
+          color: lit
+              ? LoungeTokens.goldAccent
+              : LoungeTokens.sandLine.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          if (lit)
+            BoxShadow(
+              color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+              blurRadius: 10,
+            ),
+        ],
+      ),
+      child: Icon(icon, color: LoungeTokens.goldAccent, size: 19),
     );
   }
 }
