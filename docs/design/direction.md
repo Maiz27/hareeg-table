@@ -55,4 +55,4 @@ Product requirements, rule-flow decisions, and acceptance criteria live in the c
 
 https://github.com/Maiz27/hareeg-table/issues/1
 
-This file records stable visual direction only. Do not use it as a branch tracker or a duplicate PRD.
+This file records stable visual direction only. Tokens, components, table layout, motion and screen rules live in the [Design Contract](design-contract.md). Do not use it as a branch tracker or a duplicate PRD.
