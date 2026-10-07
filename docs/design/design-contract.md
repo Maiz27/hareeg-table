@@ -211,30 +211,35 @@ Every CPU seat gets an L2 plate attached to its rail:
 
 The player (South) gets the same data in a compact strip by the hand.
 
-### 7.3 Depth: the 2.5D table — Target
+### 7.3 Depth: the 2.5D table — Current
 
-The table should read as a real object, built only with standard Flutter (no 3D
-engine; web and low-end Android must keep working):
+The table reads as an object seen from the player's chair, built only with
+standard Flutter so web and low-end Android keep working:
 
-- **Rim:** a visible table edge (wood/brass/textile per surface theme) framing
-  the felt.
-- **Light:** a warm overhead pool on the centre fading to a vignette at the
-  rim. It's part of the surface theme, painted once and cached.
-- **No perspective tilt.** Considered and rejected: the playfield geometry
-  is shared with `table_flight_geometry.dart` so card flights land on their
-  slots, and a `Matrix4` tilt would make every flight visibly miss. Depth
-  comes from the rim, light and shadows instead.
-- **Card depth:** L1 shadows on all table cards. Selected cards lift
-  (`translateY −8 dp`, stronger shadow, `motionQuick`).
-- **Hand:** a flat row. An arc was considered and left out: hand reorder by
-  drag and the 44 dp card tap target both rely on the row's straight slots.
-- **Flights:** draw, discard and meld placement animate as card flights
-  (`motionFlight`) with a brief flip for face changes.
+- **Everything sits on the table.** The live table lays out the playfield,
+  HUD, coach and card flights inside the rail (`TableBackground.insetChild`),
+  in one coordinate space, so flights still land on their slots. Nothing runs
+  under the rail.
+- **Foreshortened rail:** thin on the far (top) side, deep on the near
+  (bottom) side (`TableBackground.railInsets`), lit from above, with the far
+  rail's inner wall visible and a brass inlay at the seam.
+- **Surface in perspective:** only the surface layer (texture, medallion,
+  lamp light) is tilted back with a `Matrix4` perspective, so the medallion
+  foreshortens into an ellipse. Interactive widgets are never transformed:
+  their geometry is shared with `table_flight_geometry.dart`.
+- **Lamp:** a warm pool of light over the centre, falling off to the edges.
+- **Card depth:** every card casts a two-layer contact shadow, so fanned
+  hands, piles and melds read as stacked physical cards. Selected cards lift.
+- **The pot:** the stock sits at the centre beside the discard
+  (`resolveStockPileRect`, shared by playfield and flights). The replay
+  surface keeps the corner stock; its geometry is frozen.
+- **Hand:** a flat row. An arc was considered and left out: drag reorder and
+  the 44 dp card tap target rely on the row's straight slots.
 
 ### 7.4 Coach UI — Target
 
 The coach (Coaching strictness, the setup default) renders as an L3 **coach
-card** docked in the top-start corner, beside the score button and clear of
+card** docked in the top-start corner (the HUD capsule owns the other), clear of
 the west seat plate, sized to stop short of the north seat (rail centred,
 plate on its far side). Up to four body lines. Tables too narrow to dock it
 (the sandbox panel, small phones) fall back to the full-width strip. The
@@ -248,12 +253,14 @@ coach hue family is used for its accent only.
 | Secondary button | Current (`OutlinedButton`) | Sand outline. **Target:** max two stacked; beyond that use a section or list |
 | Text button | Current | Gold label, for tertiary actions |
 | Segmented control | Current (setup) | Gold selected segment. **Target:** shown inside an option card with a one-line explanation |
-| Option card | Target | L2 card: icon, title, value summary, chevron/edit; replaces bare segmented rows |
+| Option card | Current | L2 card: icon, title, value summary, chevron/edit; replaces bare segmented rows |
 | Lounge panel | Current (`LoungePanel`) | L3 modal surface with medallion; the only modal shell |
 | Lounge toast | Current (`LoungeToast`) | L2 transient message; never over a seat zone |
-| HUD chip | Target | L2 pill, icon + tabular number (open need, stock count) |
-| Seat plate | Target | Section 7.2 |
-| Coach card | Target | Section 7.4 |
+| HUD capsule | Current | One lacquered pill in the top-end corner holding every table control (scores, fast-forward, sandbox exit, pause), segments split by hairlines; sandbox floors segments at 44 dp |
+| HUD chip | Current | Open-need chip: lacquered, brass edge, overline caption over a tabular number |
+| Score medallion | Current | Score ringed by an arc that fills and warms toward elimination; shared by seat plates, the score sheet and the pause standings |
+| Seat plate | Current | Section 7.2 |
+| Coach card | Current | Section 7.4 |
 | Screen header | Target | Replaces the stock black `AppBar`: transparent over the screen background, display-face title, back as an icon button |
 | List row | Target | History/report rows: title, meta line, trailing result badge; 56 dp min |
 | Stat tile | Target | Big tabular number + label + optional trend; used by Stats and match reports |
@@ -326,15 +333,17 @@ rest.
 ## 13. Rollout plan
 
 1. **Foundation** — done: bundled fonts, typography / elevation / motion
-   tokens wired into `AppTheme`, screen header restyled. Remaining: migrate
-   the literal durations in feature code onto the motion tokens.
-2. **Table, part 1** — done: rim and inlay on every surface, CPU seat
-   plates, coach docked as a card clear of the north seat, HUD edges unified.
-3. **Table, part 2** — next: card flights polish, Fifty moment staging,
-   match-over screen in the display face.
-4. **Menus** — done for home (adaptive primary action, hero stage, tiles)
-   and setup (option cards, pinned Start Table). Next: history / stats rows
-   and tiles, settings sections.
+   tokens in `AppTheme`, screen headers on the felt. Remaining: migrate the
+   literal durations in feature code onto the motion tokens.
+2. **Table** — done: inset playing surface, foreshortened rail, perspective
+   surface and lamp, card shadows, centred stock, seat plates, docked coach
+   card, HUD capsule, open-need chip.
+3. **Table panels** — done: score sheet (medallions and heat bars to the
+   elimination line), pause (inset settings tray, at-a-glance standings).
+   Next: round result and match-over in the same language, Fifty moment.
+4. **Menus** — done: home, setup, guided practice (progress ring, numbered
+   lesson medallions), settings (section cards with icon medallions). Next:
+   history / stats rows and tiles, rules help.
 5. **Goldens and lint** — still to land.
 
 ## 14. Decisions taken
@@ -350,8 +359,8 @@ were decided rather than left open. Each is easy to revisit.
    invented personas.
 3. **Perspective tilt:** dropped (section 7.3).
 4. **Hand:** stays a flat row; selected cards already lift.
-5. **Stock and open-need** stay in the bottom corners; they sit on the rim
-   edge naturally now that the rail frames the table.
+5. **Stock** moves to the centre beside the discard; **open-need** stays in
+   the bottom-end corner, inside the rail.
 6. **Player (South) plate:** not added. Both bottom corners share their edge
    columns with the side rails, and the hand hue already marks the player's
    turn; the player's score is one tap away in the score sheet.
