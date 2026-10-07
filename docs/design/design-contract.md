@@ -245,6 +245,22 @@ plate on its far side). Up to four body lines. Tables too narrow to dock it
 (the sandbox panel, small phones) fall back to the full-width strip. The
 coach hue family is used for its accent only.
 
+### 7.5 Score book — Current
+
+The score sheet is kept the way the table keeps score on paper: players as
+columns, rounds as rows. Each cell is the seat's running total with the
+round's change beneath it (true minus sign for a drop); a total at or past
+the elimination score is struck through in red. The round in play is the last,
+lit row, labelled *Now*; the page scrolls from the bottom so the latest rounds
+are always in view. Column heads are seat medallions whose ring warms toward
+flame with the seat's total, gold on the seat to play. Earlier rounds are
+recovered from the match transcript (`ScoreBookReader`), reconstructed in
+small steps while the sheet opens, so it works after a resume too.
+
+The pause panel keeps only the at-a-glance standings; the round-result panel
+shows just the round that ended. The book is the one place the whole match
+history lives.
+
 ## 8. Components
 
 | Component | Status | Contract |
@@ -338,9 +354,9 @@ rest.
 2. **Table** — done: inset playing surface, foreshortened rail, perspective
    surface and lamp, card shadows, centred stock, seat plates, docked coach
    card, HUD capsule, open-need chip.
-3. **Table panels** — done: score sheet (medallions and heat bars to the
-   elimination line), pause (inset settings tray, at-a-glance standings).
-   Next: round result and match-over in the same language, Fifty moment.
+3. **Table panels** — done: score book (7.5), pause (inset settings tray,
+   at-a-glance standings), round result (medallion header, display headline,
+   delta chips). Next: match-over in the same language, Fifty moment.
 4. **Menus** — done: home, setup, guided practice (progress ring, numbered
    lesson medallions), settings (section cards with icon medallions). Next:
    history / stats rows and tiles, rules help.
