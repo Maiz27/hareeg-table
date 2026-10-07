@@ -1566,6 +1566,22 @@ class AppStrings {
         : 'Round $roundNumber, ${seatName.toLowerCase()} to play';
   }
 
+  /// Row label for a round in the score book (`R3`).
+  String scoreBookRound(int roundNumber) =>
+      isRtl ? 'ج$roundNumber' : 'R$roundNumber';
+
+  /// Row label for the round in play.
+  String get scoreBookNow => isRtl ? 'الآن' : 'Now';
+
+  /// Legend naming the elimination score.
+  String scoreBookOutAt(int limit) =>
+      isRtl ? 'الخروج عند $limit' : 'Out at $limit';
+
+  /// Accessible description of one score book cell.
+  String scoreBookCell(String seatName, int total, int delta) => isRtl
+      ? '$seatName: $total، ${delta >= 0 ? '+' : ''}$delta في الجولة'
+      : '$seatName: $total, ${delta >= 0 ? '+' : ''}$delta this round';
+
   String startedBy(String starterLabel) {
     return isRtl ? 'بدأها $starterLabel' : 'Started by $starterLabel';
   }

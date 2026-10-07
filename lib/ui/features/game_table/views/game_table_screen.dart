@@ -1411,6 +1411,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               overlayKey: 'score-overlay',
               duration: _scaledDelay(const Duration(milliseconds: 180)),
               child: ScoreOverlay(
+                transcript: _recorder?.transcript,
                 eliminationScore: _controller.rules.eliminationScore,
                 scores: _controller.scores,
                 activeSeats: _controller.activeSeats,
@@ -1546,6 +1547,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               child: _roundResultPresentation == null
                   ? const SizedBox.shrink()
                   : _RoundResultOverlay(
+                      eliminationScore: _controller.rules.eliminationScore,
                       presentation: _roundResultPresentation!,
                       onContinueNow:
                           _roundResultPresentation!.nextSnapshot == null
@@ -3777,12 +3779,14 @@ class _AnimatedOverlaySlot extends StatelessWidget {
 
 class _RoundResultOverlay extends StatelessWidget {
   const _RoundResultOverlay({
+    required this.eliminationScore,
     required this.presentation,
     required this.onContinueNow,
     required this.onReturnToMenu,
     required this.onDismiss,
   });
 
+  final int eliminationScore;
   final ClassicHareegRoundResultPresentation presentation;
   final VoidCallback? onContinueNow;
   final VoidCallback? onReturnToMenu;
@@ -3854,6 +3858,7 @@ class _RoundResultOverlay extends StatelessWidget {
                           Flexible(
                             child: SingleChildScrollView(
                               child: _RoundScoreBreakdown(
+                                eliminationScore: eliminationScore,
                                 seats: seats,
                                 presentation: presentation,
                                 compact: compact,
@@ -3900,14 +3905,33 @@ class _RoundResultHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final medallion = compact ? 36.0 : 44.0;
     return Row(
       children: [
-        Icon(
-          Icons.scoreboard_outlined,
-          color: LoungeTokens.goldAccent,
-          size: compact ? 20 : 24,
+        Container(
+          width: medallion,
+          height: medallion,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              center: Alignment(-0.3, -0.45),
+              colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+            ),
+            border: Border.all(color: LoungeTokens.goldAccent),
+            boxShadow: [
+              BoxShadow(
+                color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.menu_book_outlined,
+            color: LoungeTokens.goldAccent,
+            size: compact ? 18 : 22,
+          ),
         ),
-        SizedBox(width: compact ? 8 : 12),
+        SizedBox(width: compact ? 10 : 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3915,31 +3939,25 @@ class _RoundResultHeader extends StatelessWidget {
             children: [
               Text(
                 context.strings.roundScore,
-                style: TextStyle(
+                style: LoungeTokens.overline.copyWith(
                   color: LoungeTokens.goldAccent,
-                  fontSize: compact ? 10 : 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+                  fontSize: compact ? 9.5 : 10.5,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 headline,
-                style: TextStyle(
-                  color: LoungeTokens.offWhiteText,
-                  fontSize: compact ? 17 : 22,
-                  fontWeight: FontWeight.w900,
+                style: LoungeTokens.display.copyWith(
+                  fontSize: compact ? 19 : 24,
                   height: 1.05,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 detail,
-                style: TextStyle(
-                  color: LoungeTokens.offWhiteText.withValues(alpha: 0.74),
-                  fontSize: compact ? 11 : 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
+                style: LoungeTokens.bodyMuted.copyWith(
+                  fontSize: compact ? 11.5 : 13,
+                  height: 1.25,
                 ),
               ),
             ],
@@ -3952,11 +3970,13 @@ class _RoundResultHeader extends StatelessWidget {
 
 class _RoundScoreBreakdown extends StatelessWidget {
   const _RoundScoreBreakdown({
+    required this.eliminationScore,
     required this.seats,
     required this.presentation,
     required this.compact,
   });
 
+  final int eliminationScore;
   final List<PlayerSeat> seats;
   final ClassicHareegRoundResultPresentation presentation;
   final bool compact;
@@ -3965,8 +3985,15 @@ class _RoundScoreBreakdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
           color: LoungeTokens.sandLine.withValues(alpha: 0.20),
         ),
@@ -3975,6 +4002,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
         children: [
           for (var index = 0; index < seats.length; index++) ...[
             _RoundScoreRow(
+              eliminationScore: eliminationScore,
               seat: seats[index],
               before: presentation.previousScores[seats[index]] ?? 0,
               after: presentation.progress.scores[seats[index]] ?? 0,
@@ -3998,6 +4026,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
 
 class _RoundScoreRow extends StatelessWidget {
   const _RoundScoreRow({
+    required this.eliminationScore,
     required this.seat,
     required this.before,
     required this.after,
@@ -4006,6 +4035,7 @@ class _RoundScoreRow extends StatelessWidget {
     required this.compact,
   });
 
+  final int eliminationScore;
   final PlayerSeat seat;
   final int before;
   final int after;
@@ -4025,6 +4055,41 @@ class _RoundScoreRow extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // The seat on a lacquered medallion; its ring shows how close the
+          // round has carried it to elimination (the totals sit at the end
+          // of the row).
+          Opacity(
+            opacity: eliminated ? 0.5 : 1,
+            child: Container(
+              width: compact ? 28 : 34,
+              height: compact ? 28 : 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  center: Alignment(-0.3, -0.45),
+                  colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                ),
+                border: Border.all(
+                  width: 2,
+                  color: Color.lerp(
+                    LoungeTokens.sandLine.withValues(alpha: 0.4),
+                    LoungeTokens.fiftyFlame,
+                    eliminationScore <= 0
+                        ? 0
+                        : (after / eliminationScore).clamp(0.0, 1.0),
+                  )!,
+                ),
+              ),
+              child: Icon(
+                seat == PlayerSeat.south
+                    ? Icons.person_outline
+                    : Icons.smart_toy_outlined,
+                size: compact ? 14 : 17,
+                color: LoungeTokens.sandLine,
+              ),
+            ),
+          ),
+          SizedBox(width: compact ? 8 : 12),
           Expanded(
             child: Wrap(
               spacing: 8,
@@ -4055,14 +4120,24 @@ class _RoundScoreRow extends StatelessWidget {
           Text('$before', style: _scoreNumberStyle(compact)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 7),
-            child: Text(
-              delta == 0 ? '+0' : deltaText,
-              style: TextStyle(
-                color: delta <= 0
-                    ? LoungeTokens.goldAccent
-                    : LoungeTokens.fiftyFlame,
-                fontSize: compact ? 12 : 14,
-                fontWeight: FontWeight.w900,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color:
+                    (delta <= 0
+                            ? LoungeTokens.goldAccent
+                            : LoungeTokens.fiftyFlame)
+                        .withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
+              ),
+              child: Text(
+                delta == 0 ? '+0' : deltaText,
+                style: LoungeTokens.numericChip.copyWith(
+                  color: delta <= 0
+                      ? LoungeTokens.goldAccent
+                      : LoungeTokens.fiftyFlame,
+                  fontSize: compact ? 12 : 14,
+                ),
               ),
             ),
           ),
