@@ -95,7 +95,26 @@ class MatchOverOverlay extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: highContrast
                         ? Colors.black.withValues(alpha: 0.98)
-                        : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+                        : null,
+                    // A warm pool of light over the winner's name: the
+                    // close of a match is solemn-warm, not loud (end-of-match
+                    // design, section 3).
+                    gradient: highContrast
+                        ? null
+                        : RadialGradient(
+                            center: const Alignment(-0.7, -1.1),
+                            radius: 1.3,
+                            colors: [
+                              Color.lerp(
+                                LoungeTokens.coffeeCharcoal,
+                                LoungeTokens.goldAccent,
+                                0.16,
+                              )!.withValues(alpha: 0.98),
+                              LoungeTokens.coffeeCharcoal.withValues(
+                                alpha: 0.97,
+                              ),
+                            ],
+                          ),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: highContrast
@@ -205,14 +224,33 @@ class _Header extends StatelessWidget {
       RoundOutcomeType.normalFinish => strings.wonByFinish,
       RoundOutcomeType.draw => strings.roundDrawn,
     };
+    final medallion = compact ? 46.0 : 58.0;
     return Row(
       children: [
-        Icon(
-          Icons.emoji_events_outlined,
-          color: LoungeTokens.goldAccent,
-          size: compact ? 22 : 26,
+        Container(
+          width: medallion,
+          height: medallion,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              center: Alignment(-0.3, -0.45),
+              colors: [Color(0xFF4A3420), LoungeTokens.coffeeCharcoal],
+            ),
+            border: Border.all(color: LoungeTokens.goldAccent, width: 1.6),
+            boxShadow: [
+              BoxShadow(
+                color: LoungeTokens.goldAccent.withValues(alpha: 0.35),
+                blurRadius: 18,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.emoji_events_outlined,
+            color: LoungeTokens.goldAccent,
+            size: compact ? 22 : 28,
+          ),
         ),
-        SizedBox(width: compact ? 10 : 12),
+        SizedBox(width: compact ? 12 : 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,30 +258,25 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 strings.matchOver.toUpperCase(),
-                style: TextStyle(
+                style: LoungeTokens.overline.copyWith(
                   color: LoungeTokens.goldAccent,
-                  fontSize: compact ? 10 : 12,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
+                  fontSize: compact ? 10 : 11.5,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 headline,
-                style: TextStyle(
+                style: LoungeTokens.display.copyWith(
                   color: LoungeTokens.goldAccent,
-                  fontSize: compact ? 20 : 26,
-                  fontWeight: FontWeight.w900,
+                  fontSize: compact ? 24 : 32,
                   height: 1.02,
                 ),
               ),
               const SizedBox(height: 3),
               Text(
                 resultLine,
-                style: TextStyle(
-                  color: LoungeTokens.offWhiteText.withValues(alpha: 0.74),
-                  fontSize: compact ? 11 : 13,
-                  fontWeight: FontWeight.w700,
+                style: LoungeTokens.bodyMuted.copyWith(
+                  fontSize: compact ? 11.5 : 13,
                 ),
               ),
             ],
@@ -273,32 +306,42 @@ class _Standings extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
           color: LoungeTokens.sandLine.withValues(alpha: 0.20),
         ),
       ),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            _StandingRow(
-              key: ValueKey('match-over-standing-${rows[i].name}'),
-              rank: i + 1,
-              seat: rows[i],
-              score: progress.scores[rows[i]] ?? 0,
-              isWinner: rows[i] == winner,
-              isEliminated: !progress.activeSeats.contains(rows[i]),
-              eliminatedRound: eliminatedRound[rows[i]],
-              compact: compact,
-            ),
-            if (i < rows.length - 1)
-              Divider(
-                height: 1,
-                color: LoungeTokens.sandLine.withValues(alpha: 0.14),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        child: Column(
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              _StandingRow(
+                key: ValueKey('match-over-standing-${rows[i].name}'),
+                rank: i + 1,
+                seat: rows[i],
+                score: progress.scores[rows[i]] ?? 0,
+                isWinner: rows[i] == winner,
+                isEliminated: !progress.activeSeats.contains(rows[i]),
+                eliminatedRound: eliminatedRound[rows[i]],
+                compact: compact,
               ),
+              if (i < rows.length - 1)
+                Divider(
+                  height: 1,
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.14),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
