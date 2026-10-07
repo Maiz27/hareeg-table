@@ -1,5 +1,5 @@
 {
-  "note": "Frozen from the pre-refactor replayTranscript implementation before any Sprint 05 product edit. Contract C26.",
+  "note": "Frozen from the pre-refactor replayTranscript implementation before any Sprint 05 product edit. Contract C26. Seed 7 re-frozen after the CPU take-then-return fix changed that seed's CPU-played match (1734 -> 1730 actions); the replay implementation is unchanged and seeds 11-23 still hold their original frozen values.",
   "seeds": [
     7,
     11,
@@ -11,7 +11,7 @@
   "cases": [
     {
       "seed": 7,
-      "entryCount": 1734,
+      "entryCount": 1730,
       "roundCount": 17,
       "unchecked": {
         "status": "matched",
@@ -19,6 +19,18 @@
         "matchWinner": "west",
         "reconstructed": {
           "version": 1,
+          "roundSeedAlgorithm": "exact32",
+          "turnJournal": {
+            "source": "stock",
+            "finishMelds": [],
+            "openingMelds": [],
+            "turnMelds": [],
+            "coverPlays": [],
+            "consumedPendingDiscard": null
+          },
+          "previousDiscardSeat": "west",
+          "discardNextSequence": 61,
+          "lastReturnedPendingDiscard": null,
           "setup": {
             "cpuDifficulty": "casual",
             "starterMode": "human",
@@ -1047,7 +1059,7 @@
           ],
           "roundNumber": 17,
           "removedSeats": [],
-          "fiftyWindowOpenedAt": "2026-01-01T00:28:53.000Z",
+          "fiftyWindowOpenedAt": "2026-01-01T00:28:49.000Z",
           "fiftyWindowDiscarder": "west",
           "fiftyWindowIsFirstDealtRound": false,
           "activeFiftyClaimCardId": null,
@@ -1056,7 +1068,7 @@
           "windowedTakeCardId": null,
           "windowedTakeDiscarder": null,
           "windowedTakeIsFirstDealtRound": null,
-          "savedAt": "2026-01-01T00:28:54.000Z",
+          "savedAt": "2026-01-01T00:28:50.000Z",
           "discardHistory": {
             "events": [
               {

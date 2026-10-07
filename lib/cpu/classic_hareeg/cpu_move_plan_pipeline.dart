@@ -4,6 +4,7 @@ import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart
 import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
+import '../../domain/classic_hareeg/rules/cover_rules.dart';
 import 'cpu_difficulty_profile.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_observation.dart';
@@ -538,12 +539,42 @@ bool shouldTakeDiscardForObservationCore(CpuObservation observation) {
     safetyCap: 24,
   );
   for (final partition in partitions) {
+    // A taken discard must be used this turn, and the turn ends on a discard.
+    // A partition that melds the whole hand away (hand + pickup form the
+    // melds exactly, at any hand size) leaves nothing to throw, so the engine
+    // can only take the card back: the seat would pick up, return it, and
+    // draw — every time that card comes round. Never worth taking.
+    if (partition.cardsRemaining.isEmpty) {
+      continue;
+    }
     if (partition.cardsRemaining.length < observation.ownHand.length ||
         _extendsSetToFour(discarded, partition)) {
       return true;
     }
   }
   return false;
+}
+
+/// Whether an opened seat could lay the top discard straight onto a table
+/// meld as a cover and still end its turn on a discard.
+///
+/// This is the only other way a taken discard can be kept (melding it is
+/// [shouldTakeDiscardForObservationCore]'s case). Pickups that pass neither
+/// test are taken back by the engine, so a planner must not make them.
+bool canCoverWithTakenDiscard(CpuObservation observation) {
+  final discarded = observation.topDiscard;
+  if (discarded == null ||
+      !observation.ownHasOpened() ||
+      observation.ownHand.isEmpty) {
+    return false;
+  }
+  return ClassicHareegCoverRules.isAnyCover(
+    tableMelds: [
+      for (final melds in observation.tableMelds.values)
+        for (final meld in melds) meld.cards,
+    ],
+    candidate: discarded,
+  );
 }
 
 bool _extendsSetToFour(HareegCard discarded, MeldPartition partition) {
