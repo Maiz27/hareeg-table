@@ -302,6 +302,7 @@ class LoungePanelActions extends StatelessWidget {
             vertical: LoungeTokens.space3,
           ),
           textStyle: const TextStyle(
+            fontFamily: LoungeTokens.uiFamily,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.4,
           ),
@@ -325,6 +326,7 @@ class LoungePanelActions extends StatelessWidget {
           vertical: LoungeTokens.space3,
         ),
         textStyle: const TextStyle(
+          fontFamily: LoungeTokens.uiFamily,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
         ),

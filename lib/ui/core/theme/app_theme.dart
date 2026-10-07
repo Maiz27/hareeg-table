@@ -21,8 +21,10 @@ abstract final class AppTheme {
       error: LoungeTokens.deepRed,
     );
 
-    final textTheme = const TextTheme(
+    final textTheme = TextTheme(
+      displayLarge: LoungeTokens.displayLarge,
       displaySmall: LoungeTokens.display,
+      titleLarge: LoungeTokens.display.copyWith(fontSize: 22),
       headlineMedium: LoungeTokens.heading,
       titleMedium: LoungeTokens.heading,
       titleSmall: LoungeTokens.titleSmall,
@@ -33,17 +35,24 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: LoungeTokens.uiFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: LoungeTokens.feltGreen,
       canvasColor: LoungeTokens.coffeeCharcoal,
       dividerColor: LoungeTokens.sandLine.withValues(alpha: 0.3),
       textTheme: textTheme,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
+      // Screen header (design contract section 8): the header sits on the
+      // screen's own felt instead of a stock black bar, titled in the display
+      // face. It darkens slightly only once content scrolls beneath it.
+      appBarTheme: AppBarTheme(
+        backgroundColor: LoungeTokens.feltGreen,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.5),
         foregroundColor: LoungeTokens.offWhiteText,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: LoungeTokens.heading,
+        titleTextStyle: LoungeTokens.display.copyWith(fontSize: 22),
       ),
       cardTheme: CardThemeData(
         color: LoungeTokens.coffeeCharcoal,

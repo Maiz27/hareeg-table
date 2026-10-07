@@ -72,7 +72,6 @@ class _MatchStatisticsScreenState extends State<MatchStatisticsScreen> {
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
       appBar: AppBar(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
         foregroundColor: LoungeTokens.offWhiteText,
         title: Text(strings.statisticsTitle),
         actions: [

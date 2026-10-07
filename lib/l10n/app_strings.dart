@@ -120,6 +120,9 @@ class AppStrings {
   String get kenneyCasinoAudio => _v('kenneyCasinoAudio');
   String get kenneyCasinoAudioAttribution => _v('kenneyCasinoAudioAttribution');
   String get kenneyCasinoAudioUrl => _v('kenneyCasinoAudioUrl');
+  String get licensesFontsHeader => _v('licensesFontsHeader');
+  String get fontReemKufiAttribution => _v('fontReemKufiAttribution');
+  String get fontPlexArabicAttribution => _v('fontPlexArabicAttribution');
   String get licensesFooter => _v('licensesFooter');
   String get playMeld => _v('playMeld');
   String get placeCover => _v('placeCover');
@@ -1901,6 +1904,11 @@ const _englishValues = {
   'kenneyCasinoAudioAttribution':
       'Kenney.nl Casino Audio, Creative Commons CC0 1.0 Universal.',
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
+  'licensesFontsHeader': 'Typefaces',
+  'fontReemKufiAttribution':
+      'Reem Kufi by Khaled Hosny and Santiago Orozco, SIL Open Font License 1.1.',
+  'fontPlexArabicAttribution':
+      'IBM Plex Sans Arabic by IBM, SIL Open Font License 1.1.',
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
   'playMeld': 'Play meld',
@@ -2640,6 +2648,11 @@ const _arabicValues = {
   'kenneyCasinoAudio': 'حزمة أصوات الكازينو من Kenney',
   'kenneyCasinoAudioAttribution': 'مرخصة تحت رخصة المشاع الإبداعي (CC0 1.0).',
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
+  'licensesFontsHeader': 'الخطوط',
+  'fontReemKufiAttribution':
+      'خط ريم كوفي من خالد حسني وسانتياغو أوروزكو، برخصة SIL للخطوط المفتوحة 1.1.',
+  'fontPlexArabicAttribution':
+      'خط IBM Plex Sans Arabic من IBM، برخصة SIL للخطوط المفتوحة 1.1.',
   'licensesFooter':
       'جميع أكواد المحرك وبنية التطبيق مفتوحة المصدر ومتاحة تحت شروط الاستخدام المرنة القياسية.',
   'playMeld': 'أنزل المجموعة',

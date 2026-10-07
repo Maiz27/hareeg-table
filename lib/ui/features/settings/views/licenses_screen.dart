@@ -54,6 +54,8 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 const _SectionBreak(),
                 const _SoundLicenseSection(),
                 const _SectionBreak(),
+                const _FontLicenseSection(),
+                const _SectionBreak(),
                 Text(strings.licensesFooter, style: LoungeTokens.bodyMuted),
               ],
             ),
@@ -310,6 +312,41 @@ class _SoundLicenseSection extends StatelessWidget {
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _FontLicenseSection extends StatelessWidget {
+  const _FontLicenseSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.text_fields, color: LoungeTokens.goldAccent),
+            const SizedBox(width: LoungeTokens.space2),
+            Expanded(
+              child: Text(
+                strings.licensesFontsHeader,
+                style: LoungeTokens.heading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        for (final line in [
+          strings.fontReemKufiAttribution,
+          strings.fontPlexArabicAttribution,
+        ]) ...[
+          Text(line, style: LoungeTokens.bodyMuted),
+          const SizedBox(height: LoungeTokens.space2),
+        ],
       ],
     );
   }

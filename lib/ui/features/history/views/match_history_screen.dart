@@ -176,7 +176,6 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
     return Scaffold(
       backgroundColor: LoungeTokens.feltGreen,
       appBar: AppBar(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
         foregroundColor: LoungeTokens.offWhiteText,
         title: Text(strings.historyTitle),
         actions: [
