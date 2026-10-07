@@ -128,14 +128,16 @@ class _PerspectiveSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Negative X rotation tips the top edge away from the viewer; pivoting
-    // on the near edge keeps the side of the table by the player full size.
+    // Negative X rotation tips the top edge away from the viewer. Pivoting on
+    // the centre keeps the surface's centre (its medallion) on the table's
+    // centre, where the discard and stock sit; the overscale covers the far
+    // corners the tilt pulls in.
     return Transform(
-      alignment: Alignment.bottomCenter,
+      alignment: Alignment.center,
       transform: Matrix4.identity()
         ..setEntry(3, 2, 0.0011)
         ..rotateX(-tilt)
-        ..scaleByDouble(1.6, 1.6, 1, 1),
+        ..scaleByDouble(1.45, 1.45, 1, 1),
       child: Stack(fit: StackFit.expand, children: [child, const _LampLight()]),
     );
   }
