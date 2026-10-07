@@ -1438,7 +1438,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _scoreOpen,
               overlayKey: 'score-overlay',
-              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              duration: _scaledDelay(LoungeTokens.motionQuick),
               child: ScoreOverlay(
                 transcript: _recorder?.transcript,
                 eliminationScore: _controller.rules.eliminationScore,
@@ -1460,7 +1460,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _pauseOpen,
               overlayKey: 'pause-overlay',
-              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              duration: _scaledDelay(LoungeTokens.motionQuick),
               // A sandbox gets its own pause panel rather than the live one
               // with rows switched off. The live panel's every setting row is
               // an `onPreferencesChanged` call, and a sandbox must not be able
@@ -1540,7 +1540,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _practiceComplete,
               overlayKey: 'practice-completion-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: !_practiceComplete
                   ? const SizedBox.shrink()
                   : PracticeCompletionOverlay(
@@ -1556,7 +1556,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _practiceDeadEnd,
               overlayKey: 'practice-missed-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: !_practiceDeadEnd
                   ? const SizedBox.shrink()
                   : PracticeMissedOverlay(
@@ -1572,7 +1572,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _roundResultPresentation != null,
               overlayKey: 'round-result-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: _roundResultPresentation == null
                   ? const SizedBox.shrink()
                   : _RoundResultOverlay(

@@ -666,7 +666,7 @@ class _RotatingChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: expanded ? 0.5 : 0),
-      duration: const Duration(milliseconds: 220),
+      duration: LoungeTokens.motionStandard,
       curve: Curves.easeOutCubic,
       builder: (context, value, _) {
         return Transform.rotate(

@@ -140,7 +140,7 @@ class PracticeStepBanner extends StatelessWidget {
     final animated = TweenAnimationBuilder<double>(
       key: ValueKey('practice-step-anim-$stepIndex-${reaction != null}'),
       tween: Tween(begin: 0, end: 1),
-      duration: motion.scale(const Duration(milliseconds: 180)),
+      duration: motion.scale(LoungeTokens.motionQuick),
       curve: motion.curve(Curves.easeOutCubic),
       builder: (context, t, child) {
         return Opacity(

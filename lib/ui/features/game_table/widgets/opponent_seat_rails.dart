@@ -313,7 +313,7 @@ class _TurnCueFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: LoungeTokens.motionStandard,
       curve: Curves.easeOutCubic,
       width: size.width,
       height: size.height,

@@ -65,7 +65,7 @@ class CoachOverlay extends StatelessWidget {
         'coach-anim-${hint.situationKey}#${note?.situationKey ?? ''}',
       ),
       tween: Tween(begin: 0, end: 1),
-      duration: motion.scale(const Duration(milliseconds: 180)),
+      duration: motion.scale(LoungeTokens.motionQuick),
       curve: motion.curve(Curves.easeOutCubic),
       builder: (context, t, child) {
         final dy = isPopIn ? (1 - t) * -10.0 : (1 - t) * 8.0;

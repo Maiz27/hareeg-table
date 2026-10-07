@@ -161,7 +161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       0,
                     ),
                     child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 180),
+                      duration: LoungeTokens.motionQuick,
                       opacity: _onLastPage ? 0 : 1,
                       child: TextButton(
                         onPressed: _onLastPage
@@ -334,7 +334,7 @@ class _PageDots extends StatelessWidget {
       children: [
         for (var i = 0; i < count; i++)
           AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: LoungeTokens.motionQuick,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             width: i == activeIndex ? 22 : 8,
             height: 8,

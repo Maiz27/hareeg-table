@@ -504,7 +504,7 @@ class _TableMeldStackState extends State<_TableMeldStack> {
             ? LoungeTokens.goldAccent
             : LoungeTokens.deepRed;
         final body = AnimatedScale(
-          duration: const Duration(milliseconds: 120),
+          duration: LoungeTokens.motionInstant,
           curve: Curves.easeOutCubic,
           scale: hot ? 1.04 : 1,
           child: SizedBox(
