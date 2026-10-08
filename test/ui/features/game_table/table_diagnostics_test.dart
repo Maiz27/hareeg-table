@@ -120,9 +120,8 @@ void main() {
     await _letToastExpire(tester);
   });
 
-  testWidgets('without a DSN the sheet explains and keeps Share/Copy', (
-    tester,
-  ) async {
+  testWidgets('without a DSN the sheet does not mention sending and keeps '
+      'Share/Copy', (tester) async {
     final transport = FakeDiagnosticsTransport();
     final live = LiveMatchReportSource();
     final diagnostics = fakeDiagnostics(transport, dsn: '', liveMatch: live);
@@ -132,7 +131,8 @@ void main() {
     await openReportSheet(tester);
 
     expect(find.text(strings.sendReport), findsNothing);
-    expect(find.text(strings.matchReportSendUnavailable), findsOneWidget);
+    expect(find.text(strings.matchReportSendDisabled), findsNothing);
+    expect(find.textContaining('Sending reports'), findsNothing);
     expect(find.text(strings.shareReport), findsOneWidget);
     expect(find.text(strings.copyReport), findsOneWidget);
   });

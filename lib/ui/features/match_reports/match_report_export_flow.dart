@@ -37,7 +37,8 @@ enum MatchReportSendAvailability {
 ///
 /// When [send] is available, sending is the primary action and Share/Copy are
 /// demoted to an offline/power-user fallback beneath it. Otherwise Share/Copy
-/// lead, with a line saying why sending is not offered.
+/// lead; after an opt-out a line says reports are off, and a build without a
+/// DSN does not mention sending at all.
 Future<MatchReportExportChoice?> showMatchReportConfirmation(
   BuildContext context, {
   bool highContrast = false,
@@ -64,12 +65,11 @@ class _MatchReportConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
     final canSend = send == MatchReportSendAvailability.available;
-    final sendNotice = switch (send) {
-      MatchReportSendAvailability.available => null,
-      MatchReportSendAvailability.unavailable =>
-        strings.matchReportSendUnavailable,
-      MatchReportSendAvailability.disabled => strings.matchReportSendDisabled,
-    };
+    // A build without a DSN never mentions sending: there is nothing the
+    // player could turn on.
+    final sendNotice = send == MatchReportSendAvailability.disabled
+        ? strings.matchReportSendDisabled
+        : null;
     final share = LoungePanelAction(
       icon: Icons.ios_share,
       label: strings.shareReport,

@@ -116,6 +116,25 @@ void main() {
     expect(transport.isRunning, isTrue);
   });
 
+  testWidgets('a build without a DSN shows no Privacy section in Settings', (
+    tester,
+  ) async {
+    final transport = FakeDiagnosticsTransport();
+    await pumpApp(tester, diagnostics: fakeDiagnostics(transport, dsn: ''));
+
+    await tester.tap(find.byTooltip(strings.settings));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text(strings.languageDescription),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(strings.diagnosticsSectionTitle), findsNothing);
+    expect(find.text(strings.diagnosticsToggleTitle), findsNothing);
+  });
+
   testWidgets('the Settings opt-out stops diagnostics and blocks sends', (
     tester,
   ) async {

@@ -349,6 +349,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         cardThemes: CardThemeRegistry.all(),
         isMatchActive: false,
         initialSection: initialSection,
+        showPrivacy: _diagnostics.isAvailable,
       ),
       settings: settings,
     );

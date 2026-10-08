@@ -53,10 +53,11 @@ attachment is exactly what Share/Copy would export
 
 - **Build-time DSN.** Sentry is configured from
   `--dart-define=SENTRY_DSN=...`. With no DSN the SDK is never started, nothing
-  is transmitted, no consent notice is shown, and the report sheet says sending
-  is unavailable and offers Share/Copy.
+  is transmitted, and the UI does not mention reports: no consent notice, no
+  Settings > Privacy section, and the report sheet offers only Share/Copy.
 - **Consent.** Opt-out, default on, disclosed: a first-run notice on the home
-  menu (shown once, only in builds with a DSN) and a Settings > Privacy switch.
+  menu (shown once) and a Settings > Privacy switch, both only in builds with
+  a DSN.
   Nothing is sent until the notice has been answered. Opting out closes the
   SDK, so no event of any kind leaves the device; every event also re-checks
   consent in `beforeSend`.

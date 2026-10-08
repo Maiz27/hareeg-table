@@ -212,7 +212,6 @@ class AppStrings {
   String get sendReport => _v('sendReport');
   String get matchReportSent => _v('matchReportSent');
   String get matchReportSendFailed => _v('matchReportSendFailed');
-  String get matchReportSendUnavailable => _v('matchReportSendUnavailable');
   String get matchReportSendDisabled => _v('matchReportSendDisabled');
   String get diagnosticsSectionTitle => _v('diagnosticsSectionTitle');
   String get diagnosticsSectionDescription =>
@@ -2149,9 +2148,6 @@ const _englishValues = {
   'matchReportSent': 'Report queued. It is sent when you are online.',
   'matchReportSendFailed':
       'Could not send the report. Share or copy it instead.',
-  'matchReportSendUnavailable':
-      'Sending reports is not available in this build. Share or copy the '
-      'report instead.',
   'matchReportSendDisabled':
       'Crash & bug reports are turned off in Settings. Share or copy the '
       'report instead.',
@@ -2898,8 +2894,6 @@ const _arabicValues = {
   'matchReportSent':
       'أُضيف التقرير إلى قائمة الإرسال. يُرسل عندما تكون متصلاً بالإنترنت.',
   'matchReportSendFailed': 'تعذر إرسال التقرير. شاركه أو انسخه بدلاً من ذلك.',
-  'matchReportSendUnavailable':
-      'إرسال التقارير غير متاح في هذا الإصدار. شارك التقرير أو انسخه بدلاً من ذلك.',
   'matchReportSendDisabled':
       'تقارير الأعطال والأخطاء متوقفة في الإعدادات. شارك التقرير أو انسخه بدلاً من ذلك.',
   'diagnosticsSectionTitle': 'الخصوصية',
