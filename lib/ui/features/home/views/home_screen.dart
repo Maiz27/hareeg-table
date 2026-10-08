@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -8,6 +11,7 @@ import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../match_reports/diagnostics_consent_notice.dart';
 import 'home_hero_section.dart';
 
 /// Main menu and navigation shell.
@@ -16,8 +20,18 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.matchRepository,
     required this.historyRepository,
+    this.diagnosticsNoticePending,
+    this.onDiagnosticsNoticeResolved,
     super.key,
   });
+
+  /// True while the first-run crash/bug report disclosure still has to be
+  /// shown. The menu shows it once it is the visible route, so it never pops
+  /// up over the splash or onboarding.
+  final ValueListenable<bool>? diagnosticsNoticePending;
+
+  /// Receives the player's answer to the disclosure (true = keep reports on).
+  final ValueChanged<bool>? onDiagnosticsNoticeResolved;
 
   /// Active match persistence.
   final MatchRepository matchRepository;
@@ -38,11 +52,51 @@ class _HomeScreenState extends State<HomeScreen> {
   var _recoveryFailed = false;
   var _damagedSave = false;
 
+  var _diagnosticsNoticeOpen = false;
+
   @override
   void initState() {
     super.initState();
     AppOrientation.usePortrait();
     _loadSavedMatch();
+    widget.diagnosticsNoticePending?.addListener(_scheduleDiagnosticsNotice);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Registers a dependency on the route's "current" status, so this runs
+    // again when the menu becomes the visible route (e.g. splash popped).
+    if (ModalRoute.isCurrentOf(context) ?? false) {
+      _scheduleDiagnosticsNotice();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.diagnosticsNoticePending?.removeListener(_scheduleDiagnosticsNotice);
+    super.dispose();
+  }
+
+  void _scheduleDiagnosticsNotice() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeShowDiagnosticsNotice());
+    });
+  }
+
+  Future<void> _maybeShowDiagnosticsNotice() async {
+    if (!mounted ||
+        _diagnosticsNoticeOpen ||
+        !(widget.diagnosticsNoticePending?.value ?? false) ||
+        !(ModalRoute.of(context)?.isCurrent ?? false)) {
+      return;
+    }
+    _diagnosticsNoticeOpen = true;
+    final keepOn = await showDiagnosticsConsentNotice(context);
+    _diagnosticsNoticeOpen = false;
+    if (keepOn != null) {
+      widget.onDiagnosticsNoticeResolved?.call(keepOn);
+    }
   }
 
   @override

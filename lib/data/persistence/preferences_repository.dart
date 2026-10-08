@@ -55,6 +55,8 @@ class GamePreferences {
     required this.tableSurfaceTheme,
     required this.coachingTipsEnabled,
     required this.analysisCoach,
+    this.diagnosticsEnabled = true,
+    this.diagnosticsNoticeSeen = false,
   });
 
   /// Default first-run preferences.
@@ -122,6 +124,11 @@ class GamePreferences {
       analysisCoach: AnalysisCoachSettings.fromJson(
         asJsonMap(json['analysisCoach']),
       ),
+      diagnosticsEnabled:
+          asJsonBool(json['diagnosticsEnabled']) ?? defaults.diagnosticsEnabled,
+      diagnosticsNoticeSeen:
+          asJsonBool(json['diagnosticsNoticeSeen']) ??
+          defaults.diagnosticsNoticeSeen,
     );
   }
 
@@ -172,6 +179,21 @@ class GamePreferences {
   /// coaching tier get help without an extra step.
   final bool coachingTipsEnabled;
 
+  /// Whether crash and bug reports may be sent to the developer.
+  ///
+  /// Opt-out, default on (PRD-04). When false nothing is transmitted at all:
+  /// the diagnostics SDK is not started, and a running one is closed.
+  final bool diagnosticsEnabled;
+
+  /// Whether the player has seen the first-run diagnostics disclosure.
+  ///
+  /// Nothing is transmitted before the disclosure has been shown, so a default
+  /// of "on" is never acted on without the player having been told.
+  final bool diagnosticsNoticeSeen;
+
+  /// Whether diagnostics may be transmitted: disclosed and not opted out.
+  bool get diagnosticsConsented => diagnosticsEnabled && diagnosticsNoticeSeen;
+
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
@@ -186,6 +208,8 @@ class GamePreferences {
     TableSurfaceTheme? tableSurfaceTheme,
     bool? coachingTipsEnabled,
     AnalysisCoachSettings? analysisCoach,
+    bool? diagnosticsEnabled,
+    bool? diagnosticsNoticeSeen,
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
@@ -200,6 +224,9 @@ class GamePreferences {
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
       coachingTipsEnabled: coachingTipsEnabled ?? this.coachingTipsEnabled,
       analysisCoach: analysisCoach ?? this.analysisCoach,
+      diagnosticsEnabled: diagnosticsEnabled ?? this.diagnosticsEnabled,
+      diagnosticsNoticeSeen:
+          diagnosticsNoticeSeen ?? this.diagnosticsNoticeSeen,
     );
   }
 
@@ -219,6 +246,8 @@ class GamePreferences {
       'tableSurfaceTheme': tableSurfaceTheme.name,
       'coachingTipsEnabled': coachingTipsEnabled,
       'analysisCoach': analysisCoach.toJson(),
+      'diagnosticsEnabled': diagnosticsEnabled,
+      'diagnosticsNoticeSeen': diagnosticsNoticeSeen,
     };
   }
 }

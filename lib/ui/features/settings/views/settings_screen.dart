@@ -370,7 +370,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   preview: [appLanguageLabel(_preferences.language, strings)],
                   expanded: _openSection == SettingsSection.language,
                   onToggle: () => _toggle(SettingsSection.language),
-                  isLast: true,
                   child: SettingsDropdown<AppLanguage>(
                     label: strings.language,
                     value: _preferences.language,
@@ -378,6 +377,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     labelFor: (value) => appLanguageLabel(value, strings),
                     onChanged: (value) =>
                         _save(_preferences.copyWith(language: value)),
+                  ),
+                ),
+                SettingsAccordionSection(
+                  key: _sectionKeys[SettingsSection.privacy],
+                  icon: Icons.shield_outlined,
+                  title: strings.diagnosticsSectionTitle,
+                  description: strings.diagnosticsSectionDescription,
+                  preview: [
+                    _preferences.diagnosticsEnabled
+                        ? strings.diagnosticsPreviewOn
+                        : strings.diagnosticsPreviewOff,
+                  ],
+                  expanded: _openSection == SettingsSection.privacy,
+                  onToggle: () => _toggle(SettingsSection.privacy),
+                  isLast: true,
+                  child: SettingsSwitch(
+                    icon: Icons.bug_report_outlined,
+                    title: strings.diagnosticsToggleTitle,
+                    subtitle: strings.diagnosticsToggleSubtitle,
+                    value: _preferences.diagnosticsEnabled,
+                    // Changing it here is an informed choice, so it also
+                    // counts as having seen the first-run disclosure.
+                    onChanged: (value) => _save(
+                      _preferences.copyWith(
+                        diagnosticsEnabled: value,
+                        diagnosticsNoticeSeen: true,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: LoungeTokens.space5),
