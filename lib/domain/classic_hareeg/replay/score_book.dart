@@ -49,14 +49,20 @@ class ScoreBookReader {
   /// totals for a sandbox seeded mid-match).
   final Map<PlayerSeat, int> startScores;
 
+  final Map<int, Map<PlayerSeat, int>> _completed = {};
+  int _framesRead = 0;
+  int? _firstRound;
+  int _lastRound = 0;
+
   /// Whether reconstruction has finished (or refused).
   bool get isDone => _replay.isDone;
 
   /// Applies up to [budget] recorded actions. Returns true while more remain.
   bool step([int budget = 60]) {
     for (var i = 0; i < budget; i++) {
-      if (!_replay.advance()) return false;
+      if (!_replay.advance()) break;
     }
+    _readNewFrames();
     return !_replay.isDone;
   }
 
@@ -64,21 +70,46 @@ class ScoreBookReader {
   void cancel() => _replay.cancel();
 
   /// First round the transcript covers.
-  int get firstRound {
-    final frames = _replay.frames;
-    return frames.isEmpty ? 1 : frames.first.roundNumber;
+  int get firstRound => _firstRound ?? 1;
+
+  // Frames are read once each, as they are produced, so a long match costs
+  // one pass rather than a copy of the whole timeline per step.
+  void _readNewFrames() {
+    final count = _replay.frameCount;
+    for (; _framesRead < count; _framesRead++) {
+      final frame = _replay.frameAt(_framesRead);
+      _firstRound ??= frame.roundNumber;
+      if (frame.roundNumber > _lastRound) _lastRound = frame.roundNumber;
+      if (frame.kind == ReplayFrameKind.roundStart) {
+        _completed[frame.roundNumber - 1] = ClassicHareegScoreLedger.normalize(
+          frame.snapshot.scores,
+        );
+      }
+    }
   }
 
-  /// Totals each completed round ended on, keyed by round number, for every
-  /// round reconstructed so far.
-  Map<int, Map<PlayerSeat, int>> completedTotals() {
-    return {
-      for (final frame in _replay.frames)
-        if (frame.kind == ReplayFrameKind.roundStart)
-          frame.roundNumber - 1: ClassicHareegScoreLedger.normalize(
-            frame.snapshot.scores,
-          ),
-    };
+  /// Totals each completed round ended on, keyed by round number.
+  ///
+  /// The transcript only reaches a round's opening deal once that round has
+  /// a recorded action, so the round that just ended is missing while the
+  /// round in play ([currentRound]) has none yet. Then nothing has changed
+  /// since the round ended, and [currentScores] are exactly its totals.
+  Map<int, Map<PlayerSeat, int>> completedTotals({
+    int? currentRound,
+    Map<PlayerSeat, int>? currentScores,
+  }) {
+    final totals = Map<int, Map<PlayerSeat, int>>.of(_completed);
+    final finished = currentRound == null ? null : currentRound - 1;
+    if (finished != null &&
+        currentScores != null &&
+        _replay.isDone &&
+        _replay.failure == null &&
+        _lastRound < currentRound! &&
+        _lastRound == finished &&
+        !totals.containsKey(finished)) {
+      totals[finished] = ClassicHareegScoreLedger.normalize(currentScores);
+    }
+    return totals;
   }
 }
 

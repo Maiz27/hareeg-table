@@ -244,6 +244,10 @@ class ReplayReconstruction {
   List<ReplayFrame> get frames => List.unmodifiable(_frames);
   int get frameCount => _frames.length;
 
+  /// The frame at [index], without copying the timeline (for readers that
+  /// consume frames incrementally as [advance] produces them).
+  ReplayFrame frameAt(int index) => _frames[index];
+
   /// Whether every entry has been consumed.
   bool get isDone => _finished || _failure != null || _cancelled;
 

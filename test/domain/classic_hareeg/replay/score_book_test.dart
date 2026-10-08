@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/replay/score_book.dart';
+import 'package:hareeg_table/domain/classic_hareeg/reporting/match_action_transcript.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/match_recorder.dart';
 
 import '../../../scenario/classic_hareeg_match_driver.dart';
@@ -30,6 +31,35 @@ void main() {
           seat: round.progress!.scores[seat] ?? 0,
       }, reason: 'round ${round.roundNumber}');
     }
+  });
+
+  test('the round that just ended stays in the book before the next round '
+      'has a move', () {
+    final recorder = MatchRecorder();
+    ClassicHareegMatchDriver(
+      roundLimit: 60,
+    ).run(setup: ClassicHareegSetup.defaults(), seed: 7, recorder: recorder);
+    final full = recorder.transcript!;
+    final whole = ScoreBookReader(full);
+    while (whole.step(25)) {}
+    final truth = whole.completedTotals();
+
+    // The match as it stood the moment round 3 was dealt: rounds 1-2 played,
+    // nobody has acted in round 3, so its opening deal is not recorded.
+    final cut = MatchActionTranscript(
+      initialSnapshot: full.initialSnapshot,
+      entries: full.entries.where((e) => e.roundNumber <= 2).toList(),
+    );
+    final reader = ScoreBookReader(cut);
+    while (reader.step(25)) {}
+
+    expect(reader.completedTotals().containsKey(2), isFalse);
+    final totals = reader.completedTotals(
+      currentRound: 3,
+      currentScores: truth[2],
+    );
+    expect(totals[1], truth[1]);
+    expect(totals[2], truth[2]);
   });
 
   test('lines carry running totals and per-round deltas, live last', () {

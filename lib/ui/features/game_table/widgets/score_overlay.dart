@@ -53,9 +53,11 @@ class ScoreOverlay extends StatefulWidget {
   /// Score at which a seat is out of the match.
   final int eliminationScore;
 
-  /// Recorded actions of the match so far; earlier rounds are read from it.
-  /// Null (practice) shows the live round only.
-  final MatchActionTranscript? transcript;
+  /// Reads the recorded actions of the match so far; earlier rounds are
+  /// recovered from them. Called once, when the book opens (building the
+  /// transcript copies every entry, so it is never done per table rebuild).
+  /// Null, or returning null (practice), shows the live round only.
+  final MatchActionTranscript? Function()? transcript;
 
   @override
   State<ScoreOverlay> createState() => _ScoreOverlayState();
@@ -70,8 +72,10 @@ class _ScoreOverlayState extends State<ScoreOverlay> {
   @override
   void initState() {
     super.initState();
-    final transcript = widget.transcript;
-    if (transcript != null && widget.roundNumber > 1) {
+    final transcript = widget.roundNumber > 1
+        ? widget.transcript?.call()
+        : null;
+    if (transcript != null) {
       _reader = ScoreBookReader(transcript);
       _startScores = _reader!.startScores;
       unawaited(_read());
@@ -86,7 +90,10 @@ class _ScoreOverlayState extends State<ScoreOverlay> {
       more = reader.step();
       if (!mounted) return;
       setState(() {
-        _completed = reader.completedTotals();
+        _completed = reader.completedTotals(
+          currentRound: widget.roundNumber,
+          currentScores: widget.scores,
+        );
         _firstRound = reader.firstRound;
       });
       if (more) await Future<void>.delayed(Duration.zero);
