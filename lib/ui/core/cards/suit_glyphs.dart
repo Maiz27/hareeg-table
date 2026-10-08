@@ -19,16 +19,6 @@ abstract final class SuitGlyphs {
     };
   }
 
-  /// Compact symbol used in inline labels (e.g., 'AS').
-  static String symbolFor(CardSuit suit) {
-    return switch (suit) {
-      CardSuit.spades => '♠',
-      CardSuit.hearts => '♥',
-      CardSuit.diamonds => '♦',
-      CardSuit.clubs => '♣',
-    };
-  }
-
   static Path _spadesPath() {
     final path = Path();
     path.moveTo(0.5, 0.05);

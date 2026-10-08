@@ -1,24 +1,19 @@
 /// Available table surface themes.
 enum TableSurfaceTheme {
   /// Generated Sandline Lounge surface matching the default card theme.
-  sandline('Sandline Lounge'),
+  sandline,
 
   /// Warm dark felt lounge table.
-  felt('Dark felt'),
+  felt,
 
   /// Light wood physical tabletop with herbal accent.
-  wood('Light wood'),
+  wood,
 
   /// Cool midnight sapphire velvet table.
-  sapphire('Midnight sapphire'),
+  sapphire,
 
   /// Warm Sudanese clay surface with brass hairline.
-  clay('Crimson clay');
-
-  const TableSurfaceTheme(this.label);
-
-  /// Settings label.
-  final String label;
+  clay;
 
   /// Parses a saved enum name.
   static TableSurfaceTheme fromName(String? name) {

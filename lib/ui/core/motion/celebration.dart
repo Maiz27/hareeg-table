@@ -12,10 +12,10 @@ import 'motion_speed.dart';
 /// standings. Skipped entirely under reduced motion. Pointer-transparent.
 class CelebrationFireworks extends StatefulWidget {
   /// Creates the celebration.
-  const CelebrationFireworks({super.key, this.seed = 50});
+  const CelebrationFireworks({super.key});
 
-  /// Seed for the burst layout, so a given celebration is reproducible.
-  final int seed;
+  /// Seed for the burst layout, so every celebration is reproducible.
+  static const _seed = 50;
 
   /// Total run time at normal motion speed.
   static const duration = Duration(milliseconds: 3400);
@@ -30,7 +30,9 @@ class _CelebrationFireworksState extends State<CelebrationFireworks>
     vsync: this,
     duration: CelebrationFireworks.duration,
   );
-  late final _Show _show = _Show.generate(math.Random(widget.seed));
+  late final _Show _show = _Show.generate(
+    math.Random(CelebrationFireworks._seed),
+  );
   bool _started = false;
 
   @override

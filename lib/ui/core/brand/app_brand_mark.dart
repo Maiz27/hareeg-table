@@ -12,13 +12,13 @@ abstract final class AppBrandAssets {
 /// Compact app icon mark for menu, help, and about surfaces.
 class AppBrandMark extends StatelessWidget {
   /// Creates an app brand mark.
-  const AppBrandMark({super.key, this.size = 50, this.semanticLabel});
+  const AppBrandMark({super.key, required this.semanticLabel});
 
   /// Square size in logical pixels.
-  final double size;
+  static const double size = 50;
 
-  /// Optional image semantic label.
-  final String? semanticLabel;
+  /// Image semantic label.
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +49,6 @@ class AppBrandMark extends StatelessWidget {
         ),
       ),
     );
-    if (semanticLabel == null) {
-      return decorated;
-    }
     return Semantics(image: true, label: semanticLabel, child: decorated);
   }
 }

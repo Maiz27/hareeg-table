@@ -22,9 +22,6 @@ enum CardVisualState {
   /// Drag-target highlight when the card is a legal cover target.
   coverTarget,
 
-  /// Drag-target highlight when the card is a legal joker replacement.
-  jokerReplaceTarget,
-
   /// Coaching-tier hint highlight: the coach is pointing at this card as the
   /// reference of the current insight. Drawn as a reserved teal outline + glow
   /// ring (never a face tint) so it reads distinctly from every other state
@@ -33,10 +30,6 @@ enum CardVisualState {
 
   /// Illegal action attempted on or with this card (transient).
   invalid,
-
-  /// Card is owned by an eliminated seat (or for some reason cannot be
-  /// played right now).
-  disabled,
 }
 
 /// Painting recipe for a single card state.
@@ -100,11 +93,6 @@ abstract final class DefaultCardStateOverlays {
       tint: Color(0x1AD69B35),
       outlineWidth: 2,
     ),
-    CardVisualState.jokerReplaceTarget: CardStateOverlayStyle(
-      outline: LoungeTokens.fiftyFlame,
-      tint: Color(0x22EF5A24),
-      outlineWidth: 2.5,
-    ),
     // Coach highlight: teal outline + soft glow, no face tint. The glow makes
     // the ring read as "look here" without recolouring the card itself, so it
     // stays legible over every deck art and table surface.
@@ -117,11 +105,6 @@ abstract final class DefaultCardStateOverlays {
       outline: LoungeTokens.invalidAction,
       outlineWidth: 3,
       iconColor: LoungeTokens.invalidAction,
-    ),
-    CardVisualState.disabled: CardStateOverlayStyle(
-      outline: Colors.transparent,
-      tint: LoungeTokens.eliminatedDim,
-      outlineWidth: 0,
     ),
   };
 }
@@ -153,11 +136,6 @@ abstract final class HighContrastCardStateOverlays {
       outlineWidth: 3.5,
       tint: Color(0x3300D9FF),
     ),
-    CardVisualState.jokerReplaceTarget: CardStateOverlayStyle(
-      outline: Color(0xFFFFD400),
-      outlineWidth: 3.5,
-      tint: Color(0x44FFD400),
-    ),
     CardVisualState.coachHighlight: CardStateOverlayStyle(
       outline: Color(0xFF36F0DC),
       outlineWidth: 4,
@@ -167,11 +145,6 @@ abstract final class HighContrastCardStateOverlays {
       outline: Color(0xFFFF2F2F),
       outlineWidth: 4,
       iconColor: Color(0xFFFF2F2F),
-    ),
-    CardVisualState.disabled: CardStateOverlayStyle(
-      outline: Colors.transparent,
-      outlineWidth: 0,
-      tint: Color(0xCC000000),
     ),
   };
 

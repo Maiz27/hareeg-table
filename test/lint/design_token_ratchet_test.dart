@@ -15,8 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Counts every occurrence (not lines) under `lib/ui/`, except the token file
 /// itself, where these literals belong.
 const _ceilings = <String, int>{
-  r'Duration\(milliseconds:': 60,
-  r'Color\(0x': 140,
+  r'Duration\(milliseconds:': 49,
+  r'Color\(0x': 136,
 };
 
 const _tokenFile = 'lib/ui/core/theme/lounge_tokens.dart';

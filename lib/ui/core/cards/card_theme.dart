@@ -103,17 +103,6 @@ class CardContrastScope extends InheritedWidget {
   }
 }
 
-/// Optional badge drawn on top of the card face when the player should know
-/// something extra about it (per-deck-copy distinction, joker memory aid).
-enum CardBadge {
-  /// No badge.
-  none,
-
-  /// Tiny pip in the corner that indicates which physical deck copy this
-  /// card belongs to. Themes can choose to render it as a coloured dot.
-  deckCopy,
-}
-
 /// Drawing request handed to a [CardTheme] paint method.
 @immutable
 class CardRenderRequest {
@@ -124,7 +113,6 @@ class CardRenderRequest {
     required this.size,
     this.visualState = CardVisualState.normal,
     this.jokerDisplay = JokerDisplay.assisted,
-    this.badge = CardBadge.none,
     this.faceDown = false,
     this.revealOpacity = 1.0,
   });
@@ -144,9 +132,6 @@ class CardRenderRequest {
 
   /// How to render a joker's identity.
   final JokerDisplay jokerDisplay;
-
-  /// Optional badge to draw on the face.
-  final CardBadge badge;
 
   /// If true, draw the back regardless of [variant].
   final bool faceDown;
@@ -199,10 +184,6 @@ const Map<CardRank, String> _rankSlugs = {
 ///           `{root}/joker_black.{extension}` for the odd one, when
 ///           [hasJokers] is true
 /// - standard face → `{root}/{rankSlug}_{suit}.{extension}`
-///
-/// Identities listed in [skipFaces] always resolve to `null` so the
-/// code-rendered painter takes over for that one card — used for the
-/// Sandline Lounge J♦ asset that currently holds J♥ artwork.
 @immutable
 class CardThemeAssetManifest {
   /// Creates an asset manifest.
@@ -211,7 +192,6 @@ class CardThemeAssetManifest {
     required this.extension,
     this.hasBack = true,
     this.hasJokers = true,
-    this.skipFaces = const [],
   });
 
   /// Directory under `assets/` holding this theme's artwork.
@@ -228,14 +208,6 @@ class CardThemeAssetManifest {
   /// paint jokers in code (Wikimedia PD again).
   final bool hasJokers;
 
-  /// `(rank, suit)` identities whose face asset is intentionally bypassed —
-  /// the code-rendered painter draws them instead. Used to keep mismatched
-  /// court art (e.g., the duplicate Sandline Lounge `jack_diamonds.webp`)
-  /// from being shown. Modelled as a [List] (not a [Set]) so the manifest
-  /// can be `const`-constructed — `CardIdentity` overrides `==`, which
-  /// disqualifies it from `const` set membership.
-  final List<CardIdentity> skipFaces;
-
   /// Resolves the asset path for [request], or null when the theme should
   /// fall back to the code-rendered painter.
   String? assetFor(CardRenderRequest request) {
@@ -249,7 +221,6 @@ class CardThemeAssetManifest {
     }
     final identity = request.card.identity ?? request.card.representedIdentity;
     if (identity == null) return null;
-    if (skipFaces.contains(identity)) return null;
     final rankSlug = _rankSlugs[identity.rank]!;
     return '$root/${rankSlug}_${identity.suit.name}.$extension';
   }
@@ -260,9 +231,8 @@ class CardThemeAssetManifest {
 /// `HareegCardTheme` is a value object: a `const`-constructible bundle of
 /// identity, palette, asset manifest, and optional paint extras. One theme
 /// covers every variant (full / compact / picker / back) plus a
-/// representation for jokers. State overlays are applied generically —
-/// themes can swap in [overlayOverrides] if their palette needs a different
-/// highlight set.
+/// representation for jokers. State overlays are applied generically from
+/// [DefaultCardStateOverlays].
 @immutable
 class HareegCardTheme {
   /// Creates a card theme.
@@ -278,7 +248,6 @@ class HareegCardTheme {
     this.sourceUrl,
     this.available = true,
     this.unavailableReason,
-    this.overlayOverrides,
     this.paintExtras,
   });
 
@@ -319,20 +288,13 @@ class HareegCardTheme {
   /// Disabled-reason copy used by the picker (e.g., "Asset bundle pending").
   final String? unavailableReason;
 
-  /// Optional overlay map; null inherits [DefaultCardStateOverlays.map].
-  final CardStateOverlayMap? overlayOverrides;
-
   /// Optional extra drawing run after the shared face/back painters. Used
   /// by Kenney Classic to lay a sand-line stroke across the centre of the
   /// face — every other bundled theme leaves this null.
   final CardPaintExtras? paintExtras;
 
-  /// Resolves the overlay style for a state, applying any theme override.
+  /// Resolves the overlay style for a state.
   CardStateOverlayStyle overlayFor(CardVisualState state) {
-    final overrides = overlayOverrides;
-    if (overrides != null && overrides.containsKey(state)) {
-      return overrides[state]!;
-    }
     return DefaultCardStateOverlays.map[state]!;
   }
 
