@@ -8,6 +8,7 @@ import '../../../../data/persistence/learning_progress_repository.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/showcase_card_fan.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../progress/learning_progress_workflow.dart';
 
@@ -143,95 +144,101 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: LoungeTokens.coffeeCharcoal,
+      backgroundColor: LoungeTokens.feltGreen,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
           children: [
             const _OnboardingBackdrop(),
-            Column(
-              children: [
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      LoungeTokens.space4,
-                      LoungeTokens.space3,
-                      LoungeTokens.space4,
-                      0,
-                    ),
-                    child: AnimatedOpacity(
-                      duration: LoungeTokens.motionQuick,
-                      opacity: _onLastPage ? 0 : 1,
-                      child: TextButton(
-                        onPressed: _onLastPage
-                            ? null
-                            : () => _finish(toPractice: false),
-                        style: TextButton.styleFrom(
-                          foregroundColor: LoungeTokens.mutedText,
-                          // The theme minimum is full-width; hug the label.
-                          minimumSize: const Size(0, 40),
+            Center(
+              // Tablets and landscape keep the flow at a readable width.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          LoungeTokens.space4,
+                          LoungeTokens.space3,
+                          LoungeTokens.space4,
+                          0,
                         ),
-                        child: Text(strings.onboardingSkip),
+                        child: AnimatedOpacity(
+                          duration: LoungeTokens.motionQuick,
+                          opacity: _onLastPage ? 0 : 1,
+                          child: TextButton(
+                            onPressed: _onLastPage
+                                ? null
+                                : () => _finish(toPractice: false),
+                            style: TextButton.styleFrom(
+                              foregroundColor: LoungeTokens.mutedText,
+                              // The theme minimum is full-width; hug the label.
+                              minimumSize: const Size(0, 40),
+                            ),
+                            child: Text(strings.onboardingSkip),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: pages.length,
-                    onPageChanged: (index) =>
-                        setState(() => _pageIndex = index),
-                    itemBuilder: (context, index) =>
-                        _OnboardingPage(data: pages[index]),
-                  ),
-                ),
-                _PageDots(count: _pageCount, activeIndex: _pageIndex),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    LoungeTokens.space5,
-                    LoungeTokens.space4,
-                    LoungeTokens.space5,
-                    LoungeTokens.space5,
-                  ),
-                  child: _onLastPage
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: () => _finish(toPractice: true),
-                              icon: const Icon(Icons.school_outlined),
-                              label: Text(strings.onboardingStartPractice),
-                            ),
-                            const SizedBox(height: LoungeTokens.space3),
-                            OutlinedButton(
-                              onPressed: () => _finish(toPractice: false),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: LoungeTokens.goldAccent,
-                                side: BorderSide(
-                                  color: LoungeTokens.goldAccent.withValues(
-                                    alpha: 0.6,
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: pages.length,
+                        onPageChanged: (index) =>
+                            setState(() => _pageIndex = index),
+                        itemBuilder: (context, index) =>
+                            _OnboardingPage(data: pages[index]),
+                      ),
+                    ),
+                    _PageMarkers(count: _pageCount, activeIndex: _pageIndex),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        LoungeTokens.space5,
+                        LoungeTokens.space4,
+                        LoungeTokens.space5,
+                        LoungeTokens.space5,
+                      ),
+                      child: _onLastPage
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () => _finish(toPractice: true),
+                                  icon: const Icon(Icons.school_outlined),
+                                  label: Text(strings.onboardingStartPractice),
+                                ),
+                                const SizedBox(height: LoungeTokens.space3),
+                                OutlinedButton(
+                                  onPressed: () => _finish(toPractice: false),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: LoungeTokens.goldAccent,
+                                    side: BorderSide(
+                                      color: LoungeTokens.goldAccent.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                    minimumSize: const Size.fromHeight(
+                                      LoungeTokens.tapTargetPrimary,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    firstRun
+                                        ? strings.onboardingStartPlaying
+                                        : strings.onboardingDone,
                                   ),
                                 ),
-                                minimumSize: const Size.fromHeight(
-                                  LoungeTokens.tapTargetPrimary,
-                                ),
-                              ),
-                              child: Text(
-                                firstRun
-                                    ? strings.onboardingStartPlaying
-                                    : strings.onboardingDone,
-                              ),
+                              ],
+                            )
+                          : FilledButton(
+                              onPressed: _next,
+                              child: Text(strings.onboardingNext),
                             ),
-                          ],
-                        )
-                      : FilledButton(
-                          onPressed: _next,
-                          child: Text(strings.onboardingNext),
-                        ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -259,30 +266,76 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: LoungeTokens.space6,
-        vertical: LoungeTokens.space4,
+    // The page's words sit on a lit lounge card under the hero, the way the
+    // practice reading panels set their lead.
+    Widget card({required bool compact}) => Container(
+      padding: EdgeInsets.all(
+        compact ? LoungeTokens.space4 : LoungeTokens.space5,
       ),
+      decoration: loungeLitPanel(
+        strength: 0.12,
+      ).copyWith(boxShadow: LoungeTokens.elevationL2),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: FittedBox(fit: BoxFit.scaleDown, child: data.hero),
-          ),
-          const SizedBox(height: LoungeTokens.space6),
           Text(
             data.title,
             textAlign: TextAlign.center,
-            style: LoungeTokens.display,
+            style: compact
+                ? LoungeTokens.display.copyWith(fontSize: 22)
+                : LoungeTokens.display,
           ),
-          const SizedBox(height: LoungeTokens.space3),
+          SizedBox(height: compact ? LoungeTokens.space2 : LoungeTokens.space3),
           Text(
             data.body,
             textAlign: TextAlign.center,
-            style: LoungeTokens.body.copyWith(height: 1.5),
+            style: compact
+                ? LoungeTokens.body.copyWith(height: 1.4)
+                : LoungeTokens.body.copyWith(fontSize: 15, height: 1.5),
           ),
         ],
+      ),
+    );
+    final hero = FittedBox(fit: BoxFit.scaleDown, child: data.hero);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LoungeTokens.space5,
+        vertical: LoungeTokens.space3,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Short and wide (landscape): hero beside the card.
+          if (constraints.maxWidth > constraints.maxHeight * 1.4) {
+            return Row(
+              children: [
+                Expanded(flex: 2, child: hero),
+                const SizedBox(width: LoungeTokens.space5),
+                Expanded(
+                  flex: 3,
+                  child: Center(
+                    child: SingleChildScrollView(child: card(compact: true)),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.42,
+                ),
+                child: hero,
+              ),
+              const SizedBox(height: LoungeTokens.space4),
+              Flexible(
+                child: SingleChildScrollView(child: card(compact: false)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -293,10 +346,25 @@ class _FanHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShowcaseCardFan(
-      width: 232,
-      height: 132,
-      motion: ShowcaseFanMotion.idle,
+    // The fan on the home stage's warm pool of lamp light.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          radius: 0.7,
+          colors: [
+            LoungeTokens.goldAccent.withValues(alpha: 0.16),
+            LoungeTokens.goldAccent.withValues(alpha: 0),
+          ],
+        ),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(LoungeTokens.space5),
+        child: ShowcaseCardFan(
+          width: 232,
+          height: 132,
+          motion: ShowcaseFanMotion.idle,
+        ),
+      ),
     );
   }
 }
@@ -308,44 +376,55 @@ class _IconHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 108,
-      height: 108,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: LoungeTokens.feltGreen.withValues(alpha: 0.55),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.3)),
+    return Padding(
+      padding: const EdgeInsets.all(LoungeTokens.space5),
+      child: LoungeMedallion(
+        icon: icon,
+        size: 112,
+        tone: LoungeMedallionTone.lit,
       ),
-      child: Icon(icon, size: 48, color: LoungeTokens.goldAccent),
     );
   }
 }
 
-class _PageDots extends StatelessWidget {
-  const _PageDots({required this.count, required this.activeIndex});
+/// Where the player is in the intro: one numbered medallion per page, gold
+/// once passed, lit on the current page, joined by a sand hairline.
+class _PageMarkers extends StatelessWidget {
+  const _PageMarkers({required this.count, required this.activeIndex});
 
   final int count;
   final int activeIndex;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < count; i++)
-          AnimatedContainer(
-            duration: LoungeTokens.motionQuick,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: i == activeIndex ? 22 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              color: i == activeIndex
-                  ? LoungeTokens.goldAccent
-                  : LoungeTokens.sandLine.withValues(alpha: 0.35),
+    return ExcludeSemantics(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < count; i++) ...[
+            if (i > 0)
+              Container(
+                width: LoungeTokens.space6,
+                height: 1.2,
+                margin: const EdgeInsets.symmetric(
+                  horizontal: LoungeTokens.space1,
+                ),
+                color: i <= activeIndex
+                    ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
+                    : LoungeTokens.sandLine.withValues(alpha: 0.25),
+              ),
+            LoungeMedallion.label(
+              label: '${i + 1}',
+              size: i == activeIndex ? 30 : 24,
+              tone: i < activeIndex
+                  ? LoungeMedallionTone.gold
+                  : i == activeIndex
+                  ? LoungeMedallionTone.lit
+                  : LoungeMedallionTone.lacquer,
             ),
-          ),
-      ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -357,9 +436,11 @@ class _OnboardingBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned(
+        // Directional so the skip button at the top end never sits on the
+        // motif in either reading direction.
+        PositionedDirectional(
           top: -52,
-          left: -50,
+          start: -50,
           child: LoungeMotif(
             variant: LoungeMotifVariant.medallion,
             opacity: 0.06,
@@ -368,9 +449,9 @@ class _OnboardingBackdrop extends StatelessWidget {
             size: const Size.square(220),
           ),
         ),
-        Positioned(
+        PositionedDirectional(
           bottom: -40,
-          right: -56,
+          end: -56,
           child: LoungeMotif(
             variant: LoungeMotifVariant.medallion,
             opacity: 0.05,
