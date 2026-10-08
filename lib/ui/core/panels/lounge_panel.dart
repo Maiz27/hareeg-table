@@ -232,10 +232,11 @@ class LoungePanelAction {
 
 /// Standard two-button action row for a [LoungePanel].
 ///
-/// The [primary] action renders as a gold filled button and the [secondary]
-/// action as an outlined button tinted by its tone (sand for neutral, deep
-/// red for danger). When [tertiary] is supplied, it renders as a full-width
-/// outlined action above the standard two-button row.
+/// Each action is styled by its [LoungePanelAction.tone], whatever its slot:
+/// primary renders as a gold filled button, neutral and danger as outlined
+/// buttons tinted sand or deep red. [primary] sits first in the row and
+/// [secondary] second. When [tertiary] is supplied, it renders full width
+/// above the two-button row.
 class LoungePanelActions extends StatelessWidget {
   /// Creates a lounge panel actions row.
   const LoungePanelActions({
@@ -245,10 +246,10 @@ class LoungePanelActions extends StatelessWidget {
     this.tertiary,
   });
 
-  /// Primary (filled) action.
+  /// Leading action in the row.
   final LoungePanelAction primary;
 
-  /// Secondary (outlined) action.
+  /// Trailing action in the row.
   final LoungePanelAction secondary;
 
   /// Optional tertiary action.
@@ -258,9 +259,9 @@ class LoungePanelActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final actionRow = Row(
       children: [
-        Expanded(child: _buildAction(primary, isPrimary: true)),
+        Expanded(child: _buildAction(primary)),
         const SizedBox(width: LoungeTokens.space3),
-        Expanded(child: _buildAction(secondary, isPrimary: false)),
+        Expanded(child: _buildAction(secondary)),
       ],
     );
     final tertiaryAction = tertiary;
@@ -270,15 +271,15 @@ class LoungePanelActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildAction(tertiaryAction, isPrimary: false),
+        _buildAction(tertiaryAction),
         const SizedBox(height: LoungeTokens.space3),
         actionRow,
       ],
     );
   }
 
-  Widget _buildAction(LoungePanelAction action, {required bool isPrimary}) {
-    final button = _buildButton(action, isPrimary: isPrimary);
+  Widget _buildAction(LoungePanelAction action) {
+    final button = _buildButton(action);
     final tooltip = action.tooltip;
     if (tooltip == null) return button;
     // The tooltip is a pointer affordance and is deliberately kept OUT of the
@@ -290,8 +291,8 @@ class LoungePanelActions extends StatelessWidget {
     return Tooltip(message: tooltip, excludeFromSemantics: true, child: button);
   }
 
-  Widget _buildButton(LoungePanelAction action, {required bool isPrimary}) {
-    if (isPrimary) {
+  Widget _buildButton(LoungePanelAction action) {
+    if (action.tone == LoungePanelActionTone.primary) {
       return FilledButton.icon(
         onPressed: action.onTap,
         style: FilledButton.styleFrom(
