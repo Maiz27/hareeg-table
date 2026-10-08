@@ -2141,8 +2141,8 @@ const _englishValues = {
   'matchReportConfirmTitle': 'Report this table',
   'matchReportConfirmBody':
       'The report includes the current game state and diagnostics so this '
-      'table can be reproduced. It does not include your name, settings, or '
-      'any personal information.',
+      'table can be reproduced. It does not include your name, app '
+      'preferences such as sound or theme, or any personal information.',
   'shareReport': 'Share report',
   'matchReportGenerationFailed': 'Could not generate the match report.',
   'sendReport': 'Send report',
@@ -2162,15 +2162,16 @@ const _englishValues = {
   'diagnosticsToggleTitle': 'Send crash & bug reports',
   'diagnosticsToggleSubtitle':
       'When something breaks, send the error and the current table\'s game '
-      'state to the developer. Never includes your name, language, settings, '
-      'or IP address. Turn off to send nothing at all.',
+      'state to the developer. Never includes your name, language, app '
+      'preferences such as sound or theme, or IP address. Turn off to send '
+      'nothing at all.',
   'diagnosticsNoticeTitle': 'Help fix table bugs',
   'diagnosticsNoticeBody':
       'Hareeg Table sends crash and bug reports to its developer (through '
       'Sentry) when something goes wrong, including the current table\'s game '
       'state so the problem can be replayed. Reports never include your name, '
-      'language, settings, or IP address. You can turn this off now, or any '
-      'time in Settings > Privacy.',
+      'language, app preferences such as sound or theme, or IP address. You '
+      'can turn this off now, or any time in Settings > Privacy.',
   'diagnosticsNoticeKeepOn': 'Keep on',
   'diagnosticsNoticeTurnOff': 'Turn off',
   'cpuEast': 'CPU East',
@@ -2907,10 +2908,10 @@ const _arabicValues = {
   'diagnosticsPreviewOff': 'التقارير متوقفة',
   'diagnosticsToggleTitle': 'إرسال تقارير الأعطال والأخطاء',
   'diagnosticsToggleSubtitle':
-      'عند حدوث خلل، يُرسل الخطأ وحالة اللعب للطاولة الحالية إلى المطوّر. لا يتضمن أبداً اسمك أو لغتك أو إعداداتك أو عنوان IP. أوقفه لعدم إرسال أي شيء.',
+      'عند حدوث خلل، يُرسل الخطأ وحالة اللعب للطاولة الحالية إلى المطوّر. لا يتضمن أبداً اسمك أو لغتك أو تفضيلات التطبيق مثل الصوت والمظهر أو عنوان IP. أوقفه لعدم إرسال أي شيء.',
   'diagnosticsNoticeTitle': 'ساعدنا في إصلاح أخطاء الطاولة',
   'diagnosticsNoticeBody':
-      'يرسل تطبيق طاولة حريق تقارير الأعطال والأخطاء إلى مطوّره (عبر Sentry) عند حدوث خلل، ومعها حالة اللعب للطاولة الحالية لإعادة تشغيل المشكلة. لا تتضمن التقارير أبداً اسمك أو لغتك أو إعداداتك أو عنوان IP. يمكنك إيقاف ذلك الآن أو في أي وقت من الإعدادات > الخصوصية.',
+      'يرسل تطبيق طاولة حريق تقارير الأعطال والأخطاء إلى مطوّره (عبر Sentry) عند حدوث خلل، ومعها حالة اللعب للطاولة الحالية لإعادة تشغيل المشكلة. لا تتضمن التقارير أبداً اسمك أو لغتك أو تفضيلات التطبيق مثل الصوت والمظهر أو عنوان IP. يمكنك إيقاف ذلك الآن أو في أي وقت من الإعدادات > الخصوصية.',
   'diagnosticsNoticeKeepOn': 'إبقاء التفعيل',
   'diagnosticsNoticeTurnOff': 'إيقاف',
   'cpuEast': 'الكمبيوتر (شرق)',
