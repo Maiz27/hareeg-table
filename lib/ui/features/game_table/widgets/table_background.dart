@@ -25,8 +25,9 @@ class TableBackground extends StatelessWidget {
   /// Active table surface theme.
   final TableSurfaceTheme surface;
 
-  /// Whether [child] is laid out inside the rail. Surfaces whose geometry is
-  /// frozen (the replay screen) keep the full-bleed layout and a thin rail.
+  /// Whether [child] is laid out inside the rail, on the playing surface, as
+  /// every table surface does. Without it the child runs full-bleed under a
+  /// thin rail (the loading and error states behind the replay viewer).
   final bool insetChild;
 
   /// Optional foreground content.

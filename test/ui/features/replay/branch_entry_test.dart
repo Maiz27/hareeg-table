@@ -187,34 +187,28 @@ void main() {
     }
   });
 
-  group('the branch control stays operable under the analysis card', () {
-    // B41. The layout half — the target does not overlap the popover or the
-    // scrub overlay — is measured by the Sprint 05 collision map in
-    // `replay_hud_overlap_test.dart`. What was missing is the behavioural
-    // half the assertion names explicitly: *tapping* it with the card open.
-    // A control that the popover covers, or that the card's tap region
-    // swallows, would still pass every rect check and be dead to the player.
-    testWidgets('branching works with the analysis card expanded', (
+  group('the branch control stays operable with the analysis open', () {
+    // B41's behavioural half: *tapping* the control with the analysis
+    // section open. A control the open card covered, or whose tap the card
+    // swallowed, would still pass every rect check and be dead to the player.
+    testWidgets('branching works with the analysis section open', (
       tester,
     ) async {
       await pumpReplay(tester);
 
-      // Step onto a played move first, so the card opens with something in it
-      // rather than as an empty rectangle.
+      // Step onto a played move first, so the section opens with something in
+      // it rather than as an empty rectangle.
       await tester.tap(find.byTooltip(AppStrings.english.replayNext));
       await tester.pumpAndSettle(const Duration(seconds: 30));
       await tester.tap(find.byTooltip(AppStrings.english.replayCoachTitle));
       await tester.pumpAndSettle(const Duration(seconds: 30));
       expect(
-        find.byType(ReviewAnalysisCard),
+        find.descendant(
+          of: find.byKey(const ValueKey('replay-card')),
+          matching: find.byType(AnalysisCoachPanel),
+        ),
         findsOneWidget,
-        reason: 'the card must be open for this to test anything',
-      );
-      expect(
-        tester
-            .widget<ReviewAnalysisCard>(find.byType(ReviewAnalysisCard))
-            .expanded,
-        isTrue,
+        reason: 'the section must be open for this to test anything',
       );
 
       // The real control, hit-tested where it renders — not called directly.
@@ -240,15 +234,15 @@ void main() {
     });
   });
 
-  group('the docked entry names itself exactly once', () {
+  group('the branch segment names itself exactly once', () {
     // Found on the real web build, not here: giving `IconButton` a `tooltip`
     // AND wrapping it in a labelled `Semantics` merges two names onto one
     // node, and a screen reader then reads "Play on from here Play on from
     // here". The rendered tree is the only place that shows up.
     for (final strings in [AppStrings.english, AppStrings.arabic]) {
-      testWidgets('in ${strings.languageCode}, docked', (tester) async {
-        // A portrait body routes to the docked layout, where the branch entry
-        // lives in the app bar rather than in the rail.
+      testWidgets('in ${strings.languageCode}, portrait', (tester) async {
+        // A portrait body, where the capsule rides in the header over the
+        // table rather than on it.
         await pumpReplay(tester, strings: strings, size: const Size(780, 1688));
 
         final labelled = find.bySemanticsLabel(strings.branchStart);
@@ -280,7 +274,7 @@ void main() {
           reason:
               'the node carries its name as both label and tooltip, so the '
               'web build announces "${strings.branchStart}" twice. Put the '
-              'Tooltip outside the merged Semantics, as ReplayRailButton does.',
+              'Tooltip outside the merged Semantics, as TableChromeButton does.',
         );
         handle.dispose();
       });

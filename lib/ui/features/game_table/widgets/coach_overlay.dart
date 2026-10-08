@@ -86,37 +86,15 @@ class CoachOverlay extends StatelessWidget {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact =
-                  constraints.maxHeight <= 360 || constraints.maxWidth <= 700;
-              // A slim full-width strip pinned to the very top, riding over the
-              // north hand rail (face-down CPU cards the player never touches).
-              // This is the one band clear of the central discard, the
-              // table-meld lanes, and the player's hand; the coach ring on the
-              // referenced cards does the precise pointing. Side insets clear
-              // the top-corner score / pause buttons.
-              // The side insets are a FRACTION of the width, not a constant.
-              //
-              // A fixed 54 clears the corner buttons on a wide table and eats
-              // a narrow one alive: the web build lays the table out in a
-              // canvas of fixed height 430, so the docked 390x844 sandbox is
-              // only ~199 logical pixels across. 54 a side left the callout's
-              // text column 6.7 pixels and Flutter raised "A RenderFlex
-              // overflowed by 37 pixels on the right" on every coach hint
-              // there. The fraction keeps the same clearance at the sizes that
-              // already worked -- 0.14 of 700 is 98, past the 66 it would have
-              // used -- so this only takes effect where the old value did not
-              // fit.
-              final base = compact ? 54.0 : 66.0;
-              final side = math.min(base, constraints.maxWidth * 0.14);
+              final compact = isCompactTable(constraints.biggest);
+              final side = _sideInset(constraints.biggest);
               // Where there is room, dock as a card in the top-start corner
               // (the HUD capsule owns the other one), stopping short of the
               // north seat (rail centred, seat plate on its far side), so the
               // coach no longer hides whose turn it is (design contract 7.4).
               // The full-width strip below stays the fallback for narrow
               // tables.
-              // The start inset also clears the west seat plate, which sits
-              // in the rail column at the table's start edge.
-              final dockedStart = math.max(side, compact ? 64.0 : 80.0);
+              final dockedStart = dockedStartFor(constraints.biggest);
               final dockedWidth =
                   constraints.maxWidth / 2 - _northSeatClearance - dockedStart;
               if (dockedWidth >= _minDockedWidth) {
@@ -126,15 +104,21 @@ class CoachOverlay extends StatelessWidget {
                     key: const ValueKey('coach-overlay-insets'),
                     padding: EdgeInsetsDirectional.only(
                       start: dockedStart,
-                      top: compact ? 4 : 8,
+                      top: dockedTopFor(constraints.biggest),
                     ),
                     child: SizedBox(
-                      width: math.min(dockedWidth, _maxDockedWidth),
+                      width: math.min(dockedWidth, maxDockedWidth),
                       child: animated,
                     ),
                   ),
                 );
               }
+              // A slim full-width strip pinned to the very top, riding over
+              // the north hand rail (face-down CPU cards the player never
+              // touches). This is the one band clear of the central discard,
+              // the table-meld lanes, and the player's hand; the coach ring on
+              // the referenced cards does the precise pointing. Side insets
+              // clear the top-corner score / pause buttons.
               return Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
@@ -154,6 +138,38 @@ class CoachOverlay extends StatelessWidget {
     );
   }
 
+  /// Whether a table of [size] lays out at its compact card sizes — the
+  /// playfield's own cut-off.
+  static bool isCompactTable(Size size) =>
+      size.height <= 360 || size.width <= 700;
+
+  /// The side inset of the full-width fallback strip.
+  ///
+  /// A FRACTION of the width, not a constant. A fixed 54 clears the corner
+  /// buttons on a wide table and eats a narrow one alive: the web build lays
+  /// the table out in a canvas of fixed height 430, so the docked 390x844
+  /// sandbox is only ~199 logical pixels across. 54 a side left the callout's
+  /// text column 6.7 pixels and Flutter raised "A RenderFlex overflowed by 37
+  /// pixels on the right" on every coach hint there. The fraction keeps the
+  /// same clearance at the sizes that already worked -- 0.14 of 700 is 98,
+  /// past the 66 it would have used -- so this only takes effect where the
+  /// old value did not fit.
+  static double _sideInset(Size size) {
+    final base = isCompactTable(size) ? 54.0 : 66.0;
+    return math.min(base, size.width * 0.14);
+  }
+
+  /// Start inset of the card docked in the top-start corner of a table of
+  /// [size]. It clears the west seat plate, which sits in the rail column at
+  /// the table's start edge.
+  ///
+  /// Shared with the replay viewer's card, which docks in the same corner.
+  static double dockedStartFor(Size size) =>
+      math.max(_sideInset(size), isCompactTable(size) ? 64.0 : 80.0);
+
+  /// Top inset of the docked card on a table of [size].
+  static double dockedTopFor(Size size) => isCompactTable(size) ? 4 : 8;
+
   /// Half-width of the north rail plus breathing room, measured from the
   /// table's centre line.
   static const _northSeatClearance = 112.0;
@@ -162,7 +178,7 @@ class CoachOverlay extends StatelessWidget {
   static const _minDockedWidth = 200.0;
 
   /// Widest docked card; beyond this the line length gets uncomfortable.
-  static const _maxDockedWidth = 360.0;
+  static const maxDockedWidth = 360.0;
 
   static Color _accentColor(CoachAccent accent) {
     return switch (accent) {

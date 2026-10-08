@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_session_config.dart';
@@ -138,10 +139,18 @@ class _VisibilityChoice extends StatelessWidget {
         button: true,
         enabled: true,
         label: '$title. $note',
+        // A lit lounge tile: felt-tinted tray, brass hairline, and the option's
+        // glyph on a medallion, like the setup screen's choices.
         child: Material(
           key: choiceKey,
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+          color: LoungeTokens.feltGreen.withValues(alpha: 0.45),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+            side: BorderSide(
+              color: LoungeTokens.sandLine.withValues(alpha: 0.28),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
@@ -156,24 +165,27 @@ class _VisibilityChoice extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(LoungeTokens.space3),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(icon, color: LoungeTokens.goldAccent, size: 22),
+                      LoungeMedallion(icon: icon, size: 40),
                       const SizedBox(width: LoungeTokens.space3),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              title,
-                              style: LoungeTokens.body.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            Text(title, style: LoungeTokens.title),
                             const SizedBox(height: 2),
                             Text(note, style: LoungeTokens.bodyMuted),
                           ],
                         ),
+                      ),
+                      const SizedBox(width: LoungeTokens.space2),
+                      // Forward along the reading direction (the glyph
+                      // mirrors itself under RTL): this row leads on to the
+                      // table.
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: LoungeTokens.goldAccent,
+                        size: 22,
                       ),
                     ],
                   ),

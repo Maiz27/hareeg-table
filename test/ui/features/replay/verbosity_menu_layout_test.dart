@@ -66,17 +66,17 @@ void main() {
             );
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull, reason: 'initial screen');
-            if (size.width > size.height) {
-              await tester.tap(find.byTooltip(strings.replayCoachTitle));
-              await tester.pumpAndSettle();
-            }
+            // The analysis section opens from the capsule in every
+            // orientation.
+            await tester.tap(find.byTooltip(strings.replayCoachTitle));
+            await tester.pumpAndSettle();
             expect(tester.takeException(), isNull, reason: 'expanded panel');
             final dropdown = find.byType(PopupMenuButton<AnalysisVerbosity>);
             expect(dropdown, findsOneWidget);
             final bounds = tester.getRect(dropdown);
             expect(bounds.left, greaterThanOrEqualTo(0));
             expect(bounds.right, lessThanOrEqualTo(size.width));
-            expect(bounds.height, kMinInteractiveDimension);
+            expect(bounds.height, closeTo(kMinInteractiveDimension, 1e-6));
             for (final value in AnalysisVerbosity.values) {
               await tester.ensureVisible(dropdown);
               await tester.tap(dropdown);
@@ -129,11 +129,13 @@ void main() {
                 value,
               );
             }
+            final after = tester.getSize(dropdown);
             expect(
-              tester.getSize(dropdown),
-              bounds.size,
+              after.width,
+              closeTo(bounds.width, 1e-6),
               reason: 'Closed control size is unchanged after selection',
             );
+            expect(after.height, closeTo(bounds.height, 1e-6));
             // Pointer selection need not give the anchor keyboard focus.
             // Reach it through traversal before testing keyboard activation.
             final anchorFocus = Focus.of(

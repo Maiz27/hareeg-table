@@ -429,9 +429,6 @@ class PhysicalTablePlayfield extends StatelessWidget {
         final northCueWidth = northStack.width + (compact ? 18 : 24);
         final northCueHeight = northStack.height + (compact ? 14 : 18);
         final medallion = SeatPlate.medallionSize(compact: compact);
-        // Deliberately unkeyed: string-keyed widgets are layout anchors in
-        // the replay screen's frozen geometry oracle, and the plates add no
-        // geometry the oracle guards.
         Widget seatPlate(PlayerSeat seat, Axis axis) => SeatPlate(
           label: strings.seatLabel(seat),
           cardCount: cardCounts[seat] ?? 0,

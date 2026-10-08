@@ -14,7 +14,7 @@ import 'package:hareeg_table/l10n/app_strings.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
 import 'package:hareeg_table/ui/features/replay/views/branch_sandbox_host.dart';
 import 'package:hareeg_table/ui/features/replay/views/match_replay_screen.dart';
-import 'package:hareeg_table/ui/features/replay/widgets/replay_hud_clusters.dart';
+import 'package:hareeg_table/ui/features/game_table/widgets/table_hud_capsule.dart';
 
 import '../../../support/branch_sandbox_harness.dart';
 import '../../../support/completed_match_fixture.dart';
@@ -523,7 +523,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(seconds: 30));
       final branchControl = find.byKey(const ValueKey('replay-branch-control'));
       var stepsBack = 0;
-      while (tester.widget<ReplayRailButton>(branchControl).onPressed == null) {
+      while (tester.widget<TableChromeButton>(branchControl).onPressed == null) {
         expect(
           stepsBack,
           lessThan(12),
@@ -551,7 +551,7 @@ void main() {
         await tester.tap(find.byTooltip(strings.replayPrevious));
         await tester.pumpAndSettle(const Duration(seconds: 30));
         expect(
-          tester.widget<ReplayRailButton>(branchControl).onPressed,
+          tester.widget<TableChromeButton>(branchControl).onPressed,
           isNotNull,
           reason: 'stepped back onto an unbranchable frame',
         );

@@ -14,8 +14,8 @@ import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
 import 'package:hareeg_table/ui/features/replay/views/branch_sandbox_host.dart';
 import 'package:hareeg_table/ui/features/replay/views/match_replay_screen.dart';
-import 'package:hareeg_table/ui/features/replay/widgets/replay_hud_clusters.dart';
-import 'package:hareeg_table/ui/features/replay/widgets/replay_scrub_bar.dart';
+import 'package:hareeg_table/ui/features/game_table/widgets/table_hud_capsule.dart';
+import 'package:hareeg_table/ui/features/replay/widgets/replay_transport.dart';
 
 import '../../../support/branch_sandbox_harness.dart';
 import '../../../support/completed_match_fixture.dart';
@@ -123,7 +123,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle(const Duration(seconds: 60));
-    final railCountBefore = find.byType(ReplayRailButton).evaluate().length;
+    final railCountBefore = find.byType(ReplayTransportButton).evaluate().length;
     expect(railCountBefore, greaterThan(0), reason: 'no HUD to preserve');
 
     await tester.tap(find.byKey(const ValueKey('replay-branch-control')));
@@ -319,10 +319,10 @@ void main() {
           reason: route.name,
         );
         expect(find.byType(MatchReplayScreen), findsOneWidget);
-        // Sprint 05's HUD is intact: the rails are the same inventory they
-        // were before the sandbox opened, not a rebuilt or degraded surface.
+        // The replay's HUD is intact: the transport is the same inventory it
+        // was before the sandbox opened, not a rebuilt or degraded surface.
         expect(
-          find.byType(ReplayRailButton).evaluate().length,
+          find.byType(ReplayTransportButton).evaluate().length,
           railCountBefore,
           reason: route.name,
         );
@@ -647,7 +647,9 @@ void main() {
     // fail. Everything here starts from a non-initial cursor, so the two are
     // finally distinguishable.
     String cursorLabel(WidgetTester tester) =>
-        tester.widget<ReplayScrubTarget>(find.byType(ReplayScrubTarget)).label;
+        tester
+            .widget<Text>(find.byKey(const ValueKey('replay-card-position')))
+            .data!;
 
     Future<void> pumpReplay(WidgetTester tester) async {
       tester.view.physicalSize = const Size(1688, 780);
@@ -705,7 +707,7 @@ void main() {
               'the cursor never moved, so "restored" would be indistinguishable '
               'from "rebuilt at the opening frame"',
         );
-        final railsBefore = find.byType(ReplayRailButton).evaluate().length;
+        final railsBefore = find.byType(ReplayTransportButton).evaluate().length;
 
         await enterBranch(tester);
         // A sandbox that applied nothing could be popped by any mechanism and
@@ -730,7 +732,10 @@ void main() {
           chosen,
           reason: '${route.name} did not restore the branch-point frame',
         );
-        expect(find.byType(ReplayRailButton).evaluate().length, railsBefore);
+        expect(
+          find.byType(ReplayTransportButton).evaluate().length,
+          railsBefore,
+        );
       });
     }
 
@@ -744,7 +749,7 @@ void main() {
         final control = find.byKey(const ValueKey('replay-branch-control'));
         await step(tester, strings.replayLast, 1);
         var back = 0;
-        while (tester.widget<ReplayRailButton>(control).onPressed == null) {
+        while (tester.widget<TableChromeButton>(control).onPressed == null) {
           expect(
             back,
             lessThan(12),
@@ -758,7 +763,7 @@ void main() {
         await step(tester, strings.replayPrevious, 12);
 
         final chosen = cursorLabel(tester);
-        final railsBefore = find.byType(ReplayRailButton).evaluate().length;
+        final railsBefore = find.byType(ReplayTransportButton).evaluate().length;
         await enterBranch(tester);
 
         final completion = find.text(strings.branchCompletionTitle);
@@ -797,7 +802,10 @@ void main() {
           chosen,
           reason: 'completion returned to a different frame',
         );
-        expect(find.byType(ReplayRailButton).evaluate().length, railsBefore);
+        expect(
+          find.byType(ReplayTransportButton).evaluate().length,
+          railsBefore,
+        );
       },
       timeout: const Timeout(Duration(minutes: 10)),
     );

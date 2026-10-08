@@ -12,10 +12,10 @@ import '../../../../domain/classic_hareeg/replay/replay_branch_seed.dart';
 import '../../../../domain/classic_hareeg/replay/replay_review_state.dart';
 import '../../../../domain/classic_hareeg/reporting/match_action_transcript.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_mode.dart';
 import '../../game_table/widgets/table_background.dart';
-import '../replay_hud_layout.dart';
 import '../replay_viewer_view_state.dart';
 import '../review_insight_presenter.dart';
 import '../widgets/branch_entry_sheet.dart';
@@ -250,9 +250,8 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
 
   /// Opens the visibility chooser and, on a choice, pushes the sandbox.
   ///
-  /// Lives here rather than in either layout so the two entry points — the
-  /// short HUD rail and the docked app bar — are one route into the sandbox
-  /// rather than two that could drift.
+  /// Lives here rather than in the review body, so the capsule's Branch
+  /// segment is one route into the sandbox whichever arrangement it sits in.
   ///
   /// Returns to this exact frame afterwards, because the sandbox is a pushed
   /// route over an untouched review: popping it restores the cursor without
@@ -287,52 +286,77 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final media = MediaQuery.of(context);
 
-    // Resolved once, here, and handed to both the branch and the HUD. Nothing
-    // recomputes after branching, so the collision map and the rendered rails
-    // cannot disagree about where anything is.
-    //
-    // `padding`, not `viewPadding`: the body below is a `SafeArea`, which
-    // consumes exactly `padding`. Routing on the other one would classify a
-    // body the screen never builds.
-    final decision = ReplayHudLayout.resolveFor(
-      screen: media.size,
-      safeInsets: media.padding,
-    );
-
-    // The app bar goes only when a rebuilt match is actually on screen in the
-    // short layout, where Back lives in the HUD instead. Loading and failure
-    // states keep it, or there would be no way out of them.
-    final isShort =
-        decision.mode == ReplayLayoutMode.short && _state is ReplayViewerReady;
+    // A rebuilt match is the table itself, edge to edge, with its exit in the
+    // HUD capsule like the live table's. Loading and failure states keep the
+    // header, or there would be no way out of them.
+    if (_state case ReplayViewerReady(:final review)) {
+      return Scaffold(
+        backgroundColor: LoungeTokens.coffeeCharcoal,
+        body: ReplayReviewBody(
+          review: review,
+          settings: _settings,
+          isOverridden: _isOverridden,
+          onSettingsChanged: (value) => setState(() => _settings = value),
+          onSeek: _seek,
+          branchLabel: _branchLabel(strings),
+          onBranch: _onBranch,
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: LoungeTokens.coffeeCharcoal,
-      appBar: isShort
-          ? null
-          : AppBar(
-              backgroundColor: LoungeTokens.coffeeCharcoal,
-              title: Text(strings.replayTitle),
-              actions: [
-                // The docked layout's branch entry. It lives here rather than
-                // in the transport strip because that strip already overflows
-                // at 320 dp with six controls, and a seventh would push a
-                // frozen-oracle anchor. The bar is full width at every docked
-                // size, so this is the one place a tenth affordance costs no
-                // measured geometry.
-                if (_state is ReplayViewerReady)
-                  _BranchAppBarAction(
-                    label: _branchLabel(strings),
-                    onPressed: _onBranch,
-                  ),
+      appBar: AppBar(
+        backgroundColor: LoungeTokens.coffeeCharcoal,
+        // Lacquered like the table's HUD capsule, with a brass hairline where
+        // the bar meets the rail.
+        flexibleSpace: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.lerp(
+                  LoungeTokens.coffeeCharcoal,
+                  LoungeTokens.sandLine,
+                  0.08,
+                )!,
+                LoungeTokens.coffeeCharcoal,
               ],
             ),
-      body: TableBackground(child: SafeArea(child: _body(context, decision))),
+          ),
+        ),
+        shape: Border(
+          bottom: BorderSide(
+            color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+          ),
+        ),
+        titleSpacing: LoungeTokens.space4,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const LoungeMedallion(
+              icon: Icons.history_rounded,
+              size: 32,
+              tone: LoungeMedallionTone.lit,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
+            Flexible(
+              child: Text(
+                strings.replayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: TableBackground(child: SafeArea(child: _body(context))),
     );
   }
 
-  Widget _body(BuildContext context, ReplayLayoutDecision decision) {
+  Widget _body(BuildContext context) {
     return switch (_state) {
       ReplayViewerLoading(:final rebuiltFrames) => _LoadingBody(
         frames: rebuiltFrames,
@@ -354,16 +378,8 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
         onRetry: isRetryable ? _load : null,
         retryLabel: context.strings.replayRetry,
       ),
-      ReplayViewerReady(:final review) => ReplayReviewBody(
-        decision: decision,
-        review: review,
-        settings: _settings,
-        isOverridden: _isOverridden,
-        onSettingsChanged: (value) => setState(() => _settings = value),
-        onSeek: _seek,
-        branchLabel: _branchLabel(context.strings),
-        onBranch: _onBranch,
-      ),
+      // Rendered by [build] directly.
+      ReplayViewerReady() => const SizedBox.shrink(),
     };
   }
 
@@ -381,42 +397,35 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
       _branchRefusal == null ? () => unawaited(_startBranch()) : null;
 }
 
-/// The docked layout's branch entry, in the app bar.
-///
-/// Icon-only, which makes the tooltip and the semantics label load-bearing
-/// rather than decorative: without them a screen reader announces an unnamed
-/// button.
-///
-/// **The tooltip is on the wrapper, not on the `IconButton`.** Giving
-/// `IconButton` a `tooltip` *and* wrapping it in a labelled `Semantics` merges
-/// two names onto one node, and the browser then announces "Play on from here
-/// Play on from here". Found on the real web build; the arrangement below is
-/// the one `ReplayRailButton` already uses, and it yields exactly one name.
-class _BranchAppBarAction extends StatelessWidget {
-  const _BranchAppBarAction({required this.label, required this.onPressed});
+/// The lit lounge card the loading and message states sit on, centred on the
+/// felt: the same panel the practice overlays and the About card use.
+class _StateCard extends StatelessWidget {
+  const _StateCard({required this.children, this.glow});
 
-  final String label;
-  final VoidCallback? onPressed;
+  final List<Widget> children;
+
+  /// Tint of the panel's light, gold by default.
+  final Color? glow;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: MergeSemantics(
-        child: Semantics(
-          label: label,
-          button: true,
-          enabled: onPressed != null,
-          // Deliberately unkeyed. Sprint 05's frozen docked oracle collects
-          // every `ValueKey<String>`-bearing render box as an anchor, so a key
-          // here would add a twenty-third anchor to a layout the oracle
-          // freezes at twenty-two — and that file is not this sprint's to
-          // rewrite. The localized semantics label is the handle, which is the
-          // one a screen reader uses anyway.
-          child: IconButton(
-            icon: const Icon(Icons.alt_route),
-            color: LoungeTokens.sandLine,
-            onPressed: onPressed,
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(LoungeTokens.space6),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: DecoratedBox(
+            decoration: loungeLitPanel(
+              glow: glow ?? LoungeTokens.goldAccent,
+              strength: 0.12,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: LoungeTokens.space5,
+                vertical: LoungeTokens.space6,
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: children),
+            ),
           ),
         ),
       ),
@@ -429,20 +438,47 @@ class _LoadingBody extends StatelessWidget {
   final int frames;
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 12),
-          Text(context.strings.replayLoading, style: LoungeTokens.bodyMuted),
-          if (frames > 0)
-            Text(
-              context.strings.replayLoadingFrames(frames),
-              style: LoungeTokens.bodyMuted,
+    return _StateCard(
+      children: [
+        // The medallion with a thin gold ring turning around it: the match
+        // being dealt back out, rather than a bare stock spinner.
+        const SizedBox.square(
+          dimension: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox.square(
+                dimension: 64,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: LoungeTokens.goldAccent,
+                ),
+              ),
+              LoungeMedallion(
+                icon: Icons.history_rounded,
+                size: 48,
+                tone: LoungeMedallionTone.lit,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        Text(
+          context.strings.replayLoading,
+          style: LoungeTokens.heading,
+          textAlign: TextAlign.center,
+        ),
+        if (frames > 0) ...[
+          const SizedBox(height: LoungeTokens.space2),
+          Text(
+            context.strings.replayLoadingFrames(frames),
+            style: LoungeTokens.bodyMuted.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
+            textAlign: TextAlign.center,
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -462,30 +498,31 @@ class _MessageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: LoungeTokens.body.copyWith(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              body,
-              style: LoungeTokens.bodyMuted,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: Text(retryLabel!)),
-            ],
-          ],
+    return _StateCard(
+      glow: LoungeTokens.deepRed,
+      children: [
+        const LoungeMedallion(
+          icon: Icons.history_toggle_off_rounded,
+          size: 56,
+          tone: LoungeMedallionTone.alert,
         ),
-      ),
+        const SizedBox(height: LoungeTokens.space4),
+        Text(
+          title,
+          style: LoungeTokens.display.copyWith(fontSize: 22),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: LoungeTokens.space2),
+        Text(body, style: LoungeTokens.bodyMuted, textAlign: TextAlign.center),
+        if (onRetry != null) ...[
+          const SizedBox(height: LoungeTokens.space5),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            label: Text(retryLabel!),
+          ),
+        ],
+      ],
     );
   }
 }
