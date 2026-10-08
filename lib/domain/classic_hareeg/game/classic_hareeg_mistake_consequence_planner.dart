@@ -64,9 +64,6 @@ class ClassicHareegMistakeConsequencePlan {
   /// Whether state may be mutated for this mistake.
   bool get canApply => resolution.isAllowed;
 
-  /// Whether a score penalty should be written to the ledger.
-  bool get shouldApplyPenalty => canApply;
-
   /// Whether this mistake removes the player from the current round.
   bool get removesPlayer => removedSeat != null;
 

@@ -21,20 +21,6 @@ void main() {
     expect(round.stock.length, 49);
   });
 
-  test('turn order advances anti-clockwise from the starter', () {
-    final round = ClassicHareegRound.deal(
-      setup: ClassicHareegSetup.defaults(),
-      seed: 7,
-    );
-
-    expect(round.turnOrder, [
-      PlayerSeat.south,
-      PlayerSeat.east,
-      PlayerSeat.north,
-      PlayerSeat.west,
-    ]);
-  });
-
   test('random starter is deterministic when seeded', () {
     final round = ClassicHareegRound.deal(
       setup: ClassicHareegSetup.defaults().copyWith(

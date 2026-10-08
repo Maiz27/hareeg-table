@@ -54,15 +54,6 @@ class PlacedMeld {
   /// Total table contribution from original meld plus later covers.
   int get totalValue => valueSnapshot + coverValue;
 
-  /// Returns a new snapshot with cover value added.
-  PlacedMeld addCoverValue(int value) {
-    return PlacedMeld(
-      cards: cards,
-      valueSnapshot: valueSnapshot,
-      coverValue: coverValue + value,
-    );
-  }
-
   /// Returns a new snapshot with cover cards appended.
   PlacedMeld addCoverCards(List<HareegCard> coverCards) {
     final addedValue = coverCards.fold<int>(0, (total, card) {

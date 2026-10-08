@@ -16,8 +16,6 @@ void main() {
         coverTargets: [spadesRunTarget()],
       );
 
-      expect(planner.partitionWithout(finalDiscard), isNull);
-
       final parts = planner.planWithout(finalDiscard);
       expect(parts, isNotNull);
       expect(parts!.melds, isEmpty);

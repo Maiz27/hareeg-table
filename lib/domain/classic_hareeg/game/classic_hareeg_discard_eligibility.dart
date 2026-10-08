@@ -68,9 +68,6 @@ class ClassicHareegDiscardEligibility {
   /// Preset-specific mistake behavior, if this is a mistake scenario.
   final MistakeResolution? mistakeResolution;
 
-  /// Whether the discard proceeds only after applying a mistake penalty.
-  bool get appliesMistake => mistakeResolution?.isAllowed ?? false;
-
   /// Full action id for this card and scenario.
   String get actionId => '$actionPrefix${card.id}';
 }

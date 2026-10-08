@@ -443,7 +443,7 @@ void main() {
       );
 
       final selectedIds = meldCards.map((card) => card.id).toList();
-      final validation = controller.meldValidationFor(
+      final validation = controller.singleMeldValidationFor(
         PlayerSeat.south,
         selectedIds,
       );

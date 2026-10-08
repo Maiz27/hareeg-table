@@ -159,7 +159,9 @@ void main() {
         card(CardRank.three, CardSuit.spades),
         card(CardRank.four, CardSuit.spades),
       ]);
-      final covered = original.addCoverValue(5);
+      final covered = original.addCoverCards([
+        card(CardRank.five, CardSuit.spades),
+      ]);
       final replayedWithFive = meld([
         card(CardRank.ace, CardSuit.spades),
         card(CardRank.two, CardSuit.spades),

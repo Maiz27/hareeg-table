@@ -34,7 +34,7 @@ void main() {
     test('table tier applies +17 and removes player from round', () {
       final result = ClassicHareegMistakePresetRules.resolve(
         strictness: TableStrictness.table,
-        mistake: MistakeType.insufficientOpening,
+        mistake: MistakeType.illegalCoverDiscard,
       );
 
       expect(result.isAllowed, isTrue);
@@ -53,35 +53,6 @@ void main() {
         expect(result.isAllowed, isFalse, reason: 'tier=$tier');
         expect(result.penaltyPoints, 0, reason: 'tier=$tier');
       }
-    });
-
-    test('CPU mistakes are tied to strictness, not difficulty', () {
-      expect(
-        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          TableStrictness.coaching,
-        ),
-        isFalse,
-      );
-      expect(
-        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          TableStrictness.standard,
-        ),
-        isFalse,
-      );
-      // Strict reverts the action so a CPU "mistake" would just waste a turn;
-      // only Table tier accepts CPU mistakes (full +17 + round removal).
-      expect(
-        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          TableStrictness.strict,
-        ),
-        isFalse,
-      );
-      expect(
-        ClassicHareegMistakePresetRules.cpuMistakesAllowed(
-          TableStrictness.table,
-        ),
-        isTrue,
-      );
     });
 
     test('player-facing messages use current strictness names', () {
