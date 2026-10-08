@@ -151,14 +151,7 @@ class _SkilledCpuPlanPolicy implements CpuPlanPolicy {
     if (cardIds.length != 1) {
       return false;
     }
-    final cardId = cardIds.single;
-    HareegCard? coverCard;
-    for (final card in observation.ownHand) {
-      if (card.id == cardId) {
-        coverCard = card;
-        break;
-      }
-    }
+    final coverCard = handCardById(observation.ownHand, cardIds.single);
     if (coverCard == null) {
       return false;
     }

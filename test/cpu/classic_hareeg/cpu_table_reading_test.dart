@@ -334,6 +334,7 @@ void main() {
         'lib/cpu/classic_hareeg/casual_cpu_move_planner.dart',
         'lib/cpu/classic_hareeg/skilled_cpu_move_planner.dart',
         'lib/cpu/classic_hareeg/expert_cpu_move_planner.dart',
+        'lib/cpu/classic_hareeg/opponent_threat_profile.dart',
         'lib/domain/classic_hareeg/analysis/table_reading_analysis.dart',
         'lib/domain/classic_hareeg/analysis/partial_hand_groups.dart',
       ]) {
