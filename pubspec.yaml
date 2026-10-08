@@ -41,6 +41,9 @@ dependencies:
   # Browser localStorage interop for web persistence (prefs/matches/onboarding
   # survive a page refresh). Native builds don't reference it.
   web: ^1.1.1
+  # Crash/bug diagnostics and player match reports (HT-56). Only initialised
+  # when a SENTRY_DSN dart-define is supplied and the player has not opted out.
+  sentry_flutter: ^9.30.1
 
 dev_dependencies:
   flutter_test:

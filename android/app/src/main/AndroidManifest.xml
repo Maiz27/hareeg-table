@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Crash and bug reports (Sentry). Gameplay itself stays fully offline;
+         nothing is sent when the player opts out or the build has no DSN. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"

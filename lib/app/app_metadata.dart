@@ -24,6 +24,16 @@ abstract final class HareegAppMetadata {
     defaultValue: 'debug',
   );
 
+  /// Sentry DSN for crash and bug reports, supplied at build time with
+  /// `--dart-define=SENTRY_DSN=...`.
+  ///
+  /// Empty by default: a build without it never starts Sentry, transmits
+  /// nothing, and the manual report path falls back to share/copy.
+  static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
+  /// Release identifier attached to diagnostics events.
+  static const diagnosticsRelease = '$appId@$version+$buildNumber';
+
   /// App metadata shape embedded in match reports.
   static const reportMetadata = MatchReportAppMetadata(
     appId: appId,
