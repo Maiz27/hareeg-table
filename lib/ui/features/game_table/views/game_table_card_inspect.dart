@@ -83,16 +83,17 @@ class _CardInspectOverlay extends StatelessWidget {
                     ],
                   );
 
+                  final cardView = HareegCardView(
+                    theme: theme,
+                    card: card,
+                    size: cardSize,
+                    jokerDisplay: inspectJokerDisplay,
+                  );
                   final content = compact
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            HareegCardView(
-                              theme: theme,
-                              card: card,
-                              size: cardSize,
-                              jokerDisplay: inspectJokerDisplay,
-                            ),
+                            cardView,
                             const SizedBox(height: 12),
                             details,
                           ],
@@ -100,12 +101,7 @@ class _CardInspectOverlay extends StatelessWidget {
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            HareegCardView(
-                              theme: theme,
-                              card: card,
-                              size: cardSize,
-                              jokerDisplay: inspectJokerDisplay,
-                            ),
+                            cardView,
                             const SizedBox(width: 18),
                             Flexible(child: details),
                           ],

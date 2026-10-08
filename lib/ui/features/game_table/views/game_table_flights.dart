@@ -35,15 +35,10 @@ class _CardFlight {
 }
 
 class _CardFlightOverlay extends StatelessWidget {
-  const _CardFlightOverlay({
-    required this.flight,
-    required this.theme,
-    required this.duration,
-  });
+  const _CardFlightOverlay({required this.flight, required this.theme});
 
   final _CardFlight flight;
   final HareegCardTheme theme;
-  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +64,7 @@ class _CardFlightOverlay extends StatelessWidget {
           );
           return TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
-            duration: duration,
+            duration: flight.duration,
             curve: Curves.easeOutCubic,
             builder: (context, value, child) {
               final lifted = math.sin(value * math.pi) * 24;
@@ -256,5 +251,154 @@ class _OpeningDealFlightCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Turns presentation flight plans into concrete card flights: which card
+/// flies, from which anchor or hand slot, to which.
+extension _TableFlightPlanning on _GameTableScreenState {
+  _CardFlight? _flightForPlan(
+    TableActionFlightPlan? plan, {
+    required Duration duration,
+  }) {
+    final serial = _flightSerial + 1;
+    final realization = TableCardFlightPlanner.realize(
+      presentation: plan,
+      stockBack: _backSeed(serial),
+      topDiscard: _controller.topDiscard,
+      pendingDiscard: _controller.pendingDiscard,
+      handCardFor: _cardInHand,
+      southHandCardSlotFor: _southHandCardSlot,
+      appendHandSlotFor: _appendHandSlotForSeat,
+      lastHandSlotFor: _lastHandSlotForSeat,
+    );
+    final card = realization.card;
+    final presentation = realization.presentation;
+    if (!realization.canRender || card == null || presentation == null) {
+      return null;
+    }
+    _flightSerial = serial;
+
+    // Carry the target lane's meld card counts so a cover/replacement flight
+    // lands on the meld it targets rather than the lane centre (the same
+    // arrangement the lane renders from).
+    final endMeldSlot = realization.endMeldSlot;
+    return _CardFlight(
+      serial: serial,
+      card: card,
+      faceDown: realization.faceDown,
+      begin: _flightBegin(presentation),
+      end: _flightEnd(presentation),
+      duration: duration,
+      beginHandSlot: realization.beginHandSlot,
+      endHandSlot: realization.endHandSlot,
+      endMeldSlot: endMeldSlot == null
+          ? null
+          : TableMeldFlightSlot(
+              seat: endMeldSlot.seat,
+              index: endMeldSlot.index,
+              laneMeldCardCounts: [
+                for (final meld in _controller.tableMeldsFor(endMeldSlot.seat))
+                  meld.cards.length,
+              ],
+            ),
+    );
+  }
+
+  /// Animates a `play-meld` action via [MeldFlightController]. The
+  /// orchestrator owns the per-set decomposition and inter-set sequencing;
+  /// the screen just supplies durations and the sound hook.
+  Future<bool> _playMeldFlight({
+    required PlayerSeat seat,
+    required String actionId,
+    TableSoundEvent? sound,
+  }) {
+    return _meldFlight.playMeld(
+      seat: seat,
+      actionId: actionId,
+      flightDuration: _meldFlightDuration,
+      interSetDelay: _meldInterSetDelay,
+      onSoundPlay: () =>
+          unawaited(_playSound(sound ?? TableSoundEvent.meldPlace)),
+    );
+  }
+
+  Duration get _meldInterSetDelay => widget.preferences.fastCpuTurns
+      ? _scaledDelay(TableMotion.meldInterSetDelayFast)
+      : _scaledDelay(TableMotion.meldInterSetDelayNormal);
+
+  Alignment _flightBegin(TableActionFlightPlan plan) {
+    return switch (plan.source) {
+      TableActionFlightSource.stockBack => TableFlightAnchors.stock,
+      TableActionFlightSource.topDiscard => TableFlightAnchors.discard,
+      TableActionFlightSource.pendingDiscard ||
+      TableActionFlightSource.handCard => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
+    };
+  }
+
+  Alignment _flightEnd(TableActionFlightPlan plan) {
+    return switch (plan.destination) {
+      TableActionFlightDestination.seatHand => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
+      TableActionFlightDestination.discardPile => TableFlightAnchors.discard,
+      TableActionFlightDestination.tableMeld => TableFlightAnchors.seatHand(
+        plan.seat,
+      ),
+    };
+  }
+
+  SeatHandFlightSlot _southHandAppendSlot() {
+    final count = _controller.handFor(PlayerSeat.south).length + 1;
+    return SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: count - 1,
+      count: count,
+    );
+  }
+
+  SeatHandFlightSlot? _southHandCardSlot(String cardId) {
+    final cards = _orderedSouthHand();
+    final index = cards.indexWhere((card) => card.id == cardId);
+    if (index == -1) {
+      return null;
+    }
+    return SeatHandFlightSlot(
+      seat: PlayerSeat.south,
+      index: index,
+      count: cards.length,
+    );
+  }
+
+  SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      return _southHandAppendSlot();
+    }
+    final count = _controller.cardCountFor(seat) + 1;
+    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
+    if (seat == PlayerSeat.south) {
+      final cards = _orderedSouthHand();
+      if (cards.isEmpty) return null;
+      return SeatHandFlightSlot(
+        seat: PlayerSeat.south,
+        index: cards.length - 1,
+        count: cards.length,
+      );
+    }
+    final count = _controller.cardCountFor(seat);
+    if (count <= 0) return null;
+    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
+  }
+
+  HareegCard? _cardInHand(PlayerSeat seat, String id) {
+    for (final card in _controller.handFor(seat)) {
+      if (card.id == id) return card;
+    }
+    return null;
   }
 }

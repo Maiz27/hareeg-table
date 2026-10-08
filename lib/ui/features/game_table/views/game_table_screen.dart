@@ -77,7 +77,10 @@ import '../../match_reports/match_report_exporter.dart';
 part 'game_table_branch_overlays.dart';
 part 'game_table_card_inspect.dart';
 part 'game_table_chrome.dart';
+part 'game_table_coach.dart';
+part 'game_table_dialogs.dart';
 part 'game_table_flights.dart';
+part 'game_table_report_export.dart';
 part 'game_table_round_result.dart';
 
 /// One action that actually applied at a table, observed at the moment it
@@ -153,7 +156,6 @@ class GameTableScreen extends StatefulWidget {
     this.cpuStrategy = const ClassicHareegCpuStrategy(),
     this.onPracticeFinished,
     this.nextPracticeScript,
-    this.reportExporter = const MatchReportExporter(),
     this.clock,
     this.onSandboxActionApplied,
     this.onSandboxExit,
@@ -185,9 +187,6 @@ class GameTableScreen extends StatefulWidget {
 
   /// CPU strategy used for non-human seats.
   final CpuStrategy cpuStrategy;
-
-  /// Report exporter used by the pause overlay diagnostic action.
-  final MatchReportExporter reportExporter;
 
   /// Clock the rules engine reads, or null for the wall clock.
   ///
@@ -621,96 +620,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       return;
     }
     _returnToMainMenu();
-  }
-
-  Future<void> _exportActiveMatchReport() async {
-    final choice = await showMatchReportConfirmation(
-      context,
-      highContrast: widget.preferences.highContrastCards,
-    );
-    if (!mounted || choice == null) {
-      return;
-    }
-    final ClassicHareegMatchReport report;
-    try {
-      final generatedAt = DateTime.now().toUtc();
-      report = ClassicHareegMatchReport.active(
-        app: HareegAppMetadata.reportMetadata,
-        platform: currentMatchReportPlatform(),
-        generatedAt: generatedAt,
-        snapshot: _controller.toPositionSnapshot(savedAt: generatedAt),
-        diagnostics: _recorder?.diagnostics,
-        transcript: _recorder?.transcript,
-      );
-    } on Object catch (error, stackTrace) {
-      debugPrint('[hareeg:reports] Failed to generate match report: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        showLoungeToast(
-          context,
-          message: context.strings.matchReportGenerationFailed,
-          icon: Icons.error_outline,
-          isError: true,
-        );
-      }
-      return;
-    }
-    switch (choice) {
-      case MatchReportExportChoice.share:
-        await _shareOrOfferCopy(report);
-      case MatchReportExportChoice.copy:
-        await _copyMatchReport(report);
-    }
-  }
-
-  Future<void> _shareOrOfferCopy(ClassicHareegMatchReport report) async {
-    final strings = context.strings;
-    final attempt = await widget.reportExporter.share(report);
-    if (!mounted) {
-      return;
-    }
-    if (attempt.shared) {
-      showLoungeToast(
-        context,
-        message: strings.matchReportShareReady,
-        actionLabel: strings.copyReport,
-        onActionPressed: () {
-          unawaited(_copyMatchReport(report));
-        },
-      );
-      return;
-    }
-    showLoungeToast(
-      context,
-      message: strings.matchReportCopyFallback,
-      icon: Icons.error_outline,
-      isError: true,
-      actionLabel: strings.copyReport,
-      onActionPressed: () {
-        unawaited(_copyMatchReport(report));
-      },
-    );
-  }
-
-  Future<void> _copyMatchReport(ClassicHareegMatchReport report) async {
-    final strings = context.strings;
-    try {
-      await widget.reportExporter.copy(report);
-      if (!mounted) {
-        return;
-      }
-      showLoungeToast(context, message: strings.matchReportCopied);
-    } on Object {
-      if (!mounted) {
-        return;
-      }
-      showLoungeToast(
-        context,
-        message: strings.matchReportCopyFailed,
-        icon: Icons.error_outline,
-        isError: true,
-      );
-    }
   }
 
   void _resetHandInteraction() {
@@ -1381,11 +1290,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             for (final flight in _activeFlights)
               Positioned.fill(
                 key: ValueKey('flight-${flight.serial}'),
-                child: _CardFlightOverlay(
-                  flight: flight,
-                  theme: theme,
-                  duration: flight.duration,
-                ),
+                child: _CardFlightOverlay(flight: flight, theme: theme),
               ),
             for (final meld in _meldFlight.activeFlights)
               Positioned.fill(
@@ -1681,17 +1586,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     _cues.stopFiftyTicker();
     setState(() {
       _controller = run.controller;
-      _coachInsightCacheKey = null;
-      _coachInsights = const [];
-      _resetHandInteraction();
-      _isCpuRunning = false;
-      _scoreOpen = false;
-      _pauseOpen = false;
-      _placedJokerSnapshot = null;
-      _activeFlights.clear();
-      _meldFlight.clear();
-      _inspectedCard = null;
-      _roundResultPresentation = null;
+      _resetBoardPresentation();
     });
     _ensureFiftyTicker();
     unawaited(_runPracticeIntro());
@@ -1708,169 +1603,6 @@ class _GameTableScreenState extends State<GameTableScreen>
           topDiscard: _controller.topDiscard,
         ) ??
         CoachHighlighting.none;
-  }
-
-  /// Builds the coaching hints to surface this frame — the actionable PRIMARY
-  /// hint plus an optional once-per-round STAGE note — or null when nothing
-  /// should show. The caller folds the persistent conditions (tier, toggle,
-  /// turn ownership) into whether this runs at all; [gate] carries the
-  /// transient ones (blocking overlays, in-flight motion).
-  ({CoachHint? primary, CoachHint? stageNote})? _buildCoachHints(
-    AppStrings strings,
-    PlayerSeat seat, {
-    required bool gate,
-  }) {
-    // Always recompute while the coach is live (cheap — memoized by the
-    // situation signature) so the cached insights track every controller-state
-    // change. The [gate] only hides the *display* while something is
-    // mid-animation; it must NOT freeze the *data*, or a hint computed before
-    // a draw/cover landed survives stale once the gate reopens (the playtest
-    // "discard the card you just melded" bug). Compute first, then gate the
-    // display.
-    final insights = _coachInsightsFor(seat);
-    if (!gate || insights.isEmpty) {
-      return null;
-    }
-    final selection = _coachInsightFlow.select(
-      insights: insights,
-      roundNumber: _controller.roundNumber,
-      turnKey: '${_controller.roundNumber}:$_coachTurnCounter',
-    );
-    CoachHint? presentOf(CoachingInsight? insight) => insight == null
-        ? null
-        : CoachHintPresenter.present(
-            insight: insight,
-            strings: strings,
-            identityForCardId: _identityForCardId,
-            topDiscardIdentity: _controller.topDiscard?.effectiveIdentity,
-          );
-    final primary = presentOf(selection.primary);
-    final stageNote = presentOf(selection.stageNote);
-    if (primary == null) {
-      // Nothing actionable this frame (rare edge: only banner insights). Let
-      // the stage note carry the callout rather than going dark.
-      return (primary: stageNote, stageNote: null);
-    }
-    return (primary: primary, stageNote: stageNote);
-  }
-
-  /// Memoized advisor call. Recomputes only when the cheap situation signature
-  /// (turn, turn phase, opened state, top discard, pending, Fifty claimant, hand
-  /// ids, own meld ids, and an opponent digest — hand counts, opened bits, table
-  /// meld ids — since the advisor's hold-back/bait/threat logic reads opponent
-  /// state too) changes, so the fifty ticker and card flights don't
-  /// trigger re-analysis. The turn phase is part of the key because a draw flips
-  /// draw→action with the same seat: without it a draw that completes a meld
-  /// could reuse the pre-draw insight (the stale-discard playtest bug). The Fifty
-  /// claimant is included because the Fifty hint depends on whether a claim
-  /// window is open for this seat, and a window can open or expire without the
-  /// top discard changing. The claim-LIVENESS bit (timer still running) is also
-  /// keyed — it flips exactly once per window, letting the hint hand over from
-  /// "Claim the Fifty" to "take it and finish" when the timer lapses — but the
-  /// raw seconds remaining are deliberately NOT keyed (that would re-analyse
-  /// every tick).
-  List<CoachingInsight> _coachInsightsFor(PlayerSeat seat) {
-    final hand = _controller.handFor(seat);
-    final ownMelds = _controller.tableMeldsFor(seat);
-    final key = StringBuffer()
-      ..write(_controller.currentSeat.name)
-      ..write('#')
-      ..write(_controller.turnPhase.name)
-      ..write(_controller.openingState.hasOpened(seat) ? '#1' : '#0')
-      ..write('#')
-      ..write(_controller.topDiscard?.id ?? '-')
-      ..write('#')
-      ..write(_controller.pendingDiscard?.id ?? '-')
-      ..write('#f:')
-      ..write(_controller.fiftyClaimant?.name ?? '-')
-      ..write((_controller.fiftySecondsRemaining ?? 0) > 0 ? '+' : '-')
-      ..write('#h:');
-    for (final card in hand) {
-      key
-        ..write(card.id)
-        ..write(',');
-    }
-    key.write('#m:');
-    for (final meld in ownMelds) {
-      for (final card in meld.cards) {
-        key
-          ..write(card.id)
-          ..write(',');
-      }
-      key.write('|');
-    }
-    // Opponent digest. The advisor's hold-back / bait / threat logic reads
-    // opponent state too — their table melds, hand counts and opened state.
-    // Today an opponent-state change always rides a currentSeat flip that
-    // already busts the key, but that is emergent, not enforced; key the
-    // opponent state explicitly. Walk opponents in the advisor's stable
-    // anti-clockwise order over the active seats, so an eliminated seat simply
-    // drops out (the same way it does in _opponentsOf).
-    key.write('#o:');
-    final activeSeats = _controller.activeSeats;
-    var opponent = seat.nextAntiClockwise;
-    while (opponent != seat) {
-      if (activeSeats.contains(opponent)) {
-        key
-          ..write(opponent.name)
-          ..write(_controller.openingState.hasOpened(opponent) ? '1' : '0')
-          ..write('c')
-          ..write(_controller.handFor(opponent).length)
-          ..write('m:');
-        for (final meld in _controller.tableMeldsFor(opponent)) {
-          for (final card in meld.cards) {
-            key
-              ..write(card.id)
-              ..write(',');
-          }
-          key.write('|');
-        }
-        key.write(';');
-      }
-      opponent = opponent.nextAntiClockwise;
-    }
-    final keyStr = key.toString();
-    if (keyStr != _coachInsightCacheKey) {
-      _coachInsightCacheKey = keyStr;
-      _coachInsights = ClassicHareegCoachingAdvisor.adviseFor(
-        _controller,
-        seat,
-      );
-      final leadInsight = _coachInsights.isEmpty ? null : _coachInsights.first;
-      if (leadInsight != null) {
-        _recorder?.recordCoachHint(
-          roundNumber: _controller.roundNumber,
-          hintId: leadInsight.category.name,
-          seat: seat,
-          phase: _controller.turnPhase,
-          data: {'count': _coachInsights.length},
-        );
-      }
-    }
-    return _coachInsights;
-  }
-
-  /// Resolves a card id referenced by a coaching insight to its identity for
-  /// hint copy. Insights only point at the human hand, the top discard, or the
-  /// human's own table melds.
-  CardIdentity? _identityForCardId(String cardId) {
-    for (final card in _controller.handFor(PlayerSeat.south)) {
-      if (card.id == cardId) {
-        return card.effectiveIdentity;
-      }
-    }
-    final top = _controller.topDiscard;
-    if (top != null && top.id == cardId) {
-      return top.effectiveIdentity;
-    }
-    for (final meld in _controller.tableMeldsFor(PlayerSeat.south)) {
-      for (final card in meld.cards) {
-        if (card.id == cardId) {
-          return card.effectiveIdentity;
-        }
-      }
-    }
-    return null;
   }
 
   /// Returns reconciled hand ordering and selected-card state.
@@ -1977,94 +1709,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       }
     }
     await _runHumanAction(ClassicHareegActionIds.returnPendingDiscard);
-  }
-
-  Future<bool?> _confirmGiveUpFifty() {
-    final strings = context.strings;
-    final body = _controller.setup.tableStrictness == TableStrictness.table
-        ? strings.giveUpFiftyBodyTable
-        : strings.giveUpFiftyBodyPenalty;
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        final dialogStrings = dialogContext.strings;
-        return AlertDialog(
-          key: const ValueKey('give-up-fifty-dialog'),
-          title: Text(dialogStrings.giveUpFiftyTitle),
-          content: Text(body),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(dialogStrings.keepTrying),
-            ),
-            FilledButton(
-              key: const ValueKey('give-up-fifty-confirm'),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(dialogStrings.giveUpFiftyConfirm),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<TableInteractionJokerChoice?> _showJokerChoiceDialog(
-    List<TableInteractionJokerChoice> choices,
-  ) {
-    final theme = CardThemeScope.of(context);
-    return showDialog<TableInteractionJokerChoice>(
-      context: context,
-      builder: (dialogContext) {
-        final strings = dialogContext.strings;
-        return AlertDialog(
-          key: const ValueKey('joker-choice-dialog'),
-          title: Text(strings.chooseJokerIdentity),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final choice in choices)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: OutlinedButton(
-                        key: ValueKey('joker-choice-${choice.identity.key}'),
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(choice),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(strings.jokerAs(choice.identity)),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: 4,
-                                runSpacing: 4,
-                                children: [
-                                  for (final card in choice.cards)
-                                    HareegCardView(
-                                      theme: theme,
-                                      card: card,
-                                      jokerDisplay: JokerDisplay.assisted,
-                                      size: const Size(30, 42),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   List<TableMeldSuggestion> _meldSuggestions(
@@ -2174,32 +1818,33 @@ class _GameTableScreenState extends State<GameTableScreen>
     _cues.enqueueJokerCues(newJokers);
   }
 
-  void _onJokerCueStart(({PlayerSeat seat, CardIdentity identity}) cue) {
-    if (!mounted) return;
+  TableFeedbackMessage _jokerCueMessage(
+    ({PlayerSeat seat, CardIdentity identity}) cue,
+  ) {
     final strings = context.strings;
     final text = cue.seat == PlayerSeat.south
         ? strings.youDeclaredJoker(cue.identity)
         : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
+    return TableFeedbackMessage(text: text, isError: false);
+  }
+
+  void _onJokerCueStart(({PlayerSeat seat, CardIdentity identity}) cue) {
+    if (!mounted) return;
+    final message = _jokerCueMessage(cue);
     unawaited(_audio.play(TableSoundEvent.jokerDeclared));
     // The choreographer pumps this for both the first cue (synchronously
     // from enqueueAll) and every subsequent cue (synchronously from the
     // dwell timer); calling setFeedbackUnmanaged keeps both paths consistent
     // and notifies listeners exactly once per pump.
-    _cues.setFeedbackUnmanaged(
-      TableFeedbackMessage(text: text, isError: false),
-    );
+    _cues.setFeedbackUnmanaged(message);
   }
 
   void _onJokerCueEnd(({PlayerSeat seat, CardIdentity identity}) cue) {
     if (!mounted) return;
-    final strings = context.strings;
-    final text = cue.seat == PlayerSeat.south
-        ? strings.youDeclaredJoker(cue.identity)
-        : strings.jokerDeclaredBySeat(cue.seat, cue.identity);
     // Withdraw this cue's message only if it still owns the feedback line;
     // the next cue's start callback (if any) fires immediately after this
     // and will publish its own message via setFeedbackUnmanaged.
-    _cues.withdrawFeedbackIf(TableFeedbackMessage(text: text, isError: false));
+    _cues.withdrawFeedbackIf(_jokerCueMessage(cue));
   }
 
   /// Plays a stock→seat / discard→seat / seat→discard card-flight for a CPU
@@ -2250,151 +1895,6 @@ class _GameTableScreenState extends State<GameTableScreen>
     if (!mounted) return true;
     setState(() => _activeFlights.remove(flight));
     return true;
-  }
-
-  _CardFlight? _flightForPlan(
-    TableActionFlightPlan? plan, {
-    required Duration duration,
-  }) {
-    final serial = _flightSerial + 1;
-    final realization = TableCardFlightPlanner.realize(
-      presentation: plan,
-      stockBack: _backSeed(serial),
-      topDiscard: _controller.topDiscard,
-      pendingDiscard: _controller.pendingDiscard,
-      handCardFor: _cardInHand,
-      southHandCardSlotFor: _southHandCardSlot,
-      appendHandSlotFor: _appendHandSlotForSeat,
-      lastHandSlotFor: _lastHandSlotForSeat,
-    );
-    final card = realization.card;
-    final presentation = realization.presentation;
-    if (!realization.canRender || card == null || presentation == null) {
-      return null;
-    }
-    _flightSerial = serial;
-
-    // Carry the target lane's meld card counts so a cover/replacement flight
-    // lands on the meld it targets rather than the lane centre (the same
-    // arrangement the lane renders from).
-    final endMeldSlot = realization.endMeldSlot;
-    return _CardFlight(
-      serial: serial,
-      card: card,
-      faceDown: realization.faceDown,
-      begin: _flightBegin(presentation),
-      end: _flightEnd(presentation),
-      duration: duration,
-      beginHandSlot: realization.beginHandSlot,
-      endHandSlot: realization.endHandSlot,
-      endMeldSlot: endMeldSlot == null
-          ? null
-          : TableMeldFlightSlot(
-              seat: endMeldSlot.seat,
-              index: endMeldSlot.index,
-              laneMeldCardCounts: [
-                for (final meld in _controller.tableMeldsFor(endMeldSlot.seat))
-                  meld.cards.length,
-              ],
-            ),
-    );
-  }
-
-  /// Animates a `play-meld` action via [MeldFlightController]. The
-  /// orchestrator owns the per-set decomposition and inter-set sequencing;
-  /// the screen just supplies durations and the sound hook.
-  Future<bool> _playMeldFlight({
-    required PlayerSeat seat,
-    required String actionId,
-    TableSoundEvent? sound,
-  }) {
-    return _meldFlight.playMeld(
-      seat: seat,
-      actionId: actionId,
-      flightDuration: _meldFlightDuration,
-      interSetDelay: _meldInterSetDelay,
-      onSoundPlay: () =>
-          unawaited(_playSound(sound ?? TableSoundEvent.meldPlace)),
-    );
-  }
-
-  Duration get _meldInterSetDelay => widget.preferences.fastCpuTurns
-      ? _scaledDelay(TableMotion.meldInterSetDelayFast)
-      : _scaledDelay(TableMotion.meldInterSetDelayNormal);
-
-  Alignment _flightBegin(TableActionFlightPlan plan) {
-    return switch (plan.source) {
-      TableActionFlightSource.stockBack => TableFlightAnchors.stock,
-      TableActionFlightSource.topDiscard => TableFlightAnchors.discard,
-      TableActionFlightSource.pendingDiscard ||
-      TableActionFlightSource.handCard => TableFlightAnchors.seatHand(
-        plan.seat,
-      ),
-    };
-  }
-
-  Alignment _flightEnd(TableActionFlightPlan plan) {
-    return switch (plan.destination) {
-      TableActionFlightDestination.seatHand => TableFlightAnchors.seatHand(
-        plan.seat,
-      ),
-      TableActionFlightDestination.discardPile => TableFlightAnchors.discard,
-      TableActionFlightDestination.tableMeld => TableFlightAnchors.seatHand(
-        plan.seat,
-      ),
-    };
-  }
-
-  SeatHandFlightSlot _southHandAppendSlot() {
-    final count = _controller.handFor(PlayerSeat.south).length + 1;
-    return SeatHandFlightSlot(
-      seat: PlayerSeat.south,
-      index: count - 1,
-      count: count,
-    );
-  }
-
-  SeatHandFlightSlot? _southHandCardSlot(String cardId) {
-    final cards = _orderedSouthHand();
-    final index = cards.indexWhere((card) => card.id == cardId);
-    if (index == -1) {
-      return null;
-    }
-    return SeatHandFlightSlot(
-      seat: PlayerSeat.south,
-      index: index,
-      count: cards.length,
-    );
-  }
-
-  SeatHandFlightSlot _appendHandSlotForSeat(PlayerSeat seat) {
-    if (seat == PlayerSeat.south) {
-      return _southHandAppendSlot();
-    }
-    final count = _controller.cardCountFor(seat) + 1;
-    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
-  }
-
-  SeatHandFlightSlot? _lastHandSlotForSeat(PlayerSeat seat) {
-    if (seat == PlayerSeat.south) {
-      final cards = _orderedSouthHand();
-      if (cards.isEmpty) return null;
-      return SeatHandFlightSlot(
-        seat: PlayerSeat.south,
-        index: cards.length - 1,
-        count: cards.length,
-      );
-    }
-    final count = _controller.cardCountFor(seat);
-    if (count <= 0) return null;
-    return SeatHandFlightSlot(seat: seat, index: count - 1, count: count);
-  }
-
-  HareegCard? _cardInHand(PlayerSeat seat, String id) {
-    for (final card in _controller.handFor(seat)) {
-      if (card.id == id) return card;
-    }
-    return null;
   }
 
   /// Builds the `tableMelds` map handed to the playfield. When no flight has
@@ -2482,10 +1982,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Only meld / cover / joker-replacement actions can introduce a newly
     // declared joker, so skip the seat × meld × card snapshot scan for the
     // many draw/discard actions that can't.
-    final descriptor = ClassicHareegActionIds.describe(actionId);
-    _placedJokerSnapshot = descriptor.canPlaceJoker
-        ? _capturePlacedJokerIds()
-        : null;
+    _capturePlacedJokersForAction(actionId);
     final applyWatch = Stopwatch()..start();
     // Practice routes the apply through the session so the lesson step gates
     // and observes the same engine mutation the table would make directly.
@@ -3203,10 +2700,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   void _openMatchOver(ClassicHareegRoundResultPresentation presentation) {
     _rememberEliminatedRoundsFromController();
-    _cues.resetAll();
-    _cues.stopFiftyTicker();
-    _dealChoreography?.dispose();
-    _dealChoreography = null;
+    _stopCuesAndDeal();
     // Show the dedicated match-over overlay in place instead of pushing a
     // separate (portrait) route — the table stays landscape and the rematch
     // restarts without a rotation round-trip.
@@ -3222,10 +2716,7 @@ class _GameTableScreenState extends State<GameTableScreen>
     // Settings may have been retuned mid-match via the pause overlay; mirror
     // what just played, exactly like the old route-based rematch did.
     final setup = _controller.setup;
-    _cues.resetAll();
-    _cues.stopFiftyTicker();
-    _dealChoreography?.dispose();
-    _dealChoreography = null;
+    _stopCuesAndDeal();
     _matchEliminatedRoundBySeat.clear();
 
     // A rematch is a *new* match, so every match-lifetime fact has to go with
@@ -3248,24 +2739,14 @@ class _GameTableScreenState extends State<GameTableScreen>
         recorder: recorder,
         now: widget.clock,
       );
-      _coachInsightCacheKey = null;
       // Fresh banner history + turn tracking: the rematch restarts at round
       // 1, so the old flow's per-round seen-keys would suppress the new
       // match's stage banners.
       _coachInsightFlow = CoachInsightFlow();
       _coachTurnSeat = null;
       _coachTurnCounter = 0;
-      _coachInsights = const [];
-      _resetHandInteraction();
+      _resetBoardPresentation();
       _dealChoreography = _buildDealChoreography();
-      _isCpuRunning = false;
-      _scoreOpen = false;
-      _pauseOpen = false;
-      _placedJokerSnapshot = null;
-      _activeFlights.clear();
-      _meldFlight.clear();
-      _inspectedCard = null;
-      _roundResultPresentation = null;
       _matchOverPresentation = null;
     });
     if (recorder != null) {
@@ -3296,82 +2777,48 @@ class _GameTableScreenState extends State<GameTableScreen>
     });
   }
 
-  Future<void> _exportCompletedMatchReport(
-    ClassicHareegRoundResultPresentation presentation,
-  ) async {
-    final choice = await showMatchReportConfirmation(
-      context,
-      highContrast: widget.preferences.highContrastCards,
-    );
-    if (!mounted || choice == null) {
-      return;
-    }
-    final ClassicHareegMatchReport report;
-    try {
-      final generatedAt = DateTime.now().toUtc();
-      report = ClassicHareegMatchReport.completed(
-        app: HareegAppMetadata.reportMetadata,
-        platform: currentMatchReportPlatform(),
-        generatedAt: generatedAt,
-        snapshot: _controller.toSnapshot(savedAt: generatedAt),
-        roundResult: presentation.result,
-        matchProgress: presentation.progress,
-        diagnostics: _recorder?.diagnostics,
-        transcript: _recorder?.transcript,
-      );
-    } on Object catch (error, stackTrace) {
-      debugPrint('[hareeg:reports] Failed to generate match report: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        showLoungeToast(
-          context,
-          message: context.strings.matchReportGenerationFailed,
-          icon: Icons.error_outline,
-          isError: true,
-        );
-      }
-      return;
-    }
-    switch (choice) {
-      case MatchReportExportChoice.share:
-        await _shareOrOfferCopy(report);
-      case MatchReportExportChoice.copy:
-        await _copyMatchReport(report);
-    }
-  }
-
   void _advanceToNextRound(ClassicHareegMatchSnapshot snapshot) {
     _rememberEliminatedRoundsFromController();
-    // Drain every cue timer + the fifty ticker before swapping controllers
-    // so no stale dwell can fire against the freshly dealt hand.
-    _cues.resetAll();
-    _cues.stopFiftyTicker();
-    _dealChoreography?.dispose();
-    _dealChoreography = null;
+    _stopCuesAndDeal();
     setState(() {
       _controller = ClassicHareegGameController.fromSnapshot(
         snapshot,
         recorder: _recorder,
         now: widget.clock,
       );
-      // The coach memo is tied to the previous controller instance; drop it so
-      // the new round computes fresh insights instead of risking a stale cache
-      // hit on a matching situation signature.
-      _coachInsightCacheKey = null;
-      _coachInsights = const [];
-      _resetHandInteraction();
+      _resetBoardPresentation();
       _dealChoreography = _buildDealChoreography();
-      _isCpuRunning = false;
-      _scoreOpen = false;
-      _pauseOpen = false;
-      _placedJokerSnapshot = null;
-      _activeFlights.clear();
-      _meldFlight.clear();
-      _inspectedCard = null;
-      _roundResultPresentation = null;
     });
     _ensureFiftyTicker();
     _scheduleTurnFlow();
+  }
+
+  /// Drains every cue timer and the fifty ticker and drops any opening deal,
+  /// so no stale dwell can fire against the next board.
+  void _stopCuesAndDeal() {
+    _cues.resetAll();
+    _cues.stopFiftyTicker();
+    _dealChoreography?.dispose();
+    _dealChoreography = null;
+  }
+
+  /// Resets the per-board presentation state after [_controller] has been
+  /// swapped for a fresh board. Call inside `setState`, after the swap.
+  void _resetBoardPresentation() {
+    // The coach memo is tied to the previous controller instance; drop it so
+    // the new board computes fresh insights instead of risking a stale cache
+    // hit on a matching situation signature.
+    _coachInsightCacheKey = null;
+    _coachInsights = const [];
+    _resetHandInteraction();
+    _isCpuRunning = false;
+    _scoreOpen = false;
+    _pauseOpen = false;
+    _placedJokerSnapshot = null;
+    _activeFlights.clear();
+    _meldFlight.clear();
+    _inspectedCard = null;
+    _roundResultPresentation = null;
   }
 }
 

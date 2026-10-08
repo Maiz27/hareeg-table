@@ -13,8 +13,8 @@ class _TableChromeButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
-    this.diameter = 40,
-    this.iconSize = 22,
+    required this.diameter,
+    required this.iconSize,
     this.semanticsLabel,
     super.key,
   });
