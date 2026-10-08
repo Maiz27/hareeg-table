@@ -12,8 +12,8 @@ import '../../../support/fake_diagnostics.dart';
 /// by hand and run through the hook directly.
 void main() {
   group('configureSentryOptions', () {
-    test('turns off PII, sessions, client reports, screenshots, print '
-        'breadcrumbs and native capture', () {
+    test('turns off PII, sessions, client reports, screenshots, print and '
+        'native breadcrumbs and native capture', () {
       final options = SentryFlutterOptions();
       configureSentryOptions(
         options,
@@ -30,6 +30,7 @@ void main() {
       expect(options.tracesSampleRate, isNull);
       expect(options.attachScreenshot, isFalse);
       expect(options.enablePrintBreadcrumbs, isFalse);
+      expect(options.enableAutoNativeBreadcrumbs, isFalse);
       expect(options.enableNativeCrashHandling, isFalse);
       expect(options.anrEnabled, isFalse);
       expect(options.beforeSend, isNotNull);
@@ -58,6 +59,30 @@ void main() {
         gateAndScrubSentryEvent(event, Hint(), _Gate(allowed: false)),
         isNull,
       );
+    });
+
+    test('drops every breadcrumb, including native system events', () {
+      final event = SentryEvent(
+        breadcrumbs: [
+          Breadcrumb(
+            type: 'system',
+            category: 'device.event',
+            data: {
+              'action': 'android.intent.action.TIMEZONE_CHANGED',
+              'time-zone': 'Africa/Khartoum',
+            },
+          ),
+          Breadcrumb(category: 'ui.click', message: 'view.tapped'),
+        ],
+        tags: {'source': 'user_report'},
+      );
+
+      final scrubbed = gateAndScrubSentryEvent(event, Hint(), _Gate())!;
+
+      expect(scrubbed.breadcrumbs, isNull);
+      final wire = jsonEncode(scrubbed.toJson());
+      expect(wire, isNot(contains('Africa/Khartoum')));
+      expect(wire, isNot(contains('breadcrumbs')));
     });
 
     test('strips user, IP, server name, device name/id and culture', () {

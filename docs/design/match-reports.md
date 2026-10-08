@@ -61,8 +61,11 @@ attachment is exactly what Share/Copy would export
   SDK, so no event of any kind leaves the device; every event also re-checks
   consent in `beforeSend`.
 - **Privacy.** `sendDefaultPii: false`; `beforeSend` strips user, IP, server
-  name, device name/identifier and the locale/timezone (culture) context. No
-  sessions, traces, client reports, screenshots or `print` breadcrumbs; native
+  name and all breadcrumbs, and rebuilds the contexts from an allowlist
+  (device model/make/screen/memory, OS name and version, app version and
+  build), which drops the native installation ID, locale, timezone and every
+  other context. No sessions, traces, client reports, screenshots, `print` or
+  Android native breadcrumbs; native
   crash/ANR capture is off so every event passes through `beforeSend`. The
   Sentry project should also enable *Prevent Storing of IP Addresses*.
 - **Manual.** "Report table issue" (pause) and "Export match report" (match

@@ -75,7 +75,9 @@ SentryAttachment sentryAttachmentFor(DiagnosticsAttachment attachment) {
 ///
 /// - `sendDefaultPii` off, so the SDK attaches no user, IP or device name.
 /// - Only error events: no sessions, performance traces, client reports,
-///   screenshots or `print` breadcrumbs (view hierarchies are off by default).
+///   screenshots, `print` breadcrumbs or Android native breadcrumbs (system
+///   events, lifecycle, user interaction); view hierarchies are off by
+///   default, and `beforeSend` drops any breadcrumbs that remain.
 /// - Native crash/ANR capture off, so every event passes through
 ///   [gateAndScrubSentryEvent] (native events would bypass it).
 void configureSentryOptions(
@@ -98,6 +100,7 @@ void configureSentryOptions(
     // experimental API, so it is left untouched).
     ..attachScreenshot = false
     ..enablePrintBreadcrumbs = false
+    ..enableAutoNativeBreadcrumbs = false
     ..enableNativeCrashHandling = false
     ..anrEnabled = false
     ..beforeSend = (event, hint) => gateAndScrubSentryEvent(event, hint, gate);
@@ -106,7 +109,8 @@ void configureSentryOptions(
 /// Last check before any event leaves the device.
 ///
 /// Drops everything when [gate] no longer allows transmission, strips user,
-/// IP and server name, rebuilds the contexts from an allowlist
+/// IP, server name and breadcrumbs (native ones can carry timezone, locale
+/// and input-method IDs), rebuilds the contexts from an allowlist
 /// ([allowlistedContexts]), and gives SDK-captured errors (FlutterError /
 /// platform dispatcher handlers, which do not go through
 /// [DiagnosticsTransport.send]) the `source: uncaught_error` tag and the
@@ -122,6 +126,7 @@ SentryEvent? gateAndScrubSentryEvent(
   event
     ..user = null
     ..serverName = null
+    ..breadcrumbs = null
     ..contexts = allowlistedContexts(event.contexts);
   final tags = event.tags;
   if (tags == null || !tags.containsKey('source')) {
