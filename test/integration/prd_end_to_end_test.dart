@@ -19,7 +19,8 @@ import 'package:hareeg_table/ui/features/history/widgets/match_history_entry_car
 import 'package:hareeg_table/ui/features/replay/views/branch_sandbox_host.dart';
 import 'package:hareeg_table/ui/features/replay/views/match_replay_screen.dart';
 import 'package:hareeg_table/ui/features/replay/widgets/analysis_coach_panel.dart';
-import 'package:hareeg_table/ui/features/replay/widgets/replay_hud_clusters.dart';
+import 'package:hareeg_table/ui/features/game_table/widgets/table_hud_capsule.dart';
+import 'package:hareeg_table/ui/features/replay/widgets/replay_transport.dart';
 
 import '../support/branch_sandbox_harness.dart';
 import '../support/test_fixtures.dart';
@@ -194,12 +195,12 @@ void main() {
     final next = find.byTooltip(strings.replayNext);
     final nextButton = find.ancestor(
       of: next,
-      matching: find.byType(ReplayRailButton),
+      matching: find.byType(ReplayTransportButton),
     );
     var steps = 0;
     while (panel().insights.isEmpty) {
       expect(
-        tester.widget<ReplayRailButton>(nextButton.first).onPressed,
+        tester.widget<ReplayTransportButton>(nextButton.first).onPressed,
         isNotNull,
         reason:
             'the replay ran out of frames before the analysis said anything, '
@@ -234,7 +235,7 @@ void main() {
     // offers one, so the walk branches from a real decision point.
     final control = find.byKey(const ValueKey('replay-branch-control'));
     var back = 0;
-    while (tester.widget<ReplayRailButton>(control).onPressed == null) {
+    while (tester.widget<TableChromeButton>(control).onPressed == null) {
       expect(back, lessThan(20), reason: 'no branchable frame to walk from');
       await tester.tap(find.byTooltip(strings.replayPrevious));
       await tester.pumpAndSettle(const Duration(seconds: 30));

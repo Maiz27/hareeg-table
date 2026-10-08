@@ -64,8 +64,7 @@ Future<void> _pumpShort(WidgetTester tester) async {
   }
 }
 
-/// Opens the card from the 44 x 44 Analysis affordance in the physical-left
-/// rail. The wide headline chip it replaced is withdrawn.
+/// Opens the analysis section from the capsule's Analysis toggle.
 Future<void> _expand(WidgetTester tester) async {
   await tester.tap(find.byTooltip(AppStrings.english.replayCoachTitle));
   await tester.pumpAndSettle();
@@ -116,7 +115,7 @@ void main() {
     );
   });
 
-  testWidgets('the card stays open while the reviewer steps', timeout: _slow, (
+  testWidgets('the section stays open while the reviewer steps', timeout: _slow, (
     tester,
   ) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -129,8 +128,7 @@ void main() {
 
     // Comparing one decision against the next is the review task. A card that
     // collapsed on every step would make that impossible, which is why this
-    // is asserted across five frames rather than one. Transport shares the
-    // card's tap-region group precisely so these taps are not "outside".
+    // is asserted across five frames rather than one.
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byTooltip(AppStrings.english.replayNext));
       await tester.pumpAndSettle();
@@ -148,7 +146,7 @@ void main() {
     expect(after, isNot(before));
   });
 
-  testWidgets('every transport action keeps the card open', timeout: _slow, (
+  testWidgets('every transport action keeps the section open', timeout: _slow, (
     tester,
   ) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -159,7 +157,7 @@ void main() {
 
     // Step, round, First, Last and seek are all part of the review
     // interaction. Listing them one by one rather than testing "next" alone:
-    // the dismissal group has to cover the whole rail, not the button the
+    // every control in the row has to leave it open, not just the button the
     // first test happened to use.
     final strings = AppStrings.english;
     for (final tooltip in [
@@ -179,15 +177,19 @@ void main() {
       );
     }
 
-    // Seeking through the expanded scrubber counts too.
-    await tester.tap(_byTypeName('ReplayScrubTarget'));
+    // Seeking through the scrubber counts too.
+    await tester.drag(find.byType(Slider), const Offset(60, 0));
     await tester.pumpAndSettle();
-    expect(find.byType(Slider), findsOneWidget);
     expect(
       find.byType(AnalysisCoachPanel),
       findsOneWidget,
-      reason: 'opening the scrubber dismissed the card',
+      reason: 'seeking dismissed the section',
     );
+
+    // Only the toggle that opened it closes it.
+    await tester.tap(find.byTooltip(strings.replayCoachTitle));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnalysisCoachPanel), findsNothing);
   });
 
   testWidgets('expanding never relayouts the table', timeout: _slow, (
@@ -202,13 +204,13 @@ void main() {
     await _expand(tester);
     final expanded = tester.getRect(find.byType(ReviewTablePlayfield));
 
-    // The card is an overlay, not a band. If the table moved, it is taking
-    // space from the thing being reviewed.
+    // The card floats over the table. If the table moved, it is taking space
+    // from the thing being reviewed.
     expect(expanded, collapsed);
   });
 
-  testWidgets('a tap on the table collapses the card and still reaches the '
-      'table', timeout: _slow, (tester) async {
+  testWidgets('a tap on the table reaches the table and leaves the section '
+      'open', timeout: _slow, (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -219,7 +221,6 @@ void main() {
     // not an action hook. Review passes `canTakeDiscard: false`, so the
     // discard's detector is built with `onTap: null` and no hook can fire even
     // on a correctly delivered tap — an empty hook trace would prove nothing.
-    // Inferring delivery from the card closing would let a barrier pass.
     final delivered = await _captureTrace(tester, () async {
       await tester.tapAt(tester.getCenter(_byTypeName('TableDiscardPile')));
       await tester.pumpAndSettle();
@@ -227,15 +228,15 @@ void main() {
 
     expect(
       find.byType(AnalysisCoachPanel),
-      findsNothing,
-      reason: 'an outside tap should collapse the card',
+      findsOneWidget,
+      reason: 'the section is sticky: only its toggle closes it',
     );
     expect(
       delivered,
       isNotEmpty,
       reason:
-          'the tap collapsed the card but never reached the table — this is '
-          'the Sprint 06 safeguard, and a barrier would fail exactly here',
+          'the tap never reached the table — this is the Sprint 06 '
+          'safeguard, and a barrier would fail exactly here',
     );
   });
 
@@ -253,7 +254,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    expect(find.byType(AnalysisCoachPanel), findsNothing);
+    expect(find.byType(AnalysisCoachPanel), findsOneWidget);
     expect(delivered, isNotEmpty);
   });
 

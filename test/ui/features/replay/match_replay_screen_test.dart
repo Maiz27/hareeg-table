@@ -10,6 +10,7 @@ import 'package:hareeg_table/domain/classic_hareeg/reporting/match_action_transc
 import 'package:hareeg_table/l10n/app_strings.dart';
 import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playfield.dart';
 import 'package:hareeg_table/ui/features/replay/views/match_replay_screen.dart';
+import 'package:hareeg_table/ui/features/replay/widgets/replay_transport.dart';
 import 'package:hareeg_table/ui/features/replay/widgets/review_table_playfield.dart';
 
 import '../../../support/completed_match_fixture.dart';
@@ -128,10 +129,10 @@ void main() {
     expect(find.textContaining('1 of'), findsOneWidget);
 
     // At the start there is nowhere back to go, so back is not offered.
-    final back = tester.widget<IconButton>(
-      find.descendant(
+    final back = tester.widget<ReplayTransportButton>(
+      find.ancestor(
         of: find.byTooltip(strings.replayPrevious),
-        matching: find.byType(IconButton),
+        matching: find.byType(ReplayTransportButton),
       ),
     );
     expect(back.onPressed, isNull);
@@ -298,6 +299,8 @@ void main() {
 
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle(const Duration(seconds: 1));
+    await tester.tap(find.byTooltip(AppStrings.english.replayCoachTitle));
+    await tester.pumpAndSettle();
 
     // The opening position is a deal, not a decision, so there is nothing to
     // review — which is a different thing from having reviewed and found

@@ -21,11 +21,9 @@ import 'package:hareeg_table/ui/features/game_table/table_session_config.dart';
 import 'package:hareeg_table/ui/features/game_table/views/game_table_screen.dart';
 
 import '../../../support/test_fixtures.dart';
-// Sprint 05 already wrote a dependency-free SHA-256 for its own frozen oracle,
-// as a public top-level function. Reusing it keeps one implementation instead
-// of a second copy that could drift, and leaves that file unmodified —
-// importing a test library does not run its tests.
-import '../replay/replay_docked_regression_test.dart' show sha256Hex;
+// The dependency-free SHA-256 Sprint 05 wrote for its own frozen oracle, now
+// a shared test helper: one implementation instead of a copy that could drift.
+import '../../../support/sha256_hex.dart';
 
 /// Pre-edit oracle for the live table's durable persistence call order.
 ///
