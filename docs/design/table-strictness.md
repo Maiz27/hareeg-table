@@ -53,7 +53,7 @@ engine must never see UI types and the UI never re-derives rule behavior.
 |---|---|---|
 | `showsProactiveHints` | `bool` (only coaching) | `TableAids.showsProactiveHints`. **Made real in HT-40:** the coaching advisor (`lib/cpu/classic_hareeg/coaching/`) produces prioritized structured insights and the table surfaces the top one as an anchored callout plus a reserved teal coach highlight ring on the referenced card(s). Gated by this flag **and** the `coachingTipsEnabled` player preference (default on). Finish/Fifty pop in (Fifty uses the flame accent); the rest is quiet, dismissible guidance. |
 | ~~`showsMeldPicker`~~ | **Removed in HT-28.** The meld-confirm chip rack is essential UX (the only commit path for a valid sub-selection that isn't itself the whole selection), not assistance, so it is no longer strictness-gated and always renders. The audit framework used to reach this verdict — **essential / confirm / proactive hint / cosmetic** — is also the rule of thumb for any future gate. |
-| `showsCardValueInInspect` | `bool` (all four) | the `aids == TableAids.tableMode` early-return |
+| ~~`showsCardValueInInspect`~~ | **Removed.** It was true at every tier, so card inspect always shows the card value. |
 | `inspectVerbosity` | `enum {coaching, terse}` | the two branches inside `_inspectBody` |
 | `jokerDisplay` | `JokerDisplay` (coaching/standard → `assisted`, strict/table → `memoryReveal`) | the `widget.preferences.memoryJokerDisplay` ternary |
 | `jokerCueDuration` | `Duration?` (null = persistent for coaching/standard, 3s for strict/table) | new |

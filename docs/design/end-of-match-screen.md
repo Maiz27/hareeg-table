@@ -89,7 +89,7 @@ All durations are at `TableMotion` normal speed and scale via `MotionScope.of(co
 
 Audio: one new cue `TableSoundEvent.matchEnd` — a single sustained chime or oud-string-pluck (asset choice deferred to audio direction). Fires once on first frame. Respects `audio.enabled`. No looped victory bed.
 
-Haptic: one `TableHapticEvent.matchEnd` heavy-impact on first frame, only if winner is south. CPU wins skip the haptic — the human doesn't want congratulatory haptics for losing.
+Haptic: none. A south-win `matchEnd` heavy impact was planned here but never wired up, and the unused event has been removed.
 
 ## 4. Navigation flow
 
