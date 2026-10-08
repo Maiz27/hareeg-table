@@ -53,6 +53,7 @@ class ScoreBookReader {
   int _framesRead = 0;
   int? _firstRound;
   int _lastRound = 0;
+  bool _sawRestart = false;
 
   /// Whether reconstruction has finished (or refused).
   bool get isDone => _replay.isDone;
@@ -75,6 +76,15 @@ class ScoreBookReader {
   // Frames are read once each, as they are produced, so a long match costs
   // one pass rather than a copy of the whole timeline per step.
   void _readNewFrames() {
+    if (_replay.restartedAsLegacyWeb && !_sawRestart) {
+      // The replay started over and dropped its earlier frames: read the
+      // rebuilt timeline from its first frame.
+      _sawRestart = true;
+      _framesRead = 0;
+      _completed.clear();
+      _firstRound = null;
+      _lastRound = 0;
+    }
     final count = _replay.frameCount;
     for (; _framesRead < count; _framesRead++) {
       final frame = _replay.frameAt(_framesRead);

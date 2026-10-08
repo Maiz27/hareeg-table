@@ -91,7 +91,7 @@ void main() {
             expected['checkedAgainstFinalState']! as Map<String, Object?>;
         final verified = replayTranscript(
           transcript,
-          expected: actual.reconstructed,
+          expected: frozen,
         );
         expect(verified.status.name, checked['status']);
         expect(

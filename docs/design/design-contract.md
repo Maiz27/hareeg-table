@@ -118,8 +118,9 @@ Arabic localization needs no type redesign:
 | Display (wordmark, screen titles, big scores, Fifty) | **Reem Kufi** (OFL) | Geometric Kufic. Matches the geometric motif; bilingual. |
 | UI / body | **IBM Plex Sans Arabic** (OFL) | Neutral, very legible at small sizes, Latin + Arabic. |
 
-Fonts are bundled under `assets/fonts/` with their OFL notices in
-`THIRD_PARTY.md`. No `google_fonts` runtime fetching.
+Fonts are bundled under `assets/fonts/` with their OFL notices beside them
+(`OFL-ReemKufi.txt`, `OFL-IBMPlexSansArabic.txt`) and attributed on the
+licences screen. No `google_fonts` runtime fetching.
 
 Type scale (logical px, line-height in brackets):
 

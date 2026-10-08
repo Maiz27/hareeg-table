@@ -240,6 +240,10 @@ class ReplayReconstruction {
 
   DateTime _now() => _clock;
 
+  /// Whether reconstruction restarted from the beginning under the legacy
+  /// web seed arithmetic, discarding the frames produced before it.
+  bool get restartedAsLegacyWeb => _triedLegacyWeb;
+
   /// Frames produced so far.
   List<ReplayFrame> get frames => List.unmodifiable(_frames);
   int get frameCount => _frames.length;
