@@ -150,9 +150,6 @@ enum TableMode {
   /// Whether this surface hosts a guided lesson.
   bool get isPractice => this == TableMode.practice;
 
-  /// Whether this surface is a passive review.
-  bool get isReview => this == TableMode.replayReview;
-
   /// Whether this surface is a branched sandbox, in either visibility.
   bool get isBranch =>
       this == TableMode.branchSandboxBlind ||

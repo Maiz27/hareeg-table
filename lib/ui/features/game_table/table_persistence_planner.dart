@@ -131,9 +131,6 @@ class ClassicHareegTablePersistencePlan {
   /// Round-result overlay payload to show after successful persistence.
   final ClassicHareegRoundResultPresentation? roundResultPresentation;
 
-  /// Whether successful persistence should show the round-result overlay.
-  bool get shouldShowRoundResult => roundResultPresentation != null;
-
   /// Stable log label matching the old widget persistence paths.
   String get logPath {
     return switch (action) {

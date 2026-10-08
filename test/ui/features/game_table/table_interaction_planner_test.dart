@@ -5,6 +5,7 @@ import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/ui/features/game_table/table_interaction_planner.dart';
+import 'package:hareeg_table/ui/features/game_table/table_meld_drop_target.dart';
 
 void main() {
   group('ClassicHareegTableInteractionPlanner', () {
@@ -20,14 +21,20 @@ void main() {
 
       final discard = planner.resolveDiscard(card);
       final table = planner.resolveTableDrop(card);
-      final meld = planner.resolveMeldDrop(card, PlayerSeat.east, 0);
+      final meld = planner.resolveMeldDropTarget(
+        card,
+        _meld(PlayerSeat.east, 0),
+      );
 
       expect(discard.scenario, TableInteractionScenario.locked);
       expect(table.scenario, TableInteractionScenario.locked);
       expect(meld.scenario, TableInteractionScenario.locked);
       expect(planner.canDropCardToDiscard(card), isFalse);
       expect(planner.canDropCardToTable(card), isFalse);
-      expect(planner.canDropCardToMeld(card, PlayerSeat.east, 0), isFalse);
+      expect(
+        planner.canDropCardToMeldTarget(card, _meld(PlayerSeat.east, 0)),
+        isFalse,
+      );
     });
 
     test('inactive seat blocks interaction with the locked scenario', () {
@@ -230,7 +237,10 @@ void main() {
         handCards: [card],
       );
 
-      final result = planner.resolveMeldDrop(card, PlayerSeat.east, 0);
+      final result = planner.resolveMeldDropTarget(
+        card,
+        _meld(PlayerSeat.east, 0),
+      );
 
       expect(result.scenario, TableInteractionScenario.specificMeldCover);
       expect(result.actionId, coverAction);
@@ -252,7 +262,10 @@ void main() {
         handCards: [card],
       );
 
-      final result = planner.resolveMeldDrop(card, PlayerSeat.west, 2);
+      final result = planner.resolveMeldDropTarget(
+        card,
+        _meld(PlayerSeat.west, 2),
+      );
 
       expect(
         result.scenario,
@@ -334,7 +347,9 @@ void main() {
       expect(planner.selectedMeldActionId(), isNull);
       expect(planner.resolveTableDrop(second).isAction, isFalse);
       expect(
-        planner.resolveMeldDrop(first, PlayerSeat.north, 2).isAction,
+        planner
+            .resolveMeldDropTarget(first, _meld(PlayerSeat.north, 2))
+            .isAction,
         isFalse,
       );
       expect(planner.meldSuggestions(), isEmpty);
@@ -363,6 +378,10 @@ ClassicHareegTableInteractionPlanner _planner({
 
 HareegCard _card(CardRank rank, CardSuit suit, int deckIndex) {
   return HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex);
+}
+
+TableMeldDropTarget _meld(PlayerSeat owner, int meldIndex) {
+  return TableMeldDropTarget(owner: owner, meldIndex: meldIndex);
 }
 
 String _key(Iterable<String> cardIds) => cardIds.join('|');

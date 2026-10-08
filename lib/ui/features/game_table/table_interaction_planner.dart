@@ -414,43 +414,9 @@ class ClassicHareegTableInteractionPlanner {
     );
   }
 
-  /// Whether [card] can be dropped onto a specific table meld.
-  bool canDropCardToMeld(
-    HareegCard card,
-    PlayerSeat owner,
-    int meldIndex, {
-    CoverPlacement? coverPlacement,
-  }) {
-    return canDropCardToMeldTarget(
-      card,
-      TableMeldDropTarget(
-        owner: owner,
-        meldIndex: meldIndex,
-        coverPlacement: coverPlacement,
-      ),
-    );
-  }
-
   /// Whether [card] can be dropped onto a typed table meld target.
   bool canDropCardToMeldTarget(HareegCard card, TableMeldDropTarget target) {
     return resolveMeldDropTarget(card, target).isAction;
-  }
-
-  /// Resolves a drop onto a specific table meld.
-  TableInteractionResolution resolveMeldDrop(
-    HareegCard card,
-    PlayerSeat owner,
-    int meldIndex, {
-    CoverPlacement? coverPlacement,
-  }) {
-    return resolveMeldDropTarget(
-      card,
-      TableMeldDropTarget(
-        owner: owner,
-        meldIndex: meldIndex,
-        coverPlacement: coverPlacement,
-      ),
-    );
   }
 
   /// Resolves a drop onto a typed table meld target.

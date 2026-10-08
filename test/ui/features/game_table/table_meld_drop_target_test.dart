@@ -55,7 +55,6 @@ void main() {
       );
 
       expect(target.coverPlacement, CoverPlacement.highEnd);
-      expect(target.targetsCoverEdge, isTrue);
     });
 
     test('does not target cover edges for undersized melds', () {
@@ -70,7 +69,6 @@ void main() {
       );
 
       expect(target.coverPlacement, isNull);
-      expect(target.targetsCoverEdge, isFalse);
     });
   });
 }

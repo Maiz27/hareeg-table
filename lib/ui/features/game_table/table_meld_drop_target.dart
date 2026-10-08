@@ -23,11 +23,6 @@ class TableMeldDropTarget {
 
   /// Preferred cover edge when the pointer is over one end of a sequence.
   final CoverPlacement? coverPlacement;
-
-  /// Whether the pointer is currently asking for an edge cover.
-  bool get targetsCoverEdge =>
-      coverPlacement == CoverPlacement.lowEnd ||
-      coverPlacement == CoverPlacement.highEnd;
 }
 
 /// Converts table-meld pointer geometry into typed drop targets.
@@ -45,7 +40,7 @@ abstract final class TableMeldDropTargetPlanner {
     return TableMeldDropTarget(
       owner: owner,
       meldIndex: meldIndex,
-      coverPlacement: coverPlacementForLocalPosition(
+      coverPlacement: _coverPlacementForLocalPosition(
         cardCount: cardCount,
         localPosition: localPosition,
         bounds: bounds,
@@ -56,7 +51,7 @@ abstract final class TableMeldDropTargetPlanner {
   }
 
   /// Resolves which cover edge, if any, the pointer is asking for.
-  static CoverPlacement? coverPlacementForLocalPosition({
+  static CoverPlacement? _coverPlacementForLocalPosition({
     required int cardCount,
     required Offset localPosition,
     required Size bounds,
