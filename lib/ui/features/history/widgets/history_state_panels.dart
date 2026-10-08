@@ -2,7 +2,41 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
+
+/// Shown while a history-backed surface reads its index: the surface's
+/// medallion ringed by a thin gold progress arc, on the felt.
+class HistoryLoadingPanel extends StatelessWidget {
+  /// Creates a loading panel.
+  const HistoryLoadingPanel({this.icon = Icons.history, super.key});
+
+  /// Glyph on the medallion.
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox.square(
+        dimension: 76,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            LoungeMedallion(icon: icon, size: 56),
+            SizedBox.square(
+              dimension: 76,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: LoungeTokens.goldAccent,
+                backgroundColor: LoungeTokens.sandLine.withValues(alpha: 0.12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Placeholder shown when a history-backed surface has nothing to show.
 ///
@@ -31,7 +65,7 @@ class HistoryEmptyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredPanel(
       icon: icon,
-      iconColor: LoungeTokens.mutedText,
+      tone: LoungeMedallionTone.lacquer,
       title: title,
       body: body,
     );
@@ -65,7 +99,7 @@ class HistoryFailurePanel extends StatelessWidget {
 
     return _CenteredPanel(
       icon: retryable ? Icons.cloud_off_outlined : Icons.broken_image_outlined,
-      iconColor: LoungeTokens.goldAccent,
+      tone: LoungeMedallionTone.alert,
       title: retryable
           ? strings.historyLoadFailedRetryableTitle
           : strings.historyLoadFailedCorruptTitle,
@@ -159,52 +193,71 @@ class _InlineNote extends StatelessWidget {
   }
 }
 
+/// A state message as a lounge card: the state's medallion over a display
+/// headline and its explanation, lit from the top-start corner like the
+/// history entries around it.
 class _CenteredPanel extends StatelessWidget {
   const _CenteredPanel({
     required this.icon,
-    required this.iconColor,
+    required this.tone,
     required this.title,
     required this.body,
     this.action,
   });
 
   final IconData icon;
-  final Color iconColor;
+  final LoungeMedallionTone tone;
   final String title;
   final String body;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) {
+    final alert = tone == LoungeMedallionTone.alert;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(LoungeTokens.space6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 46, color: iconColor.withValues(alpha: 0.8)),
-            const SizedBox(height: LoungeTokens.space4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: LoungeTokens.offWhiteText,
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                height: 1.25,
-              ),
+        padding: const EdgeInsets.all(LoungeTokens.space5),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              LoungeTokens.space5,
+              LoungeTokens.space6,
+              LoungeTokens.space5,
+              LoungeTokens.space5,
             ),
-            const SizedBox(height: LoungeTokens.space3),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: LoungeTokens.bodyMuted.copyWith(height: 1.45),
+            decoration: loungeLitPanel(
+              glow: alert
+                  ? LoungeTokens.invalidAction
+                  : LoungeTokens.goldAccent,
+              strength: alert ? 0.08 : 0.06,
+              edge: alert
+                  ? LoungeTokens.invalidAction.withValues(alpha: 0.35)
+                  : LoungeTokens.sandLine.withValues(alpha: 0.18),
+            ).copyWith(boxShadow: LoungeTokens.elevationL2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LoungeMedallion(icon: icon, size: 60, tone: tone),
+                const SizedBox(height: LoungeTokens.space4),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: LoungeTokens.display.copyWith(fontSize: 22),
+                ),
+                const SizedBox(height: LoungeTokens.space3),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: LoungeTokens.bodyMuted.copyWith(height: 1.45),
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: LoungeTokens.space5),
+                  action!,
+                ],
+              ],
             ),
-            if (action != null) ...[
-              const SizedBox(height: LoungeTokens.space5),
-              action!,
-            ],
-          ],
+          ),
         ),
       ),
     );

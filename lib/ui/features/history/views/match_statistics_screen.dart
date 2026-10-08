@@ -90,7 +90,9 @@ class _MatchStatisticsScreenState extends State<MatchStatisticsScreen> {
 
   Widget _body(AppStrings strings) {
     return switch (_state) {
-      MatchHistoryLoading() => const Center(child: CircularProgressIndicator()),
+      MatchHistoryLoading() => const HistoryLoadingPanel(
+        icon: Icons.insights_outlined,
+      ),
       MatchHistoryEmpty() => HistoryEmptyPanel(
         icon: Icons.insights_outlined,
         title: strings.statisticsEmptyTitle,

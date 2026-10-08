@@ -198,7 +198,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
 
   Widget _body(AppStrings strings) {
     return switch (_state) {
-      MatchHistoryLoading() => const Center(child: CircularProgressIndicator()),
+      MatchHistoryLoading() => const HistoryLoadingPanel(),
       MatchHistoryEmpty() => HistoryEmptyPanel(
         title: strings.historyEmptyTitle,
         body: strings.historyEmptyBody,
