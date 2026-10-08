@@ -378,6 +378,7 @@ class _LessonTile extends StatelessWidget {
     final strings = context.strings;
     final look = _lookFor(strings);
     final muted = look.muted;
+    final skipped = status == PracticeLessonStatus.skipped;
 
     return Container(
       margin: const EdgeInsets.only(bottom: LoungeTokens.space3),
@@ -437,26 +438,20 @@ class _LessonTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (status == PracticeLessonStatus.skipped)
+              // Skip and unskip toggle each other; a completed lesson offers
+              // neither.
+              if (status != PracticeLessonStatus.completed)
                 TextButton(
-                  onPressed: onUnskip,
+                  onPressed: skipped ? onUnskip : onSkip,
                   style: TextButton.styleFrom(
                     foregroundColor: LoungeTokens.mutedText,
                     visualDensity: VisualDensity.compact,
                     // The theme minimum is full-width; shrink to row content.
                     minimumSize: const Size(0, 36),
                   ),
-                  child: Text(strings.practiceUnskip),
-                )
-              else if (status == PracticeLessonStatus.notStarted)
-                TextButton(
-                  onPressed: onSkip,
-                  style: TextButton.styleFrom(
-                    foregroundColor: LoungeTokens.mutedText,
-                    visualDensity: VisualDensity.compact,
-                    minimumSize: const Size(0, 36),
+                  child: Text(
+                    skipped ? strings.practiceUnskip : strings.practiceSkip,
                   ),
-                  child: Text(strings.practiceSkip),
                 ),
               const SizedBox(width: LoungeTokens.space2),
               OutlinedButton.icon(
@@ -484,7 +479,6 @@ class _LessonTile extends StatelessWidget {
   ({
     bool muted,
     IconData badgeIcon,
-    Color badgeColor,
     Color borderColor,
     IconData startIcon,
     String startLabel,
@@ -496,7 +490,6 @@ class _LessonTile extends StatelessWidget {
       PracticeLessonStatus.notStarted => (
         muted: false,
         badgeIcon: Icons.radio_button_unchecked,
-        badgeColor: LoungeTokens.mutedText,
         borderColor: restingBorder,
         startIcon: Icons.play_arrow_outlined,
         startLabel: strings.practiceStart,
@@ -505,7 +498,6 @@ class _LessonTile extends StatelessWidget {
       PracticeLessonStatus.skipped => (
         muted: true,
         badgeIcon: Icons.remove_circle_outline,
-        badgeColor: LoungeTokens.mutedText,
         borderColor: restingBorder,
         startIcon: Icons.play_arrow_outlined,
         startLabel: strings.practiceStart,
@@ -514,7 +506,6 @@ class _LessonTile extends StatelessWidget {
       PracticeLessonStatus.completed => (
         muted: false,
         badgeIcon: Icons.check_circle,
-        badgeColor: LoungeTokens.goldAccent,
         borderColor: LoungeTokens.goldAccent.withValues(alpha: 0.45),
         startIcon: Icons.replay_outlined,
         startLabel: strings.practiceReplay,
