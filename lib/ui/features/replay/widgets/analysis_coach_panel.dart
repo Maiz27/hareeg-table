@@ -7,7 +7,6 @@ import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_mode.dart';
 import '../review_insight_presenter.dart';
-import 'replay_hud_clusters.dart';
 
 /// Decides whether a coach is shown here at all, and which one.
 ///
@@ -26,8 +25,12 @@ class ReviewAnalysisRegion extends StatelessWidget {
     required this.isOverridden,
     required this.onSettingsChanged,
     required this.reviewable,
+    this.inset = false,
     super.key,
   });
+
+  /// Whether the region sits inside a card that already paints the surface.
+  final bool inset;
 
   /// Mode this surface is running as.
   final TableMode mode;
@@ -62,140 +65,7 @@ class ReviewAnalysisRegion extends StatelessWidget {
       isOverridden: isOverridden,
       onSettingsChanged: onSettingsChanged,
       reviewable: reviewable,
-    );
-  }
-}
-
-/// The short layout's analysis surface: a one-line chip that opens into a
-/// bounded, scrollable card.
-///
-/// The expanded analysis popover.
-///
-/// Sticky on purpose. Stepping updates the contents in place and leaves the
-/// card open, because comparing one decision against the next is the review
-/// task — collapsing after every step would defeat it. Transport shares the
-/// card's [replayHudTapGroup], so only an explicit dismissal or a tap on the
-/// table closes it.
-///
-/// The wide headline chip this used to collapse into is withdrawn: the
-/// collapsed affordance is now the 44 x 44 Analysis button in the physical-left
-/// rail, and the rendered measurements showed the chip covering opponent cards
-/// under RTL. When the card is closed this widget renders nothing at all.
-class ReviewAnalysisCard extends StatelessWidget {
-  /// Creates the popover surface.
-  const ReviewAnalysisCard({
-    required this.mode,
-    required this.insights,
-    required this.presenter,
-    required this.settings,
-    required this.isOverridden,
-    required this.onSettingsChanged,
-    required this.reviewable,
-    required this.expanded,
-    required this.onDismiss,
-    super.key,
-  });
-
-  /// The surface this runs as.
-  final TableMode mode;
-
-  /// Insights for the current frame.
-  final List<ReviewInsight> insights;
-
-  /// Turns insights into sentences.
-  final ReviewInsightPresenter presenter;
-
-  /// Settings in force for this replay.
-  final AnalysisCoachSettings settings;
-
-  /// Whether [settings] differs from the saved default.
-  final bool isOverridden;
-
-  /// Requests a settings change.
-  final ValueChanged<AnalysisCoachSettings> onSettingsChanged;
-
-  /// Whether the frame is a played move.
-  final bool reviewable;
-
-  /// Whether the card is open.
-  final bool expanded;
-
-  /// Closes it.
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    // Read from the mode's single coach-surface field rather than assumed, so
-    // a surface that should show no coach cannot grow one here.
-    if (mode.capabilities.coachSurface != TableCoachSurface.analysis) {
-      return const SizedBox.shrink();
-    }
-
-    if (!expanded) {
-      return const SizedBox.shrink();
-    }
-
-    final strings = context.strings;
-
-    return TapRegion(
-      // Observation, not a barrier. Nothing full-screen participates in hit
-      // testing, so a tap outside collapses the card *and* still reaches
-      // whatever it landed on. The group is what keeps transport "inside".
-      groupId: replayHudTapGroup,
-      onTapOutside: (_) => onDismiss(),
-      child: Padding(
-        // The popover rectangle the collision map handed down is exact; this
-        // inset keeps the card's own border off the boundary it was measured
-        // against rather than growing past it.
-        padding: const EdgeInsets.only(right: 4, bottom: 4),
-        // The live table's coach card, lit from its top-start corner. The
-        // edge stays one pixel wide: a decorated `Container` pads its child by
-        // the border, and the popover's content was measured against that.
-        child: Container(
-          decoration: loungeLitPanel(strength: 0.12).copyWith(
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-            border: Border.all(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: Tooltip(
-                  message: strings.close,
-                  child: IconButton(
-                    icon: const Icon(Icons.close),
-                    color: LoungeTokens.sandLine,
-                    onPressed: onDismiss,
-                    constraints: const BoxConstraints(
-                      minWidth: LoungeTokens.tapTargetCardShort,
-                      minHeight: LoungeTokens.tapTargetCardShort,
-                    ),
-                    padding: EdgeInsets.zero,
-                    iconSize: 20,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: AnalysisCoachPanel(
-                    insights: insights,
-                    presenter: presenter,
-                    settings: settings,
-                    isOverridden: isOverridden,
-                    onSettingsChanged: onSettingsChanged,
-                    reviewable: reviewable,
-                    inset: true,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      inset: inset,
     );
   }
 }
@@ -219,7 +89,7 @@ class AnalysisCoachPanel extends StatelessWidget {
   });
 
   /// Whether the panel sits inside a card that already paints the surface
-  /// (the short layout's popover), rather than standing as its own band.
+  /// (the replay card), rather than standing as its own band.
   final bool inset;
 
   /// Insights for the current frame, already filtered by [settings].
@@ -248,10 +118,8 @@ class AnalysisCoachPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    // The top edge is a real border, not a painted one, on purpose: its half
-    // pixel is part of the padding the docked layout oracle measured, so the
-    // band's height is unchanged by the restyle. Inside the popover the card
-    // paints the surface, so the band goes clear but keeps the same metrics.
+    // Standing alone it paints its own band with a brass top edge; inside
+    // the replay card the card paints the surface and the band goes clear.
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -289,8 +157,8 @@ class AnalysisCoachPanel extends StatelessWidget {
             children: [
               // The coach's medallion, lit like the live coach card's badge.
               // Shorter than the verbosity control beside it, so the row is
-              // still that control's height. Left out of the popover, which
-              // is too narrow to give it the title's room.
+              // still that control's height. Left out inside the replay card,
+              // which is too narrow to give it the title's room.
               if (!inset) ...[
                 const LoungeMedallion(
                   icon: Icons.insights,
@@ -301,10 +169,8 @@ class AnalysisCoachPanel extends StatelessWidget {
               ],
               // The title yields space to the verbosity control rather than
               // claiming its full intrinsic width. Inflexible, it overflowed a
-              // narrow docked phone by 89 px — the control was pushed off the
-              // right edge, so the panel was unusable at exactly the width the
-              // layout falls back to. One line either way, so the panel's
-              // height is unchanged.
+              // narrow phone by 89 px — the control was pushed off the right
+              // edge. One line either way.
               Expanded(
                 child: Text(
                   strings.replayCoachTitle,
@@ -319,11 +185,9 @@ class AnalysisCoachPanel extends StatelessWidget {
                 ),
               ),
               // Flexible, not intrinsic: the control's natural width is its
-              // longest localized level name, which is wider than the whole
-              // popover. Left inflexible it overflowed by 134 px there, in
-              // exactly the way the title used to overflow the narrow docked
-              // phone. Both now yield to the constraints they are given, and
-              // both stay one line, so the panel's height is unchanged.
+              // longest localized level name, which is wider than the narrow
+              // replay card. Both yield to the constraints they are given,
+              // and both stay one line.
               Flexible(
                 child: _VerbosityMenu(
                   settings: settings,

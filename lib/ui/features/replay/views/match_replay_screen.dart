@@ -16,7 +16,6 @@ import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_mode.dart';
 import '../../game_table/widgets/table_background.dart';
-import '../replay_hud_layout.dart';
 import '../replay_viewer_view_state.dart';
 import '../review_insight_presenter.dart';
 import '../widgets/branch_entry_sheet.dart';
@@ -251,9 +250,8 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
 
   /// Opens the visibility chooser and, on a choice, pushes the sandbox.
   ///
-  /// Lives here rather than in either layout so the two entry points — the
-  /// short HUD rail and the docked app bar — are one route into the sandbox
-  /// rather than two that could drift.
+  /// Lives here rather than in the review body, so the capsule's Branch
+  /// segment is one route into the sandbox whichever arrangement it sits in.
   ///
   /// Returns to this exact frame afterwards, because the sandbox is a pushed
   /// route over an untouched review: popping it restores the cursor without
@@ -288,94 +286,77 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final media = MediaQuery.of(context);
 
-    // Resolved once, here, and handed to both the branch and the HUD. Nothing
-    // recomputes after branching, so the collision map and the rendered rails
-    // cannot disagree about where anything is.
-    //
-    // `padding`, not `viewPadding`: the body below is a `SafeArea`, which
-    // consumes exactly `padding`. Routing on the other one would classify a
-    // body the screen never builds.
-    final decision = ReplayHudLayout.resolveFor(
-      screen: media.size,
-      safeInsets: media.padding,
-    );
-
-    // The app bar goes only when a rebuilt match is actually on screen in the
-    // short layout, where Back lives in the HUD instead. Loading and failure
-    // states keep it, or there would be no way out of them.
-    final isShort =
-        decision.mode == ReplayLayoutMode.short && _state is ReplayViewerReady;
+    // A rebuilt match is the table itself, edge to edge, with its exit in the
+    // HUD capsule like the live table's. Loading and failure states keep the
+    // header, or there would be no way out of them.
+    if (_state case ReplayViewerReady(:final review)) {
+      return Scaffold(
+        backgroundColor: LoungeTokens.coffeeCharcoal,
+        body: ReplayReviewBody(
+          review: review,
+          settings: _settings,
+          isOverridden: _isOverridden,
+          onSettingsChanged: (value) => setState(() => _settings = value),
+          onSeek: _seek,
+          branchLabel: _branchLabel(strings),
+          onBranch: _onBranch,
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: LoungeTokens.coffeeCharcoal,
-      appBar: isShort
-          ? null
-          : AppBar(
-              backgroundColor: LoungeTokens.coffeeCharcoal,
-              // Lacquered like the table's HUD capsule, with a brass hairline
-              // where the bar meets the rail. Painted, not laid out: the bar's
-              // height is a frozen docked anchor.
-              flexibleSpace: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.lerp(
-                        LoungeTokens.coffeeCharcoal,
-                        LoungeTokens.sandLine,
-                        0.08,
-                      )!,
-                      LoungeTokens.coffeeCharcoal,
-                    ],
-                  ),
-                ),
-              ),
-              shape: Border(
-                bottom: BorderSide(
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.32),
-                ),
-              ),
-              titleSpacing: LoungeTokens.space4,
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LoungeMedallion(
-                    icon: Icons.history_rounded,
-                    size: 32,
-                    tone: LoungeMedallionTone.lit,
-                  ),
-                  const SizedBox(width: LoungeTokens.space3),
-                  Flexible(
-                    child: Text(
-                      strings.replayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                // The docked layout's branch entry. It lives here rather than
-                // in the transport strip because that strip already overflows
-                // at 320 dp with six controls, and a seventh would push a
-                // frozen-oracle anchor. The bar is full width at every docked
-                // size, so this is the one place a tenth affordance costs no
-                // measured geometry.
-                if (_state is ReplayViewerReady)
-                  _BranchAppBarAction(
-                    label: _branchLabel(strings),
-                    onPressed: _onBranch,
-                  ),
+      appBar: AppBar(
+        backgroundColor: LoungeTokens.coffeeCharcoal,
+        // Lacquered like the table's HUD capsule, with a brass hairline where
+        // the bar meets the rail.
+        flexibleSpace: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.lerp(
+                  LoungeTokens.coffeeCharcoal,
+                  LoungeTokens.sandLine,
+                  0.08,
+                )!,
+                LoungeTokens.coffeeCharcoal,
               ],
             ),
-      body: TableBackground(child: SafeArea(child: _body(context, decision))),
+          ),
+        ),
+        shape: Border(
+          bottom: BorderSide(
+            color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+          ),
+        ),
+        titleSpacing: LoungeTokens.space4,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const LoungeMedallion(
+              icon: Icons.history_rounded,
+              size: 32,
+              tone: LoungeMedallionTone.lit,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
+            Flexible(
+              child: Text(
+                strings.replayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: TableBackground(child: SafeArea(child: _body(context))),
     );
   }
 
-  Widget _body(BuildContext context, ReplayLayoutDecision decision) {
+  Widget _body(BuildContext context) {
     return switch (_state) {
       ReplayViewerLoading(:final rebuiltFrames) => _LoadingBody(
         frames: rebuiltFrames,
@@ -397,16 +378,8 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
         onRetry: isRetryable ? _load : null,
         retryLabel: context.strings.replayRetry,
       ),
-      ReplayViewerReady(:final review) => ReplayReviewBody(
-        decision: decision,
-        review: review,
-        settings: _settings,
-        isOverridden: _isOverridden,
-        onSettingsChanged: (value) => setState(() => _settings = value),
-        onSeek: _seek,
-        branchLabel: _branchLabel(context.strings),
-        onBranch: _onBranch,
-      ),
+      // Rendered by [build] directly.
+      ReplayViewerReady() => const SizedBox.shrink(),
     };
   }
 
@@ -422,80 +395,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
   /// Starts a branch, or null when the current frame refuses one.
   VoidCallback? get _onBranch =>
       _branchRefusal == null ? () => unawaited(_startBranch()) : null;
-}
-
-/// The docked layout's branch entry, in the app bar.
-///
-/// Icon-only, which makes the tooltip and the semantics label load-bearing
-/// rather than decorative: without them a screen reader announces an unnamed
-/// button.
-///
-/// **The tooltip is on the wrapper, not on the `IconButton`.** Giving
-/// `IconButton` a `tooltip` *and* wrapping it in a labelled `Semantics` merges
-/// two names onto one node, and the browser then announces "Play on from here
-/// Play on from here". Found on the real web build; the arrangement below is
-/// the one `ReplayRailButton` already uses, and it yields exactly one name.
-class _BranchAppBarAction extends StatelessWidget {
-  const _BranchAppBarAction({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: MergeSemantics(
-        child: Semantics(
-          label: label,
-          button: true,
-          enabled: onPressed != null,
-          // Deliberately unkeyed. Sprint 05's frozen docked oracle collects
-          // every `ValueKey<String>`-bearing render box as an anchor, so a key
-          // here would add a twenty-third anchor to a layout the oracle
-          // freezes at twenty-two — and that file is not this sprint's to
-          // rewrite. The localized semantics label is the handle, which is the
-          // one a screen reader uses anyway.
-          //
-          // Set in a gold-ringed pill, the live table's HUD capsule, so the
-          // one action that leaves review reads as table chrome. The pill is
-          // painted around the button and adds nothing to the bar's layout.
-          child: Padding(
-            padding: const EdgeInsetsDirectional.only(end: LoungeTokens.space2),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color.lerp(
-                      LoungeTokens.coffeeCharcoal,
-                      LoungeTokens.goldAccent,
-                      0.14,
-                    )!,
-                    LoungeTokens.coffeeCharcoal,
-                  ],
-                ),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: onPressed == null
-                      ? LoungeTokens.sandLine.withValues(alpha: 0.18)
-                      : LoungeTokens.goldAccent.withValues(alpha: 0.6),
-                ),
-                boxShadow: LoungeTokens.elevationL2,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.alt_route),
-                color: LoungeTokens.goldAccent,
-                disabledColor: LoungeTokens.sandLine.withValues(alpha: 0.32),
-                onPressed: onPressed,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// The lit lounge card the loading and message states sit on, centred on the

@@ -144,6 +144,8 @@ class ReviewTablePlayfield extends StatelessWidget {
       // reviewer cannot make. On a passive table it is not just inert, it
       // invites an action that will never happen.
       showSouthControls: false,
+      // The live table's pot: the stock at the centre beside the discard.
+      centerStock: true,
       theme: theme,
       // The same plates the live table shows: each seat's running match
       // score against the elimination line. The position's scores are the
