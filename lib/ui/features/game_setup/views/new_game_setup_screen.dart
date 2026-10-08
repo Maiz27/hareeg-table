@@ -28,7 +28,6 @@ class NewGameSetupScreen extends StatefulWidget {
 
 class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
   ClassicHareegSetup _setup = ClassicHareegSetup.defaults();
-  GamePreferences _preferences = GamePreferences.defaults();
 
   @override
   void initState() {
@@ -201,12 +200,14 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
   }
 
   Future<void> _update(ClassicHareegSetup setup) async {
-    setState(() {
-      _setup = setup;
-      _preferences = _preferences.copyWith(setup: setup);
-    });
+    setState(() => _setup = setup);
     try {
-      await widget.preferencesRepository.savePreferences(_preferences);
+      // Re-read and change only the setup: Settings (reachable from the
+      // house-rules footer) may have saved since this screen loaded, and
+      // writing back a stale copy would undo it, diagnostics opt-out included.
+      final repository = widget.preferencesRepository;
+      final current = await repository.loadPreferences();
+      await repository.savePreferences(current.copyWith(setup: setup));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -229,10 +230,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
       return;
     }
 
-    setState(() {
-      _preferences = preferences;
-      _setup = preferences.setup;
-    });
+    setState(() => _setup = preferences.setup);
   }
 }
 

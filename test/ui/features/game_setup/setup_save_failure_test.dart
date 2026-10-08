@@ -129,6 +129,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a setup change keeps a diagnostics opt-out saved elsewhere '
+      'while the screen was open', (tester) async {
+    final repository = _Preferences()
+      ..preferences = GamePreferences.defaults().copyWith(
+        diagnosticsEnabled: true,
+        diagnosticsNoticeSeen: true,
+      );
+    await _pump(tester, repository, AppStrings.english);
+
+    // Settings (reachable from the house-rules footer) saves the opt-out.
+    await repository.savePreferences(
+      repository.preferences.copyWith(diagnosticsEnabled: false),
+    );
+    await tester.tap(find.text(AppStrings.english.beginner));
+    await tester.pumpAndSettle();
+
+    expect(repository.preferences.setup.cpuDifficulty, CpuDifficulty.beginner);
+    expect(repository.preferences.diagnosticsEnabled, isFalse);
+    expect(repository.preferences.diagnosticsConsented, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('late setup failure is handled after disposal', (tester) async {
     final repository = _Preferences()..pending = Completer<void>();
     await _pump(tester, repository, AppStrings.english);
