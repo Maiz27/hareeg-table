@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Player-selectable motion speed used for table animations.
 ///
-/// `normal` runs at the durations listed in `docs/design/direction.md`.
+/// `normal` runs at the durations listed in `docs/design/design-contract.md`.
 /// `fast` multiplies durations by 0.6. `reduced` drops to 0.35 and replaces
 /// easing curves with a linear ramp to honour vestibular-sensitivity needs.
 enum MotionSpeed {

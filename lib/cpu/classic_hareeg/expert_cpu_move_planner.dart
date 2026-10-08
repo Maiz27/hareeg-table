@@ -227,7 +227,10 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
         observation.topDiscard == null) {
       return false;
     }
-    return observation.ownHasOpened();
+    // The taken card still has to be played this turn: denying it to the
+    // next seat is only worth it when it can go straight onto a table meld.
+    // An unplayable pickup is handed back and the seat draws anyway.
+    return canCoverWithTakenDiscard(observation);
   }
 
   @override

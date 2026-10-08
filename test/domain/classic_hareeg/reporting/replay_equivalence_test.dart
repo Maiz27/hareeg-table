@@ -6,8 +6,6 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_match_sna
 import 'package:hareeg_table/domain/classic_hareeg/reporting/match_action_transcript.dart';
 import 'package:hareeg_table/domain/classic_hareeg/reporting/match_report_replay.dart';
 
-import '../../../support/completed_match_fixture.dart';
-
 /// Contract C26: `replayTranscript` was reimplemented on top of
 /// `MatchReplayTimeline`. This proves the rewrite did not move behaviour.
 ///
@@ -24,6 +22,19 @@ void main() {
           )
           as Map<String, Object?>;
   final cases = (oracle['cases']! as List).cast<Map<String, Object?>>();
+  // Transcripts recorded once from the CPU-played matches the oracle was
+  // frozen against (test/support/completed_match_fixture.dart at the time).
+  // Pinning them keeps this suite about replay, not about CPU strategy: a
+  // CPU change re-plays different matches, which must not read as a replay
+  // regression.
+  final transcripts =
+      jsonDecode(
+            File(
+              'test/domain/classic_hareeg/reporting/'
+              'replay_oracle_transcripts.json',
+            ).readAsStringSync(),
+          )
+          as Map<String, Object?>;
   // Seeds 13 and 23 converge on the same final round: the next-round seed is
   // derived from standings, not the original deal seed. Their earlier actions
   // differ, so equal terminal boards do not make either frozen case redundant.
@@ -43,11 +54,11 @@ void main() {
     test(
       'seed $seed replays exactly as the pre-refactor implementation did',
       () {
-        final fixture = buildCompletedMatch(seed: seed);
-        final state = fixture.recorderState;
-        final transcript = MatchActionTranscript(
-          initialSnapshot: state.initialSnapshot!,
-          entries: state.entries,
+        // The recorded match, not a fresh CPU-played one: the oracle guards
+        // the replay implementation, so its input must not move when CPU
+        // strategy changes.
+        final transcript = MatchActionTranscript.fromJson(
+          (transcripts['$seed']! as Map).cast<String, Object?>(),
         );
 
         expect(transcript.entries.length, expected['entryCount']);
@@ -80,7 +91,7 @@ void main() {
             expected['checkedAgainstFinalState']! as Map<String, Object?>;
         final verified = replayTranscript(
           transcript,
-          expected: fixture.finalState,
+          expected: frozen,
         );
         expect(verified.status.name, checked['status']);
         expect(

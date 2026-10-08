@@ -5,6 +5,7 @@ import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/brand/app_brand_mark.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Attribution + license screen reached from Settings -> About.
@@ -45,21 +46,48 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
+              // Each part of the page is a card on the felt: the intro lit
+              // as the hero, the story and each licence group on quieter
+              // surfaces (design contract section 8).
               children: [
-                const _AboutIntro(),
-                const _SectionBreak(),
-                const _OriginStory(),
-                const _SectionBreak(),
-                _LicenseSection(themes: widget.themes),
-                const _SectionBreak(),
-                const _SoundLicenseSection(),
-                const _SectionBreak(),
-                Text(strings.licensesFooter, style: LoungeTokens.bodyMuted),
+                const _AboutCard(hero: true, child: _AboutIntro()),
+                const _AboutCard(child: _OriginStory()),
+                _AboutCard(child: _LicenseSection(themes: widget.themes)),
+                const _AboutCard(child: _SoundLicenseSection()),
+                const _AboutCard(child: _FontLicenseSection()),
+                const SizedBox(height: LoungeTokens.space2),
+                Text(
+                  strings.licensesFooter,
+                  textAlign: TextAlign.center,
+                  style: LoungeTokens.bodyMuted,
+                ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.child, this.hero = false});
+
+  final Widget child;
+  final bool hero;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: LoungeTokens.space4),
+      padding: const EdgeInsets.all(LoungeTokens.space5),
+      decoration: hero
+          ? loungeLitPanel(strength: 0.16)
+          : loungeLitPanel(
+              strength: 0.04,
+              edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+            ).copyWith(boxShadow: const []),
+      child: child,
     );
   }
 }
@@ -156,11 +184,12 @@ class _OriginStory extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.local_fire_department_outlined,
-              color: LoungeTokens.goldAccent,
+            const LoungeMedallion(
+              icon: Icons.local_fire_department_outlined,
+              size: 34,
+              tone: LoungeMedallionTone.lit,
             ),
-            const SizedBox(width: LoungeTokens.space2),
+            const SizedBox(width: LoungeTokens.space3),
             Expanded(
               child: Text(
                 strings.whyThisExistsHeader,
@@ -190,8 +219,12 @@ class _LicenseSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.style_outlined, color: LoungeTokens.goldAccent),
-            const SizedBox(width: LoungeTokens.space2),
+            const LoungeMedallion(
+              icon: Icons.style_outlined,
+              size: 34,
+              tone: LoungeMedallionTone.lit,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
             Expanded(
               child: Text(
                 strings.licensesThemesHeader,
@@ -267,8 +300,12 @@ class _SoundLicenseSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.graphic_eq, color: LoungeTokens.goldAccent),
-            const SizedBox(width: LoungeTokens.space2),
+            const LoungeMedallion(
+              icon: Icons.graphic_eq,
+              size: 34,
+              tone: LoungeMedallionTone.lit,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
             Expanded(
               child: Text(
                 strings.licensesSoundsHeader,
@@ -315,6 +352,45 @@ class _SoundLicenseSection extends StatelessWidget {
   }
 }
 
+class _FontLicenseSection extends StatelessWidget {
+  const _FontLicenseSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const LoungeMedallion(
+              icon: Icons.text_fields,
+              size: 34,
+              tone: LoungeMedallionTone.lit,
+            ),
+            const SizedBox(width: LoungeTokens.space3),
+            Expanded(
+              child: Text(
+                strings.licensesFontsHeader,
+                style: LoungeTokens.heading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        for (final line in [
+          strings.fontReemKufiAttribution,
+          strings.fontPlexArabicAttribution,
+        ]) ...[
+          Text(line, style: LoungeTokens.bodyMuted),
+          const SizedBox(height: LoungeTokens.space2),
+        ],
+      ],
+    );
+  }
+}
+
 class _LicensePill extends StatelessWidget {
   const _LicensePill({required this.icon, required this.label});
 
@@ -344,21 +420,6 @@ class _LicensePill extends StatelessWidget {
             Text(label, style: LoungeTokens.bodyMuted),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SectionBreak extends StatelessWidget {
-  const _SectionBreak();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: LoungeTokens.space5),
-      child: Divider(
-        height: 1,
-        color: LoungeTokens.sandLine.withValues(alpha: 0.24),
       ),
     );
   }

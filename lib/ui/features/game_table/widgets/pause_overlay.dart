@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../domain/classic_hareeg/models/player_seat.dart';
+
 import '../../../../l10n/app_strings.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import 'seat_plate.dart';
 
 /// Landscape pause overlay.
 ///
@@ -38,7 +41,16 @@ class PauseOverlay extends StatelessWidget {
     this.showCoachingTips = false,
     this.coachingTipsEnabled = false,
     this.onCoachingTipsChanged,
+    this.scores = const <PlayerSeat, int>{},
+    this.eliminationScore = 31,
   });
+
+  /// Match scores for the at-a-glance standings above Resume. Empty hides
+  /// the standings.
+  final Map<PlayerSeat, int> scores;
+
+  /// Score at which a seat is out; drives the standings' danger arcs.
+  final int eliminationScore;
 
   /// Current motion speed.
   final MotionSpeed motionSpeed;
@@ -140,6 +152,8 @@ class PauseOverlay extends StatelessWidget {
                                       ? _TwoColumnBody(
                                           settings: _settingsList(strings),
                                           actions: _ActionRail(
+                                            scores: scores,
+                                            eliminationScore: eliminationScore,
                                             strings: strings,
                                             onResume: onResume,
                                             onReportTableIssue:
@@ -270,9 +284,30 @@ class _TwoColumnBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.only(right: LoungeTokens.space5),
-            child: settings,
+            // The in-match settings sit in an inset felt tray, set apart from
+            // the actions like a drawer pulled from the table.
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    LoungeTokens.feltSpotlight.withValues(alpha: 0.45),
+                    LoungeTokens.feltGreen.withValues(alpha: 0.35),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+                border: Border.all(
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+                ),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(LoungeTokens.space4),
+                child: settings,
+              ),
+            ),
           ),
         ),
         Container(
@@ -297,12 +332,16 @@ class _TwoColumnBody extends StatelessWidget {
 /// gold hero; Report and Leave sit beneath it as quieter outlined actions.
 class _ActionRail extends StatelessWidget {
   const _ActionRail({
+    required this.scores,
+    required this.eliminationScore,
     required this.strings,
     required this.onResume,
     required this.onReportTableIssue,
     required this.onLeave,
   });
 
+  final Map<PlayerSeat, int> scores;
+  final int eliminationScore;
   final AppStrings strings;
   final VoidCallback onResume;
   final VoidCallback onReportTableIssue;
@@ -310,10 +349,44 @@ class _ActionRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final seats = scores.keys.toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The match at a glance: where every seat stands, so a pause
+        // doubles as a breather to read the table.
+        if (seats.isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (final seat in seats)
+                Tooltip(
+                  message: '${strings.seatLabel(seat)} · ${scores[seat]}',
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ScoreMedallion(
+                        diameter: 34,
+                        score: scores[seat] ?? 0,
+                        eliminationScore: eliminationScore,
+                      ),
+                      const SizedBox(height: 4),
+                      Icon(
+                        seat == PlayerSeat.south
+                            ? Icons.person_outline
+                            : Icons.smart_toy_outlined,
+                        size: 13,
+                        color: LoungeTokens.sandLine,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: LoungeTokens.space5),
+        ],
         _RailButton(
           icon: Icons.play_arrow,
           label: strings.resumeTable,
@@ -368,6 +441,7 @@ class _RailButton extends StatelessWidget {
             vertical: LoungeTokens.space4,
           ),
           textStyle: const TextStyle(
+            fontFamily: LoungeTokens.uiFamily,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.4,
           ),
@@ -391,6 +465,7 @@ class _RailButton extends StatelessWidget {
           vertical: LoungeTokens.space3,
         ),
         textStyle: const TextStyle(
+          fontFamily: LoungeTokens.uiFamily,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
         ),

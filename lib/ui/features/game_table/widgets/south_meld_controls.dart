@@ -316,7 +316,7 @@ class _MeldCtaButton extends StatelessWidget {
         : (hasOpened ? strings.meld : strings.openNeed);
     final background = isCta
         ? LoungeTokens.goldAccent
-        : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92);
+        : const Color(0xF21C140E);
     final foreground = isCta
         ? LoungeTokens.coffeeCharcoal
         : LoungeTokens.offWhiteText;
@@ -329,11 +329,11 @@ class _MeldCtaButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isCta
               ? Colors.white.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.08),
+              : LoungeTokens.sandLine.withValues(alpha: 0.32),
         ),
         boxShadow: [
           BoxShadow(
@@ -351,23 +351,20 @@ class _MeldCtaButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              caption,
-              style: TextStyle(
-                color: foreground,
-                fontSize: compact ? 8.5 : 10,
-                fontWeight: FontWeight.w800,
+              isCta ? caption : caption.toUpperCase(),
+              style: LoungeTokens.overline.copyWith(
+                color: isCta ? foreground : LoungeTokens.sandLine,
+                fontSize: compact ? 7.5 : 8.5,
                 height: 1,
-                letterSpacing: 0.3,
+                letterSpacing: isCta ? 0.3 : 1.1,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               '$displayValue',
-              style: TextStyle(
+              style: LoungeTokens.numericDisplay.copyWith(
                 color: foreground,
-                fontSize: compact ? 14 : 17,
-                fontWeight: FontWeight.w900,
-                height: 1,
+                fontSize: compact ? 15 : 19,
               ),
             ),
           ],

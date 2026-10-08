@@ -27,12 +27,23 @@ class MatchStatisticTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(LoungeTokens.space3),
+      padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
+        gradient: RadialGradient(
+          center: const Alignment(-1, -1),
+          radius: 1.6,
+          colors: [
+            Color.lerp(
+              LoungeTokens.coffeeCharcoal,
+              LoungeTokens.goldAccent,
+              0.07,
+            )!.withValues(alpha: 0.7),
+            LoungeTokens.coffeeCharcoal.withValues(alpha: 0.45),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.15),
+          color: LoungeTokens.sandLine.withValues(alpha: 0.16),
         ),
       ),
       child: Column(
@@ -41,20 +52,17 @@ class MatchStatisticTile extends StatelessWidget {
         children: [
           Text(
             label,
-            style: LoungeTokens.bodyMuted.copyWith(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
+            style: LoungeTokens.overline.copyWith(
+              fontSize: 10.5,
+              letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: LoungeTokens.space1),
+          const SizedBox(height: LoungeTokens.space2),
           Text(
             value,
-            style: const TextStyle(
-              color: LoungeTokens.offWhiteText,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
+            style: LoungeTokens.numericDisplay.copyWith(
+              fontSize: 26,
+              height: 1.05,
             ),
           ),
           if (hint != null) ...[

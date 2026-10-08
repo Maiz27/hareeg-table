@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
 import '../../../core/motion/motion_speed.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Persistent step prompt shown over the table during a practice lesson.
@@ -58,61 +59,67 @@ class PracticeStepBanner extends StatelessWidget {
     final guidance = reaction ?? hint;
 
     final panel = DecoratedBox(
-      decoration: BoxDecoration(
-        color: panelColor,
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: 0.16),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: highContrast
+          ? BoxDecoration(
+              color: panelColor,
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+              border: Border.all(color: accent, width: 1.4),
+            )
+          : loungeLitPanel(strength: 0.12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space4,
-          vertical: LoungeTokens.space2,
+        padding: const EdgeInsets.fromLTRB(
+          LoungeTokens.space3,
+          LoungeTokens.space2,
+          LoungeTokens.space4,
+          LoungeTokens.space2,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Badge column: icon with the step counter beneath it.
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.school_outlined, size: 20, color: accent),
-                const SizedBox(height: 2),
-                Text(
-                  stepLabel.toUpperCase(),
-                  style: const TextStyle(
-                    color: accent,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
+            // The step on a lit medallion: the lesson's place at a glance.
+            LoungeMedallion.label(
+              label: '${stepIndex + 1}',
+              size: 36,
+              tone: LoungeMedallionTone.lit,
             ),
             const SizedBox(width: LoungeTokens.space3),
-            // Text column: the prompt with its guidance line beneath it.
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Row(
+                    children: [
+                      Text(
+                        stepLabel.toUpperCase(),
+                        style: LoungeTokens.overline.copyWith(
+                          color: accent,
+                          fontSize: 9.5,
+                        ),
+                      ),
+                      const SizedBox(width: LoungeTokens.space2),
+                      // Progress pips, one per step, lit up to this one.
+                      for (var i = 0; i < stepCount; i++)
+                        Container(
+                          width: 12,
+                          height: 3,
+                          margin: const EdgeInsetsDirectional.only(end: 3),
+                          decoration: BoxDecoration(
+                            color: i <= stepIndex
+                                ? accent
+                                : LoungeTokens.sandLine.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
                   Text(
                     prompt,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: LoungeTokens.offWhiteText,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
+                    style: LoungeTokens.title.copyWith(fontSize: 14.5),
                   ),
                   if (guidance != null) ...[
                     const SizedBox(height: 2),
@@ -140,7 +147,7 @@ class PracticeStepBanner extends StatelessWidget {
     final animated = TweenAnimationBuilder<double>(
       key: ValueKey('practice-step-anim-$stepIndex-${reaction != null}'),
       tween: Tween(begin: 0, end: 1),
-      duration: motion.scale(const Duration(milliseconds: 180)),
+      duration: motion.scale(LoungeTokens.motionQuick),
       curve: motion.curve(Curves.easeOutCubic),
       builder: (context, t, child) {
         return Opacity(
@@ -176,7 +183,12 @@ class PracticeStepBanner extends StatelessWidget {
                     right: compact ? 54 : 66,
                     top: compact ? 4 : 8,
                   ),
-                  child: SizedBox(width: double.infinity, child: animated),
+                  // Capped so a wide table keeps most of the north seat in
+                  // view around the lesson prompt.
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: SizedBox(width: double.infinity, child: animated),
+                  ),
                 ),
               );
             },

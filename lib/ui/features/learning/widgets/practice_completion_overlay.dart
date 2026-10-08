@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Full-table overlay shown when the final practice step is demonstrated.
@@ -49,14 +50,7 @@ class PracticeCompletionOverlay extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.all(LoungeTokens.space5),
           padding: const EdgeInsets.all(LoungeTokens.space5),
-          decoration: BoxDecoration(
-            color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-            border: Border.all(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
-              width: 1.2,
-            ),
-          ),
+          decoration: loungeLitPanel(),
           // Scrollable so the outcome note never overflows a short
           // landscape viewport — the panel shrinks to fit and scrolls
           // only when it must.
@@ -65,16 +59,21 @@ class PracticeCompletionOverlay extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.check_circle_outline,
-                  size: 40,
-                  color: LoungeTokens.goldAccent,
+                Center(
+                  child: LoungeMedallion(
+                    icon: Icons.check_rounded,
+                    size: 56,
+                    tone: LoungeMedallionTone.gold,
+                  ),
                 ),
                 const SizedBox(height: LoungeTokens.space3),
                 Text(
                   strings.practiceLessonCompleteTitle,
                   textAlign: TextAlign.center,
-                  style: LoungeTokens.heading,
+                  style: LoungeTokens.display.copyWith(
+                    fontSize: 26,
+                    color: LoungeTokens.goldAccent,
+                  ),
                 ),
                 const SizedBox(height: LoungeTokens.space2),
                 Text(

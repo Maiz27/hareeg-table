@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Full-table overlay shown when a practice lesson dead-ends — the taught
@@ -42,13 +43,9 @@ class PracticeMissedOverlay extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.all(LoungeTokens.space5),
           padding: const EdgeInsets.all(LoungeTokens.space5),
-          decoration: BoxDecoration(
-            color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
-            borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-            border: Border.all(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
-              width: 1.2,
-            ),
+          decoration: loungeLitPanel(
+            glow: LoungeTokens.invalidAction,
+            strength: 0.1,
           ),
           // Scrollable so the panel never overflows a short landscape
           // viewport.
@@ -57,10 +54,12 @@ class PracticeMissedOverlay extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.timer_off_outlined,
-                  size: 40,
-                  color: LoungeTokens.goldAccent,
+                Center(
+                  child: LoungeMedallion(
+                    icon: Icons.timer_off_outlined,
+                    size: 56,
+                    tone: LoungeMedallionTone.alert,
+                  ),
                 ),
                 const SizedBox(height: LoungeTokens.space3),
                 Text(

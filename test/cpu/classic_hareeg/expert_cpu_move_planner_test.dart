@@ -50,43 +50,45 @@ void main() {
       expect(_choose(CpuDifficulty.expert, observation), discardFinal);
     });
 
-    test('extends Fifty hold window when the punishable seat is at high score',
-        () {
-      // A Fifty claimed by this seat (east) can only punish SOUTH — the
-      // active seat discarding immediately before it. South's high score
-      // makes the gamble aimable, so Expert holds the finish.
-      final firstMeld = [
-        card(CardRank.seven, CardSuit.clubs),
-        card(CardRank.eight, CardSuit.clubs),
-        card(CardRank.nine, CardSuit.clubs),
-      ];
-      final secondMeld = [
-        card(CardRank.ten, CardSuit.hearts),
-        card(CardRank.jack, CardSuit.hearts),
-        card(CardRank.queen, CardSuit.hearts),
-      ];
-      final finalDiscard = card(CardRank.king, CardSuit.diamonds);
-      final finish = partition(
-        [firstMeld, secondMeld],
-        remaining: [finalDiscard],
-      );
-      final finishAction = ClassicHareegActionIds.playMeldActionId(
-        [...firstMeld, ...secondMeld].map((card) => card.id),
-      );
-      final discardFinal = discardAction(finalDiscard);
-      final observation = _FakeCpuObservation(
-        legalActionIds: [finishAction, discardFinal],
-        ownHand: [...firstMeld, ...secondMeld, finalDiscard],
-        stockCount: 9,
-        openingState: opened(),
-        opponentScores: const {PlayerSeat.south: 28},
-        partitions: _FakeMeldPartitionView([finish]),
-        finishingPartition: finish,
-      );
+    test(
+      'extends Fifty hold window when the punishable seat is at high score',
+      () {
+        // A Fifty claimed by this seat (east) can only punish SOUTH — the
+        // active seat discarding immediately before it. South's high score
+        // makes the gamble aimable, so Expert holds the finish.
+        final firstMeld = [
+          card(CardRank.seven, CardSuit.clubs),
+          card(CardRank.eight, CardSuit.clubs),
+          card(CardRank.nine, CardSuit.clubs),
+        ];
+        final secondMeld = [
+          card(CardRank.ten, CardSuit.hearts),
+          card(CardRank.jack, CardSuit.hearts),
+          card(CardRank.queen, CardSuit.hearts),
+        ];
+        final finalDiscard = card(CardRank.king, CardSuit.diamonds);
+        final finish = partition(
+          [firstMeld, secondMeld],
+          remaining: [finalDiscard],
+        );
+        final finishAction = ClassicHareegActionIds.playMeldActionId(
+          [...firstMeld, ...secondMeld].map((card) => card.id),
+        );
+        final discardFinal = discardAction(finalDiscard);
+        final observation = _FakeCpuObservation(
+          legalActionIds: [finishAction, discardFinal],
+          ownHand: [...firstMeld, ...secondMeld, finalDiscard],
+          stockCount: 9,
+          openingState: opened(),
+          opponentScores: const {PlayerSeat.south: 28},
+          partitions: _FakeMeldPartitionView([finish]),
+          finishingPartition: finish,
+        );
 
-      expect(_choose(CpuDifficulty.skilled, observation), finishAction);
-      expect(_choose(CpuDifficulty.expert, observation), discardFinal);
-    });
+        expect(_choose(CpuDifficulty.skilled, observation), finishAction);
+        expect(_choose(CpuDifficulty.expert, observation), discardFinal);
+      },
+    );
 
     test('no Fifty hold for a high scorer the claim can never punish', () {
       // West acts AFTER east, so east's Fifty can never hit west: the +3
@@ -201,10 +203,7 @@ void main() {
         profile.dangerScore(card(CardRank.king, CardSuit.hearts)),
         greaterThan(0),
       );
-      expect(
-        profile.dangerScore(card(CardRank.king, CardSuit.clubs)),
-        0,
-      );
+      expect(profile.dangerScore(card(CardRank.king, CardSuit.clubs)), 0);
     });
 
     test('an ace pickup flags BOTH the low and high run neighbours', () {
@@ -231,10 +230,7 @@ void main() {
         profile.dangerScore(card(CardRank.king, CardSuit.hearts)),
         greaterThan(0),
       );
-      expect(
-        profile.dangerScore(card(CardRank.four, CardSuit.clubs)),
-        0,
-      );
+      expect(profile.dangerScore(card(CardRank.four, CardSuit.clubs)), 0);
     });
 
     test('uses deeper pickup attribution than Skilled hot-list memory', () {
@@ -314,10 +310,9 @@ void main() {
         final chosen = _choose(CpuDifficulty.expert, observation);
         expect(
           chosen,
-          isNot(anyOf(
-            discardAction(eightDiamonds),
-            discardAction(eightHearts),
-          )),
+          isNot(
+            anyOf(discardAction(eightDiamonds), discardAction(eightHearts)),
+          ),
         );
         expect(
           chosen,
@@ -330,7 +325,10 @@ void main() {
       },
     );
 
-    test('takes a thin-stock discard defensively even without a meld', () {
+    test('draws rather than take a thin-stock discard it cannot play', () {
+      // A taken discard must be played this turn and can never be the
+      // closing discard, so an unplayable "defensive" pickup can only be
+      // handed back before the seat draws anyway (playtest take-return loop).
       final kingSpades = card(CardRank.king, CardSuit.spades);
       final observation = _FakeCpuObservation(
         legalActionIds: [
@@ -344,6 +342,43 @@ void main() {
           card(CardRank.four, CardSuit.diamonds),
           card(CardRank.six, CardSuit.hearts),
         ],
+        stockCount: 7,
+        openingState: opened(),
+      );
+
+      expect(
+        _choose(CpuDifficulty.skilled, observation),
+        ClassicHareegActionIds.drawStock,
+      );
+      expect(
+        _choose(CpuDifficulty.expert, observation),
+        ClassicHareegActionIds.drawStock,
+      );
+    });
+
+    test('takes a thin-stock discard defensively when it can cover', () {
+      final kingSpades = card(CardRank.king, CardSuit.spades);
+      final observation = _FakeCpuObservation(
+        legalActionIds: [
+          ClassicHareegActionIds.takeDiscard,
+          ClassicHareegActionIds.drawStock,
+        ],
+        turnPhase: TurnPhase.draw,
+        topDiscard: kingSpades,
+        ownHand: [
+          card(CardRank.two, CardSuit.clubs),
+          card(CardRank.four, CardSuit.diamonds),
+          card(CardRank.six, CardSuit.hearts),
+        ],
+        tableMelds: {
+          PlayerSeat.north: [
+            PlacedMeld.fromCards([
+              card(CardRank.king, CardSuit.hearts),
+              card(CardRank.king, CardSuit.diamonds),
+              card(CardRank.king, CardSuit.clubs),
+            ]),
+          ],
+        },
         stockCount: 7,
         openingState: opened(),
       );

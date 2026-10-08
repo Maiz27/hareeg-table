@@ -68,6 +68,7 @@ import '../widgets/match_over_overlay.dart';
 import '../widgets/meld_flight_overlay.dart';
 import '../widgets/pause_overlay.dart';
 import '../widgets/physical_table_playfield.dart';
+import '../../../core/motion/celebration.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../../match_reports/match_report_export_flow.dart';
@@ -270,6 +271,20 @@ class _GameTableScreenState extends State<GameTableScreen>
   int _cpuAutoRestarts = 0;
   static const _maxCpuAutoRestarts = 12;
   bool _scoreOpen = false;
+
+  /// Bumped for every Fifty strike; drives the strike overlay and the
+  /// table's impact shake.
+  int _fiftyStrikeSerial = 0;
+  bool _fiftyStrikeVisible = false;
+
+  void _triggerFiftyStrike() {
+    if (!mounted) return;
+    setState(() {
+      _fiftyStrikeSerial++;
+      _fiftyStrikeVisible = true;
+    });
+  }
+
   bool _pauseOpen = false;
   Set<String>? _placedJokerSnapshot;
   // Single owner of every "schedule a cue, then rebuild" mechanism the
@@ -1093,6 +1108,10 @@ class _GameTableScreenState extends State<GameTableScreen>
 
     final body = TableBackground(
       surface: widget.preferences.tableSurfaceTheme,
+      // Everything (playfield, chrome, coach, flights) lays out on the
+      // playing surface inside the rail, sharing one coordinate space so
+      // flights still land on their slots.
+      insetChild: true,
       child: JokerDisplayScope(
         display: jokerDisplay,
         cueDuration: _activeJokerVisualCueDuration(strictness),
@@ -1100,6 +1119,11 @@ class _GameTableScreenState extends State<GameTableScreen>
           children: [
             PhysicalTablePlayfield(
               theme: theme,
+              centerStock: true,
+              seatScores: _mode.isPractice
+                  ? const <PlayerSeat, int>{}
+                  : _controller.scores,
+              eliminationScore: _controller.rules.eliminationScore,
               stockCount: visibleStockCount,
               discardPile: _controller.discardPile,
               topDiscard: _controller.topDiscard,
@@ -1226,15 +1250,17 @@ class _GameTableScreenState extends State<GameTableScreen>
                       : 30.0,
                 );
                 final iconSize = isLarge
-                    ? 24.0
+                    ? 20.0
                     : isTablet
-                    ? 21.0
-                    : 17.0;
-                final edgeInset = isLarge
                     ? 18.0
+                    : 16.0;
+                // The chrome now sits on the playing surface inside the rail,
+                // so it needs only a hairline of breathing room.
+                final edgeInset = isLarge
+                    ? 10.0
                     : isTablet
-                    ? 14.0
-                    : 10.0;
+                    ? 8.0
+                    : 6.0;
                 // Side safe-insets are deliberately ignored: in landscape the
                 // OS pads an entire short edge for a punch-hole that actually
                 // sits vertically centered (and for system bars hidden by
@@ -1243,92 +1269,83 @@ class _GameTableScreenState extends State<GameTableScreen>
                 // flush. The top corners are clear on side-cutout devices, so
                 // the chrome matches the rest of the table: cosmetic inset
                 // only.
+                // One slim lounge capsule in the top-end corner holds every
+                // table control (design contract 8, HUD): it takes a single
+                // corner instead of two and reads as part of the table rather
+                // than loose app buttons. Each segment keeps its own tooltip,
+                // key and accessible name.
+                final segments = <Widget>[
+                  if (_mode.isPractice)
+                    _TableChromeButton(
+                      key: const ValueKey('practice-exit'),
+                      tooltip: strings.practiceBackToList,
+                      icon: Icons.close_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                  else
+                    _TableChromeButton(
+                      tooltip: strings.scores,
+                      icon: Icons.leaderboard_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _scoreOpen = true),
+                    ),
+                  if (!_mode.isPractice && _canShowFastForwardRound())
+                    _TableChromeButton(
+                      key: const ValueKey('table-chrome-fast-forward'),
+                      tooltip: strings.skipToNextRound,
+                      icon: Icons.fast_forward_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: _isFastForwardingRound
+                          ? () {}
+                          : () => unawaited(_fastForwardRound()),
+                    ),
+                  // In-app Back out of a sandbox. One of the four exit routes
+                  // B46 keeps on a single policy; it asks the host, which
+                  // confirms only after divergence.
+                  if (_mode.isBranch)
+                    _TableChromeButton(
+                      key: const ValueKey('branch-exit'),
+                      tooltip: strings.branchExitSandbox,
+                      semanticsLabel: strings.branchExitSandbox,
+                      icon: Icons.close_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: _requestSandboxExit,
+                    ),
+                  // Guided practice has no match to pause (its own close
+                  // button exits to the hub), so pause is hidden in a lesson.
+                  if (!_mode.isPractice)
+                    _TableChromeButton(
+                      tooltip: strings.pauseTable,
+                      icon: Icons.pause_rounded,
+                      diameter: buttonSize,
+                      iconSize: iconSize,
+                      onPressed: () => setState(() => _pauseOpen = true),
+                    ),
+                ];
+                final capsuleWidth = segments.length * buttonSize + 8;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Practice swaps the score shortcut for an exit back to
-                    // the hub; lesson boards have no match score to inspect.
-                    Positioned(
+                    // End-side corner; the coach card docks on the start side,
+                    // so in a right-to-left table the two swap together and
+                    // never overlap.
+                    PositionedDirectional(
                       top: safe.top + edgeInset,
-                      left: edgeInset,
-                      child: _mode.isPractice
-                          ? _TableChromeButton(
-                              key: const ValueKey('practice-exit'),
-                              tooltip: strings.practiceBackToList,
-                              icon: Icons.close_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () => Navigator.of(context).pop(),
-                            )
-                          : _TableChromeButton(
-                              tooltip: strings.scores,
-                              icon: Icons.bar_chart_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () =>
-                                  setState(() => _scoreOpen = true),
-                            ),
-                    ),
-                    Positioned(
-                      top: safe.top + edgeInset,
-                      right: edgeInset,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!_mode.isPractice &&
-                              _canShowFastForwardRound()) ...[
-                            _TableChromeButton(
-                              key: const ValueKey('table-chrome-fast-forward'),
-                              tooltip: strings.skipToNextRound,
-                              icon: Icons.fast_forward_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: _isFastForwardingRound
-                                  ? () {}
-                                  : () => unawaited(_fastForwardRound()),
-                            ),
-                            SizedBox(width: edgeInset * 0.6),
-                          ],
-                          // In-app Back out of a sandbox. One of the four exit
-                          // routes B46 keeps on a single policy; it asks the
-                          // host, which confirms only after divergence.
-                          if (_mode.isBranch) ...[
-                            _TableChromeButton(
-                              key: const ValueKey('branch-exit'),
-                              tooltip: strings.branchExitSandbox,
-                              semanticsLabel: strings.branchExitSandbox,
-                              icon: Icons.close_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: _requestSandboxExit,
-                            ),
-                            SizedBox(width: edgeInset * 0.6),
-                          ],
-                          // Guided practice has no match to pause (and its own
-                          // close button exits to the hub), so the pause
-                          // control is hidden during a lesson.
-                          if (!_mode.isPractice)
-                            _TableChromeButton(
-                              tooltip: strings.pauseTable,
-                              icon: Icons.pause_rounded,
-                              diameter: buttonSize,
-                              iconSize: iconSize,
-                              onPressed: () =>
-                                  setState(() => _pauseOpen = true),
-                            ),
-                        ],
-                      ),
+                      end: edgeInset,
+                      child: _TableHudCapsule(children: segments),
                     ),
                     if (_cues.feedback != null)
-                      Positioned(
-                        top:
-                            safe.top +
-                            edgeInset +
-                            math.max(0.0, (buttonSize - 34) / 2),
-                        left: edgeInset + buttonSize + 14,
-                        right: edgeInset + buttonSize + 14,
+                      PositionedDirectional(
+                        top: safe.top + edgeInset,
+                        start: edgeInset + 70,
+                        end: edgeInset + capsuleWidth + 14,
                         child: Align(
-                          alignment: Alignment.topLeft,
+                          alignment: AlignmentDirectional.topStart,
                           child: IgnorePointer(
                             child: _FeedbackChip(
                               message: _cues.feedback!.text,
@@ -1369,6 +1386,15 @@ class _GameTableScreenState extends State<GameTableScreen>
                 key: ValueKey('meld-flight-${meld.serial}'),
                 child: MeldFlightOverlay(flight: meld, theme: theme),
               ),
+            if (_fiftyStrikeVisible)
+              Positioned.fill(
+                key: ValueKey('fifty-strike-$_fiftyStrikeSerial'),
+                child: FiftyStrike(
+                  onDone: () {
+                    if (mounted) setState(() => _fiftyStrikeVisible = false);
+                  },
+                ),
+              ),
           ],
         ),
       ),
@@ -1406,12 +1432,19 @@ class _GameTableScreenState extends State<GameTableScreen>
             // Positioned.fill so the scaler gets tight full-screen constraints
             // (a non-positioned Stack child is loose, which would let the
             // FittedBox collapse to the design canvas size in the corner).
-            Positioned.fill(child: _ZoomToFillTable(child: body)),
+            Positioned.fill(
+              child: ImpactShake(
+                serial: _fiftyStrikeSerial,
+                child: _ZoomToFillTable(child: body),
+              ),
+            ),
             _AnimatedOverlaySlot(
               visible: _scoreOpen,
               overlayKey: 'score-overlay',
-              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              duration: _scaledDelay(LoungeTokens.motionQuick),
               child: ScoreOverlay(
+                transcript: () => _recorder?.transcript,
+                eliminationScore: _controller.rules.eliminationScore,
                 scores: _controller.scores,
                 activeSeats: _controller.activeSeats,
                 starter: _controller.starter,
@@ -1430,7 +1463,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _pauseOpen,
               overlayKey: 'pause-overlay',
-              duration: _scaledDelay(const Duration(milliseconds: 180)),
+              duration: _scaledDelay(LoungeTokens.motionQuick),
               // A sandbox gets its own pause panel rather than the live one
               // with rows switched off. The live panel's every setting row is
               // an `onPreferencesChanged` call, and a sandbox must not be able
@@ -1453,6 +1486,8 @@ class _GameTableScreenState extends State<GameTableScreen>
                           : null,
                     )
                   : PauseOverlay(
+                      scores: _controller.scores,
+                      eliminationScore: _controller.rules.eliminationScore,
                       motionSpeed: widget.preferences.motionSpeed,
                       fastCpuTurns: widget.preferences.fastCpuTurns,
                       hapticsEnabled: widget.preferences.hapticsEnabled,
@@ -1508,7 +1543,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _practiceComplete,
               overlayKey: 'practice-completion-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: !_practiceComplete
                   ? const SizedBox.shrink()
                   : PracticeCompletionOverlay(
@@ -1524,7 +1559,7 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _practiceDeadEnd,
               overlayKey: 'practice-missed-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: !_practiceDeadEnd
                   ? const SizedBox.shrink()
                   : PracticeMissedOverlay(
@@ -1540,10 +1575,11 @@ class _GameTableScreenState extends State<GameTableScreen>
             _AnimatedOverlaySlot(
               visible: _roundResultPresentation != null,
               overlayKey: 'round-result-overlay-slot',
-              duration: _scaledDelay(const Duration(milliseconds: 220)),
+              duration: _scaledDelay(LoungeTokens.motionStandard),
               child: _roundResultPresentation == null
                   ? const SizedBox.shrink()
                   : _RoundResultOverlay(
+                      eliminationScore: _controller.rules.eliminationScore,
                       presentation: _roundResultPresentation!,
                       onContinueNow:
                           _roundResultPresentation!.nextSnapshot == null
@@ -2545,6 +2581,8 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   Future<void> _playSound(TableSoundEvent? event) async {
     if (event == null) return;
+    // A Fifty claim, by any seat, is the table's loudest moment.
+    if (event == TableSoundEvent.fiftyClaim) _triggerFiftyStrike();
     await _audio.play(event);
   }
 
@@ -3016,6 +3054,9 @@ class _GameTableScreenState extends State<GameTableScreen>
       return;
     }
     _rememberEliminatedRoundsFromController();
+    if (presentation.result.type == RoundOutcomeType.fiftyFinish) {
+      _triggerFiftyStrike();
+    }
     unawaited(_haptics.fire(TableHapticEvent.roundEnd));
     unawaited(_audio.play(TableSoundEvent.roundEnd));
     setState(() {
@@ -3634,11 +3675,6 @@ class _TableChromeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(diameter * 0.32);
-    final shape = RoundedRectangleBorder(
-      borderRadius: radius,
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.10), width: 1),
-    );
     final label = semanticsLabel;
     // The label wraps the tooltip rather than sitting inside it: `Tooltip`
     // publishes its own semantics node, so a label added underneath would
@@ -3654,22 +3690,58 @@ class _TableChromeButton extends StatelessWidget {
         // tooltip IS the name, and it stays in the tree.
         excludeFromSemantics: label != null,
         child: Material(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
-          shape: shape,
-          elevation: 4,
-          shadowColor: Colors.black.withValues(alpha: 0.38),
+          type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: radius,
+            customBorder: const StadiumBorder(),
             onTap: onPressed,
             child: SizedBox.square(
               dimension: diameter,
-              child: Icon(
-                icon,
-                color: LoungeTokens.offWhiteText,
-                size: iconSize,
-              ),
+              child: Icon(icon, color: LoungeTokens.sandLine, size: iconSize),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The table's control capsule: lacquered charcoal with a brass edge, its
+/// segments split by hairlines.
+class _TableHudCapsule extends StatelessWidget {
+  const _TableHudCapsule({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xF2241A12), Color(0xF2140F0B)],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+        ),
+        boxShadow: LoungeTokens.elevationL2,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0)
+                Container(
+                  width: 1,
+                  height: 14,
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+                ),
+              children[i],
+            ],
+          ],
         ),
       ),
     );
@@ -3744,12 +3816,14 @@ class _AnimatedOverlaySlot extends StatelessWidget {
 
 class _RoundResultOverlay extends StatelessWidget {
   const _RoundResultOverlay({
+    required this.eliminationScore,
     required this.presentation,
     required this.onContinueNow,
     required this.onReturnToMenu,
     required this.onDismiss,
   });
 
+  final int eliminationScore;
   final ClassicHareegRoundResultPresentation presentation;
   final VoidCallback? onContinueNow;
   final VoidCallback? onReturnToMenu;
@@ -3821,6 +3895,7 @@ class _RoundResultOverlay extends StatelessWidget {
                           Flexible(
                             child: SingleChildScrollView(
                               child: _RoundScoreBreakdown(
+                                eliminationScore: eliminationScore,
                                 seats: seats,
                                 presentation: presentation,
                                 compact: compact,
@@ -3867,14 +3942,33 @@ class _RoundResultHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final medallion = compact ? 36.0 : 44.0;
     return Row(
       children: [
-        Icon(
-          Icons.scoreboard_outlined,
-          color: LoungeTokens.goldAccent,
-          size: compact ? 20 : 24,
+        Container(
+          width: medallion,
+          height: medallion,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              center: Alignment(-0.3, -0.45),
+              colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+            ),
+            border: Border.all(color: LoungeTokens.goldAccent),
+            boxShadow: [
+              BoxShadow(
+                color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.menu_book_outlined,
+            color: LoungeTokens.goldAccent,
+            size: compact ? 18 : 22,
+          ),
         ),
-        SizedBox(width: compact ? 8 : 12),
+        SizedBox(width: compact ? 10 : 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3882,31 +3976,25 @@ class _RoundResultHeader extends StatelessWidget {
             children: [
               Text(
                 context.strings.roundScore,
-                style: TextStyle(
+                style: LoungeTokens.overline.copyWith(
                   color: LoungeTokens.goldAccent,
-                  fontSize: compact ? 10 : 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+                  fontSize: compact ? 9.5 : 10.5,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 headline,
-                style: TextStyle(
-                  color: LoungeTokens.offWhiteText,
-                  fontSize: compact ? 17 : 22,
-                  fontWeight: FontWeight.w900,
+                style: LoungeTokens.display.copyWith(
+                  fontSize: compact ? 19 : 24,
                   height: 1.05,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 detail,
-                style: TextStyle(
-                  color: LoungeTokens.offWhiteText.withValues(alpha: 0.74),
-                  fontSize: compact ? 11 : 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
+                style: LoungeTokens.bodyMuted.copyWith(
+                  fontSize: compact ? 11.5 : 13,
+                  height: 1.25,
                 ),
               ),
             ],
@@ -3919,11 +4007,13 @@ class _RoundResultHeader extends StatelessWidget {
 
 class _RoundScoreBreakdown extends StatelessWidget {
   const _RoundScoreBreakdown({
+    required this.eliminationScore,
     required this.seats,
     required this.presentation,
     required this.compact,
   });
 
+  final int eliminationScore;
   final List<PlayerSeat> seats;
   final ClassicHareegRoundResultPresentation presentation;
   final bool compact;
@@ -3932,8 +4022,15 @@ class _RoundScoreBreakdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.feltGreen.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
           color: LoungeTokens.sandLine.withValues(alpha: 0.20),
         ),
@@ -3942,6 +4039,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
         children: [
           for (var index = 0; index < seats.length; index++) ...[
             _RoundScoreRow(
+              eliminationScore: eliminationScore,
               seat: seats[index],
               before: presentation.previousScores[seats[index]] ?? 0,
               after: presentation.progress.scores[seats[index]] ?? 0,
@@ -3965,6 +4063,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
 
 class _RoundScoreRow extends StatelessWidget {
   const _RoundScoreRow({
+    required this.eliminationScore,
     required this.seat,
     required this.before,
     required this.after,
@@ -3973,6 +4072,7 @@ class _RoundScoreRow extends StatelessWidget {
     required this.compact,
   });
 
+  final int eliminationScore;
   final PlayerSeat seat;
   final int before;
   final int after;
@@ -3992,6 +4092,41 @@ class _RoundScoreRow extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // The seat on a lacquered medallion; its ring shows how close the
+          // round has carried it to elimination (the totals sit at the end
+          // of the row).
+          Opacity(
+            opacity: eliminated ? 0.5 : 1,
+            child: Container(
+              width: compact ? 28 : 34,
+              height: compact ? 28 : 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  center: Alignment(-0.3, -0.45),
+                  colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                ),
+                border: Border.all(
+                  width: 2,
+                  color: Color.lerp(
+                    LoungeTokens.sandLine.withValues(alpha: 0.4),
+                    LoungeTokens.fiftyFlame,
+                    eliminationScore <= 0
+                        ? 0
+                        : (after / eliminationScore).clamp(0.0, 1.0),
+                  )!,
+                ),
+              ),
+              child: Icon(
+                seat == PlayerSeat.south
+                    ? Icons.person_outline
+                    : Icons.smart_toy_outlined,
+                size: compact ? 14 : 17,
+                color: LoungeTokens.sandLine,
+              ),
+            ),
+          ),
+          SizedBox(width: compact ? 8 : 12),
           Expanded(
             child: Wrap(
               spacing: 8,
@@ -4022,14 +4157,24 @@ class _RoundScoreRow extends StatelessWidget {
           Text('$before', style: _scoreNumberStyle(compact)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 7),
-            child: Text(
-              delta == 0 ? '+0' : deltaText,
-              style: TextStyle(
-                color: delta <= 0
-                    ? LoungeTokens.goldAccent
-                    : LoungeTokens.fiftyFlame,
-                fontSize: compact ? 12 : 14,
-                fontWeight: FontWeight.w900,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color:
+                    (delta <= 0
+                            ? LoungeTokens.goldAccent
+                            : LoungeTokens.fiftyFlame)
+                        .withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
+              ),
+              child: Text(
+                delta == 0 ? '+0' : deltaText,
+                style: LoungeTokens.numericChip.copyWith(
+                  color: delta <= 0
+                      ? LoungeTokens.goldAccent
+                      : LoungeTokens.fiftyFlame,
+                  fontSize: compact ? 12 : 14,
+                ),
               ),
             ),
           ),

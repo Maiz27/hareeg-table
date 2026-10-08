@@ -111,6 +111,26 @@ flutter:
     - assets/brand/launcher/sandline_joker_composite.webp
     - assets/sounds/kenney_casino/
     - assets/table_surfaces/
+    - assets/fonts/OFL-ReemKufi.txt
+    - assets/fonts/OFL-IBMPlexSansArabic.txt
+
+  # Bundled typefaces (docs/design/design-contract.md section 4). Both cover
+  # Latin and Arabic so the planned Arabic UI needs no type redesign. Bundled
+  # rather than fetched: the app is offline-first.
+  fonts:
+    - family: ReemKufi
+      fonts:
+        - asset: assets/fonts/ReemKufi-Variable.ttf
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

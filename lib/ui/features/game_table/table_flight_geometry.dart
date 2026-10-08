@@ -6,6 +6,7 @@ import '../../../domain/classic_hareeg/models/player_seat.dart';
 import 'animations/deal_choreography.dart';
 import 'seat_meld_arrangement.dart';
 import 'table_card_flight_planner.dart';
+import 'table_flight_anchors.dart';
 
 /// Shared seat-hand geometry used by every flight overlay (single-card
 /// flight, opening-deal flight, multi-card meld fan). Each surface targets
@@ -30,7 +31,7 @@ Offset _resolveSouthHandSlot(
   Size size,
   Size flightCardSize,
 ) {
-  final compact = size.height <= 390 || size.width <= 700;
+  final compact = size.height <= 360 || size.width <= 700;
   final handCardSize = compact ? const Size(36, 50) : const Size(48, 68);
   final controlWidth = compact ? 60.0 : 72.0;
   final bottomHandHeight = handCardSize.height + (compact ? 12 : 18);
@@ -66,7 +67,7 @@ Offset _resolveNorthHandSlot(
   Size size,
   Size flightCardSize,
 ) {
-  final compact = size.height <= 390 || size.width <= 700;
+  final compact = size.height <= 360 || size.width <= 700;
   final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
   final topInset = (size.height * 0.032)
       .clamp(compact ? 8.0 : 12.0, compact ? 16.0 : 28.0)
@@ -88,7 +89,7 @@ Offset _resolveSideHandSlot(
   Size size,
   Size flightCardSize,
 ) {
-  final compact = size.height <= 390 || size.width <= 700;
+  final compact = size.height <= 360 || size.width <= 700;
   final cardSize = compact ? const Size(26, 36) : const Size(32, 44);
   final sideRailWidth = compact ? 46.0 : 56.0;
   final edgeInset = (size.width * 0.026)
@@ -300,11 +301,69 @@ Offset resolveFlightAnchor(
   if (handSlot != null) {
     return resolveSeatHandSlot(handSlot, size, cardSize);
   }
+  if (alignment == TableFlightAnchors.stock) {
+    // The stock sits beside the discard at the table's centre; its position
+    // depends on the lanes around it, so it is resolved from the same rect
+    // the playfield lays the pile out in rather than a fixed alignment.
+    final pile = resolveStockPileRect(size);
+    final card = stockCardSize(size);
+    return centeredFlightOffset(
+      pile.left + card.width / 2,
+      pile.top + 6 + card.height / 2,
+      cardSize,
+    );
+  }
   if (meldSlot != null) {
     return resolveTableMeldSlot(meldSlot, size, cardSize);
   }
   return Offset(
     ((alignment.x + 1) / 2 * size.width) - cardSize.width / 2,
     ((alignment.y + 1) / 2 * size.height) - cardSize.height / 2,
+  );
+}
+
+/// Card size of the stock and discard piles for a table of [size].
+Size stockCardSize(Size size) {
+  final compact = size.height <= 360 || size.width <= 700;
+  return compact ? const Size(40, 56) : const Size(50, 70);
+}
+
+/// Where the stock pile sits: at the table's centre, just left of the discard
+/// pile's drop zone, and never into the west meld lane. On tables too narrow
+/// for both, it gives up the outer edge of the discard's (generous) drop
+/// padding instead and is layered above it, so a tap on the stock always
+/// draws.
+///
+/// Shared by `PhysicalTablePlayfield` and the flight overlays, so a draw or
+/// deal flight leaves from exactly where the pile is drawn.
+Rect resolveStockPileRect(Size size) {
+  final compact = size.height <= 360 || size.width <= 700;
+  final card = stockCardSize(size);
+  final pileWidth = card.width + 12;
+  final pileHeight = card.height + 10;
+  final edgeInset = (size.width * 0.026)
+      .clamp(compact ? 14.0 : 20.0, compact ? 30.0 : 52.0)
+      .toDouble();
+  final sideRailWidth = compact ? 46.0 : 56.0;
+  final sideMeldCardHeight = compact ? 40.0 : 48.0;
+  final sideMeldColumnWidth = sideMeldCardHeight + (compact ? 8.0 : 10.0);
+  final sideMeldWidth = sideMeldColumnWidth * 2 + (compact ? 8.0 : 12.0) * 2;
+  final westLaneRight =
+      edgeInset + sideRailWidth + (compact ? 6.0 : 10.0) + sideMeldWidth;
+  final discardPileWidth = card.width + (compact ? 34 : 44);
+  final discardHitWidth = discardPileWidth + (compact ? 60 : 90);
+  final discardLeft = (size.width - discardHitWidth) / 2;
+  final visibleDiscardLeft =
+      discardLeft + (discardHitWidth - discardPileWidth) / 2;
+  final gap = compact ? 6.0 : 10.0;
+  var left = discardLeft - gap - pileWidth;
+  if (left < westLaneRight + gap) {
+    left = math.min(westLaneRight + gap, visibleDiscardLeft - gap - pileWidth);
+  }
+  return Rect.fromLTWH(
+    left,
+    (size.height - pileHeight) / 2,
+    pileWidth,
+    pileHeight,
   );
 }

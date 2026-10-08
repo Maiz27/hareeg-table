@@ -120,6 +120,9 @@ class AppStrings {
   String get kenneyCasinoAudio => _v('kenneyCasinoAudio');
   String get kenneyCasinoAudioAttribution => _v('kenneyCasinoAudioAttribution');
   String get kenneyCasinoAudioUrl => _v('kenneyCasinoAudioUrl');
+  String get licensesFontsHeader => _v('licensesFontsHeader');
+  String get fontReemKufiAttribution => _v('fontReemKufiAttribution');
+  String get fontPlexArabicAttribution => _v('fontPlexArabicAttribution');
   String get licensesFooter => _v('licensesFooter');
   String get playMeld => _v('playMeld');
   String get placeCover => _v('placeCover');
@@ -1563,6 +1566,36 @@ class AppStrings {
         : 'Round $roundNumber, ${seatName.toLowerCase()} to play';
   }
 
+  /// Spoken summary of a seat plate: name, match score, cards in hand.
+  String seatPlateSummary(String seatName, int? score, int cards) {
+    if (isRtl) {
+      final points = score == null ? '' : '، $score نقطة';
+      return '$seatName$points، $cards ورقة';
+    }
+    final points = score == null ? '' : ', $score points';
+    return '$seatName$points, $cards ${cards == 1 ? 'card' : 'cards'}';
+  }
+
+  /// Tooltip for a seat plate: name and match score.
+  String seatPlateScore(String seatName, int score) =>
+      isRtl ? '$seatName: $score نقطة' : '$seatName: $score points';
+
+  /// Row label for a round in the score book (`R3`).
+  String scoreBookRound(int roundNumber) =>
+      isRtl ? 'ج$roundNumber' : 'R$roundNumber';
+
+  /// Row label for the round in play.
+  String get scoreBookNow => isRtl ? 'الآن' : 'Now';
+
+  /// Legend naming the elimination score.
+  String scoreBookOutAt(int limit) =>
+      isRtl ? 'الخروج عند $limit' : 'Out at $limit';
+
+  /// Accessible description of one score book cell.
+  String scoreBookCell(String seatName, int total, int delta) => isRtl
+      ? '$seatName: $total، ${delta >= 0 ? '+' : ''}$delta في الجولة'
+      : '$seatName: $total, ${delta >= 0 ? '+' : ''}$delta this round';
+
   String startedBy(String starterLabel) {
     return isRtl ? 'بدأها $starterLabel' : 'Started by $starterLabel';
   }
@@ -1901,6 +1934,11 @@ const _englishValues = {
   'kenneyCasinoAudioAttribution':
       'Kenney.nl Casino Audio, Creative Commons CC0 1.0 Universal.',
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
+  'licensesFontsHeader': 'Typefaces',
+  'fontReemKufiAttribution':
+      'Reem Kufi by Khaled Hosny and Santiago Orozco, SIL Open Font License 1.1.',
+  'fontPlexArabicAttribution':
+      'IBM Plex Sans Arabic by IBM, SIL Open Font License 1.1.',
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
   'playMeld': 'Play meld',
@@ -2640,6 +2678,11 @@ const _arabicValues = {
   'kenneyCasinoAudio': 'حزمة أصوات الكازينو من Kenney',
   'kenneyCasinoAudioAttribution': 'مرخصة تحت رخصة المشاع الإبداعي (CC0 1.0).',
   'kenneyCasinoAudioUrl': 'https://kenney.nl/assets/casino-audio',
+  'licensesFontsHeader': 'الخطوط',
+  'fontReemKufiAttribution':
+      'خط ريم كوفي من خالد حسني وسانتياغو أوروزكو، برخصة SIL للخطوط المفتوحة 1.1.',
+  'fontPlexArabicAttribution':
+      'خط IBM Plex Sans Arabic من IBM، برخصة SIL للخطوط المفتوحة 1.1.',
   'licensesFooter':
       'جميع أكواد المحرك وبنية التطبيق مفتوحة المصدر ومتاحة تحت شروط الاستخدام المرنة القياسية.',
   'playMeld': 'أنزل المجموعة',

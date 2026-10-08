@@ -65,7 +65,7 @@ class CoachOverlay extends StatelessWidget {
         'coach-anim-${hint.situationKey}#${note?.situationKey ?? ''}',
       ),
       tween: Tween(begin: 0, end: 1),
-      duration: motion.scale(const Duration(milliseconds: 180)),
+      duration: motion.scale(LoungeTokens.motionQuick),
       curve: motion.curve(Curves.easeOutCubic),
       builder: (context, t, child) {
         final dy = isPopIn ? (1 - t) * -10.0 : (1 - t) * 8.0;
@@ -108,6 +108,33 @@ class CoachOverlay extends StatelessWidget {
               // fit.
               final base = compact ? 54.0 : 66.0;
               final side = math.min(base, constraints.maxWidth * 0.14);
+              // Where there is room, dock as a card in the top-start corner
+              // (the HUD capsule owns the other one), stopping short of the
+              // north seat (rail centred, seat plate on its far side), so the
+              // coach no longer hides whose turn it is (design contract 7.4).
+              // The full-width strip below stays the fallback for narrow
+              // tables.
+              // The start inset also clears the west seat plate, which sits
+              // in the rail column at the table's start edge.
+              final dockedStart = math.max(side, compact ? 64.0 : 80.0);
+              final dockedWidth =
+                  constraints.maxWidth / 2 - _northSeatClearance - dockedStart;
+              if (dockedWidth >= _minDockedWidth) {
+                return Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: Padding(
+                    key: const ValueKey('coach-overlay-insets'),
+                    padding: EdgeInsetsDirectional.only(
+                      start: dockedStart,
+                      top: compact ? 4 : 8,
+                    ),
+                    child: SizedBox(
+                      width: math.min(dockedWidth, _maxDockedWidth),
+                      child: animated,
+                    ),
+                  ),
+                );
+              }
               return Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
@@ -126,6 +153,16 @@ class CoachOverlay extends StatelessWidget {
       ),
     );
   }
+
+  /// Half-width of the north rail plus breathing room, measured from the
+  /// table's centre line.
+  static const _northSeatClearance = 112.0;
+
+  /// Narrowest docked card that still reads in two or three lines.
+  static const _minDockedWidth = 200.0;
+
+  /// Widest docked card; beyond this the line length gets uncomfortable.
+  static const _maxDockedWidth = 360.0;
 
   static Color _accentColor(CoachAccent accent) {
     return switch (accent) {
@@ -208,11 +245,14 @@ class _CoachCallout extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 2),
+              // Up to four lines: the docked card is narrower than the old
+              // full-width strip, and a clipped hint is worse than a taller
+              // card.
               Text(
                 hint.body,
-                maxLines: 2,
+                maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: LoungeTokens.bodyMuted,
+                style: LoungeTokens.bodyMuted.copyWith(height: 1.35),
               ),
               if (note != null) ...[
                 const SizedBox(height: 3),

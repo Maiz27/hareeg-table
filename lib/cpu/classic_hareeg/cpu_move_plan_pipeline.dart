@@ -4,6 +4,7 @@ import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart
 import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
+import '../../domain/classic_hareeg/rules/cover_rules.dart';
 import 'cpu_difficulty_profile.dart';
 import 'cpu_move_plan.dart';
 import 'cpu_observation.dart';
@@ -538,9 +539,76 @@ bool shouldTakeDiscardForObservationCore(CpuObservation observation) {
     safetyCap: 24,
   );
   for (final partition in partitions) {
+    // A taken discard must be used this turn, and the turn ends on a discard.
+    // A partition that melds the whole hand away (hand + pickup form the
+    // melds exactly, at any hand size) leaves nothing to throw, so the engine
+    // can only take the card back: the seat would pick up, return it, and
+    // draw — every time that card comes round. Never worth taking.
+    if (partition.cardsRemaining.isEmpty) {
+      continue;
+    }
     if (partition.cardsRemaining.length < observation.ownHand.length ||
         _extendsSetToFour(discarded, partition)) {
       return true;
+    }
+  }
+  return false;
+}
+
+/// Whether an opened seat could keep the top discard by playing it onto the
+/// table this turn, and still end the turn on a discard.
+///
+/// Mirrors the engine's pending-discard surface for opened seats
+/// (`ClassicHareegTablePlayPlanner.coverActionIds` /
+/// `replaceJokerActionIds` with the taken card as `mustUseCardId`): a cover
+/// of one to three cards that includes the taken card, onto any seat's meld,
+/// that does not empty the hand; or swapping the taken card for a table joker
+/// standing in for it. This is the only other way a taken discard can be
+/// kept (melding it is [shouldTakeDiscardForObservationCore]'s case); pickups
+/// that pass neither are taken back by the engine, so a planner must not
+/// make them.
+bool canCoverWithTakenDiscard(CpuObservation observation) {
+  final discarded = observation.topDiscard;
+  final hand = observation.ownHand;
+  if (discarded == null || !observation.ownHasOpened() || hand.isEmpty) {
+    return false;
+  }
+  final tableMelds = [
+    for (final melds in observation.tableMelds.values)
+      for (final meld in melds) meld.cards,
+  ];
+
+  // Swap the taken card for a joker that represents it.
+  final identity = discarded.effectiveIdentity;
+  if (!discarded.isJoker && identity != null) {
+    for (final meld in tableMelds) {
+      for (final card in meld) {
+        if (card.isJoker && card.representedIdentity == identity) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Cover groups: the taken card plus up to two hand cards, leaving at least
+  // one card in hand to discard (the hand after the take is hand + 1).
+  final groups = <List<HareegCard>>[
+    [discarded],
+    for (var i = 0; i < hand.length; i++) ...[
+      [discarded, hand[i]],
+      for (var j = i + 1; j < hand.length; j++) [discarded, hand[i], hand[j]],
+    ],
+  ];
+  for (final group in groups) {
+    if (hand.length + 1 - group.length < 1) continue;
+    for (final meld in tableMelds) {
+      if (ClassicHareegCoverRules.orderedCoverCards(
+            tableMeld: meld,
+            candidates: group,
+          ) !=
+          null) {
+        return true;
+      }
     }
   }
   return false;

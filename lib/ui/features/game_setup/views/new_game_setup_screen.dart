@@ -82,7 +82,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                   onChanged: (value) =>
                       _update(_setup.copyWith(cpuDifficulty: value)),
                 ),
-                const SizedBox(height: LoungeTokens.space5),
+                const SizedBox(height: LoungeTokens.space3),
                 _StartChoice<StarterMode>(
                   icon: Icons.flag_outlined,
                   title: strings.firstStarter,
@@ -100,7 +100,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                   onChanged: (value) =>
                       _update(_setup.copyWith(starterMode: value)),
                 ),
-                const SizedBox(height: LoungeTokens.space5),
+                const SizedBox(height: LoungeTokens.space3),
                 _StartChoice<TableStrictness>(
                   icon: Icons.gavel_outlined,
                   title: strings.tableStrictnessTitle,
@@ -118,7 +118,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                     _setup.tableStrictness,
                   ),
                 ),
-                const SizedBox(height: LoungeTokens.space5),
+                const SizedBox(height: LoungeTokens.space3),
                 _StartChoice<int>(
                   icon: Icons.timeline_outlined,
                   title: strings.openingRequirement,
@@ -130,7 +130,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                   onChanged: (value) =>
                       _update(_setup.copyWith(openingRequirement: value)),
                 ),
-                const SizedBox(height: LoungeTokens.space5),
+                const SizedBox(height: LoungeTokens.space3),
                 _StartChoice<int>(
                   icon: Icons.casino_outlined,
                   title: strings.jokers,
@@ -156,17 +156,40 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: LoungeTokens.space6),
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).pushReplacementNamed(AppRoutes.table, arguments: _setup),
-                  icon: const Icon(Icons.table_bar_outlined),
-                  label: Text(strings.startTable),
-                ),
               ],
             ),
           ],
+        ),
+      ),
+      // Start Table is pinned (design contract 9.3) so the call to action is
+      // always one tap away however far the options scroll.
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: LoungeTokens.feltGreen,
+          border: Border(
+            top: BorderSide(
+              color: LoungeTokens.sandLine.withValues(alpha: 0.14),
+            ),
+          ),
+          boxShadow: LoungeTokens.elevationL2,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              LoungeTokens.space5,
+              LoungeTokens.space3,
+              LoungeTokens.space5,
+              LoungeTokens.space4,
+            ),
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(
+                context,
+              ).pushReplacementNamed(AppRoutes.table, arguments: _setup),
+              icon: const Icon(Icons.table_bar_outlined),
+              label: Text(strings.startTable),
+            ),
+          ),
         ),
       ),
     );
@@ -265,6 +288,24 @@ class _StartChoice<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // An option card (design contract section 8): the choice sits on a raised
+    // lounge surface with its title, rather than as a bare row on the felt.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
+        border: Border.all(
+          color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(LoungeTokens.space4),
+        child: _choiceBody(),
+      ),
+    );
+  }
+
+  Widget _choiceBody() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,7 +313,7 @@ class _StartChoice<T> extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: LoungeTokens.goldAccent),
             const SizedBox(width: LoungeTokens.space2),
-            Text(title, style: LoungeTokens.titleSmall),
+            Expanded(child: Text(title, style: LoungeTokens.title)),
           ],
         ),
         const SizedBox(height: LoungeTokens.space3),
@@ -299,6 +340,7 @@ class _StartChoice<T> extends StatelessWidget {
               ),
               textStyle: WidgetStateProperty.all(
                 const TextStyle(
+                  fontFamily: LoungeTokens.uiFamily,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,

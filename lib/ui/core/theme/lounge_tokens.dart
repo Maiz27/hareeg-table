@@ -145,45 +145,163 @@ abstract final class LoungeTokens {
   /// Joker replacement / cover drop overlay (visible).
   static const tapTargetOverlay = 40.0;
 
-  // -- Typography (token text styles, applied via AppTheme.dark()) ----------
+  // -- Typography (docs/design/design-contract.md section 4) -----------------
+
+  /// Display family: geometric Kufic with Latin and Arabic coverage. Used for
+  /// the wordmark, screen titles, big scores, and Fifty moments.
+  static const displayFamily = 'ReemKufi';
+
+  /// UI / body family: Latin and Arabic, legible at small sizes.
+  static const uiFamily = 'IBMPlexSansArabic';
+
+  /// Reem Kufi ships as a variable font; weights are set on the `wght` axis.
+  static List<FontVariation> displayWeight(double weight) => [
+    FontVariation('wght', weight),
+  ];
+
+  /// Large display used for the home wordmark and match results.
+  static final displayLarge = TextStyle(
+    fontFamily: displayFamily,
+    color: offWhiteText,
+    fontSize: 40,
+    fontWeight: FontWeight.w700,
+    fontVariations: displayWeight(700),
+    height: 1.1,
+    letterSpacing: 0.2,
+  );
 
   /// Display style used for the splash wordmark and major screen titles.
-  static const display = TextStyle(
+  static final display = TextStyle(
+    fontFamily: displayFamily,
     color: offWhiteText,
     fontSize: 28,
     fontWeight: FontWeight.w700,
-    letterSpacing: 0.4,
+    fontVariations: displayWeight(700),
+    height: 1.15,
+    letterSpacing: 0.3,
   );
 
   /// Section heading on menus and panels.
   static const heading = TextStyle(
+    fontFamily: uiFamily,
     color: offWhiteText,
     fontSize: 18,
     fontWeight: FontWeight.w700,
+    height: 1.25,
+    letterSpacing: 0.1,
+  );
+
+  /// List rows, seat names, and button labels.
+  static const title = TextStyle(
+    fontFamily: uiFamily,
+    color: offWhiteText,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
     letterSpacing: 0.2,
   );
 
   /// Title used in chips, banners, and seat labels.
   static const titleSmall = TextStyle(
+    fontFamily: uiFamily,
     color: offWhiteText,
     fontSize: 13,
     fontWeight: FontWeight.w700,
+    height: 1.3,
     letterSpacing: 0.6,
   );
 
+  /// Small uppercase overline above a section or inside a seat plate.
+  static const overline = TextStyle(
+    fontFamily: uiFamily,
+    color: sandLine,
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+    letterSpacing: 1.4,
+  );
+
   /// Body copy.
-  static const body = TextStyle(color: offWhiteText, fontSize: 14);
+  static const body = TextStyle(
+    fontFamily: uiFamily,
+    color: offWhiteText,
+    fontSize: 14,
+    height: 1.45,
+  );
 
   /// Secondary / muted body copy.
-  static const bodyMuted = TextStyle(color: mutedText, fontSize: 13);
+  static const bodyMuted = TextStyle(
+    fontFamily: uiFamily,
+    color: mutedText,
+    fontSize: 13,
+    height: 1.45,
+  );
 
   /// Numeric label used on the central card glyphs and chip counters.
+  /// Tabular figures keep counts and scores from jittering as they change.
   static const numericChip = TextStyle(
+    fontFamily: uiFamily,
     color: offWhiteText,
     fontWeight: FontWeight.w700,
     fontSize: 14,
     letterSpacing: 0.4,
+    fontFeatures: [FontFeature.tabularFigures()],
   );
+
+  /// Large tabular number for HUD chips, seat scores, and stat tiles. Set in
+  /// the UI face: Reem Kufi's round zero reads as the letter O at chip size.
+  static const numericDisplay = TextStyle(
+    fontFamily: uiFamily,
+    color: offWhiteText,
+    fontWeight: FontWeight.w700,
+    fontSize: 24,
+    height: 1.0,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  // -- Elevation (design contract section 3.2) -------------------------------
+
+  /// L1: cards and objects resting on the table.
+  static const elevationL1 = [
+    BoxShadow(color: Color(0x59000000), offset: Offset(0, 2), blurRadius: 4),
+    BoxShadow(color: Color(0x33000000), offset: Offset(0, 6), blurRadius: 14),
+  ];
+
+  /// L2: HUD chips, seat plates, toasts.
+  static const elevationL2 = [
+    BoxShadow(color: Color(0x59000000), offset: Offset(0, 4), blurRadius: 12),
+  ];
+
+  /// L3: panels, sheets, the coach card.
+  static const elevationL3 = [
+    BoxShadow(color: Color(0x73000000), offset: Offset(0, 12), blurRadius: 32),
+  ];
+
+  /// L2 surface fill (coffee charcoal, slightly translucent over felt).
+  static const surfaceL2 = Color(0xE015110E);
+
+  /// Hairline edge for L2 surfaces.
+  static const edgeL2 = Color(0x40D7BD83);
+
+  /// Pill radius for HUD chips and seat plates.
+  static const radiusPill = 999.0;
+
+  // -- Motion (design contract section 6; scale with MotionScope) ------------
+
+  /// Press feedback, ring flash in.
+  static const motionInstant = Duration(milliseconds: 120);
+
+  /// Card lift, chip and state changes.
+  static const motionQuick = Duration(milliseconds: 180);
+
+  /// Panels, toasts, seat plate state.
+  static const motionStandard = Duration(milliseconds: 220);
+
+  /// Turn change, coach card in and out.
+  static const motionEmphasis = Duration(milliseconds: 280);
+
+  /// Card flights across the table.
+  static const motionFlight = Duration(milliseconds: 420);
 }
 
 /// Suit / card surface colours so themes can share a single tint set.
