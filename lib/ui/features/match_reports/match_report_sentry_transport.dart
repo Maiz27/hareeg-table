@@ -106,10 +106,11 @@ void configureSentryOptions(
 /// Last check before any event leaves the device.
 ///
 /// Drops everything when [gate] no longer allows transmission, strips user,
-/// IP, device name/identifier, server name and locale/culture data, and gives
-/// SDK-captured errors (FlutterError / platform dispatcher handlers, which do
-/// not go through [DiagnosticsTransport.send]) the `source: uncaught_error`
-/// tag and the in-flight match report.
+/// IP and server name, rebuilds the contexts from an allowlist
+/// ([allowlistedContexts]), and gives SDK-captured errors (FlutterError /
+/// platform dispatcher handlers, which do not go through
+/// [DiagnosticsTransport.send]) the `source: uncaught_error` tag and the
+/// in-flight match report.
 SentryEvent? gateAndScrubSentryEvent(
   SentryEvent event,
   Hint hint,
@@ -120,14 +121,8 @@ SentryEvent? gateAndScrubSentryEvent(
   }
   event
     ..user = null
-    ..serverName = null;
-  event.contexts.remove(SentryCulture.type);
-  final device = event.contexts.device;
-  if (device != null) {
-    device
-      ..name = null
-      ..deviceUniqueIdentifier = null;
-  }
+    ..serverName = null
+    ..contexts = allowlistedContexts(event.contexts);
   final tags = event.tags;
   if (tags == null || !tags.containsKey('source')) {
     event.tags = {
@@ -143,4 +138,42 @@ SentryEvent? gateAndScrubSentryEvent(
     }
   }
   return event;
+}
+
+/// Rebuilds [contexts] keeping only non-identifying device, OS and app fields.
+///
+/// On Android and iOS the SDK merges the native scope into every event before
+/// `beforeSend`; its device context carries an installation ID, locale,
+/// timezone, boot time and more, some of them as keys the Dart model does not
+/// know (kept in `unknown` and serialized as-is). Clearing fields one by one
+/// would let those through, so the contexts are rebuilt from known fields only
+/// and every other context (culture, runtimes, accessibility, trace, custom
+/// keys) is dropped.
+Contexts allowlistedContexts(Contexts contexts) {
+  final device = contexts.device;
+  final os = contexts.operatingSystem;
+  final app = contexts.app;
+  return Contexts(
+    device: device == null
+        ? null
+        : SentryDevice(
+            family: device.family,
+            model: device.model,
+            modelId: device.modelId,
+            manufacturer: device.manufacturer,
+            brand: device.brand,
+            arch: device.arch,
+            simulator: device.simulator,
+            memorySize: device.memorySize,
+            screenHeightPixels: device.screenHeightPixels,
+            screenWidthPixels: device.screenWidthPixels,
+            screenDensity: device.screenDensity,
+            screenDpi: device.screenDpi,
+            orientation: device.orientation,
+          ),
+    operatingSystem: os == null
+        ? null
+        : SentryOperatingSystem(name: os.name, version: os.version),
+    app: app == null ? null : SentryApp(version: app.version, build: app.build),
+  );
 }

@@ -84,6 +84,102 @@ void main() {
       expect(wire, isNot(contains('My Phone')));
     });
 
+    test('native-merged device, os and app contexts keep only allowlisted '
+        'fields', () {
+      // The shape Android's native scope merges into every Dart event: keys
+      // the Dart model does not know end up in `unknown` and would serialize.
+      final event = SentryEvent(
+        contexts: Contexts.fromJson({
+          'device': {
+            'id': 'install-uuid-1234',
+            'name': 'My Phone',
+            'timezone': 'Africa/Khartoum',
+            'language': 'ar',
+            'locale': 'ar_SD',
+            'connection_type': 'wifi',
+            'boot_time': '2026-01-02T03:04:05.000Z',
+            'battery_level': 42.0,
+            'device_unique_identifier': 'dui-5678',
+            'model': 'Pixel 7',
+            'manufacturer': 'Google',
+            'brand': 'google',
+            'family': 'Pixel',
+            'memory_size': 8000000000,
+            'screen_width_pixels': 1080,
+            'screen_height_pixels': 2400,
+            'orientation': 'portrait',
+          },
+          'os': {
+            'name': 'Android',
+            'version': '14',
+            'kernel_version': 'kernel-secret-build',
+            'rooted': false,
+            'locale': 'ar_SD',
+          },
+          'app': {
+            'app_version': '1.0.0',
+            'app_build': '12',
+            'device_app_hash': 'hash-9999',
+            'app_start_time': '2026-01-02T03:04:05.000Z',
+          },
+          'culture': {'locale': 'ar-SD', 'timezone': 'Africa/Khartoum'},
+          'accessibility': {'bold_text': true},
+          'custom_native': {'installation': 'install-uuid-1234'},
+        }),
+        tags: {'source': 'user_report'},
+      );
+
+      final scrubbed = gateAndScrubSentryEvent(event, Hint(), _Gate())!;
+
+      final wire = jsonEncode(scrubbed.toJson());
+      for (final leaked in [
+        'install-uuid-1234',
+        'dui-5678',
+        'My Phone',
+        'Africa/Khartoum',
+        'ar_SD',
+        'ar-SD',
+        '"language"',
+        '"locale"',
+        '"timezone"',
+        '"id"',
+        'boot_time',
+        'connection_type',
+        'battery_level',
+        'kernel-secret-build',
+        'rooted',
+        'hash-9999',
+        'app_start_time',
+        'accessibility',
+        'custom_native',
+      ]) {
+        expect(wire, isNot(contains(leaked)), reason: leaked);
+      }
+      final device = scrubbed.contexts.device!;
+      expect(device.model, 'Pixel 7');
+      expect(device.manufacturer, 'Google');
+      expect(device.brand, 'google');
+      expect(device.family, 'Pixel');
+      expect(device.memorySize, 8000000000);
+      expect(device.screenWidthPixels, 1080);
+      expect(device.orientation, SentryOrientation.portrait);
+      expect(scrubbed.contexts.operatingSystem!.name, 'Android');
+      expect(scrubbed.contexts.operatingSystem!.version, '14');
+      expect(scrubbed.contexts.app!.version, '1.0.0');
+      expect(scrubbed.contexts.app!.build, '12');
+      expect(
+        scrubbed.contexts.keys.where((k) => scrubbed.contexts[k] != null),
+        {
+          'device',
+          'os',
+          'app',
+          // Contexts always holds an (empty) runtimes list.
+          'runtimes',
+        },
+      );
+      expect(scrubbed.contexts.runtimes, isEmpty);
+    });
+
     test('an SDK-captured error is tagged uncaught_error and gets the live '
         'match report attached', () {
       final gate = _Gate(
