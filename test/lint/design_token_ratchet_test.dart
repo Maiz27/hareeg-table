@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Ratchet for the design contract's token rule (section 2): feature code
-/// uses `LoungeTokens` rather than raw colours and durations.
+/// Ratchet for the design contract's token rule (section 2): UI code uses
+/// `LoungeTokens` rather than raw colours and durations.
 ///
 /// The redesign migrated the literals that equal a token; the rest predate
 /// the contract and still carry tuned values. Rather than rewrite them blind,
@@ -11,28 +11,37 @@ import 'package:flutter_test/flutter_test.dart';
 /// (then lower the ceiling here in the same change) but never raise it: new
 /// UI reaches for a token, or adds one to `lounge_tokens.dart` and the
 /// contract.
+///
+/// Counts every occurrence (not lines) under `lib/ui/`, except the token file
+/// itself, where these literals belong.
 const _ceilings = <String, int>{
-  r'Duration\(milliseconds:': 23,
-  r'Color\(0x': 63,
+  r'Duration\(milliseconds:': 60,
+  r'Color\(0x': 140,
 };
 
+const _tokenFile = 'lib/ui/core/theme/lounge_tokens.dart';
+
 void main() {
-  final features = Directory('lib/ui/features');
-  final files = features
+  final files = Directory('lib/ui')
       .listSync(recursive: true)
       .whereType<File>()
       .where((f) => f.path.endsWith('.dart'))
+      .where((f) => f.path.replaceAll(r'\', '/') != _tokenFile)
       .toList(growable: false);
 
+  test('the ratchet scans the UI tree', () {
+    expect(files.length, greaterThan(50));
+  });
+
   for (final entry in _ceilings.entries) {
-    test('raw ${entry.key} literals in lib/ui/features stay at or below '
+    test('raw ${entry.key} literals in lib/ui stay at or below '
         '${entry.value}', () {
       final pattern = RegExp(entry.key);
       final hits = <String>[];
       for (final file in files) {
         final lines = file.readAsLinesSync();
         for (var i = 0; i < lines.length; i++) {
-          if (pattern.hasMatch(lines[i])) {
+          for (final _ in pattern.allMatches(lines[i])) {
             hits.add('${file.path}:${i + 1}');
           }
         }
@@ -41,7 +50,7 @@ void main() {
         hits.length,
         lessThanOrEqualTo(entry.value),
         reason:
-            'New raw literals in feature code; use LoungeTokens instead '
+            'New raw literals in UI code; use LoungeTokens instead '
             '(docs/design/design-contract.md section 2). Occurrences:\n'
             '${hits.join('\n')}',
       );

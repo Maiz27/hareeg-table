@@ -356,8 +356,9 @@ rest.
 
 - **Token ratchet** (`test/lint/design_token_ratchet_test.dart`): pins the
   count of raw `Color(0x…)` and `Duration(milliseconds: …)` literals under
-  `lib/ui/features/` as a ceiling. Counts may fall, never rise; lower the
-  ceiling in the same change that removes literals.
+  `lib/ui/` (every occurrence; the token file is excluded) as a ceiling.
+  Counts may fall, never rise; lower the ceiling in the same change that
+  removes literals.
 - **Goldens:** deliberately not pixel goldens. Rasterised text and blur
   differ across Flutter versions and machines, so pixel goldens would fail on
   unrelated toolchain upgrades. Layout is guarded instead by the existing
