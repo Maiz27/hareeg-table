@@ -1,0 +1,3 @@
+# Fixtures whose bytes are checksummed by tests must match the committed blob
+# on every platform, so core.autocrlf must not rewrite their line endings.
+test/ui/features/game_table/live_persistence_oracle.json text eol=lf
