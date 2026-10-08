@@ -155,7 +155,6 @@ abstract interface class CpuObservation {
 abstract interface class MeldPartitionView {
   /// Lazily enumerates candidate partitions for the CPU hand.
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -171,7 +170,6 @@ final class EmptyMeldPartitionView implements MeldPartitionView {
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -453,7 +451,6 @@ final class LiveMeldPartitionView implements MeldPartitionView {
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -464,17 +461,8 @@ final class LiveMeldPartitionView implements MeldPartitionView {
       return const [];
     }
 
-    final pending = controller.pendingDiscard;
-    final hand = controller.handFor(seat);
-    final cards = !includePendingDiscard && pending != null
-        ? [
-            for (final card in hand)
-              if (card.id != pending.id) card,
-          ]
-        : hand;
-
     return MeldPartitionEnumerator.partitionsOf(
-      cards,
+      controller.handFor(seat),
       minMelds: minMelds,
       maxMelds: maxMelds,
       mustUseCardId: mustUseCardId,

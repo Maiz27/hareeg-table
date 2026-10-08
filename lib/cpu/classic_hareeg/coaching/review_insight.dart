@@ -163,13 +163,4 @@ class ReviewInsight {
 
   /// Observable facts this rests on. Never empty.
   final List<ReviewEvidence> evidence;
-
-  /// Every card this insight refers to, top level and nested.
-  ///
-  /// Provenance is checked over this, not just [cardIds], so evidence cannot
-  /// smuggle in a reference the top-level list would not have allowed.
-  Set<String> get allReferencedCardIds => {
-    ...cardIds,
-    for (final item in evidence) ...item.cardIds,
-  };
 }

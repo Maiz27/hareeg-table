@@ -700,13 +700,6 @@ Map<String, int> handKeepScores(List<HareegCard> hand) {
   return scores;
 }
 
-/// Keep score for a single [card] within [hand]; thin lookup over
-/// [handKeepScores]. Callers scoring many cards should call [handKeepScores]
-/// once and read the map instead of paying the grouping cost per card.
-int discardKeepScore(HareegCard card, List<HareegCard> hand) {
-  return handKeepScores(hand)[card.id] ?? _soloScore(card, hand);
-}
-
 /// Solo-group value for [card]: its pip ceiling, or 0 when [hand] holds a true
 /// duplicate (another card of the same rank AND suit) — a redundant copy whose
 /// rank potential is already carried by its twin, so it is shed first.

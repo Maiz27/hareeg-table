@@ -1,21 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/cpu/classic_hareeg/cpu_move_planner.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/cpu_move_plan.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/priority_cpu_move_planner.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 
 void main() {
-  group('ClassicHareegCpuMovePlanner', () {
+  group('PriorityCpuMovePlanner.evaluate', () {
     test('empty legal action surface produces no-action scenario', () {
-      final plan = ClassicHareegCpuMovePlanner.evaluate(const []);
+      final plan = PriorityCpuMovePlanner.evaluate(const []);
 
       expect(plan.scenario, ClassicHareegCpuMoveScenario.noLegalActions);
-      expect(plan.hasAction, isFalse);
       expect(plan.actionId, isNull);
     });
 
     test('prioritizes Fifty before every other action', () {
-      final plan = ClassicHareegCpuMovePlanner.evaluate([
+      final plan = PriorityCpuMovePlanner.evaluate([
         ClassicHareegActionIds.drawStock,
         ClassicHareegActionIds.claimFifty,
         ClassicHareegActionIds.playMeldActionId(['1', '2', '3']),
@@ -39,7 +39,7 @@ void main() {
             );
         final plain = ClassicHareegActionIds.playMeldActionId(['4', '5', '6']);
 
-        final plan = ClassicHareegCpuMovePlanner.evaluate([
+        final plan = PriorityCpuMovePlanner.evaluate([
           represented,
           plain,
           ClassicHareegActionIds.drawStock,
@@ -62,12 +62,12 @@ void main() {
         cardIds: ['jack-diamonds'],
       );
 
-      final replacePlan = ClassicHareegCpuMovePlanner.evaluate([
+      final replacePlan = PriorityCpuMovePlanner.evaluate([
         ClassicHareegActionIds.drawStock,
         cover,
         replacement,
       ]);
-      final coverPlan = ClassicHareegCpuMovePlanner.evaluate([
+      final coverPlan = PriorityCpuMovePlanner.evaluate([
         ClassicHareegActionIds.drawStock,
         cover,
       ]);
@@ -82,7 +82,7 @@ void main() {
     });
 
     test('draws stock before taking discard', () {
-      final plan = ClassicHareegCpuMovePlanner.evaluate([
+      final plan = PriorityCpuMovePlanner.evaluate([
         ClassicHareegActionIds.takeDiscard,
         ClassicHareegActionIds.drawStock,
       ]);
@@ -96,7 +96,7 @@ void main() {
       () {
         final safeDiscard = '${ClassicHareegActionIds.discardPrefix}7-hearts';
 
-        final plan = ClassicHareegCpuMovePlanner.evaluate([
+        final plan = PriorityCpuMovePlanner.evaluate([
           '${ClassicHareegActionIds.discardBlockedCoverPrefix}9-clubs',
           ClassicHareegActionIds.returnPendingDiscard,
           '${ClassicHareegActionIds.discardJokerPrefix}joker',
@@ -109,7 +109,7 @@ void main() {
     );
 
     test('returns pending discard when no productive action exists', () {
-      final plan = ClassicHareegCpuMovePlanner.evaluate([
+      final plan = PriorityCpuMovePlanner.evaluate([
         ClassicHareegActionIds.returnPendingDiscard,
       ]);
 
@@ -122,7 +122,7 @@ void main() {
           '${ClassicHareegActionIds.discardBlockedCoverPrefix}9-clubs';
       final joker = '${ClassicHareegActionIds.discardJokerPrefix}joker';
 
-      final plan = ClassicHareegCpuMovePlanner.evaluate([blocked, joker]);
+      final plan = PriorityCpuMovePlanner.evaluate([blocked, joker]);
 
       expect(plan.scenario, ClassicHareegCpuMoveScenario.fallback);
       expect(plan.actionId, blocked);

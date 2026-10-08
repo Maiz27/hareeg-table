@@ -32,19 +32,6 @@ class SkilledCpuMovePlanner implements CpuMovePlanner {
   ClassicHareegCpuMovePlan plan(CpuObservation observation) {
     return const CpuMovePlanPipeline(_SkilledCpuPlanPolicy()).plan(observation);
   }
-
-  /// Public variant retained for Expert / Priority planners that share the
-  /// same Fifty-claim filter via static call.
-  static bool canSuccessfullyClaimFifty(CpuObservation observation) {
-    return canSuccessfullyClaimFiftyFor(observation);
-  }
-
-  /// Pure predicate shared with [ExpertCpuMovePlanner] so Expert doesn't have
-  /// to recurse into Skilled's full `plan()` (which would re-enumerate
-  /// partitions and rebuild threat profiles) just to read this boolean.
-  static bool shouldTakeDiscardForObservation(CpuObservation observation) {
-    return shouldTakeDiscardForObservationCore(observation);
-  }
 }
 
 class _SkilledCpuPlanPolicy implements CpuPlanPolicy {

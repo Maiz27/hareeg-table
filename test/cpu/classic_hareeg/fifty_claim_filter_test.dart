@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/cpu/classic_hareeg/cpu_move_planner.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/expert_cpu_move_planner.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/priority_cpu_move_planner.dart';
+import 'package:hareeg_table/cpu/classic_hareeg/skilled_cpu_move_planner.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_observation.dart';
 import 'package:hareeg_table/cpu/classic_hareeg/cpu_strategy.dart';
 import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';

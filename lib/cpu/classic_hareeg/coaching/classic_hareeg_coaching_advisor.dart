@@ -18,8 +18,6 @@ import 'coaching_insight.dart';
 typedef _LegalCover = ({
   String actionId,
   String cardId,
-  PlayerSeat owner,
-  int meldIndex,
   List<String> meldCardIds,
 });
 
@@ -81,7 +79,7 @@ abstract final class ClassicHareegCoachingAdvisor {
     _addJokerAdvice(controller, seat, insights);
     _addStageBanners(controller, seat, observation, insights);
     _addDiscardSuggestion(controller, seat, observation, analysis, insights);
-    _addDrawStock(seat, observation, insights);
+    _addDrawStock(observation, insights);
 
     insights.sort((left, right) => right.priority.compareTo(left.priority));
     return List.unmodifiable(insights);
@@ -452,9 +450,6 @@ abstract final class ClassicHareegCoachingAdvisor {
           priority: CoachingInsightCategory.openNow.priority,
           openingBestValue: effectiveValue,
           openingRequirement: requirement,
-          meldActionId: ClassicHareegActionIds.playMeldActionId(
-            partition.melds.first.cards.map((card) => card.id),
-          ),
           highlightCardIds: highlight,
           meldGroups: _groupsOf(partition),
         ),
@@ -520,21 +515,14 @@ abstract final class ClassicHareegCoachingAdvisor {
     if (planMeldId != null) {
       final action = ClassicHareegActionIds.describe(planMeldId);
       if (action.isMeldPlay) {
-        _emitPlayMeld(
-          controller,
-          seat,
-          analysis,
-          action.cardIds,
-          planMeldId,
-          out,
-        );
+        _emitPlayMeld(controller, seat, analysis, action.cardIds, out);
         return;
       }
     }
     for (final id in controller.legalActionIdsFor(seat)) {
       final action = ClassicHareegActionIds.describe(id);
       if (action.isMeldPlay) {
-        _emitPlayMeld(controller, seat, analysis, action.cardIds, id, out);
+        _emitPlayMeld(controller, seat, analysis, action.cardIds, out);
         return;
       }
     }
@@ -555,14 +543,7 @@ abstract final class ClassicHareegCoachingAdvisor {
         continue;
       }
       final cardIds = [for (final card in meld.cards) card.id];
-      _emitPlayMeld(
-        controller,
-        seat,
-        analysis,
-        cardIds,
-        ClassicHareegActionIds.playMeldActionId(cardIds),
-        out,
-      );
+      _emitPlayMeld(controller, seat, analysis, cardIds, out);
       return;
     }
   }
@@ -577,7 +558,6 @@ abstract final class ClassicHareegCoachingAdvisor {
     PlayerSeat seat,
     _CoachingAnalysis analysis,
     List<String> meldCardIds,
-    String? meldActionId,
     List<CoachingInsight> out,
   ) {
     final cover = _isolatedCoverFor(
@@ -597,10 +577,7 @@ abstract final class ClassicHareegCoachingAdvisor {
       CoachingInsight(
         category: CoachingInsightCategory.playMeld,
         priority: CoachingInsightCategory.playMeld.priority,
-        meldActionId: meldActionId,
         coverCardId: cover?.cardId,
-        coverMeldOwner: cover?.owner,
-        coverMeldIndex: cover?.meldIndex,
         highlightCardIds: highlight,
         meldGroups: groups,
       ),
@@ -821,8 +798,6 @@ abstract final class ClassicHareegCoachingAdvisor {
         category: CoachingInsightCategory.playCover,
         priority: CoachingInsightCategory.playCover.priority,
         coverCardId: planCover.cardId,
-        coverMeldOwner: planCover.owner,
-        coverMeldIndex: planCover.meldIndex,
         coverIsChoice: isChoice,
         highlightCardIds: isChoice
             ? [for (final group in groups) ...group]
@@ -833,8 +808,8 @@ abstract final class ClassicHareegCoachingAdvisor {
   }
 
   // All legal single-card place-cover actions for [seat], decoded to the cover
-  // card id, the target meld's owner/index, and the meld's card ids (so the hint
-  // can ring both ends of each lay-off).
+  // card id and the target meld's card ids (so the hint can ring both ends of
+  // each lay-off).
   static List<_LegalCover> _legalCovers(
     ClassicHareegGameController controller,
     PlayerSeat seat,
@@ -856,8 +831,6 @@ abstract final class ClassicHareegCoachingAdvisor {
       covers.add((
         actionId: id,
         cardId: action.cardIds.single,
-        owner: target.targetSeat,
-        meldIndex: target.meldIndex,
         meldCardIds: [
           for (final card in melds[target.meldIndex].cards) card.id,
         ],
@@ -921,7 +894,6 @@ abstract final class ClassicHareegCoachingAdvisor {
             category: CoachingInsightCategory.jokerAdvice,
             priority: CoachingInsightCategory.jokerAdvice.priority,
             jokerCardId: cardId,
-            jokerReplacementActionId: id,
             highlightCardIds: [
               ?cardId,
               ...meldCardIds,
@@ -1103,8 +1075,6 @@ abstract final class ClassicHareegCoachingAdvisor {
         avoidRank: guidance?.avoidRank,
         avoidSuit: guidance?.avoidSuit,
         coverCardId: held?.cover.cardId,
-        coverMeldOwner: held?.cover.owner,
-        coverMeldIndex: held?.cover.meldIndex,
         holdCoverReason: switch (held?.reason) {
           null => null,
           CoverHoldReason.jokerGuard => CoachCoverHoldReason.jokerGuard,
@@ -1137,7 +1107,6 @@ abstract final class ClassicHareegCoachingAdvisor {
   // appended earlier in [adviseFor]) so the player still sees progress in the
   // draw body. Outranked by any real play insight.
   static void _addDrawStock(
-    PlayerSeat seat,
     CpuObservation observation,
     List<CoachingInsight> out,
   ) {
@@ -1228,22 +1197,6 @@ abstract final class ClassicHareegCoachingAdvisor {
         [for (final card in meld.cards) card.id],
     ];
   }
-
-  static List<PlayerSeat> _opponentsOf(
-    ClassicHareegGameController controller,
-    PlayerSeat seat,
-  ) {
-    final active = controller.activeSeats;
-    final opponents = <PlayerSeat>[];
-    var cursor = seat.nextAntiClockwise;
-    while (cursor != seat) {
-      if (active.contains(cursor)) {
-        opponents.add(cursor);
-      }
-      cursor = cursor.nextAntiClockwise;
-    }
-    return opponents;
-  }
 }
 
 /// Discard guidance for one discard-carrying insight: the recommended card and
@@ -1293,10 +1246,6 @@ class _CoachingAnalysis {
 
   /// The seat's current hand.
   final List<HareegCard> hand;
-
-  /// Active opponents in turn order.
-  late final List<PlayerSeat> opponents =
-      ClassicHareegCoachingAdvisor._opponentsOf(controller, seat);
 
   /// Legal safe discard card ids for this advice pass.
   late final List<String> legalSafeDiscardIds =

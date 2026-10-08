@@ -369,11 +369,6 @@ class _ExpertCpuPlanPolicy implements CpuPlanPolicy {
   Comparator<CpuDiscardCandidate> discardComparator(
     CpuObservation observation,
   ) {
-    // Expert's legacy planner used `_shouldHoldForFifty` (the high-risk
-    // posture check) rather than the normal-finish hold gate when sorting
-    // discards. The two predicates share their hold-for-fifty floors but
-    // diverge on the "any opponent near-score" branch, so we keep the
-    // posture-only check here to preserve behaviour exactly.
     final profile = OpponentThreatProfile.fromObservation(observation);
     final holdForFifty = shouldHoldNormalFinishForFifty(observation);
     // The shared table reading is a second, sharper defensive lens, not a

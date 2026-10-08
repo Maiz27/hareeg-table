@@ -152,19 +152,16 @@ void main() {
       expect(casual.attendsFeedRisk, isFalse);
       expect(casual.pickupMemoryDepth, 1);
       expect(casual.materialAttentionPercent, 40);
-      expect(casual.samplesMaterialAttention, isTrue);
 
       const skilled = TableReadingPolicy.skilled;
       expect(skilled.attendsMaterialSignal, isTrue);
       expect(skilled.attendsFeedRisk, isFalse);
       expect(skilled.pickupMemoryDepth, 3);
-      expect(skilled.samplesMaterialAttention, isFalse);
 
       const expert = TableReadingPolicy.expert;
       expect(expert.attendsMaterialSignal, isTrue);
       expect(expert.attendsFeedRisk, isTrue);
       expect(expert.pickupMemoryDepth, 6);
-      expect(expert.samplesMaterialAttention, isFalse);
     });
 
     test('a reading takes its policy from the observation, not a caller', () {

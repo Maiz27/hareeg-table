@@ -160,12 +160,8 @@ class CoachingInsight {
     this.openingBestValue,
     this.openingRequirement,
     this.coverCardId,
-    this.coverMeldOwner,
-    this.coverMeldIndex,
     this.holdCoverReason,
-    this.meldActionId,
     this.jokerCardId,
-    this.jokerReplacementActionId,
     this.discardCardId,
     this.avoidCardId,
     this.avoidOpponent,
@@ -203,30 +199,16 @@ class CoachingInsight {
   /// hand card id that covers.
   final String? coverCardId;
 
-  /// For cover-carrying insights: owner of the extended meld.
-  final PlayerSeat? coverMeldOwner;
-
-  /// For cover-carrying insights: index of the extended meld.
-  final int? coverMeldIndex;
-
   /// For [CoachingInsightCategory.discardSuggestion]: the Expert brain is
-  /// deliberately HOLDING the legal cover named by [coverCardId] (extending
-  /// [coverMeldOwner]/[coverMeldIndex]) and this is why. The presenter folds
+  /// deliberately HOLDING the legal cover named by [coverCardId] and this is
+  /// why. The presenter folds
   /// a "you could lay that off, but hold it because…" line into the discard
   /// hint so a drawn cover is acknowledged the moment it appears. Null when
   /// no held cover applies — the common case.
   final CoachCoverHoldReason? holdCoverReason;
 
-  /// For [CoachingInsightCategory.openNow], [CoachingInsightCategory.playMeld]:
-  /// the play-meld action id to invoke.
-  final String? meldActionId;
-
   /// For [CoachingInsightCategory.jokerAdvice]: the hand joker card id.
   final String? jokerCardId;
-
-  /// For [CoachingInsightCategory.jokerAdvice]: a replace-joker action id, when
-  /// the seat can swap a real card in for a represented table joker.
-  final String? jokerReplacementActionId;
 
   /// For discard-carrying insights: the recommended card id to throw.
   final String? discardCardId;

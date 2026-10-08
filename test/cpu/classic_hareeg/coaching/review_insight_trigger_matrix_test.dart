@@ -64,6 +64,16 @@ List<ReviewInsight> _review({
   );
 }
 
+/// Every card [insight] refers to, top level and nested.
+///
+/// Provenance is checked over this, not just [ReviewInsight.cardIds], so
+/// evidence cannot smuggle in a reference the top-level list would not have
+/// allowed.
+Set<String> _allReferencedCardIds(ReviewInsight insight) => {
+  ...insight.cardIds,
+  for (final item in insight.evidence) ...item.cardIds,
+};
+
 Set<ReviewInsightCategory> _categories(List<ReviewInsight> insights) =>
     insights.map((i) => i.category).toSet();
 
@@ -618,7 +628,7 @@ void main() {
           settings: _narrateAll,
         )) {
           reviewed += 1;
-          final referenced = insight.allReferencedCardIds;
+          final referenced = _allReferencedCardIds(insight);
           expect(
             referenced.intersection(hidden),
             isEmpty,
