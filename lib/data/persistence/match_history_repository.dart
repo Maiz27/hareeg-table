@@ -124,7 +124,37 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
     );
   }
 
+  MatchHistoryFailure _missingEntry(String matchId) {
+    return MatchHistoryFailure(
+      kind: MatchHistoryFailureKind.corrupt,
+      matchId: matchId,
+      message: 'No history entry exists for this match.',
+    );
+  }
+
   // --- index -------------------------------------------------------------
+
+  /// Reads the index, classifying any failure for the caller to report.
+  ///
+  /// Undecodable bytes are corrupt; any other error is retryable. On failure
+  /// the summaries list is empty and must not be written back.
+  Future<(List<MatchHistorySummary>, MatchHistoryFailure?)> _tryReadIndex({
+    String? matchId,
+  }) async {
+    try {
+      return (await _readIndex(), null);
+    } on FormatException catch (error) {
+      return (
+        const <MatchHistorySummary>[],
+        _corrupt('History index', error, matchId: matchId),
+      );
+    } catch (error) {
+      return (
+        const <MatchHistorySummary>[],
+        _retryable('History index', error, matchId: matchId),
+      );
+    }
+  }
 
   Future<List<MatchHistorySummary>> _readIndex() async {
     final raw = await _store.loadString(indexKey);
@@ -203,13 +233,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
   @override
   Future<MatchHistoryListOutcome> listSummaries() {
     return _serialized(() async {
-      final List<MatchHistorySummary> summaries;
-      try {
-        summaries = await _readIndex();
-      } on FormatException catch (error) {
-        return MatchHistoryListFailed(_corrupt('History index', error));
-      } catch (error) {
-        return MatchHistoryListFailed(_retryable('History index', error));
+      final (summaries, indexFailure) = await _tryReadIndex();
+      if (indexFailure != null) {
+        return MatchHistoryListFailed(indexFailure);
       }
 
       // One listKeys call and no readFile calls: a missing replay is found by
@@ -259,28 +285,14 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
   @override
   Future<MatchReplayOpenOutcome> openReplay(String matchId) {
     return _serialized(() async {
-      final List<MatchHistorySummary> summaries;
-      try {
-        summaries = await _readIndex();
-      } on FormatException catch (error) {
-        return MatchReplayOpenFailed(
-          _corrupt('History index', error, matchId: matchId),
-        );
-      } catch (error) {
-        return MatchReplayOpenFailed(
-          _retryable('History index', error, matchId: matchId),
-        );
+      final (summaries, indexFailure) = await _tryReadIndex(matchId: matchId);
+      if (indexFailure != null) {
+        return MatchReplayOpenFailed(indexFailure);
       }
 
       final index = summaries.indexWhere((s) => s.matchId == matchId);
       if (index < 0) {
-        return MatchReplayOpenFailed(
-          MatchHistoryFailure(
-            kind: MatchHistoryFailureKind.corrupt,
-            matchId: matchId,
-            message: 'No history entry exists for this match.',
-          ),
-        );
+        return MatchReplayOpenFailed(_missingEntry(matchId));
       }
 
       final String? raw;
@@ -360,30 +372,16 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
     required String reason,
   }) {
     return _serialized(() async {
-      final List<MatchHistorySummary> summaries;
-      try {
-        summaries = await _readIndex();
-      } on FormatException catch (error) {
-        return MatchReplayRepairFailed(
-          _corrupt('History index', error, matchId: matchId),
-        );
-      } catch (error) {
-        return MatchReplayRepairFailed(
-          _retryable('History index', error, matchId: matchId),
-        );
+      final (summaries, indexFailure) = await _tryReadIndex(matchId: matchId);
+      if (indexFailure != null) {
+        return MatchReplayRepairFailed(indexFailure);
       }
 
       final index = summaries.indexWhere((s) => s.matchId == matchId);
       if (index < 0) {
         // No target remains to repair (for example, after a concurrent delete).
         // Report the missing entry without recreating it.
-        return MatchReplayRepairFailed(
-          MatchHistoryFailure(
-            kind: MatchHistoryFailureKind.corrupt,
-            matchId: matchId,
-            message: 'No history entry exists for this match.',
-          ),
-        );
+        return MatchReplayRepairFailed(_missingEntry(matchId));
       }
 
       final outcome = await _repairToNonReplayable(summaries, index, reason);
@@ -429,14 +427,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
     try {
       // Remove only this match's recovery inputs. The durable deletion marker
       // makes interruption here resumable without resurrecting the summary.
-      final active = await _matches.loadActiveMatch();
-      if (active is ActiveMatchUnreadable) {
-        return MatchHistoryDeleteFailed(active.failure);
-      }
-      if (active is ActiveMatchLoaded &&
-          active.checkpoint.isTerminal &&
-          active.checkpoint.matchId == matchId) {
-        await _matches.abandonActiveMatch();
+      final unreadable = await _abandonTerminalCheckpointOf(matchId);
+      if (unreadable != null) {
+        return MatchHistoryDeleteFailed(unreadable);
       }
       final rawPending = await _store.loadString(pendingKey);
       if (rawPending != null) {
@@ -462,17 +455,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
       );
     }
 
-    final List<MatchHistorySummary> summaries;
-    try {
-      summaries = await _readIndex();
-    } on FormatException catch (error) {
-      return MatchHistoryDeleteFailed(
-        _corrupt('History index', error, matchId: matchId),
-      );
-    } catch (error) {
-      return MatchHistoryDeleteFailed(
-        _retryable('History index', error, matchId: matchId),
-      );
+    final (summaries, indexFailure) = await _tryReadIndex(matchId: matchId);
+    if (indexFailure != null) {
+      return MatchHistoryDeleteFailed(indexFailure);
     }
 
     final remaining = [
@@ -539,30 +524,28 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
   Future<MatchArchivePublishOutcome> _archiveLocked(
     MatchCheckpoint terminal,
   ) async {
-    {
-      if (!terminal.isTerminal) {
-        return MatchArchivePublishFailed(
-          MatchHistoryFailure(
-            kind: MatchHistoryFailureKind.corrupt,
-            matchId: terminal.matchId,
-            message: 'Only a completed match can be archived.',
-          ),
-        );
-      }
-
-      try {
-        await _store.saveString(
-          pendingKey,
-          jsonEncode(PendingMatchArchive(matchId: terminal.matchId).toJson()),
-        );
-      } catch (error) {
-        return MatchArchivePublishFailed(
-          _retryable('Pending archive write', error, matchId: terminal.matchId),
-        );
-      }
-
-      return _publish(terminal);
+    if (!terminal.isTerminal) {
+      return MatchArchivePublishFailed(
+        MatchHistoryFailure(
+          kind: MatchHistoryFailureKind.corrupt,
+          matchId: terminal.matchId,
+          message: 'Only a completed match can be archived.',
+        ),
+      );
     }
+
+    try {
+      await _store.saveString(
+        pendingKey,
+        jsonEncode(PendingMatchArchive(matchId: terminal.matchId).toJson()),
+      );
+    } catch (error) {
+      return MatchArchivePublishFailed(
+        _retryable('Pending archive write', error, matchId: terminal.matchId),
+      );
+    }
+
+    return _publish(terminal);
   }
 
   @override
@@ -631,17 +614,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
   Future<MatchArchivePublishOutcome> _clearPendingIfPublished(
     String matchId,
   ) async {
-    final List<MatchHistorySummary> summaries;
-    try {
-      summaries = await _readIndex();
-    } on FormatException catch (error) {
-      return MatchArchivePublishFailed(
-        _corrupt('History index', error, matchId: matchId),
-      );
-    } catch (error) {
-      return MatchArchivePublishFailed(
-        _retryable('History index', error, matchId: matchId),
-      );
+    final (summaries, indexFailure) = await _tryReadIndex(matchId: matchId);
+    if (indexFailure != null) {
+      return MatchArchivePublishFailed(indexFailure);
     }
 
     final existing = summaries.where((s) => s.matchId == matchId).toList();
@@ -683,17 +658,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
     final facts = terminal.terminalFacts!;
     final matchId = terminal.matchId;
 
-    final List<MatchHistorySummary> summaries;
-    try {
-      summaries = await _readIndex();
-    } on FormatException catch (error) {
-      return MatchArchivePublishFailed(
-        _corrupt('History index', error, matchId: matchId),
-      );
-    } catch (error) {
-      return MatchArchivePublishFailed(
-        _retryable('History index', error, matchId: matchId),
-      );
+    final (summaries, indexFailure) = await _tryReadIndex(matchId: matchId);
+    if (indexFailure != null) {
+      return MatchArchivePublishFailed(indexFailure);
     }
 
     final alreadyPublished = summaries
@@ -773,14 +740,9 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
     }
 
     try {
-      final active = await _matches.loadActiveMatch();
-      if (active is ActiveMatchUnreadable) {
-        return MatchArchivePublishFailed(active.failure);
-      }
-      if (active is ActiveMatchLoaded &&
-          active.checkpoint.isTerminal &&
-          active.checkpoint.matchId == matchId) {
-        await _matches.abandonActiveMatch();
+      final unreadable = await _abandonTerminalCheckpointOf(matchId);
+      if (unreadable != null) {
+        return MatchArchivePublishFailed(unreadable);
       }
     } catch (error) {
       return MatchArchivePublishFailed(
@@ -788,6 +750,25 @@ class LocalMatchHistoryRepository implements MatchHistoryRepository {
       );
     }
 
+    return null;
+  }
+
+  /// Clears the active checkpoint when it is [matchId]'s terminal one.
+  ///
+  /// Returns the checkpoint's read failure when it cannot be read, so the
+  /// caller can report it; store errors propagate.
+  Future<MatchHistoryFailure?> _abandonTerminalCheckpointOf(
+    String matchId,
+  ) async {
+    final active = await _matches.loadActiveMatch();
+    if (active is ActiveMatchUnreadable) {
+      return active.failure;
+    }
+    if (active is ActiveMatchLoaded &&
+        active.checkpoint.isTerminal &&
+        active.checkpoint.matchId == matchId) {
+      await _matches.abandonActiveMatch();
+    }
     return null;
   }
 
