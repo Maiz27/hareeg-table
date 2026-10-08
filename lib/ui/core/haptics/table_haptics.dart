@@ -21,17 +21,11 @@ enum TableHapticEvent {
   /// Pending discard returned to the pile.
   pendingReturn,
 
-  /// Snap-back from an invalid drop target.
-  snapBack,
-
   /// Successful Fifty claim.
   fiftyClaim,
 
   /// Round ends (any outcome).
   roundEnd,
-
-  /// Match ends with the human player winning.
-  matchEnd,
 }
 
 /// Lightweight wrapper around [HapticFeedback] that respects a runtime
@@ -56,10 +50,8 @@ class TableHaptics {
       TableHapticEvent.drawCard => HapticFeedback.lightImpact(),
       TableHapticEvent.illegalAction => HapticFeedback.mediumImpact(),
       TableHapticEvent.pendingReturn => HapticFeedback.mediumImpact(),
-      TableHapticEvent.snapBack => HapticFeedback.mediumImpact(),
       TableHapticEvent.fiftyClaim => HapticFeedback.heavyImpact(),
       TableHapticEvent.roundEnd => HapticFeedback.vibrate(),
-      TableHapticEvent.matchEnd => HapticFeedback.heavyImpact(),
     };
   }
 }

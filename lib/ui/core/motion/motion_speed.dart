@@ -114,33 +114,6 @@ class MotionScope extends InheritedWidget {
 /// `MotionSettings.scale(...)` (via [MotionScope.of]) to apply the speed
 /// multiplier where the animation actually runs.
 abstract final class TableMotion {
-  /// Deal one card.
-  static const dealCard = Duration(milliseconds: 220);
-
-  /// Draw from stock.
-  static const drawStock = Duration(milliseconds: 180);
-
-  /// Take a discard.
-  static const takeDiscard = Duration(milliseconds: 200);
-
-  /// Discard a card.
-  static const discardCard = Duration(milliseconds: 200);
-
-  /// Place a meld (per-card stagger handled separately).
-  static const meldPlacement = Duration(milliseconds: 240);
-
-  /// Per-card stagger when placing a meld.
-  static const meldStagger = Duration(milliseconds: 40);
-
-  /// Place a cover.
-  static const coverPlacement = Duration(milliseconds: 200);
-
-  /// Joker replacement two-card swap.
-  static const jokerReplacement = Duration(milliseconds: 260);
-
-  /// Pending discard returning to the pile.
-  static const pendingReturn = Duration(milliseconds: 180);
-
   /// CPU read-pause before any action becomes visible.
   static const cpuReadPause = Duration(milliseconds: 360);
 
@@ -191,12 +164,6 @@ abstract final class TableMotion {
   /// Fifty heat pulse on claim.
   static const fiftyHeatPulse = Duration(milliseconds: 1400);
 
-  /// State-change tween used for card selection / hover overlays.
-  static const cardStateTween = Duration(milliseconds: 140);
-
   /// Splash dwell time before crossfading to the home screen.
   static const splashDwell = Duration(milliseconds: 1200);
-
-  /// Overlay (score / pause) open / close.
-  static const overlay = Duration(milliseconds: 220);
 }

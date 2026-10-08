@@ -53,9 +53,6 @@ abstract final class LoungeTokens {
   /// Soft glow for selected card outlines.
   static const selectedGlow = Color(0x66D69B35);
 
-  /// Cover-target tinted ring around legal drop zones.
-  static const coverTargetTint = Color(0x33D69B35);
-
   /// Pending-discard amber border, slightly brighter than goldAccent.
   static const pendingDiscard = Color(0xFFE0A848);
 
@@ -90,9 +87,6 @@ abstract final class LoungeTokens {
   /// cool teal/blue/violet "keep these" rings sharing the same hint. Distinct
   /// from gold (selection), amber (pending), red (invalid), and flame (Fifty).
   static const coachDiscard = Color(0xFFDC6FA0);
-
-  /// Eliminated seat overlay tint.
-  static const eliminatedDim = Color(0xAA0B0A08);
 
   // -- Spacing scale --------------------------------------------------------
 
@@ -138,12 +132,6 @@ abstract final class LoungeTokens {
 
   /// Tap target short edge for cards in the hand, picker, discard, and stock.
   static const tapTargetCardShort = 44.0;
-
-  /// Opponent compact meld cover target (visible portion).
-  static const tapTargetCompactCover = 36.0;
-
-  /// Joker replacement / cover drop overlay (visible).
-  static const tapTargetOverlay = 40.0;
 
   // -- Typography (docs/design/design-contract.md section 4) -----------------
 
@@ -261,12 +249,6 @@ abstract final class LoungeTokens {
 
   // -- Elevation (design contract section 3.2) -------------------------------
 
-  /// L1: cards and objects resting on the table.
-  static const elevationL1 = [
-    BoxShadow(color: Color(0x59000000), offset: Offset(0, 2), blurRadius: 4),
-    BoxShadow(color: Color(0x33000000), offset: Offset(0, 6), blurRadius: 14),
-  ];
-
   /// L2: HUD chips, seat plates, toasts.
   static const elevationL2 = [
     BoxShadow(color: Color(0x59000000), offset: Offset(0, 4), blurRadius: 12),
@@ -299,20 +281,4 @@ abstract final class LoungeTokens {
 
   /// Turn change, coach card in and out.
   static const motionEmphasis = Duration(milliseconds: 280);
-
-  /// Card flights across the table.
-  static const motionFlight = Duration(milliseconds: 420);
-}
-
-/// Suit / card surface colours so themes can share a single tint set.
-abstract final class CardSuitColors {
-  /// Red suits (hearts, diamonds).
-  static const red = LoungeTokens.deepRed;
-
-  /// Black suits (spades, clubs) — coffee charcoal reads softer than pure
-  /// black against ivory.
-  static const black = LoungeTokens.coffeeCharcoal;
-
-  /// Joker accent.
-  static const joker = LoungeTokens.fiftyFlame;
 }
