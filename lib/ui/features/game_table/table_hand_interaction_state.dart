@@ -1,4 +1,3 @@
-import '../../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
 
 /// Sort modes available to the south seat hand.
@@ -114,13 +113,6 @@ class ClassicHareegHandInteractionState {
   /// Clears selected-card state.
   void clearSelection() {
     _selectedIds.clear();
-  }
-
-  /// Clears selection when [actionId] consumes or mutates selected cards.
-  void clearSelectionForAction(String actionId) {
-    if (ClassicHareegActionIds.describe(actionId).clearsSelection) {
-      clearSelection();
-    }
   }
 }
 

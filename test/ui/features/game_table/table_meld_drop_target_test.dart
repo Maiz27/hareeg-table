@@ -14,7 +14,6 @@ void main() {
         cardCount: 3,
         localPosition: const Offset(10, 20),
         bounds: const Size(100, 40),
-        vertical: false,
         quarterTurns: 0,
       );
       final middle = TableMeldDropTargetPlanner.targetForLocalPosition(
@@ -23,7 +22,6 @@ void main() {
         cardCount: 3,
         localPosition: const Offset(50, 20),
         bounds: const Size(100, 40),
-        vertical: false,
         quarterTurns: 0,
       );
       final high = TableMeldDropTargetPlanner.targetForLocalPosition(
@@ -32,7 +30,6 @@ void main() {
         cardCount: 3,
         localPosition: const Offset(90, 20),
         bounds: const Size(100, 40),
-        vertical: false,
         quarterTurns: 0,
       );
 
@@ -50,12 +47,10 @@ void main() {
         cardCount: 4,
         localPosition: const Offset(10, 90),
         bounds: const Size(40, 100),
-        vertical: false,
         quarterTurns: 1,
       );
 
       expect(target.coverPlacement, CoverPlacement.highEnd);
-      expect(target.targetsCoverEdge, isTrue);
     });
 
     test('does not target cover edges for undersized melds', () {
@@ -65,12 +60,10 @@ void main() {
         cardCount: 2,
         localPosition: const Offset(0, 0),
         bounds: const Size(100, 40),
-        vertical: false,
         quarterTurns: 0,
       );
 
       expect(target.coverPlacement, isNull);
-      expect(target.targetsCoverEdge, isFalse);
     });
   });
 }

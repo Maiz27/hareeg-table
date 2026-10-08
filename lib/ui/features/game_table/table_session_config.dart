@@ -138,14 +138,4 @@ final class TableSessionConfig {
 
   /// Whether this surface writes durable match state.
   bool get writesDurableMatchState => mode.capabilities.writesDurableMatchState;
-
-  /// Durable repositories, or null on an ephemeral surface.
-  DurableTablePersistence? get durable => switch (persistence) {
-    DurableTablePersistence(:final matchRepository, :final historyRepository) =>
-      DurableTablePersistence(
-        matchRepository: matchRepository,
-        historyRepository: historyRepository,
-      ),
-    EphemeralTablePersistence() => null,
-  };
 }

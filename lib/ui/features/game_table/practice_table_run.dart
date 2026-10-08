@@ -100,11 +100,6 @@ class PracticeTableRun {
     _reaction = null;
   }
 
-  /// Restarts the current lesson script on a fresh board.
-  void restartCurrent() {
-    restart(_session.script);
-  }
-
   /// Script that continues the current pack, if the shell supplies one.
   PracticeLessonScript? nextScript(
     PracticeLessonScript? Function(String lessonId)? resolve,

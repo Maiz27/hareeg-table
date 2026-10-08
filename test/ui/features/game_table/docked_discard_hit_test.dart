@@ -253,7 +253,6 @@ Future<void> _pumpLane(
               canRetractMeld: (_, _) => false,
               onRetractMeld: (_, _) {},
               onCardLongPress: (_) {},
-              stackVertically: false,
               coachHighlighting: CoachHighlighting.none,
             ),
           ),
@@ -374,10 +373,12 @@ void _pausePanelTests() {
       // and if the pause panel did the same the control would be present but
       // unreachable.
       final semantics = tester.getSemantics(
-        find.ancestor(
-          of: find.text(strings.branchRestart),
-          matching: find.byType(Semantics),
-        ).first,
+        find
+            .ancestor(
+              of: find.text(strings.branchRestart),
+              matching: find.byType(Semantics),
+            )
+            .first,
       );
       expect(
         semantics.flagsCollection.isButton,

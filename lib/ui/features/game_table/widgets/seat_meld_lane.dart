@@ -55,7 +55,6 @@ class SeatMeldLane extends StatefulWidget {
     required this.canRetractMeld,
     required this.onRetractMeld,
     required this.onCardLongPress,
-    required this.stackVertically,
     this.quarterTurns = 0,
     this.coachHighlighting = CoachHighlighting.none,
   });
@@ -95,9 +94,6 @@ class SeatMeldLane extends StatefulWidget {
 
   /// Long-press handler for a card in any meld in this lane.
   final ValueChanged<HareegCard> onCardLongPress;
-
-  /// Whether melds stack vertically (used by side lanes that scroll on Y).
-  final bool stackVertically;
 
   /// Number of 90° clockwise turns to apply to each meld for side lanes.
   final int quarterTurns;
@@ -199,7 +195,6 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
                     onCardLongPress: widget.onCardLongPress,
                     expanded: _expandedMeldIndex == index,
                     onToggleExpanded: () => _toggleExpanded(index),
-                    vertical: widget.stackVertically,
                     quarterTurns: widget.quarterTurns,
                     coachHighlighting: widget.coachHighlighting,
                   ),
@@ -278,20 +273,6 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
                 );
               }
 
-              if (widget.stackVertically) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  physics: const BouncingScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: constraints.maxWidth,
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Align(alignment: Alignment.center, child: content),
-                  ),
-                );
-              }
-
               // `Clip.none` lets an expanded meld stack overflow vertically
               // past the lane's height without being cropped by the scroll
               // viewport — see the regression test in
@@ -347,7 +328,6 @@ class _TableMeldStack extends StatefulWidget {
     this.canRetract = false,
     this.onRetract,
     this.onToggleExpanded,
-    this.vertical = false,
     this.quarterTurns = 0,
     this.coachHighlighting = CoachHighlighting.none,
   });
@@ -365,10 +345,6 @@ class _TableMeldStack extends StatefulWidget {
   final bool canRetract;
   final VoidCallback? onRetract;
   final VoidCallback? onToggleExpanded;
-
-  /// When true, cards stack downward (used for west/east opponent lanes
-  /// that sit along the side edges of the table).
-  final bool vertical;
   final int quarterTurns;
 
   /// Coach-highlight projection; rings this meld's cover-target cards in teal.
@@ -408,7 +384,6 @@ class _TableMeldStackState extends State<_TableMeldStack> {
       cardCount: widget.meld.cards.length,
       localPosition: local,
       bounds: box.size,
-      vertical: widget.vertical,
       quarterTurns: widget.quarterTurns,
     );
   }
@@ -442,7 +417,6 @@ class _TableMeldStackState extends State<_TableMeldStack> {
     final canRetract = widget.canRetract;
     final onRetract = widget.onRetract;
     final onToggleExpanded = widget.onToggleExpanded;
-    final vertical = widget.vertical;
     final quarterTurns = widget.quarterTurns;
     final strings = context.strings;
     final cards = meld.cards;
@@ -452,18 +426,11 @@ class _TableMeldStackState extends State<_TableMeldStack> {
       cardSize.width * expandedScale,
       cardSize.height * expandedScale,
     );
-    final horizontalGap = sideFacing
+    final gap = sideFacing
         ? effectiveCardSize.width * (expanded ? 0.92 : 0.68)
         : effectiveCardSize.width * (expanded ? 0.72 : 0.43);
-    final gap = vertical
-        ? effectiveCardSize.height * (expanded ? 0.58 : 0.32)
-        : horizontalGap;
-    final width = vertical
-        ? effectiveCardSize.width
-        : effectiveCardSize.width + math.max(0, cards.length - 1) * gap;
-    final height = vertical
-        ? effectiveCardSize.height + math.max(0, cards.length - 1) * gap
-        : effectiveCardSize.height;
+    final width = effectiveCardSize.width + math.max(0, cards.length - 1) * gap;
+    final height = effectiveCardSize.height;
     final accent = _seatAccent(owner);
     return DragTarget<HareegCard>(
       key: _targetKey,
@@ -540,14 +507,14 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                         hoverPlacement == CoverPlacement.highEnd))
                   _CoverEdgeIndicator(
                     placement: hoverPlacement!,
-                    vertical: vertical || sideFacing,
+                    vertical: sideFacing,
                     compact: compact,
                     color: hoverColor,
                   ),
                 for (var i = 0; i < cards.length; i++)
                   Positioned(
-                    left: vertical ? 0 : i * gap,
-                    top: vertical ? i * gap : 0,
+                    left: i * gap,
+                    top: 0,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onLongPress: () => onCardLongPress(cards[i]),

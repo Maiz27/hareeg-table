@@ -83,7 +83,7 @@ class TableBackground extends StatelessWidget {
               child: IgnorePointer(
                 child: RepaintBoundary(
                   child: CustomPaint(
-                    painter: TableRimPainter(
+                    painter: _TableRimPainter(
                       rail: rail,
                       insets: insets,
                       radius: radius,
@@ -109,10 +109,10 @@ class TableBackground extends StatelessWidget {
     return size.height <= 380 ? 18 : 26;
   }
 
-  static TableRail _railFor(TableSurfaceTheme surface) => switch (surface) {
-    TableSurfaceTheme.wood => TableRail.oak,
-    TableSurfaceTheme.sapphire => TableRail.ebony,
-    _ => TableRail.walnut,
+  static _TableRail _railFor(TableSurfaceTheme surface) => switch (surface) {
+    TableSurfaceTheme.wood => _TableRail.oak,
+    TableSurfaceTheme.sapphire => _TableRail.ebony,
+    _ => _TableRail.walnut,
   };
 }
 
@@ -171,7 +171,7 @@ class _LampLight extends StatelessWidget {
 }
 
 /// Rail material painted around the table surface.
-enum TableRail {
+enum _TableRail {
   /// Dark walnut leather rail with a brass inlay (lounge default).
   walnut(Color(0xFF1C120B), Color(0xFF4A2F1B), Color(0xFFC9A15A)),
 
@@ -181,7 +181,7 @@ enum TableRail {
   /// Near-black rail with a cool silver inlay for the sapphire velvet.
   ebony(Color(0xFF0A0C12), Color(0xFF2A3042), Color(0xFFB9C2D6));
 
-  const TableRail(this.outer, this.inner, this.inlay);
+  const _TableRail(this.outer, this.inner, this.inlay);
 
   /// Outer (shadowed) edge of the rail.
   final Color outer;
@@ -196,16 +196,16 @@ enum TableRail {
 /// Paints the rail around the surface: a rounded leather rail lit from the
 /// lamp above, its inner wall visible on the far side, the shadow it casts
 /// onto the surface, and a brass inlay at the seam.
-class TableRimPainter extends CustomPainter {
+class _TableRimPainter extends CustomPainter {
   /// Creates a rim painter for [rail].
-  const TableRimPainter({
+  const _TableRimPainter({
     required this.rail,
     required this.insets,
     required this.radius,
   });
 
   /// Rail material.
-  final TableRail rail;
+  final _TableRail rail;
 
   /// Rail thickness per side.
   final EdgeInsets insets;
@@ -345,7 +345,7 @@ class TableRimPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant TableRimPainter oldDelegate) =>
+  bool shouldRepaint(covariant _TableRimPainter oldDelegate) =>
       oldDelegate.rail != rail ||
       oldDelegate.insets != insets ||
       oldDelegate.radius != radius;

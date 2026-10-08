@@ -117,12 +117,12 @@ void main() {
             dwellFor: (_) => dwell,
           );
 
-          queue.enqueue('first');
+          queue.enqueueAll(const ['first']);
           expect(started, ['first']);
 
           // Halfway through the first cue's dwell, enqueue a third cue.
           async.elapse(const Duration(milliseconds: 500));
-          queue.enqueue('third');
+          queue.enqueueAll(const ['third']);
           expect(
             started,
             ['first'],

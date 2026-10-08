@@ -22,7 +22,7 @@ void main() {
       expect(plan.scenario, ClassicHareegTablePersistenceScenario.activeRound);
       expect(plan.action, ClassicHareegTablePersistenceAction.saveActiveMatch);
       expect(plan.snapshotToSave, same(active));
-      expect(plan.shouldShowRoundResult, isFalse);
+      expect(plan.roundResultPresentation, isNull);
       expect(plan.logPath, 'active');
     });
 
@@ -81,7 +81,7 @@ void main() {
       );
       expect(plan.snapshotToSave, isNull);
       expect(plan.roundResultPresentation?.nextSnapshot, isNull);
-      expect(plan.shouldShowRoundResult, isTrue);
+      expect(plan.roundResultPresentation, isNotNull);
       expect(plan.logPath, 'archive');
     });
 
@@ -122,7 +122,7 @@ void main() {
         ClassicHareegTablePersistenceAction.abandonActiveMatch,
       );
       expect(plan.logPath, 'abandon');
-      expect(plan.shouldShowRoundResult, isTrue);
+      expect(plan.roundResultPresentation, isNotNull);
     });
 
     test('completed rounds with incomplete score facts do not present', () {
@@ -142,7 +142,7 @@ void main() {
       );
       expect(plan.action, ClassicHareegTablePersistenceAction.saveNextRound);
       expect(plan.snapshotToSave, same(next));
-      expect(plan.shouldShowRoundResult, isFalse);
+      expect(plan.roundResultPresentation, isNull);
     });
 
     test('active-round persistence requires its snapshot', () {
