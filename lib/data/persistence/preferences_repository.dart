@@ -172,10 +172,6 @@ class GamePreferences {
   /// coaching tier get help without an extra step.
   final bool coachingTipsEnabled;
 
-  /// Derived reduced-motion bool, kept as a getter so callers reading the
-  /// older API keep working without storing a redundant field.
-  bool get reducedMotion => motionSpeed == MotionSpeed.reduced;
-
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
