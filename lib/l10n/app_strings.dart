@@ -209,6 +209,22 @@ class AppStrings {
   String get matchReportConfirmBody => _v('matchReportConfirmBody');
   String get shareReport => _v('shareReport');
   String get matchReportGenerationFailed => _v('matchReportGenerationFailed');
+  String get sendReport => _v('sendReport');
+  String get matchReportSent => _v('matchReportSent');
+  String get matchReportSendFailed => _v('matchReportSendFailed');
+  String get matchReportSendUnavailable => _v('matchReportSendUnavailable');
+  String get matchReportSendDisabled => _v('matchReportSendDisabled');
+  String get diagnosticsSectionTitle => _v('diagnosticsSectionTitle');
+  String get diagnosticsSectionDescription =>
+      _v('diagnosticsSectionDescription');
+  String get diagnosticsPreviewOn => _v('diagnosticsPreviewOn');
+  String get diagnosticsPreviewOff => _v('diagnosticsPreviewOff');
+  String get diagnosticsToggleTitle => _v('diagnosticsToggleTitle');
+  String get diagnosticsToggleSubtitle => _v('diagnosticsToggleSubtitle');
+  String get diagnosticsNoticeTitle => _v('diagnosticsNoticeTitle');
+  String get diagnosticsNoticeBody => _v('diagnosticsNoticeBody');
+  String get diagnosticsNoticeKeepOn => _v('diagnosticsNoticeKeepOn');
+  String get diagnosticsNoticeTurnOff => _v('diagnosticsNoticeTurnOff');
   String get cpuEast => _v('cpuEast');
   String get cpuNorth => _v('cpuNorth');
   String get cpuWest => _v('cpuWest');
@@ -2129,6 +2145,34 @@ const _englishValues = {
       'any personal information.',
   'shareReport': 'Share report',
   'matchReportGenerationFailed': 'Could not generate the match report.',
+  'sendReport': 'Send report',
+  'matchReportSent': 'Report sent. Thank you!',
+  'matchReportSendFailed':
+      'Could not send the report. Share or copy it instead.',
+  'matchReportSendUnavailable':
+      'Sending reports is not available in this build. Share or copy the '
+      'report instead.',
+  'matchReportSendDisabled':
+      'Crash & bug reports are turned off in Settings. Share or copy the '
+      'report instead.',
+  'diagnosticsSectionTitle': 'Privacy',
+  'diagnosticsSectionDescription': 'Crash and bug reports',
+  'diagnosticsPreviewOn': 'Reports on',
+  'diagnosticsPreviewOff': 'Reports off',
+  'diagnosticsToggleTitle': 'Send crash & bug reports',
+  'diagnosticsToggleSubtitle':
+      'When something breaks, send the error and the current table\'s game '
+      'state to the developer. Never includes your name, language, settings, '
+      'or IP address. Turn off to send nothing at all.',
+  'diagnosticsNoticeTitle': 'Help fix table bugs',
+  'diagnosticsNoticeBody':
+      'Hareeg Table sends crash and bug reports to its developer (through '
+      'Sentry) when something goes wrong, including the current table\'s game '
+      'state so the problem can be replayed. Reports never include your name, '
+      'language, settings, or IP address. You can turn this off now, or any '
+      'time in Settings > Privacy.',
+  'diagnosticsNoticeKeepOn': 'Keep on',
+  'diagnosticsNoticeTurnOff': 'Turn off',
   'cpuEast': 'CPU East',
   'cpuNorth': 'CPU North',
   'cpuWest': 'CPU West',
@@ -2849,6 +2893,25 @@ const _arabicValues = {
       'يحتوي هذا التقرير على سجل مشفر بالكامل ومجهول للهوية يحفظ حركات الجولة وتوزيع الأوراق. مشاركة هذا التقرير تساعدنا كثيراً في فحص الأخطاء البرمجية وإصلاح سلوك المحرك.',
   'shareReport': 'إرسال حزمة تقرير الأخطاء',
   'matchReportGenerationFailed': 'فشل التقاط حالة مسار تشغيل اللعبة الحالية.',
+  'sendReport': 'إرسال التقرير',
+  'matchReportSent': 'تم إرسال التقرير. شكراً لك!',
+  'matchReportSendFailed': 'تعذر إرسال التقرير. شاركه أو انسخه بدلاً من ذلك.',
+  'matchReportSendUnavailable':
+      'إرسال التقارير غير متاح في هذا الإصدار. شارك التقرير أو انسخه بدلاً من ذلك.',
+  'matchReportSendDisabled':
+      'تقارير الأعطال والأخطاء متوقفة في الإعدادات. شارك التقرير أو انسخه بدلاً من ذلك.',
+  'diagnosticsSectionTitle': 'الخصوصية',
+  'diagnosticsSectionDescription': 'تقارير الأعطال والأخطاء',
+  'diagnosticsPreviewOn': 'التقارير مفعّلة',
+  'diagnosticsPreviewOff': 'التقارير متوقفة',
+  'diagnosticsToggleTitle': 'إرسال تقارير الأعطال والأخطاء',
+  'diagnosticsToggleSubtitle':
+      'عند حدوث خلل، يُرسل الخطأ وحالة اللعب للطاولة الحالية إلى المطوّر. لا يتضمن أبداً اسمك أو لغتك أو إعداداتك أو عنوان IP. أوقفه لعدم إرسال أي شيء.',
+  'diagnosticsNoticeTitle': 'ساعدنا في إصلاح أخطاء الطاولة',
+  'diagnosticsNoticeBody':
+      'يرسل تطبيق طاولة حريق تقارير الأعطال والأخطاء إلى مطوّره (عبر Sentry) عند حدوث خلل، ومعها حالة اللعب للطاولة الحالية لإعادة تشغيل المشكلة. لا تتضمن التقارير أبداً اسمك أو لغتك أو إعداداتك أو عنوان IP. يمكنك إيقاف ذلك الآن أو في أي وقت من الإعدادات > الخصوصية.',
+  'diagnosticsNoticeKeepOn': 'إبقاء التفعيل',
+  'diagnosticsNoticeTurnOff': 'إيقاف',
   'cpuEast': 'الكمبيوتر (شرق)',
   'cpuNorth': 'الكمبيوتر (شمال)',
   'cpuWest': 'الكمبيوتر (غرب)',
