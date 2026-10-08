@@ -477,7 +477,7 @@ class _HeroSection extends StatelessWidget {
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(strings.continueGame),
           )
-        : _ContinueButton(enabled: false, onPressed: onContinue);
+        : const _DisabledContinueButton();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -810,28 +810,20 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
-class _ContinueButton extends StatelessWidget {
-  const _ContinueButton({required this.enabled, required this.onPressed});
-
-  final bool enabled;
-  final VoidCallback? onPressed;
+/// Continue, shown disabled under New Game while there is no saved match.
+class _DisabledContinueButton extends StatelessWidget {
+  const _DisabledContinueButton();
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    final borderColor = enabled
-        ? LoungeTokens.goldAccent.withValues(alpha: 0.6)
-        : LoungeTokens.sandLine.withValues(alpha: 0.18);
-    final backgroundColor = enabled
-        ? LoungeTokens.coffeeCharcoal.withValues(alpha: 0.4)
-        : Colors.transparent;
-    final foregroundColor = enabled
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.mutedText.withValues(alpha: 0.55);
+    final borderColor = LoungeTokens.sandLine.withValues(alpha: 0.18);
+    const backgroundColor = Colors.transparent;
+    final foregroundColor = LoungeTokens.mutedText.withValues(alpha: 0.55);
 
     return OutlinedButton.icon(
-      onPressed: onPressed,
+      onPressed: null,
       icon: Icon(Icons.play_circle_outline, color: foregroundColor, size: 20),
       label: Text(
         strings.continueGame,
