@@ -1234,7 +1234,7 @@ class ClassicHareegGameController {
     }
 
     final targetMeld = targetMelds[target.meldIndex];
-    final ordered = ClassicHareegTablePlayPlanner.orderedCoverCards(
+    final ordered = ClassicHareegCoverRules.orderedCoverCards(
       tableMeld: targetMeld.cards,
       candidates: resolvedSelectedCards,
     );

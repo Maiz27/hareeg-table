@@ -103,22 +103,8 @@ class ClassicHareegTablePlayPlanner {
 
   /// Returns the exact action id for selected cards as one meld, if legal.
   String? selectedMeldActionIdFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != currentSeat || phase != TurnPhase.action) {
-      return null;
-    }
-    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
-      return null;
-    }
-    final pending = pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return null;
-    }
-
-    final cards = _cardsFromHand(seat, cardIds);
+    final cards = _selectedMeldCards(seat, cardIds);
     if (cards == null) {
-      return null;
-    }
-    if ((_handFor(seat).length) - cards.length == 0) {
       return null;
     }
 
@@ -257,26 +243,33 @@ class ClassicHareegTablePlayPlanner {
     PlayerSeat seat,
     List<String> cardIds,
   ) {
-    if (seat != currentSeat || phase != TurnPhase.action) {
-      return const [];
-    }
-    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
-      return const [];
-    }
-    final pending = pendingDiscard;
-    if (pending != null && !cardIds.contains(pending.id)) {
-      return const [];
-    }
-
-    final cards = _cardsFromHand(seat, cardIds);
+    final cards = _selectedMeldCards(seat, cardIds);
     if (cards == null) {
       return const [];
     }
-    if ((_handFor(seat).length) - cards.length == 0) {
-      return const [];
-    }
-
     return _jokerMeldChoicesForCards(cards: cards, cardIds: cardIds);
+  }
+
+  /// Hand cards for a one-meld selection, or null when the selection cannot
+  /// be played as a meld right now: not [seat]'s action phase, fewer than
+  /// three or repeated cards, the pending discard left out, cards missing
+  /// from the hand, or no card left for the final discard.
+  List<HareegCard>? _selectedMeldCards(PlayerSeat seat, List<String> cardIds) {
+    if (seat != currentSeat || phase != TurnPhase.action) {
+      return null;
+    }
+    if (cardIds.length < 3 || cardIds.toSet().length != cardIds.length) {
+      return null;
+    }
+    final pending = pendingDiscard;
+    if (pending != null && !cardIds.contains(pending.id)) {
+      return null;
+    }
+    final cards = _cardsFromHand(seat, cardIds);
+    if (cards == null || _handFor(seat).length == cards.length) {
+      return null;
+    }
+    return cards;
   }
 
   List<JokerMeldActionChoice> _jokerMeldChoicesForCards({
@@ -330,26 +323,15 @@ class ClassicHareegTablePlayPlanner {
 
   /// Returns a legal cover action id for [cardIds], if any.
   String? coverActionIdFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != currentSeat ||
-        phase != TurnPhase.action ||
-        cardIds.isEmpty ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: openingState.hasOpened(seat),
-        )) {
-      return null;
-    }
-    final cards = _cardsFromHand(seat, cardIds);
+    final cards = _selectedCoverCards(seat, cardIds);
     if (cards == null) {
-      return null;
-    }
-    if (_handFor(seat).length - cards.length == 0) {
       return null;
     }
 
     for (final owner in PlayerSeat.values) {
       final melds = tableMelds[owner] ?? const <PlacedMeld>[];
       for (var index = 0; index < melds.length; index += 1) {
-        final ordered = orderedCoverCards(
+        final ordered = ClassicHareegCoverRules.orderedCoverCards(
           tableMeld: melds[index].cards,
           candidates: cards,
         );
@@ -373,19 +355,8 @@ class ClassicHareegTablePlayPlanner {
     required int meldIndex,
     CoverPlacement? coverPlacement,
   }) {
-    if (seat != currentSeat ||
-        phase != TurnPhase.action ||
-        cardIds.isEmpty ||
-        !ClassicHareegCoverRules.canPlayCover(
-          playerOpened: openingState.hasOpened(seat),
-        )) {
-      return null;
-    }
-    var cards = _cardsFromHand(seat, cardIds);
+    var cards = _selectedCoverCards(seat, cardIds);
     if (cards == null) {
-      return null;
-    }
-    if (_handFor(seat).length - cards.length == 0) {
       return null;
     }
 
@@ -406,7 +377,7 @@ class ClassicHareegTablePlayPlanner {
       cards = preferred.cards;
       jokerIdentities = preferred.jokerIdentities;
     }
-    final ordered = orderedCoverCards(
+    final ordered = ClassicHareegCoverRules.orderedCoverCards(
       tableMeld: melds[meldIndex].cards,
       candidates: cards,
     );
@@ -421,12 +392,31 @@ class ClassicHareegTablePlayPlanner {
     );
   }
 
+  /// Hand cards for a cover selection, or null when [seat] cannot cover with
+  /// them right now: not its action phase, not opened, an empty selection,
+  /// cards missing from the hand, or no card left for the final discard.
+  List<HareegCard>? _selectedCoverCards(PlayerSeat seat, List<String> cardIds) {
+    if (seat != currentSeat ||
+        phase != TurnPhase.action ||
+        cardIds.isEmpty ||
+        !ClassicHareegCoverRules.canPlayCover(
+          playerOpened: openingState.hasOpened(seat),
+        )) {
+      return null;
+    }
+    final cards = _cardsFromHand(seat, cardIds);
+    if (cards == null || _handFor(seat).length == cards.length) {
+      return null;
+    }
+    return cards;
+  }
+
   /// Returns a joker replacement action id for one selected real card.
   String? jokerReplacementActionIdFor(PlayerSeat seat, List<String> cardIds) {
     if (seat != currentSeat || cardIds.length != 1) {
       return null;
     }
-    return replacementActionIdForCardId(seat, cardIds.single);
+    return _replacementActionIdForCardId(seat, cardIds.single);
   }
 
   /// Returns a legal joker replacement action id for a specific table meld.
@@ -474,7 +464,7 @@ class ClassicHareegTablePlayPlanner {
   /// the discard-eligibility check, which must apply regardless of opening
   /// (the rule "you can't discard a card that could replace a joker on the
   /// table" doesn't relax pre-opening).
-  String? replacementActionIdForCardId(PlayerSeat seat, String cardId) {
+  String? _replacementActionIdForCardId(PlayerSeat seat, String cardId) {
     if (!openingState.hasOpened(seat)) {
       return null;
     }
@@ -536,7 +526,7 @@ class ClassicHareegTablePlayPlanner {
 
     final hand = _handFor(seat);
     final ids = <String>{};
-    for (final group in candidateGroups(hand, minSize: 1, maxSize: 3)) {
+    for (final group in _coverCandidateGroups(hand)) {
       if (hand.length - group.length == 0) {
         continue;
       }
@@ -547,7 +537,7 @@ class ClassicHareegTablePlayPlanner {
       for (final owner in PlayerSeat.values) {
         final melds = tableMelds[owner] ?? const <PlacedMeld>[];
         for (var index = 0; index < melds.length; index += 1) {
-          final ordered = orderedCoverCards(
+          final ordered = ClassicHareegCoverRules.orderedCoverCards(
             tableMeld: melds[index].cards,
             candidates: group,
           );
@@ -581,7 +571,7 @@ class ClassicHareegTablePlayPlanner {
       if (mustUseCardId != null && card.id != mustUseCardId) {
         continue;
       }
-      final actionId = replacementActionIdForCardId(seat, card.id);
+      final actionId = _replacementActionIdForCardId(seat, card.id);
       if (actionId != null) {
         return [actionId];
       }
@@ -835,28 +825,6 @@ class ClassicHareegTablePlayPlanner {
     );
   }
 
-  /// Returns cover cards in legal application order, if possible.
-  static List<HareegCard>? orderedCoverCards({
-    required List<HareegCard> tableMeld,
-    required List<HareegCard> candidates,
-  }) {
-    return ClassicHareegCoverRules.orderedCoverCards(
-      tableMeld: tableMeld,
-      candidates: candidates,
-    );
-  }
-
-  /// Resolves one cover candidate, including joker cover identity if needed.
-  static HareegCard? resolveCoverCandidate({
-    required List<HareegCard> tableMeld,
-    required HareegCard candidate,
-  }) {
-    return ClassicHareegCoverRules.resolveCoverCandidate(
-      tableMeld: tableMeld,
-      candidate: candidate,
-    );
-  }
-
   /// Applies explicit represented identities to unresolved joker cover cards.
   static List<HareegCard>? resolveCoverCardsWithJokerIdentities({
     required List<HareegCard> cards,
@@ -896,17 +864,14 @@ class ClassicHareegTablePlayPlanner {
     return 'Jokers as $labels';
   }
 
-  /// Enumerates candidate groups from [cards].
-  static Iterable<List<HareegCard>> candidateGroups(
-    List<HareegCard> cards, {
-    required int minSize,
-    int? maxSize,
-  }) sync* {
+  /// Enumerates one- to three-card cover candidate groups from [cards].
+  static Iterable<List<HareegCard>> _coverCandidateGroups(
+    List<HareegCard> cards,
+  ) sync* {
     final count = cards.length;
     if (count == 0 || count > 20) {
       return;
     }
-    final effectiveMaxSize = maxSize ?? count;
 
     final maxMask = 1 << count;
     for (var mask = 1; mask < maxMask; mask += 1) {
@@ -916,7 +881,7 @@ class ClassicHareegTablePlayPlanner {
           group.add(cards[index]);
         }
       }
-      if (group.length >= minSize && group.length <= effectiveMaxSize) {
+      if (group.length <= 3) {
         yield group;
       }
     }
