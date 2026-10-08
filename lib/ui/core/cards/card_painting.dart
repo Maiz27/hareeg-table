@@ -6,15 +6,12 @@ import '../../../domain/classic_hareeg/models/playing_card.dart';
 import '../motif/geometric_motif_painter.dart';
 import '../theme/lounge_tokens.dart';
 import 'card_state.dart';
+import 'card_pip_layout.dart';
 import 'card_theme.dart';
 import 'suit_glyphs.dart';
 
-/// Shared card painting helpers used by every code-rendered theme.
-///
-/// Provides background fills, corner rank/suit indices, centre pip layouts,
-/// joker treatments, default card-back rendering, and the state-overlay
-/// painter that wraps the face. Per-theme palette differences flow in via
-/// [CardThemePalette].
+/// Per-theme colours (and the minimal-glyph switch) consumed by
+/// [CardPainting].
 class CardThemePalette {
   /// Creates a palette descriptor.
   const CardThemePalette({
@@ -78,7 +75,12 @@ class CardThemePalette {
   }
 }
 
-/// Static helpers that paint generic card surfaces given a [CardThemePalette].
+/// Shared card painting helpers used by every code-rendered theme.
+///
+/// Provides background fills, corner rank/suit indices, centre pip layouts,
+/// joker treatments, default card-back rendering, and the state-overlay
+/// painter that wraps the face. Per-theme palette differences flow in via
+/// [CardThemePalette].
 abstract final class CardPainting {
   /// Draws the card body (background, border, shadow) sized to [request.size].
   static void paintBody(
@@ -86,11 +88,7 @@ abstract final class CardPainting {
     CardRenderRequest request,
     CardThemePalette palette,
   ) {
-    final size = request.size;
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(_radiusFor(size)),
-    );
+    final rrect = _cardRRect(request.size);
 
     final shadow = Paint()
       ..color = palette.faceShadow
@@ -127,12 +125,8 @@ abstract final class CardPainting {
       _paintCenterPips(canvas, request, identity, suitColor);
     }
 
-    if (request.card.isJoker) {
-      _paintJokerBadge(canvas, request, palette);
-    }
-
     if (request.badge == CardBadge.deckCopy) {
-      _paintDeckCopyDot(canvas, request, palette);
+      _paintDeckCopyDot(canvas, request);
     }
   }
 
@@ -199,10 +193,7 @@ abstract final class CardPainting {
   ) {
     final size = request.size;
     final shortSide = size.shortestSide;
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(_radiusFor(size)),
-    );
+    final rrect = _cardRRect(size);
     final shadow = Paint()
       ..color = palette.faceShadow
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4);
@@ -258,10 +249,7 @@ abstract final class CardPainting {
     Size size,
     CardStateOverlayStyle overlay,
   ) {
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(_radiusFor(size)),
-    );
+    final rrect = _cardRRect(size);
 
     final tint = overlay.tint;
     if (tint != null) {
@@ -289,8 +277,28 @@ abstract final class CardPainting {
 
   // -- internals -----------------------------------------------------------
 
-  static double _radiusFor(Size size) =>
-      (size.shortestSide * 0.12).clamp(4.0, LoungeTokens.radiusCard);
+  static RRect _cardRRect(Size size) => RRect.fromRectAndRadius(
+    Offset.zero & size,
+    Radius.circular(
+      (size.shortestSide * 0.12).clamp(4.0, LoungeTokens.radiusCard),
+    ),
+  );
+
+  /// Runs [paintCorner] for the top-left corner, then again rotated 180°
+  /// about the card centre so the bottom-right index reads upright for the
+  /// opposite seat.
+  static void _paintMirroredCorners(
+    Canvas canvas,
+    Size size,
+    void Function() paintCorner,
+  ) {
+    paintCorner();
+    canvas.save();
+    canvas.translate(size.width, size.height);
+    canvas.rotate(math.pi);
+    paintCorner();
+    canvas.restore();
+  }
 
   static void _paintCorners(
     Canvas canvas,
@@ -299,8 +307,7 @@ abstract final class CardPainting {
     CardIdentity identity,
     Color suitColor,
   ) {
-    final size = request.size;
-    final shortSide = size.shortestSide;
+    final shortSide = request.size.shortestSide;
     final fontSize = (shortSide * 0.26).clamp(10.0, 18.0);
     final glyphSize = (shortSide * 0.22).clamp(7.0, 14.0);
     final padX = shortSide * 0.09;
@@ -332,21 +339,16 @@ abstract final class CardPainting {
       final glyphLeft = rankCenterX - glyphSize / 2;
       final glyphTop = rankOffset.dy + painter.height + rankToGlyphGap;
 
-      canvas.save();
-      canvas.translate(glyphLeft, glyphTop);
-      _paintSuitGlyph(canvas, identity.suit, suitColor, glyphSize);
-      canvas.restore();
+      _paintSuitGlyph(
+        canvas,
+        identity.suit,
+        suitColor,
+        glyphSize,
+        at: Offset(glyphLeft, glyphTop),
+      );
     }
 
-    paintIndex();
-
-    // Bottom-right index rotated 180° so the rank still reads upright when
-    // the card is held by the opposite player.
-    canvas.save();
-    canvas.translate(size.width, size.height);
-    canvas.rotate(math.pi);
-    paintIndex();
-    canvas.restore();
+    _paintMirroredCorners(canvas, request.size, paintIndex);
   }
 
   static void _paintCenterGlyph(
@@ -383,10 +385,13 @@ abstract final class CardPainting {
 
     tp.paint(canvas, Offset((size.width - tp.width) / 2, groupTop));
 
-    canvas.save();
-    canvas.translate((size.width - glyphSize) / 2, groupTop + tp.height + gap);
-    _paintSuitGlyph(canvas, identity.suit, color, glyphSize);
-    canvas.restore();
+    _paintSuitGlyph(
+      canvas,
+      identity.suit,
+      color,
+      glyphSize,
+      at: Offset((size.width - glyphSize) / 2, groupTop + tp.height + gap),
+    );
   }
 
   static void _paintCenterPips(
@@ -396,7 +401,7 @@ abstract final class CardPainting {
     Color color,
   ) {
     final size = request.size;
-    final positions = _pipPositionsFor(identity.rank);
+    final positions = CardPipLayout.positionsFor(identity.rank);
     if (positions.isEmpty) {
       _paintCenterGlyph(canvas, request, identity, color);
       return;
@@ -416,28 +421,24 @@ abstract final class CardPainting {
     }
   }
 
+  /// Paints [suit]'s glyph filling a [size]-sided square whose top-left
+  /// corner sits at [at].
   static void _paintSuitGlyph(
     Canvas canvas,
     CardSuit suit,
     Color color,
-    double size,
-  ) {
+    double size, {
+    Offset at = Offset.zero,
+  }) {
     final path = SuitGlyphs.pathFor(suit);
     canvas.save();
+    canvas.translate(at.dx, at.dy);
     canvas.scale(size, size);
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paint);
     canvas.restore();
-  }
-
-  static void _paintJokerBadge(
-    Canvas canvas,
-    CardRenderRequest request,
-    CardThemePalette palette,
-  ) {
-    // No-op for now; the joker face draws its own treatment.
   }
 
   /// Draws the joker's corner indices: a jester-cap silhouette in both the
@@ -449,8 +450,7 @@ abstract final class CardPainting {
     CardRenderRequest request,
     CardThemePalette palette,
   ) {
-    final size = request.size;
-    final shortSide = size.shortestSide;
+    final shortSide = request.size.shortestSide;
     // Cap occupies roughly the visual mass of a rank letter + suit pip on a
     // standard card, with clamps so picker-scale cards still get a legible
     // silhouette and full-scale cards don't crowd the centre treatment.
@@ -465,15 +465,7 @@ abstract final class CardPainting {
       canvas.restore();
     }
 
-    paintCorner();
-
-    // Bottom-right index rotated 180° so the cap still points "up" when
-    // the card is held by the opposite seat.
-    canvas.save();
-    canvas.translate(size.width, size.height);
-    canvas.rotate(math.pi);
-    paintCorner();
-    canvas.restore();
+    _paintMirroredCorners(canvas, request.size, paintCorner);
   }
 
   /// Paints a jester cap inside a 1× [size] square. Three upward spikes —
@@ -548,17 +540,16 @@ abstract final class CardPainting {
 
     tp.paint(canvas, Offset(groupLeft, centerY - tp.height / 2));
 
-    canvas.save();
-    canvas.translate(groupLeft + tp.width + gap, centerY - glyphSize / 2);
-    _paintSuitGlyph(canvas, represented.suit, color, glyphSize);
-    canvas.restore();
+    _paintSuitGlyph(
+      canvas,
+      represented.suit,
+      color,
+      glyphSize,
+      at: Offset(groupLeft + tp.width + gap, centerY - glyphSize / 2),
+    );
   }
 
-  static void _paintDeckCopyDot(
-    Canvas canvas,
-    CardRenderRequest request,
-    CardThemePalette palette,
-  ) {
+  static void _paintDeckCopyDot(Canvas canvas, CardRenderRequest request) {
     final size = request.size;
     final deckIndex = request.card.deckIndex;
     final colors = const [
@@ -573,111 +564,5 @@ abstract final class CardPainting {
     final inset = shortSide * 0.07;
     final dotRadius = shortSide * 0.022;
     canvas.drawCircle(Offset(size.width - inset, inset), dotRadius, paint);
-  }
-
-  static List<Offset> _pipPositionsFor(CardRank rank) {
-    // Pip layouts follow the classic English-pattern deck. Outer rows hug
-    // the top and bottom edges so the centre of the face can breathe, and
-    // the pip painter rotates anything below the midline so suit glyphs
-    // face the holder. The column stops 0.32 / 0.68 and edge rows at 0.2 /
-    // 0.8 stay consistent across ranks so the eye reads each card as part
-    // of the same family.
-    const colLeft = 0.32;
-    const colRight = 0.68;
-    const colMid = 0.5;
-    const rowTop = 0.2;
-    const rowBottom = 0.8;
-    switch (rank) {
-      case CardRank.ace:
-        return const [Offset(colMid, 0.5)];
-      case CardRank.two:
-        return const [Offset(colMid, rowTop), Offset(colMid, rowBottom)];
-      case CardRank.three:
-        return const [
-          Offset(colMid, rowTop),
-          Offset(colMid, 0.5),
-          Offset(colMid, rowBottom),
-        ];
-      case CardRank.four:
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.five:
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colMid, 0.5),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.six:
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colLeft, 0.5),
-          Offset(colRight, 0.5),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.seven:
-        // 2 + 1 + 2 + 2 — the upper-half singleton is the visual signature
-        // that makes a 7 readable at a glance.
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colMid, 0.35),
-          Offset(colLeft, 0.5),
-          Offset(colRight, 0.5),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.eight:
-        // 2 + 1 + 2 + 1 + 2 — symmetric around the midline.
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colMid, 0.35),
-          Offset(colLeft, 0.5),
-          Offset(colRight, 0.5),
-          Offset(colMid, 0.65),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.nine:
-        // 2 + 2 + 1 + 2 + 2 — two quad clusters with a centre pip.
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colLeft, 0.4),
-          Offset(colRight, 0.4),
-          Offset(colMid, 0.5),
-          Offset(colLeft, 0.6),
-          Offset(colRight, 0.6),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.ten:
-        // 2 + 1 + 2 + 2 + 1 + 2 — classic English-pattern 10 with the
-        // singletons tucked between the outer and inner pairs.
-        return const [
-          Offset(colLeft, rowTop),
-          Offset(colRight, rowTop),
-          Offset(colMid, 0.32),
-          Offset(colLeft, 0.44),
-          Offset(colRight, 0.44),
-          Offset(colLeft, 0.56),
-          Offset(colRight, 0.56),
-          Offset(colMid, 0.68),
-          Offset(colLeft, rowBottom),
-          Offset(colRight, rowBottom),
-        ];
-      case CardRank.jack:
-      case CardRank.queen:
-      case CardRank.king:
-        return const [];
-    }
   }
 }
