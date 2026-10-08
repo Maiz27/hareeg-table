@@ -7,18 +7,15 @@ import 'package:flutter/material.dart';
 /// easing curves with a linear ramp to honour vestibular-sensitivity needs.
 enum MotionSpeed {
   /// Default speed.
-  normal('Normal', 1.0),
+  normal(1.0),
 
   /// Quick-but-still-animated speed.
-  fast('Fast', 0.6),
+  fast(0.6),
 
   /// Reduced motion: very short tweens, linear curves, no idle pulses.
-  reduced('Reduced', 0.35);
+  reduced(0.35);
 
-  const MotionSpeed(this.label, this.multiplier);
-
-  /// Settings label.
-  final String label;
+  const MotionSpeed(this.multiplier);
 
   /// Duration multiplier vs. the design-doc normal value.
   final double multiplier;

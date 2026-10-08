@@ -115,7 +115,6 @@ BoxDecoration loungeLitPanel({
   Color glow = LoungeTokens.goldAccent,
   double strength = 0.14,
   Color? edge,
-  double radius = LoungeTokens.radiusPanel,
 }) {
   return BoxDecoration(
     gradient: RadialGradient(
@@ -130,7 +129,7 @@ BoxDecoration loungeLitPanel({
         LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
       ],
     ),
-    borderRadius: BorderRadius.circular(radius),
+    borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
     border: Border.all(color: edge ?? glow.withValues(alpha: 0.45), width: 1.2),
     boxShadow: LoungeTokens.elevationL3,
   );

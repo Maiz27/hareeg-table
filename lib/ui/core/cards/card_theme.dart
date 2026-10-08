@@ -103,17 +103,6 @@ class CardContrastScope extends InheritedWidget {
   }
 }
 
-/// Optional badge drawn on top of the card face when the player should know
-/// something extra about it (per-deck-copy distinction, joker memory aid).
-enum CardBadge {
-  /// No badge.
-  none,
-
-  /// Tiny pip in the corner that indicates which physical deck copy this
-  /// card belongs to. Themes can choose to render it as a coloured dot.
-  deckCopy,
-}
-
 /// Drawing request handed to a [CardTheme] paint method.
 @immutable
 class CardRenderRequest {
@@ -124,7 +113,6 @@ class CardRenderRequest {
     required this.size,
     this.visualState = CardVisualState.normal,
     this.jokerDisplay = JokerDisplay.assisted,
-    this.badge = CardBadge.none,
     this.faceDown = false,
     this.revealOpacity = 1.0,
   });
@@ -144,9 +132,6 @@ class CardRenderRequest {
 
   /// How to render a joker's identity.
   final JokerDisplay jokerDisplay;
-
-  /// Optional badge to draw on the face.
-  final CardBadge badge;
 
   /// If true, draw the back regardless of [variant].
   final bool faceDown;

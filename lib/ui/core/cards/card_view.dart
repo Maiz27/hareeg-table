@@ -24,10 +24,8 @@ class HareegCardView extends StatefulWidget {
     this.variant = CardVariant.full,
     this.visualState = CardVisualState.normal,
     this.jokerDisplay,
-    this.badge = CardBadge.none,
     this.faceDown = false,
     this.size = const Size(64, 92),
-    this.semanticsLabel,
     this.coachRingColor,
   });
 
@@ -46,17 +44,11 @@ class HareegCardView extends StatefulWidget {
   /// Joker display override. Defaults to [JokerDisplayScope] when omitted.
   final JokerDisplay? jokerDisplay;
 
-  /// Optional badge.
-  final CardBadge badge;
-
   /// True to draw the card back regardless of [variant].
   final bool faceDown;
 
   /// Render size.
   final Size size;
-
-  /// Optional accessibility label override.
-  final String? semanticsLabel;
 
   /// Overrides the coach-highlight ring colour (used to distinguish meld
   /// groups). Only applies when [visualState] is
@@ -206,9 +198,7 @@ class _HareegCardViewState extends State<HareegCardView>
         _shouldMemoryReveal &&
         !_memoryRevealQuieted &&
         opacityAnimation != null;
-    final label =
-        widget.semanticsLabel ??
-        _defaultSemanticsLabel(context, effectiveJokerDisplay);
+    final label = _semanticsLabel(context, effectiveJokerDisplay);
     return Semantics(
       container: true,
       excludeSemantics: true,
@@ -269,7 +259,6 @@ class _HareegCardViewState extends State<HareegCardView>
       size: widget.size,
       visualState: widget.visualState,
       jokerDisplay: effectiveJokerDisplay,
-      badge: widget.badge,
       faceDown: widget.faceDown,
       revealOpacity: revealOpacity,
     );
@@ -291,10 +280,7 @@ class _HareegCardViewState extends State<HareegCardView>
     );
   }
 
-  String _defaultSemanticsLabel(
-    BuildContext context,
-    JokerDisplay jokerDisplay,
-  ) {
+  String _semanticsLabel(BuildContext context, JokerDisplay jokerDisplay) {
     final strings = context.strings;
     if (widget.faceDown) return strings.faceDownCard;
     if (widget.card.isJoker) {
@@ -453,10 +439,7 @@ class _CardStateOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CardStateOverlayPainter oldDelegate) {
-    return oldDelegate.overlay.outline != overlay.outline ||
-        oldDelegate.overlay.outlineWidth != overlay.outlineWidth ||
-        oldDelegate.overlay.glow != overlay.glow ||
-        oldDelegate.overlay.tint != overlay.tint;
+    return !_samePaintedOverlay(oldDelegate.overlay, overlay);
   }
 }
 
@@ -484,15 +467,20 @@ class _CardThemePainter extends CustomPainter {
         oldDelegate.request.size != request.size ||
         oldDelegate.request.faceDown != request.faceDown ||
         oldDelegate.request.jokerDisplay != request.jokerDisplay ||
-        oldDelegate.request.badge != request.badge ||
         oldDelegate.request.revealOpacity != request.revealOpacity ||
         // The overlay can change without the visual state changing — a per-meld
         // coach ring colour recolours the highlight while the state stays
         // `coachHighlight`. Compare its fields (as _CardStateOverlayPainter does)
         // so a ring-colour change repaints instead of leaving a stale ring.
-        oldDelegate.overlay.outline != overlay.outline ||
-        oldDelegate.overlay.outlineWidth != overlay.outlineWidth ||
-        oldDelegate.overlay.glow != overlay.glow ||
-        oldDelegate.overlay.tint != overlay.tint;
+        !_samePaintedOverlay(oldDelegate.overlay, overlay);
   }
+}
+
+/// Whether two overlays paint identically (the fields
+/// [CardPainting.paintStateOverlay] reads).
+bool _samePaintedOverlay(CardStateOverlayStyle a, CardStateOverlayStyle b) {
+  return a.outline == b.outline &&
+      a.outlineWidth == b.outlineWidth &&
+      a.glow == b.glow &&
+      a.tint == b.tint;
 }

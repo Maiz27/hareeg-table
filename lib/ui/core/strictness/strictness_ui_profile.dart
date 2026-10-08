@@ -24,15 +24,6 @@ extension StrictnessUiProfile on TableStrictness {
   /// still get rule validation but no unsolicited help.
   bool get showsProactiveHints => this == TableStrictness.coaching;
 
-  /// Whether the long-press card inspect overlay surfaces the card's value.
-  ///
-  /// True in every tier except where hints are stripped to match real-table
-  /// play — but since the inspect overlay is itself a deliberate gesture
-  /// (long-press), all four tiers show card value. The previous "table mode
-  /// hides value" behaviour is folded into the inspect-overlay-isn't-shown
-  /// path rather than hiding value when shown.
-  bool get showsCardValueInInspect => true;
-
   /// Tone and detail level used when generating inspect body text.
   InspectVerbosity get inspectVerbosity {
     return switch (this) {

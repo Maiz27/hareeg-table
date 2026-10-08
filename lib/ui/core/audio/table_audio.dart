@@ -7,7 +7,6 @@ import 'audio_asset_rotation.dart';
 import 'audio_cue_registry.dart';
 import 'table_sound_event.dart';
 
-export 'audio_cue_registry.dart' show AudioCue;
 export 'table_sound_event.dart';
 
 final AudioContext _tableSoundEffectAudioContext = AudioContext(

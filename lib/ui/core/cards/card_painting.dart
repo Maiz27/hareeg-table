@@ -124,10 +124,6 @@ abstract final class CardPainting {
     } else {
       _paintCenterPips(canvas, request, identity, suitColor);
     }
-
-    if (request.badge == CardBadge.deckCopy) {
-      _paintDeckCopyDot(canvas, request);
-    }
   }
 
   /// Paints a joker face (no real suit / rank).
@@ -547,22 +543,5 @@ abstract final class CardPainting {
       glyphSize,
       at: Offset(groupLeft + tp.width + gap, centerY - glyphSize / 2),
     );
-  }
-
-  static void _paintDeckCopyDot(Canvas canvas, CardRenderRequest request) {
-    final size = request.size;
-    final deckIndex = request.card.deckIndex;
-    final colors = const [
-      LoungeTokens.indigoAccent,
-      LoungeTokens.fiftyFlame,
-      LoungeTokens.goldAccent,
-      LoungeTokens.sandLine,
-    ];
-    final color = colors[deckIndex % colors.length];
-    final paint = Paint()..color = color.withValues(alpha: 0.7);
-    final shortSide = size.shortestSide;
-    final inset = shortSide * 0.07;
-    final dotRadius = shortSide * 0.022;
-    canvas.drawCircle(Offset(size.width - inset, inset), dotRadius, paint);
   }
 }
