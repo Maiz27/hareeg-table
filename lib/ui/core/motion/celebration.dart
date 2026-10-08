@@ -457,7 +457,7 @@ class _StrikePainter extends CustomPainter {
 
 /// Shakes [child] once, briefly, each time [serial] changes: the table taking
 /// the Fifty's hit. Still under reduced motion.
-class ImpactShake extends StatelessWidget {
+class ImpactShake extends StatefulWidget {
   /// Creates an impact shake.
   const ImpactShake({super.key, required this.serial, required this.child});
 
@@ -467,16 +467,48 @@ class ImpactShake extends StatelessWidget {
   /// Content to shake.
   final Widget child;
 
+  /// Shake length at normal motion speed.
+  static const duration = Duration(milliseconds: 560);
+
+  @override
+  State<ImpactShake> createState() => _ImpactShakeState();
+}
+
+class _ImpactShakeState extends State<ImpactShake>
+    with SingleTickerProviderStateMixin {
+  // The widget tree under [child] is the whole table. Its shape must never
+  // change with [serial] — a new wrapper type or key would discard and
+  // rebuild every table widget's state (joker memory cues, expanded meld
+  // lanes, drag targets) on each strike. Only the transform's offset moves.
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: ImpactShake.duration,
+    value: 1,
+  );
+
+  @override
+  void didUpdateWidget(covariant ImpactShake oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.serial != oldWidget.serial &&
+        widget.serial != 0 &&
+        !MotionScope.of(context).reduced) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (serial == 0 || MotionScope.of(context).reduced) return child;
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(serial),
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 560),
-      // Begins as the stamp lands (about 240 ms into the strike).
-      curve: const Interval(0.43, 1),
-      builder: (context, t, child) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        // Begins as the stamp lands (about 240 ms into the strike).
+        final t = const Interval(0.43, 1).transform(_controller.value);
         final amplitude = t <= 0 || t >= 1 ? 0.0 : 7 * (1 - t);
         return Transform.translate(
           offset: Offset(
@@ -486,7 +518,7 @@ class ImpactShake extends StatelessWidget {
           child: child,
         );
       },
-      child: child,
+      child: widget.child,
     );
   }
 }
