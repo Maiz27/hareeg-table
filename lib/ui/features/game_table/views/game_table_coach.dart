@@ -98,7 +98,7 @@ extension _TableCoach on _GameTableScreenState {
     // already busts the key, but that is emergent, not enforced; key the
     // opponent state explicitly. Walk opponents in the advisor's stable
     // anti-clockwise order over the active seats, so an eliminated seat simply
-    // drops out (the same way it does in _opponentsOf).
+    // drops out.
     key.write('#o:');
     final activeSeats = _controller.activeSeats;
     var opponent = seat.nextAntiClockwise;
