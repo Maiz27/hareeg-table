@@ -391,11 +391,3 @@ class _HareegTableAppState extends State<HareegTableApp> {
     );
   }
 }
-
-/// Reads the active [HareegCardTheme] from the nearest [CardThemeScope].
-HareegCardTheme activeCardTheme(BuildContext context) =>
-    CardThemeScope.of(context);
-
-/// Reads the active [TableStrictness] from the nearest [StrictnessScope].
-TableStrictness activeStrictness(BuildContext context) =>
-    StrictnessScope.of(context);

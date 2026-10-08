@@ -151,7 +151,8 @@ void main() {
 
     test('a round start is never after a frame belonging to it', () {
       for (var i = 0; i < timeline.length; i++) {
-        final start = timeline.startIndexOfRound(timeline.roundOfFrame(i))!;
+        final round = timeline.frameAt(i).roundNumber;
+        final start = timeline.startIndexOfRound(round)!;
         expect(start, lessThanOrEqualTo(i));
       }
     });
@@ -384,7 +385,6 @@ void main() {
 
       // A single-chunk implementation would report one yield or none.
       expect(yields, greaterThanOrEqualTo((timeline.length / 16).floor() - 1));
-      expect(yields, build.yieldCount);
       expect(yields, greaterThan(4));
     });
 

@@ -81,9 +81,6 @@ class MatchReplayTimeline {
   /// at their round-start frame.
   int? startIndexOfRound(int round) => _roundStartIndexes[round];
 
-  /// Round the frame at [index] belongs to.
-  int roundOfFrame(int index) => _frames[index].roundNumber;
-
   /// Compares the final reconstructed state to [expected].
   ///
   /// Delegates to the existing comparator rather than restating a field list,
@@ -168,12 +165,8 @@ class IncrementalTimelineBuild {
 
   final Future<void> Function() _yieldTo;
   final ReplayReconstruction _machine;
-  int _yieldCount = 0;
 
   static Future<void> _microtaskYield() => Future<void>.delayed(Duration.zero);
-
-  /// How many times the drain gave the event loop a turn.
-  int get yieldCount => _yieldCount;
 
   /// Frames produced so far, for progress reporting.
   int get producedFrames => _machine.frameCount;
@@ -197,7 +190,6 @@ class IncrementalTimelineBuild {
       if (_machine.isDone) {
         return MatchReplayTimeline._outcomeOf(_machine);
       }
-      _yieldCount += 1;
       await _yieldTo();
       if (_machine.isCancelled) {
         return null;

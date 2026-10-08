@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/replay/match_replay_timeline.dart';
 import 'package:hareeg_table/domain/classic_hareeg/replay/replay_review_state.dart';
@@ -35,8 +33,6 @@ void main() {
   test('navigation never mutates the state it was called on', timeout: _slow, () {
     final origin = _start.seekTo(50);
     origin
-      ..stepForward()
-      ..stepBack()
       ..nextRound()
       ..previousRound()
       ..seekTo(3);
@@ -46,12 +42,12 @@ void main() {
   test('the ends are walls, not wraps', timeout: _slow, () {
     final first = _start;
     expect(first.canStepBack, isFalse);
-    expect(first.stepBack().cursor, 0);
+    expect(first.seekTo(first.cursor - 1).cursor, 0);
 
-    final last = _start.seekToEnd();
+    final last = _start.seekTo(_timeline.length - 1);
     expect(last.cursor, _timeline.length - 1);
     expect(last.canStepForward, isFalse);
-    expect(last.stepForward().cursor, _timeline.length - 1);
+    expect(last.seekTo(last.cursor + 1).cursor, _timeline.length - 1);
   });
 
   test('seeking clamps and does not depend on where you came from', timeout: _slow, () {
@@ -61,28 +57,16 @@ void main() {
     // A slider drag and a restored position are both legitimate sources of an
     // out-of-range request; neither is a programming error worth crashing over.
     final fromStart = _start.seekTo(120);
-    final fromEnd = _start.seekToEnd().seekTo(120);
+    final fromEnd = _start.seekTo(_timeline.length - 1).seekTo(120);
     expect(fromStart.cursor, fromEnd.cursor);
     expect(fromStart.frame.index, fromEnd.frame.index);
-  });
-
-  test('a seek then a step equals seeking one further', timeout: _slow, () {
-    final random = Random(20260825);
-    for (var i = 0; i < 50; i++) {
-      final index = random.nextInt(_timeline.length - 1);
-      expect(
-        _start.seekTo(index).stepForward().cursor,
-        _start.seekTo(index + 1).cursor,
-        reason: 'index $index',
-      );
-    }
   });
 
   test('stepping back visits every frame in order', timeout: _slow, () {
     var state = _start.seekTo(25);
     final visited = <int>[];
     while (state.canStepBack) {
-      state = state.stepBack();
+      state = state.seekTo(state.cursor - 1);
       visited.add(state.cursor);
     }
     expect(visited, [for (var i = 24; i >= 0; i--) i]);

@@ -52,18 +52,6 @@ class ReplayReviewState {
   /// the start of this round) and while an earlier round exists.
   bool get canGoPreviousRound => _previousRoundTarget() != cursor;
 
-  /// Moves one frame forward, or stays put at the end.
-  ReplayReviewState stepForward() => seekTo(cursor + 1);
-
-  /// Moves one frame back, or stays put at the start.
-  ReplayReviewState stepBack() => seekTo(cursor - 1);
-
-  /// Jumps to the first frame.
-  ReplayReviewState seekToStart() => seekTo(0);
-
-  /// Jumps to the last frame.
-  ReplayReviewState seekToEnd() => seekTo(length - 1);
-
   /// Jumps to [index], clamped into range.
   ///
   /// Clamping rather than throwing because a slider drag and a saved position

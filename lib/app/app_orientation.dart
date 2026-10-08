@@ -73,10 +73,6 @@ abstract final class AppOrientation {
     return previous;
   }
 
-  /// Restores the real policy with a fresh, empty mode cache.
-  @visibleForTesting
-  static void resetPolicy() => _policy = SystemOrientationPolicy();
-
   /// Locks the shell and non-table screens to portrait.
   static Future<void> usePortrait() => _policy.usePortrait();
 
