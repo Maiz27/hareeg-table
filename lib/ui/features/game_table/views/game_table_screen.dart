@@ -1244,9 +1244,9 @@ class _GameTableScreenState extends State<GameTableScreen>
                 final buttonSize = math.max(
                   chromeFloor,
                   isLarge
-                      ? 40.0
+                      ? 44.0
                       : isTablet
-                      ? 34.0
+                      ? 38.0
                       : 30.0,
                 );
                 final iconSize = isLarge
@@ -1331,18 +1331,21 @@ class _GameTableScreenState extends State<GameTableScreen>
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Positioned(
+                    // End-side corner; the coach card docks on the start side,
+                    // so in a right-to-left table the two swap together and
+                    // never overlap.
+                    PositionedDirectional(
                       top: safe.top + edgeInset,
-                      right: edgeInset,
+                      end: edgeInset,
                       child: _TableHudCapsule(children: segments),
                     ),
                     if (_cues.feedback != null)
-                      Positioned(
+                      PositionedDirectional(
                         top: safe.top + edgeInset,
-                        left: edgeInset + 70,
-                        right: edgeInset + capsuleWidth + 14,
+                        start: edgeInset + 70,
+                        end: edgeInset + capsuleWidth + 14,
                         child: Align(
-                          alignment: Alignment.topLeft,
+                          alignment: AlignmentDirectional.topStart,
                           child: IgnorePointer(
                             child: _FeedbackChip(
                               message: _cues.feedback!.text,
@@ -1440,7 +1443,7 @@ class _GameTableScreenState extends State<GameTableScreen>
               overlayKey: 'score-overlay',
               duration: _scaledDelay(LoungeTokens.motionQuick),
               child: ScoreOverlay(
-                transcript: _recorder?.transcript,
+                transcript: () => _recorder?.transcript,
                 eliminationScore: _controller.rules.eliminationScore,
                 scores: _controller.scores,
                 activeSeats: _controller.activeSeats,

@@ -1566,6 +1566,20 @@ class AppStrings {
         : 'Round $roundNumber, ${seatName.toLowerCase()} to play';
   }
 
+  /// Spoken summary of a seat plate: name, match score, cards in hand.
+  String seatPlateSummary(String seatName, int? score, int cards) {
+    if (isRtl) {
+      final points = score == null ? '' : '، $score نقطة';
+      return '$seatName$points، $cards ورقة';
+    }
+    final points = score == null ? '' : ', $score points';
+    return '$seatName$points, $cards ${cards == 1 ? 'card' : 'cards'}';
+  }
+
+  /// Tooltip for a seat plate: name and match score.
+  String seatPlateScore(String seatName, int score) =>
+      isRtl ? '$seatName: $score نقطة' : '$seatName: $score points';
+
   /// Row label for a round in the score book (`R3`).
   String scoreBookRound(int roundNumber) =>
       isRtl ? 'ج$roundNumber' : 'R$roundNumber';

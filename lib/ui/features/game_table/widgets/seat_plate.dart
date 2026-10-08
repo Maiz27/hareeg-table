@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/app_strings.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
@@ -90,13 +91,13 @@ class SeatPlate extends StatelessWidget {
         ? <Widget>[medallion, SizedBox(width: compact ? 4 : 6), pill]
         : <Widget>[medallion, SizedBox(height: compact ? 3 : 4), pill];
 
-    final scoreText = value == null ? '' : ' · $value';
+    final strings = context.strings;
     return Semantics(
       container: true,
-      label: '$label$scoreText · $cardCount',
+      label: strings.seatPlateSummary(label, value, cardCount),
       child: ExcludeSemantics(
         child: Tooltip(
-          message: '$label$scoreText',
+          message: value == null ? label : strings.seatPlateScore(label, value),
           child: AnimatedOpacity(
             opacity: eliminated ? 0.35 : 1,
             duration: motion.scale(LoungeTokens.motionStandard),
