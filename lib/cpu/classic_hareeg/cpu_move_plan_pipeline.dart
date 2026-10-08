@@ -3,6 +3,7 @@ import '../../domain/classic_hareeg/game/classic_hareeg_action.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_fifty_claim_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_finish_planner.dart';
 import '../../domain/classic_hareeg/game/classic_hareeg_round.dart';
+import '../../domain/classic_hareeg/game/round_seed_algorithm.dart';
 import '../../domain/classic_hareeg/models/playing_card.dart';
 import '../../domain/classic_hareeg/rules/cover_rules.dart';
 import 'cpu_difficulty_profile.dart';
@@ -500,14 +501,18 @@ int _stableFiftyDecisionBucket(CpuObservation observation) {
     '${observation.currentOpeningRequirement}',
     handIds.join(','),
   ];
-  return _stableBucket(parts.join('|'), modulo: 10000);
+  return stableBucket(parts.join('|'), modulo: 10000);
 }
 
-int _stableBucket(String value, {required int modulo}) {
+/// FNV-1a hash of [value] reduced to `0..modulo-1`, identical on every
+/// runtime. Public for tests.
+int stableBucket(String value, {required int modulo}) {
   var hash = 0x811c9dc5;
   for (final codeUnit in value.codeUnits) {
     hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
+    // Split multiply: a plain `hash * 0x01000193` passes 2^53 on compiled
+    // JavaScript and loses low bits, so web CPUs would bucket differently.
+    hash = fnvMultiply32(hash);
   }
   return hash % modulo;
 }
