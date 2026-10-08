@@ -379,9 +379,17 @@ rest.
    fireworks), Fifty strike (6.1).
 4. **Menus** — done: home, setup, guided practice (progress ring, numbered
    lesson medallions), settings (section cards with icon medallions), history
-   (placement medallions, gold-edged wins) and stats tiles. Rules help keeps
-   its existing layout under the new type and header.
+   (placement medallions, gold-edged wins) and stats tiles. Rules help kept
+   its layout under the new type and header (its cards came in step 6).
 5. **Enforcement** — done: token ratchet (section 12).
+6. **Menu gap pass** — done: the screens the menus pass missed now share its
+   language. Onboarding moves onto the felt with lit medallion heroes, a lit
+   card per page and numbered page medallions; the strictness explainer gets
+   a lit intro under its checklist number and a medallion card per tier;
+   rules help keeps its order but sets each part as a lounge card with a
+   medallion heading (as licences); history and stats loading, empty and
+   error states are lit cards with a state medallion; the splash wordmark is
+   set in the display face over a lamp pool, timing unchanged.
 
 ## 14. Decisions taken
 
