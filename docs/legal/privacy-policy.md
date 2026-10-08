@@ -27,7 +27,7 @@ Hareeg Table does not collect, and does not ask for:
 - your contacts, photos, files, or messages;
 - the advertising ID or any other identifier used for advertising or tracking;
 - payment information (there is nothing to buy);
-- your app settings, language preference, or match history (except the single
+- your app preferences, language preference, or match history (except the single
   match report described below, when a report is sent).
 
 We do not use analytics, advertising, or tracking tools, and we do not sell or
@@ -38,29 +38,40 @@ share data for advertising.
 To find and fix bugs, the app can send a diagnostic report to us through
 Sentry, a crash-reporting service. A report is sent when:
 
-- the app hits an error or crash;
-- a game gets stuck and the app recovers it automatically; or
+- the app hits an error it does not handle, or an error during a computer
+  player's turn;
+- a game gets stuck and a safety check has to step in: either the game ends
+  a round in a forced draw, or the table stops the computer players after too
+  many moves. A stall that the app fixes by quietly restarting the computer
+  players' turns is not reported; or
 - you choose **Report table issue** or **Export match report** and tap
   **Send report**.
 
 A report contains:
 
 - **Error details:** the error message and the technical trace of where in the
-  app's code it happened, plus a short trail of recent app events leading up
-  to it.
-- **App and device details:** the app version, the device model and
-  manufacturer, the operating system and its version, and general technical
-  state such as screen size, memory, and whether the app was in the
-  foreground.
+  app's code it happened. Reports do not include a trail of recent app or
+  device events.
+- **App and device details:** only the following: the app version and build
+  number; the operating system name and version; and the device family,
+  model, manufacturer, brand, processor architecture, whether it is an
+  emulator, memory size, screen size and density, and screen orientation.
 - **A match report file:** the state of the game on the table (the cards,
-  scores, game setup, and the moves played in that match) so we can replay the
-  problem. It contains no personal information: no names, no settings, no
-  language, and nothing you typed.
+  scores, the game setup for that match, and the moves played in it) so we can
+  replay the problem. It contains no personal information: no names, no app
+  preferences such as sound or theme, no language, and nothing you typed.
 
 The app is configured so that reports do **not** include your name, a user
-identifier, the device's name or unique device identifier, your language or
-time zone, screenshots, or your IP address. Sentry's automatic collection of
-personal information is turned off, and IP addresses are not stored.
+identifier, the device's name, any device or installation identifier, your
+language, locale or time zone, screenshots, or your IP address. Sentry's
+automatic collection of personal information is turned off. Our Sentry
+project is set not to store IP addresses
+[confirm after enabling Prevent Storing of IP Addresses].
+
+Every report passes through the same filtering on your device before it is
+sent. On Android, Sentry's native crash capture (for crashes in native NDK
+code) is turned off, and so are its Java crash and "app not responding"
+handlers, so no report can skip that filtering.
 
 Reports are sent over an encrypted (HTTPS) connection. If your device is
 offline, a report may be held on the device and sent the next time you are
