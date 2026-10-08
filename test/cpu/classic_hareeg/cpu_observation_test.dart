@@ -224,15 +224,12 @@ void main() {
       expect(observation.deckCopyCount, controller.setup.deckCount);
     });
 
-    test(
-      'the value adapter defaults keep existing planner tests compiling',
-      () {
-        final facts = CpuObservationFacts();
-        expect(facts.discardPile, isEmpty);
-        expect(facts.roundNumber, 1);
-        expect(facts.deckCopyCount, 2);
-      },
-    );
+    test('the value adapter defaults keep existing planner tests compiling', () {
+      final facts = CpuObservationFacts();
+      expect(facts.discardPile, isEmpty);
+      expect(facts.roundNumber, 1);
+      expect(facts.deckCopyCount, 2);
+    });
 
     test('Facts and Live agree on one constructed position', () {
       // Parity, so a planner test built on the value adapter is evidence about

@@ -47,110 +47,118 @@ void main() {
     );
   });
   for (final seed in [7, 13, 21]) {
-    test('seed $seed CPU choices and applied states survive every save', () {
-      var clock = DateTime.utc(2026, 1, 1);
-      DateTime now() => clock;
-      var controller = ClassicHareegScenario.deal(
-        setup: ClassicHareegSetup.defaults(),
-        seed: seed,
-        now: now,
-      ).controller;
-      const strategy = ClassicHareegCpuStrategy();
-      for (var action = 0; action < 2500; action++) {
-        if (controller.isRoundOver) {
-          final next = controller.nextRoundSnapshot(savedAt: now());
-          if (next == null) {
-            expect(action, greaterThan(135));
-            expect(controller.roundProgress?.matchWinner, isNotNull);
-            return;
-          }
-          controller = ClassicHareegGameController.fromSnapshot(next, now: now);
-        }
-        final seat = controller.currentSeat;
-        var ids = controller.cpuActionIdsFor(seat);
-        final snapshot = controller.toPositionSnapshot(savedAt: now());
-        final restored = ClassicHareegGameController.fromSnapshot(
-          ClassicHareegMatchSnapshot.fromJson(
-            jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, Object?>,
-          ),
+    test(
+      'seed $seed CPU choices and applied states survive every save',
+      () {
+        var clock = DateTime.utc(2026, 1, 1);
+        DateTime now() => clock;
+        var controller = ClassicHareegScenario.deal(
+          setup: ClassicHareegSetup.defaults(),
+          seed: seed,
           now: now,
-        );
-        expect(
-          restored.toPositionSnapshot(savedAt: now()).toJson(),
-          snapshot.toJson(),
-        );
-        expect(
-          restored.legalActionIdsFor(seat),
-          controller.legalActionIdsFor(seat),
-        );
-        expect(
-          restored.cpuActionIdsFor(seat),
-          ids,
-          reason: 'action $action round ${controller.roundNumber} ${seat.name}',
-        );
-        CpuMoveIntent? choose(ClassicHareegGameController source) {
-          final candidates = source.cpuActionIdsFor(seat);
-          try {
-            return strategy.chooseMove(
-              CpuTurnSnapshot(
-                seat: seat,
-                legalActionIds: candidates,
-                difficulty: source.setup.cpuDifficulty,
-              ),
-              observation: LiveCpuObservation(
-                controller: source,
-                seat: seat,
-                legalActionIds: candidates,
-                difficulty: source.setup.cpuDifficulty,
-              ),
-            );
-          } on StateError catch (error) {
-            if (error.message.contains('at least one legal action')) {
-              return null;
+        ).controller;
+        const strategy = ClassicHareegCpuStrategy();
+        for (var action = 0; action < 2500; action++) {
+          if (controller.isRoundOver) {
+            final next = controller.nextRoundSnapshot(savedAt: now());
+            if (next == null) {
+              expect(action, greaterThan(135));
+              expect(controller.roundProgress?.matchWinner, isNotNull);
+              return;
             }
-            rethrow;
+            controller = ClassicHareegGameController.fromSnapshot(
+              next,
+              now: now,
+            );
           }
-        }
-
-        var intent = choose(controller);
-        expect(
-          choose(restored)?.actionId,
-          intent?.actionId,
-          reason: 'chosen move at action $action',
-        );
-        if (intent == null) {
-          clock = clock.add(
-            Duration(seconds: controller.setup.fiftyTimerSeconds + 30),
+          final seat = controller.currentSeat;
+          var ids = controller.cpuActionIdsFor(seat);
+          final snapshot = controller.toPositionSnapshot(savedAt: now());
+          final restored = ClassicHareegGameController.fromSnapshot(
+            ClassicHareegMatchSnapshot.fromJson(
+              jsonDecode(jsonEncode(snapshot.toJson())) as Map<String, Object?>,
+            ),
+            now: now,
           );
-          ids = controller.cpuActionIdsFor(seat);
-          expect(restored.cpuActionIdsFor(seat), ids);
-          intent = choose(controller);
-          expect(choose(restored)?.actionId, intent?.actionId);
-        }
-        expect(intent, isNotNull);
-        final liveResult = controller.applyAction(intent!.actionId);
-        final restoredResult = restored.applyAction(intent.actionId);
-        expect(liveResult.isSuccess, isTrue);
-        expect(restoredResult.isSuccess, isTrue);
-        expect(restoredResult.wasReverted, liveResult.wasReverted);
-        expect(
-          restored.toPositionSnapshot(savedAt: now()).toJson(),
-          controller.toPositionSnapshot(savedAt: now()).toJson(),
-          reason: 'applied state at action $action',
-        );
-        expect(
-          restored.roundProgress?.matchWinner,
-          controller.roundProgress?.matchWinner,
-        );
-        if (controller.isRoundOver) {
           expect(
-            restored.nextRoundSnapshot(savedAt: now())?.toJson(),
-            controller.nextRoundSnapshot(savedAt: now())?.toJson(),
+            restored.toPositionSnapshot(savedAt: now()).toJson(),
+            snapshot.toJson(),
           );
+          expect(
+            restored.legalActionIdsFor(seat),
+            controller.legalActionIdsFor(seat),
+          );
+          expect(
+            restored.cpuActionIdsFor(seat),
+            ids,
+            reason:
+                'action $action round ${controller.roundNumber} ${seat.name}',
+          );
+          CpuMoveIntent? choose(ClassicHareegGameController source) {
+            final candidates = source.cpuActionIdsFor(seat);
+            try {
+              return strategy.chooseMove(
+                CpuTurnSnapshot(
+                  seat: seat,
+                  legalActionIds: candidates,
+                  difficulty: source.setup.cpuDifficulty,
+                ),
+                observation: LiveCpuObservation(
+                  controller: source,
+                  seat: seat,
+                  legalActionIds: candidates,
+                  difficulty: source.setup.cpuDifficulty,
+                ),
+              );
+            } on StateError catch (error) {
+              if (error.message.contains('at least one legal action')) {
+                return null;
+              }
+              rethrow;
+            }
+          }
+
+          var intent = choose(controller);
+          expect(
+            choose(restored)?.actionId,
+            intent?.actionId,
+            reason: 'chosen move at action $action',
+          );
+          if (intent == null) {
+            clock = clock.add(
+              Duration(seconds: controller.setup.fiftyTimerSeconds + 30),
+            );
+            ids = controller.cpuActionIdsFor(seat);
+            expect(restored.cpuActionIdsFor(seat), ids);
+            intent = choose(controller);
+            expect(choose(restored)?.actionId, intent?.actionId);
+          }
+          expect(intent, isNotNull);
+          final liveResult = controller.applyAction(intent!.actionId);
+          final restoredResult = restored.applyAction(intent.actionId);
+          expect(liveResult.isSuccess, isTrue);
+          expect(restoredResult.isSuccess, isTrue);
+          expect(restoredResult.wasReverted, liveResult.wasReverted);
+          expect(
+            restored.toPositionSnapshot(savedAt: now()).toJson(),
+            controller.toPositionSnapshot(savedAt: now()).toJson(),
+            reason: 'applied state at action $action',
+          );
+          expect(
+            restored.roundProgress?.matchWinner,
+            controller.roundProgress?.matchWinner,
+          );
+          if (controller.isRoundOver) {
+            expect(
+              restored.nextRoundSnapshot(savedAt: now())?.toJson(),
+              controller.nextRoundSnapshot(savedAt: now())?.toJson(),
+            );
+          }
+          clock = clock.add(const Duration(seconds: 1));
         }
-        clock = clock.add(const Duration(seconds: 1));
-      }
-      fail('match did not finish within the action bound');
-    }, timeout: const Timeout(Duration(minutes: 3)));
+        fail('match did not finish within the action bound');
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   }
 }

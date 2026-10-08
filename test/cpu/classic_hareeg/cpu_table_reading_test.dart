@@ -172,10 +172,7 @@ void main() {
         final reading = CpuTableReading.forObservation(
           CpuObservationFacts(difficulty: difficulty),
         );
-        expect(
-          reading.policy,
-          same(TableReadingPolicy.forDifficulty(difficulty)),
-        );
+        expect(reading.policy, same(TableReadingPolicy.forDifficulty(difficulty)));
       }
     });
 
@@ -214,15 +211,9 @@ void main() {
 
     test('only Expert applies feed risk', () {
       final observation = _observationFor(_corpus().first);
-      expect(
-        TableReadingPolicy.beginner.appliesFeedRiskAt(observation),
-        isFalse,
-      );
+      expect(TableReadingPolicy.beginner.appliesFeedRiskAt(observation), isFalse);
       expect(TableReadingPolicy.casual.appliesFeedRiskAt(observation), isFalse);
-      expect(
-        TableReadingPolicy.skilled.appliesFeedRiskAt(observation),
-        isFalse,
-      );
+      expect(TableReadingPolicy.skilled.appliesFeedRiskAt(observation), isFalse);
       expect(TableReadingPolicy.expert.appliesFeedRiskAt(observation), isTrue);
     });
   });
@@ -335,35 +326,32 @@ void main() {
       expect(code, isNot(contains('Object.hashAll')));
     });
 
-    test(
-      'no Random, DateTime.now, or mutable static enters the tier layer',
-      () {
-        // Every CPU-layer and analysis-layer file this sprint touched. A signal
-        // that reads a clock or a global would make replays and tests drift for
-        // reasons that have nothing to do with the game.
-        for (final name in [
-          'lib/cpu/classic_hareeg/cpu_table_reading.dart',
-          'lib/cpu/classic_hareeg/cpu_move_plan_pipeline.dart',
-          'lib/cpu/classic_hareeg/cpu_observation.dart',
-          'lib/cpu/classic_hareeg/casual_cpu_move_planner.dart',
-          'lib/cpu/classic_hareeg/skilled_cpu_move_planner.dart',
-          'lib/cpu/classic_hareeg/expert_cpu_move_planner.dart',
-          'lib/domain/classic_hareeg/analysis/table_reading_analysis.dart',
-          'lib/domain/classic_hareeg/analysis/partial_hand_groups.dart',
-        ]) {
-          final source = File(
-            '${Directory.current.path}/$name',
-          ).readAsStringSync();
-          expect(source, isNot(contains('Random(')), reason: name);
-          expect(source, isNot(contains('DateTime.now')), reason: name);
-          expect(
-            _mutableStatics(source),
-            isEmpty,
-            reason: '$name must not declare a mutable static',
-          );
-        }
-      },
-    );
+    test('no Random, DateTime.now, or mutable static enters the tier layer', () {
+      // Every CPU-layer and analysis-layer file this sprint touched. A signal
+      // that reads a clock or a global would make replays and tests drift for
+      // reasons that have nothing to do with the game.
+      for (final name in [
+        'lib/cpu/classic_hareeg/cpu_table_reading.dart',
+        'lib/cpu/classic_hareeg/cpu_move_plan_pipeline.dart',
+        'lib/cpu/classic_hareeg/cpu_observation.dart',
+        'lib/cpu/classic_hareeg/casual_cpu_move_planner.dart',
+        'lib/cpu/classic_hareeg/skilled_cpu_move_planner.dart',
+        'lib/cpu/classic_hareeg/expert_cpu_move_planner.dart',
+        'lib/domain/classic_hareeg/analysis/table_reading_analysis.dart',
+        'lib/domain/classic_hareeg/analysis/partial_hand_groups.dart',
+      ]) {
+        final source = File(
+          '${Directory.current.path}/$name',
+        ).readAsStringSync();
+        expect(source, isNot(contains('Random(')), reason: name);
+        expect(source, isNot(contains('DateTime.now')), reason: name);
+        expect(
+          _mutableStatics(source),
+          isEmpty,
+          reason: '$name must not declare a mutable static',
+        );
+      }
+    });
 
     test('the mutable-static scan actually catches one', () {
       // The scan above passes trivially if it cannot detect anything. An
@@ -505,10 +493,9 @@ void main() {
         final visible = <CardRank>{};
         for (final rank in oldestFirst) {
           final probe = _c(rank, CardSuit.hearts);
-          if (reading
-              .availableFeedRiskFor(probe)
-              .evidence
-              .contains(FeedEvidenceKind.recentPickup)) {
+          if (reading.availableFeedRiskFor(probe).evidence.contains(
+            FeedEvidenceKind.recentPickup,
+          )) {
             visible.add(rank);
           }
         }
@@ -516,7 +503,8 @@ void main() {
         expect(
           visible,
           oldestFirst.reversed.take(depth).toSet(),
-          reason: '${difficulty.name} remembers $depth pickups, newest first',
+          reason:
+              '${difficulty.name} remembers $depth pickups, newest first',
         );
       }
     });
@@ -631,8 +619,7 @@ String _dartExecutable() {
 
 /// A Casual position whose hand really does hold a starved group, so the gate
 /// assertion is about attention rather than about an empty signal.
-({CpuObservation observation, List<HareegCard> starved})
-_starvedCasualPosition() {
+({CpuObservation observation, List<HareegCard> starved}) _starvedCasualPosition() {
   final pairA = _c(CardRank.seven, CardSuit.hearts);
   final pairB = _c(CardRank.seven, CardSuit.spades);
   final observation = CpuObservationFacts(

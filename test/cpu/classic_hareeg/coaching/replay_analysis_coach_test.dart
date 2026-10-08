@@ -305,7 +305,10 @@ void main() {
       );
 
       expect(quiet, isNotEmpty);
-      expect(quiet.every((i) => i.severity == ReviewSeverity.mistake), isTrue);
+      expect(
+        quiet.every((i) => i.severity == ReviewSeverity.mistake),
+        isTrue,
+      );
     });
 
     test('silencing dead-card warnings leaves the rest alone', () {
