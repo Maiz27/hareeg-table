@@ -30,9 +30,6 @@ class ClassicHareegCpuTurnLoopPlan {
   /// Whether the runner should keep advancing CPU flow.
   bool get canContinue =>
       scenario == ClassicHareegCpuTurnLoopScenario.continueTurn;
-
-  /// Whether the runner should stop at this gate.
-  bool get shouldStop => !canContinue;
 }
 
 /// Plans the stop/continue gates for a Classic Hareeg CPU turn loop.

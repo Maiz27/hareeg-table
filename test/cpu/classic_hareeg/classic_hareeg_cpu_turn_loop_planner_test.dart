@@ -12,7 +12,7 @@ void main() {
       );
 
       expect(plan.scenario, ClassicHareegCpuTurnLoopScenario.roundOver);
-      expect(plan.shouldStop, isTrue);
+      expect(plan.canContinue, isFalse);
     });
 
     test('turn gate prioritizes human turn before safety limit', () {
@@ -24,7 +24,7 @@ void main() {
       );
 
       expect(plan.scenario, ClassicHareegCpuTurnLoopScenario.humanTurn);
-      expect(plan.shouldStop, isTrue);
+      expect(plan.canContinue, isFalse);
     });
 
     test('turn gate stops at the safety limit before another action', () {
@@ -36,7 +36,7 @@ void main() {
       );
 
       expect(plan.scenario, ClassicHareegCpuTurnLoopScenario.safetyLimit);
-      expect(plan.shouldStop, isTrue);
+      expect(plan.canContinue, isFalse);
     });
 
     test('turn gate continues while the CPU still owns flow', () {
@@ -57,7 +57,7 @@ void main() {
       );
 
       expect(plan.scenario, ClassicHareegCpuTurnLoopScenario.noLegalActions);
-      expect(plan.shouldStop, isTrue);
+      expect(plan.canContinue, isFalse);
     });
 
     test('hook gate stops when a caller hook declines continuation', () {
@@ -66,7 +66,7 @@ void main() {
       );
 
       expect(plan.scenario, ClassicHareegCpuTurnLoopScenario.hookStopped);
-      expect(plan.shouldStop, isTrue);
+      expect(plan.canContinue, isFalse);
     });
 
     test('after apply hook reports round over before hook stop', () {

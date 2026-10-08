@@ -97,10 +97,6 @@ class TableReadingPolicy {
   /// Percentage of decision positions where the material signal is noticed.
   final int materialAttentionPercent;
 
-  /// Whether attention is sampled rather than constant.
-  bool get samplesMaterialAttention =>
-      attendsMaterialSignal && materialAttentionPercent < 100;
-
   /// Whether the material signal is applied at this decision position.
   ///
   /// The answer is a property of the *position*, not of any candidate card, so

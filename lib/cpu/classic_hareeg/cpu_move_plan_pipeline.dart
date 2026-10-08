@@ -108,13 +108,18 @@ abstract interface class CpuPlanPolicy {
 /// assembly. Tiers supply a [CpuPlanPolicy] that fills in the per-stage scoring.
 class CpuMovePlanPipeline {
   /// Creates a pipeline bound to [policy].
-  const CpuMovePlanPipeline(this.policy);
+  const CpuMovePlanPipeline(
+    this.policy, {
+    this.partitionLimit = defaultPartitionLimit,
+  });
 
   /// Per-stage scoring policy for this tier.
   final CpuPlanPolicy policy;
 
-  /// Default upper bound for partition enumeration. Tiers can override via
-  /// the policy if they need a different fan-out cap.
+  /// Upper bound for partition enumeration in [bestMeldAction].
+  final int partitionLimit;
+
+  /// Default upper bound for partition enumeration.
   static const int defaultPartitionLimit = 96;
 
   /// Runs the full plan pipeline for [observation].
@@ -150,10 +155,7 @@ class CpuMovePlanPipeline {
     }
 
     if (observation.pendingDiscard != null) {
-      final pendingMeld = bestMeldAction(
-        observation,
-        partitionLimit: defaultPartitionLimit,
-      );
+      final pendingMeld = bestMeldAction(observation);
       if (pendingMeld != null) {
         return ClassicHareegCpuMovePlan(
           scenario: ClassicHareegCpuMoveScenario.meldPlay,
@@ -213,10 +215,7 @@ class CpuMovePlanPipeline {
 
     final holdForFifty = policy.shouldHoldNormalFinishForFifty(observation);
     if (!holdForFifty) {
-      final meldAction = bestMeldAction(
-        observation,
-        partitionLimit: defaultPartitionLimit,
-      );
+      final meldAction = bestMeldAction(observation);
       if (meldAction != null) {
         return ClassicHareegCpuMovePlan(
           scenario: ClassicHareegCpuMoveScenario.meldPlay,
@@ -298,10 +297,7 @@ class CpuMovePlanPipeline {
 
   /// Enumerates playable partitions ranked by [policy] and returns the meld
   /// action id for the chosen partition, or null when none is playable.
-  String? bestMeldAction(
-    CpuObservation observation, {
-    required int partitionLimit,
-  }) {
+  String? bestMeldAction(CpuObservation observation) {
     if (observation.turnPhase != TurnPhase.action) {
       return null;
     }
@@ -393,7 +389,10 @@ class CpuMovePlanPipeline {
       if (!action.descriptor.isSafeDiscard) {
         continue;
       }
-      final card = _cardForAction(observation, action);
+      final cardId = action.descriptor.cardId;
+      final card = cardId == null
+          ? null
+          : handCardById(observation.ownHand, cardId);
       if (card == null) {
         continue;
       }
@@ -413,22 +412,16 @@ class CpuMovePlanPipeline {
     });
     return candidates.first.action;
   }
+}
 
-  static HareegCard? _cardForAction(
-    CpuObservation observation,
-    CpuLegalAction action,
-  ) {
-    final cardId = action.descriptor.cardId;
-    if (cardId == null) {
-      return null;
+/// The card in [hand] with id [cardId], or null when it is not held.
+HareegCard? handCardById(List<HareegCard> hand, String cardId) {
+  for (final card in hand) {
+    if (card.id == cardId) {
+      return card;
     }
-    for (final card in observation.ownHand) {
-      if (card.id == cardId) {
-        return card;
-      }
-    }
-    return null;
   }
+  return null;
 }
 
 /// True when the CPU seat owns the Fifty claim window and actually has a
@@ -698,13 +691,6 @@ Map<String, int> handKeepScores(List<HareegCard> hand) {
     scores.putIfAbsent(card.id, () => _soloScore(card, hand));
   }
   return scores;
-}
-
-/// Keep score for a single [card] within [hand]; thin lookup over
-/// [handKeepScores]. Callers scoring many cards should call [handKeepScores]
-/// once and read the map instead of paying the grouping cost per card.
-int discardKeepScore(HareegCard card, List<HareegCard> hand) {
-  return handKeepScores(hand)[card.id] ?? _soloScore(card, hand);
 }
 
 /// Solo-group value for [card]: its pip ceiling, or 0 when [hand] holds a true

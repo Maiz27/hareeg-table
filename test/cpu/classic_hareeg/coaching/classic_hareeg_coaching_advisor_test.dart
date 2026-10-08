@@ -456,7 +456,6 @@ void main() {
       expect(_has(insights, CoachingInsightCategory.openingProgress), isFalse);
       final insight = _find(insights, CoachingInsightCategory.openNow);
       expect(insight.openingBestValue, greaterThanOrEqualTo(30));
-      expect(insight.meldActionId, isNotNull);
     });
 
     test('openingProgress carries the shortfall when below requirement', () {
@@ -685,7 +684,6 @@ void main() {
 
       expect(_has(insights, CoachingInsightCategory.playMeld), isTrue);
       final insight = _find(insights, CoachingInsightCategory.playMeld);
-      expect(insight.meldActionId, isNotNull);
       expect(insight.highlightCardIds, isNotEmpty);
     });
 
@@ -1220,7 +1218,6 @@ void main() {
 
       expect(_has(insights, CoachingInsightCategory.jokerAdvice), isTrue);
       final insight = _find(insights, CoachingInsightCategory.jokerAdvice);
-      expect(insight.jokerReplacementActionId, isNotNull);
       expect(insight.jokerCardId, realNine.id);
       // Regression: rings the hand card AND the table meld holding the joker, so
       // the player sees where the swap happens (not just which card to use).

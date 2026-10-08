@@ -155,8 +155,6 @@ void main() {
           priority: 350,
           discardCardId: 'd1',
           coverCardId: 'c1',
-          coverMeldOwner: PlayerSeat.east,
-          coverMeldIndex: 0,
           holdCoverReason: CoachCoverHoldReason.fiftyDevelopment,
           highlightCardIds: ['d1', 'c1', 'm1', 'm2'],
           meldGroups: [
@@ -524,8 +522,6 @@ void main() {
           category: CoachingInsightCategory.playCover,
           priority: 550,
           coverCardId: 'c1',
-          coverMeldOwner: PlayerSeat.north,
-          coverMeldIndex: 0,
           highlightCardIds: ['c1', 'm1', 'm2', 'm3'],
         ),
       );

@@ -49,9 +49,6 @@ class ClassicHareegCpuMovePlan {
 
   /// Legal action id to apply, or null when no action exists.
   final String? actionId;
-
-  /// Whether the plan contains an action.
-  bool get hasAction => actionId != null;
 }
 
 /// Strategy-specific planner that scores a CPU observation into one move plan.
