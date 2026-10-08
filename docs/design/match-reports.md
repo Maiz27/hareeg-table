@@ -73,7 +73,9 @@ attachment is exactly what Share/Copy would export
   Sentry project should also enable *Prevent Storing of IP Addresses*.
 - **Manual.** "Report table issue" (pause) and "Export match report" (match
   over) lead with **Send report**: a Sentry event tagged `source: user_report`
-  with the report attached, confirmed by a toast. Share/Copy remain beneath it
+  with the report attached, confirmed by a toast that says it is queued (on
+  Android and iOS the SDK writes it to a native outbox; upload is
+  asynchronous and waits for a connection). Share/Copy remain beneath it
   as the offline/power-user fallback, and are offered again if a send fails.
 - **Automatic.** A live match registers its in-flight report with
   `LiveMatchReportSource`. It is attached when a freeze backstop trips

@@ -2146,7 +2146,7 @@ const _englishValues = {
   'shareReport': 'Share report',
   'matchReportGenerationFailed': 'Could not generate the match report.',
   'sendReport': 'Send report',
-  'matchReportSent': 'Report sent. Thank you!',
+  'matchReportSent': 'Report queued. It is sent when you are online.',
   'matchReportSendFailed':
       'Could not send the report. Share or copy it instead.',
   'matchReportSendUnavailable':
@@ -2891,10 +2891,11 @@ const _arabicValues = {
   'matchReportConfirmTitle': 'تم تجميع بيانات الطاولة',
   'matchReportConfirmBody':
       'يحتوي هذا التقرير على سجل مشفر بالكامل ومجهول للهوية يحفظ حركات الجولة وتوزيع الأوراق. مشاركة هذا التقرير تساعدنا كثيراً في فحص الأخطاء البرمجية وإصلاح سلوك المحرك.',
-  'shareReport': 'إرسال حزمة تقرير الأخطاء',
+  'shareReport': 'مشاركة التقرير',
   'matchReportGenerationFailed': 'فشل التقاط حالة مسار تشغيل اللعبة الحالية.',
   'sendReport': 'إرسال التقرير',
-  'matchReportSent': 'تم إرسال التقرير. شكراً لك!',
+  'matchReportSent':
+      'أُضيف التقرير إلى قائمة الإرسال. يُرسل عندما تكون متصلاً بالإنترنت.',
   'matchReportSendFailed': 'تعذر إرسال التقرير. شاركه أو انسخه بدلاً من ذلك.',
   'matchReportSendUnavailable':
       'إرسال التقارير غير متاح في هذا الإصدار. شارك التقرير أو انسخه بدلاً من ذلك.',
