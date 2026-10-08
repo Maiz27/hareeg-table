@@ -463,6 +463,12 @@ class _CardThemePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CardThemePainter oldDelegate) {
     return oldDelegate.theme.id != theme.id ||
+        // HareegCard equality is by id alone, so a joker that gains (or
+        // changes) its represented identity compares equal: check it too.
+        oldDelegate.request.card.id != request.card.id ||
+        oldDelegate.request.card.representedIdentity !=
+            request.card.representedIdentity ||
+        oldDelegate.request.variant != request.variant ||
         oldDelegate.request.visualState != request.visualState ||
         oldDelegate.request.size != request.size ||
         oldDelegate.request.faceDown != request.faceDown ||
