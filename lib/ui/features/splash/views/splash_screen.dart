@@ -113,6 +113,7 @@ class _SplashScreenState extends State<SplashScreen>
               return Stack(
                 fit: StackFit.expand,
                 children: [
+                  _LampPool(opacity: _cornerFade.value),
                   _CornerOrnaments(opacity: _cornerFade.value),
                   Center(
                     child: Column(
@@ -129,7 +130,11 @@ class _SplashScreenState extends State<SplashScreen>
                           opacity: _wordmarkFade.value * 0.8,
                           child: Text(
                             strings.splashTagline,
-                            style: LoungeTokens.bodyMuted,
+                            textAlign: TextAlign.center,
+                            style: LoungeTokens.bodyMuted.copyWith(
+                              fontSize: 14,
+                              letterSpacing: 0.3,
+                            ),
                           ),
                         ),
                       ],
@@ -144,10 +149,8 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Center(
                         child: Text(
                           strings.splashTapToContinue,
-                          style: const TextStyle(
+                          style: LoungeTokens.overline.copyWith(
                             color: LoungeTokens.mutedText,
-                            fontSize: 12,
-                            letterSpacing: 1.2,
                           ),
                         ),
                       ),
@@ -156,6 +159,37 @@ class _SplashScreenState extends State<SplashScreen>
                 ],
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The home stage's warm pool of lamp light, so the fan lands where the
+/// menu will show it.
+class _LampPool extends StatelessWidget {
+  const _LampPool({required this.opacity});
+
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Opacity(
+        opacity: opacity,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0, -0.12),
+              radius: 0.75,
+              colors: [
+                LoungeTokens.goldAccent.withValues(alpha: 0.16),
+                LoungeTokens.goldAccent.withValues(alpha: 0.05),
+                LoungeTokens.goldAccent.withValues(alpha: 0),
+              ],
+              stops: const [0, 0.5, 1],
+            ),
           ),
         ),
       ),
@@ -282,12 +316,9 @@ class _WordmarkText extends StatelessWidget {
         children: [
           TextSpan(
             text: context.strings.homeTitle,
-            style: const TextStyle(
-              color: LoungeTokens.offWhiteText,
-              fontSize: 34,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
+            // The home wordmark's display face, so the hand-off lands on the
+            // same lettering.
+            style: LoungeTokens.displayLarge,
           ),
         ],
       ),
