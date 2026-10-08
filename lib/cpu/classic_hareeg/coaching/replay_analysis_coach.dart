@@ -131,12 +131,12 @@ abstract final class ReplayAnalysisCoach {
       ReviewInsight(
         category: ReviewInsightCategory.fiftyWindowOpen,
         subjectSeat: window.discarder,
-        cardIds: [if (window.cardId != null) window.cardId!],
+        cardIds: [?window.cardId],
         evidence: [
           ReviewEvidence(
             kind: ReviewEvidenceKind.fiftyWindow,
             seat: window.discarder,
-            cardIds: [if (window.cardId != null) window.cardId!],
+            cardIds: [?window.cardId],
             value: window.secondsRemaining,
           ),
         ],
