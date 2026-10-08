@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../cpu/classic_hareeg/coaching/analysis_coach_settings.dart';
 import '../../../../cpu/classic_hareeg/coaching/review_insight.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_mode.dart';
 import '../review_insight_presenter.dart';
@@ -147,12 +148,14 @@ class ReviewAnalysisCard extends StatelessWidget {
         // inset keeps the card's own border off the boundary it was measured
         // against rather than growing past it.
         padding: const EdgeInsets.only(right: 4, bottom: 4),
+        // The live table's coach card, lit from its top-start corner. The
+        // edge stays one pixel wide: a decorated `Container` pads its child by
+        // the border, and the popover's content was measured against that.
         child: Container(
-          decoration: BoxDecoration(
-            color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(12),
+          decoration: loungeLitPanel(strength: 0.12).copyWith(
+            borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
             border: Border.all(
-              color: LoungeTokens.sandLine.withValues(alpha: 0.65),
+              color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
             ),
           ),
           child: Column(
@@ -185,6 +188,7 @@ class ReviewAnalysisCard extends StatelessWidget {
                     isOverridden: isOverridden,
                     onSettingsChanged: onSettingsChanged,
                     reviewable: reviewable,
+                    inset: true,
                   ),
                 ),
               ),
@@ -210,8 +214,13 @@ class AnalysisCoachPanel extends StatelessWidget {
     required this.isOverridden,
     required this.onSettingsChanged,
     required this.reviewable,
+    this.inset = false,
     super.key,
   });
+
+  /// Whether the panel sits inside a card that already paints the surface
+  /// (the short layout's popover), rather than standing as its own band.
+  final bool inset;
 
   /// Insights for the current frame, already filtered by [settings].
   final List<ReviewInsight> insights;
@@ -239,12 +248,37 @@ class AnalysisCoachPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
+    // The top edge is a real border, not a painted one, on purpose: its half
+    // pixel is part of the padding the docked layout oracle measured, so the
+    // band's height is unchanged by the restyle. Inside the popover the card
+    // paints the surface, so the band goes clear but keeps the same metrics.
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.94),
-        border: const Border(
-          top: BorderSide(color: LoungeTokens.sandLine, width: 0.5),
+        gradient: inset
+            ? null
+            : RadialGradient(
+                center: const AlignmentDirectional(
+                  -0.9,
+                  -1.4,
+                ).resolve(Directionality.of(context)),
+                radius: 1.6,
+                colors: [
+                  Color.lerp(
+                    LoungeTokens.coffeeCharcoal,
+                    LoungeTokens.goldAccent,
+                    0.1,
+                  )!.withValues(alpha: 0.97),
+                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+                ],
+              ),
+        border: Border(
+          top: BorderSide(
+            color: inset
+                ? Colors.transparent
+                : LoungeTokens.goldAccent.withValues(alpha: 0.4),
+            width: 0.5,
+          ),
         ),
       ),
       child: Column(
@@ -253,6 +287,18 @@ class AnalysisCoachPanel extends StatelessWidget {
         children: [
           Row(
             children: [
+              // The coach's medallion, lit like the live coach card's badge.
+              // Shorter than the verbosity control beside it, so the row is
+              // still that control's height. Left out of the popover, which
+              // is too narrow to give it the title's room.
+              if (!inset) ...[
+                const LoungeMedallion(
+                  icon: Icons.insights,
+                  size: 30,
+                  tone: LoungeMedallionTone.lit,
+                ),
+                const SizedBox(width: LoungeTokens.space2),
+              ],
               // The title yields space to the verbosity control rather than
               // claiming its full intrinsic width. Inflexible, it overflowed a
               // narrow docked phone by 89 px — the control was pushed off the
@@ -265,8 +311,10 @@ class AnalysisCoachPanel extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: LoungeTokens.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: LoungeTokens.sandLine,
+                    fontFamily: LoungeTokens.displayFamily,
+                    fontWeight: FontWeight.w700,
+                    fontVariations: LoungeTokens.displayWeight(700),
+                    letterSpacing: 0.3,
                   ),
                 ),
               ),
@@ -286,7 +334,12 @@ class AnalysisCoachPanel extends StatelessWidget {
           ),
           if (isOverridden) ...[
             const SizedBox(height: 2),
-            Text(strings.replayOverrideNote, style: LoungeTokens.bodyMuted),
+            Text(
+              strings.replayOverrideNote,
+              style: LoungeTokens.bodyMuted.copyWith(
+                color: LoungeTokens.goldAccent,
+              ),
+            ),
           ],
           const SizedBox(height: 8),
           if (!reviewable)
@@ -300,25 +353,48 @@ class AnalysisCoachPanel extends StatelessWidget {
             ...insights.map(
               (insight) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      presenter.sentenceFor(insight),
-                      style: LoungeTokens.body,
+                // Each finding hangs off a gold rule at its start edge, the
+                // way the live coach card carries its accent.
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(
+                        color: LoungeTokens.goldAccent.withValues(alpha: 0.7),
+                        width: 2,
+                      ),
                     ),
-                    // The evidence is shown, not just used. A reviewer learning
-                    // to read the table needs to see which visible fact the
-                    // conclusion came from.
-                    ...presenter
-                        .evidenceLines(insight)
-                        .map(
-                          (line) => Padding(
-                            padding: const EdgeInsets.only(top: 2, left: 8),
-                            child: Text(line, style: LoungeTokens.bodyMuted),
-                          ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start: LoungeTokens.space3,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          presenter.sentenceFor(insight),
+                          style: LoungeTokens.body,
                         ),
-                  ],
+                        // The evidence is shown, not just used. A reviewer
+                        // learning to read the table needs to see which
+                        // visible fact the conclusion came from.
+                        ...presenter
+                            .evidenceLines(insight)
+                            .map(
+                              (line) => Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  top: 2,
+                                  start: 8,
+                                ),
+                                child: Text(
+                                  line,
+                                  style: LoungeTokens.bodyMuted,
+                                ),
+                              ),
+                            ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -357,6 +433,12 @@ class _VerbosityMenu extends StatelessWidget {
             tooltip: '',
             initialValue: settings.verbosity,
             color: LoungeTokens.coffeeCharcoal,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
+              side: BorderSide(
+                color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+              ),
+            ),
             onSelected: (value) =>
                 onChanged(settings.copyWith(verbosity: value)),
             itemBuilder: (context) => [
@@ -369,26 +451,50 @@ class _VerbosityMenu extends StatelessWidget {
                   ),
                 ),
             ],
+            // The full 48 dp stays the target; the pill segment inside it is
+            // what the eye reads, the same pill the live table's chips use.
             child: SizedBox(
               height: kMinInteractiveDimension,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      verbosityLabel(strings, settings.verbosity),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: LoungeTokens.bodyMuted,
+              child: Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(
+                      LoungeTokens.radiusPill,
+                    ),
+                    border: Border.all(
+                      color: LoungeTokens.sandLine.withValues(alpha: 0.32),
                     ),
                   ),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    size: 24,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white70
-                        : Colors.grey.shade700,
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start: LoungeTokens.space2,
+                      end: 2,
+                      top: LoungeTokens.space1,
+                      bottom: LoungeTokens.space1,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            verbosityLabel(strings, settings.verbosity),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: LoungeTokens.bodyMuted.copyWith(
+                              color: LoungeTokens.offWhiteText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          size: 24,
+                          color: LoungeTokens.goldAccent,
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

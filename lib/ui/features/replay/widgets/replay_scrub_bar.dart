@@ -27,7 +27,7 @@ class ReplayProgressHairline extends StatelessWidget {
         child: LinearProgressIndicator(
           value: progress.clamp(0.0, 1.0),
           backgroundColor: LoungeTokens.sandLine.withValues(alpha: 0.18),
-          color: LoungeTokens.sandLine,
+          color: LoungeTokens.goldAccent,
           minHeight: height,
         ),
       ),
@@ -82,23 +82,18 @@ class ReplayScrubTarget extends StatelessWidget {
               // Opaque only within its own rect: the target absorbs the taps it
               // is given and nothing else.
               onTap: onTap,
-              borderRadius: BorderRadius.circular(10),
+              customBorder: const CircleBorder(),
               child: Center(
                 child: IgnorePointer(
                   child: Container(
                     width: ReplayRailButton.chromeExtent,
                     height: ReplayRailButton.chromeExtent,
-                    decoration: BoxDecoration(
-                      color: LoungeTokens.coffeeCharcoal.withValues(
-                        alpha: 0.94,
-                      ),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
+                    decoration: replayHudChromeDecoration(emphasized: true),
                     child: const Center(
                       child: Icon(
                         Icons.timeline,
                         size: 22,
-                        color: LoungeTokens.sandLine,
+                        color: LoungeTokens.goldAccent,
                       ),
                     ),
                   ),
@@ -177,26 +172,50 @@ class _ReplayScrubOverlayState extends State<ReplayScrubOverlay> {
       constraints: const BoxConstraints(
         maxHeight: ReplayScrubOverlay.maxHeight,
       ),
-      child: Container(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.94),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Semantics(
-          label: strings.replaySeek,
-          child: Tooltip(
-            message: strings.replaySeek,
-            child: Focus(
-              onFocusChange: _onFocusChange,
-              child: Slider(
-                value: widget.cursor.toDouble().clamp(0, maxIndex),
-                max: maxIndex <= 0 ? 1 : maxIndex,
-                onChanged: (value) => widget.onSeek(value.round()),
-                // Releasing the drag puts the table back, unless focus is still
-                // parked in here.
-                onChangeEnd: (_) {
-                  if (!_hasFocus) {
-                    widget.onDismiss();
-                  }
-                },
+      // A lit capsule rather than a flat band, so the scrubber reads as the
+      // same HUD chrome as the rail it opened from. A `DecoratedBox` and not a
+      // decorated `Container`: the edge must not add to the padding, or the
+      // slider would sit in a narrower band than the one the map cleared.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color.lerp(
+                LoungeTokens.coffeeCharcoal,
+                LoungeTokens.goldAccent,
+                0.12,
+              )!.withValues(alpha: 0.97),
+              LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
+          border: Border.all(
+            color: LoungeTokens.goldAccent.withValues(alpha: 0.45),
+          ),
+          boxShadow: LoungeTokens.elevationL2,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Semantics(
+            label: strings.replaySeek,
+            child: Tooltip(
+              message: strings.replaySeek,
+              child: Focus(
+                onFocusChange: _onFocusChange,
+                child: Slider(
+                  value: widget.cursor.toDouble().clamp(0, maxIndex),
+                  max: maxIndex <= 0 ? 1 : maxIndex,
+                  onChanged: (value) => widget.onSeek(value.round()),
+                  // Releasing the drag puts the table back, unless focus is still
+                  // parked in here.
+                  onChangeEnd: (_) {
+                    if (!_hasFocus) {
+                      widget.onDismiss();
+                    }
+                  },
+                ),
               ),
             ),
           ),

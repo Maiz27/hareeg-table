@@ -12,6 +12,7 @@ import '../../../../domain/classic_hareeg/replay/replay_branch_seed.dart';
 import '../../../../domain/classic_hareeg/replay/replay_review_state.dart';
 import '../../../../domain/classic_hareeg/reporting/match_action_transcript.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../game_table/table_mode.dart';
 import '../../game_table/widgets/table_background.dart';
@@ -313,7 +314,49 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
           ? null
           : AppBar(
               backgroundColor: LoungeTokens.coffeeCharcoal,
-              title: Text(strings.replayTitle),
+              // Lacquered like the table's HUD capsule, with a brass hairline
+              // where the bar meets the rail. Painted, not laid out: the bar's
+              // height is a frozen docked anchor.
+              flexibleSpace: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.lerp(
+                        LoungeTokens.coffeeCharcoal,
+                        LoungeTokens.sandLine,
+                        0.08,
+                      )!,
+                      LoungeTokens.coffeeCharcoal,
+                    ],
+                  ),
+                ),
+              ),
+              shape: Border(
+                bottom: BorderSide(
+                  color: LoungeTokens.sandLine.withValues(alpha: 0.32),
+                ),
+              ),
+              titleSpacing: LoungeTokens.space4,
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const LoungeMedallion(
+                    icon: Icons.history_rounded,
+                    size: 32,
+                    tone: LoungeMedallionTone.lit,
+                  ),
+                  const SizedBox(width: LoungeTokens.space3),
+                  Flexible(
+                    child: Text(
+                      strings.replayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
               actions: [
                 // The docked layout's branch entry. It lives here rather than
                 // in the transport strip because that strip already overflows
@@ -413,10 +456,77 @@ class _BranchAppBarAction extends StatelessWidget {
           // freezes at twenty-two — and that file is not this sprint's to
           // rewrite. The localized semantics label is the handle, which is the
           // one a screen reader uses anyway.
-          child: IconButton(
-            icon: const Icon(Icons.alt_route),
-            color: LoungeTokens.sandLine,
-            onPressed: onPressed,
+          //
+          // Set in a gold-ringed pill, the live table's HUD capsule, so the
+          // one action that leaves review reads as table chrome. The pill is
+          // painted around the button and adds nothing to the bar's layout.
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(end: LoungeTokens.space2),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.lerp(
+                      LoungeTokens.coffeeCharcoal,
+                      LoungeTokens.goldAccent,
+                      0.14,
+                    )!,
+                    LoungeTokens.coffeeCharcoal,
+                  ],
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: onPressed == null
+                      ? LoungeTokens.sandLine.withValues(alpha: 0.18)
+                      : LoungeTokens.goldAccent.withValues(alpha: 0.6),
+                ),
+                boxShadow: LoungeTokens.elevationL2,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.alt_route),
+                color: LoungeTokens.goldAccent,
+                disabledColor: LoungeTokens.sandLine.withValues(alpha: 0.32),
+                onPressed: onPressed,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The lit lounge card the loading and message states sit on, centred on the
+/// felt: the same panel the practice overlays and the About card use.
+class _StateCard extends StatelessWidget {
+  const _StateCard({required this.children, this.glow});
+
+  final List<Widget> children;
+
+  /// Tint of the panel's light, gold by default.
+  final Color? glow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(LoungeTokens.space6),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: DecoratedBox(
+            decoration: loungeLitPanel(
+              glow: glow ?? LoungeTokens.goldAccent,
+              strength: 0.12,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: LoungeTokens.space5,
+                vertical: LoungeTokens.space6,
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: children),
+            ),
           ),
         ),
       ),
@@ -429,20 +539,47 @@ class _LoadingBody extends StatelessWidget {
   final int frames;
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 12),
-          Text(context.strings.replayLoading, style: LoungeTokens.bodyMuted),
-          if (frames > 0)
-            Text(
-              context.strings.replayLoadingFrames(frames),
-              style: LoungeTokens.bodyMuted,
+    return _StateCard(
+      children: [
+        // The medallion with a thin gold ring turning around it: the match
+        // being dealt back out, rather than a bare stock spinner.
+        const SizedBox.square(
+          dimension: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox.square(
+                dimension: 64,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: LoungeTokens.goldAccent,
+                ),
+              ),
+              LoungeMedallion(
+                icon: Icons.history_rounded,
+                size: 48,
+                tone: LoungeMedallionTone.lit,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: LoungeTokens.space4),
+        Text(
+          context.strings.replayLoading,
+          style: LoungeTokens.heading,
+          textAlign: TextAlign.center,
+        ),
+        if (frames > 0) ...[
+          const SizedBox(height: LoungeTokens.space2),
+          Text(
+            context.strings.replayLoadingFrames(frames),
+            style: LoungeTokens.bodyMuted.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
+            textAlign: TextAlign.center,
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -462,30 +599,31 @@ class _MessageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: LoungeTokens.body.copyWith(fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              body,
-              style: LoungeTokens.bodyMuted,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: Text(retryLabel!)),
-            ],
-          ],
+    return _StateCard(
+      glow: LoungeTokens.deepRed,
+      children: [
+        const LoungeMedallion(
+          icon: Icons.history_toggle_off_rounded,
+          size: 56,
+          tone: LoungeMedallionTone.alert,
         ),
-      ),
+        const SizedBox(height: LoungeTokens.space4),
+        Text(
+          title,
+          style: LoungeTokens.display.copyWith(fontSize: 22),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: LoungeTokens.space2),
+        Text(body, style: LoungeTokens.bodyMuted, textAlign: TextAlign.center),
+        if (onRetry != null) ...[
+          const SizedBox(height: LoungeTokens.space5),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            label: Text(retryLabel!),
+          ),
+        ],
+      ],
     );
   }
 }

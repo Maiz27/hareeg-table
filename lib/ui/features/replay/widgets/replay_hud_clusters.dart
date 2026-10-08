@@ -29,6 +29,42 @@ const ReplayHudTapGroup replayHudTapGroup = ReplayHudTapGroup();
 /// than decorative: without them the rail is unreadable to a screen reader. It
 /// is also why no localized string can widen a rail, and therefore why no
 /// localized string can reach the routing metric.
+/// The lacquered face every replay HUD control paints inside its target.
+///
+/// The same family as the live table's HUD capsule: charcoal lit faintly from
+/// above, a brass hairline edge and an L2 shadow, drawn as a round medallion
+/// so the edge rails read as a column of table chrome rather than as stray
+/// squares. [emphasized] rings it in gold for the one control that leads off
+/// the review (play on from here, open the scrubber); [enabled] false quiets
+/// the edge so an unavailable step still shows where it lives.
+BoxDecoration replayHudChromeDecoration({
+  bool enabled = true,
+  bool emphasized = false,
+}) {
+  final edge = emphasized && enabled
+      ? LoungeTokens.goldAccent.withValues(alpha: 0.6)
+      : LoungeTokens.sandLine.withValues(alpha: enabled ? 0.34 : 0.14);
+  return BoxDecoration(
+    shape: BoxShape.circle,
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color.lerp(
+          LoungeTokens.coffeeCharcoal,
+          emphasized && enabled
+              ? LoungeTokens.goldAccent
+              : LoungeTokens.sandLine,
+          0.14,
+        )!.withValues(alpha: 0.96),
+        LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+      ],
+    ),
+    border: Border.all(color: edge),
+    boxShadow: LoungeTokens.elevationL2,
+  );
+}
+
 /// Which way a rail glyph is allowed to point.
 enum ReplayGlyphDirection {
   /// The glyph means "toward the start / end of the match". That is physical
@@ -89,8 +125,13 @@ class ReplayRailButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.glyphDirection = ReplayGlyphDirection.timeline,
+    this.emphasized = false,
     super.key,
   });
+
+  /// Rings the control in gold: it leads off the review rather than moving
+  /// along it.
+  final bool emphasized;
 
   /// The glyph.
   final IconData icon;
@@ -140,24 +181,24 @@ class ReplayRailButton extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onPressed,
-                borderRadius: BorderRadius.circular(10),
+                customBorder: const CircleBorder(),
                 child: Center(
                   child: IgnorePointer(
                     child: Container(
                       width: chromeExtent,
                       height: chromeExtent,
-                      decoration: BoxDecoration(
-                        color: LoungeTokens.coffeeCharcoal.withValues(
-                          alpha: 0.94,
-                        ),
-                        borderRadius: BorderRadius.circular(9),
+                      decoration: replayHudChromeDecoration(
+                        enabled: onPressed != null,
+                        emphasized: emphasized,
                       ),
                       child: Center(
                         child: ReplayRailGlyph(
                           icon: icon,
                           direction: glyphDirection,
                           color: onPressed == null
-                              ? LoungeTokens.sandLine.withValues(alpha: 0.38)
+                              ? LoungeTokens.sandLine.withValues(alpha: 0.32)
+                              : emphasized
+                              ? LoungeTokens.goldAccent
                               : LoungeTokens.sandLine,
                         ),
                       ),
