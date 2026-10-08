@@ -43,6 +43,41 @@ timing are recorded. The transcript spans the whole match: one `MatchRecorder`
 is handed to each round's controller, and replay crosses round boundaries via
 the deterministic next-round deal.
 
+## Delivery (Sentry)
+
+Reports reach the developer through Sentry (`sentry_flutter`). The SDK only
+lives in the UI/infra layer (`lib/ui/features/match_reports/`), beside the
+share/copy gateways; the report domain stays Flutter-free (ADR-0001) and the
+attachment is exactly what Share/Copy would export
+(`MatchReportExporter.encode` / `fileNameFor`).
+
+- **Build-time DSN.** Sentry is configured from
+  `--dart-define=SENTRY_DSN=...`. With no DSN the SDK is never started, nothing
+  is transmitted, no consent notice is shown, and the report sheet says sending
+  is unavailable and offers Share/Copy.
+- **Consent.** Opt-out, default on, disclosed: a first-run notice on the home
+  menu (shown once, only in builds with a DSN) and a Settings > Privacy switch.
+  Nothing is sent until the notice has been answered. Opting out closes the
+  SDK, so no event of any kind leaves the device; every event also re-checks
+  consent in `beforeSend`.
+- **Privacy.** `sendDefaultPii: false`; `beforeSend` strips user, IP, server
+  name, device name/identifier and the locale/timezone (culture) context. No
+  sessions, traces, client reports, screenshots or `print` breadcrumbs; native
+  crash/ANR capture is off so every event passes through `beforeSend`. The
+  Sentry project should also enable *Prevent Storing of IP Addresses*.
+- **Manual.** "Report table issue" (pause) and "Export match report" (match
+  over) lead with **Send report**: a Sentry event tagged `source: user_report`
+  with the report attached, confirmed by a toast. Share/Copy remain beneath it
+  as the offline/power-user fallback, and are offered again if a send fails.
+- **Automatic.** A live match registers its in-flight report with
+  `LiveMatchReportSource`. It is attached when a freeze backstop trips
+  (`source: auto_backstop`; trigger `livelock_forced_draw` for the engine's
+  stock-exhaustion forced draw, `cpu_safety_cap` when the CPU loop stops on its
+  safety cap / auto-restart cap) and to errors (`source: uncaught_error`) from
+  the zone guard in `main.dart`, the SDK's `FlutterError` / platform-dispatcher
+  handlers, and a CPU turn that throws (`cpu_turn_error`). Practice, replay and
+  sandbox tables never capture.
+
 ## Replaying a report
 
 `replayMatchReport` (in `match_report_replay.dart`) restores the transcript's
