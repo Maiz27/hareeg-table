@@ -936,7 +936,7 @@ class _GameTableScreenState extends State<GameTableScreen>
       southHand,
       actionGate: actionGate,
     );
-    final meldSuggestions = _meldSuggestions(tableInteraction);
+    final meldSuggestions = tableInteraction.meldSuggestions();
     final meldValidation = isHumanTurn && southHand.hasSelection
         ? _controller.singleMeldValidationFor(
             humanSeat,
@@ -1709,18 +1709,6 @@ class _GameTableScreenState extends State<GameTableScreen>
       }
     }
     await _runHumanAction(ClassicHareegActionIds.returnPendingDiscard);
-  }
-
-  List<TableMeldSuggestion> _meldSuggestions(
-    ClassicHareegTableInteractionPlanner tableInteraction,
-  ) {
-    return [
-      for (final suggestion in tableInteraction.meldSuggestions())
-        TableMeldSuggestion(
-          actionId: suggestion.actionId,
-          cards: suggestion.cards,
-        ),
-    ];
   }
 
   void _toggleSelectedCard(HareegCard card) {

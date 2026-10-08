@@ -373,14 +373,6 @@ class _FakeTableInteractionActionReader
   }
 
   @override
-  List<CardIdentity> jokerRepresentationOptionsFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  ) {
-    return const [];
-  }
-
-  @override
   List<JokerMeldActionChoice> jokerMeldChoicesFor(
     PlayerSeat seat,
     List<String> cardIds,
@@ -391,9 +383,8 @@ class _FakeTableInteractionActionReader
   @override
   List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
     PlayerSeat seat,
-    List<String> selectedCardIds, {
-    int limit = 5,
-  }) {
+    List<String> selectedCardIds,
+  ) {
     return const [];
   }
 

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart'
+    show ClassicHareegMeldSuggestion;
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/rules/opening_rules.dart'
@@ -24,19 +26,6 @@ export 'seat_meld_lane.dart'
         TableMeldDropHandler,
         TableMeldRetractPredicate,
         TableMeldRetractHandler;
-
-/// A legal meld option rendered as cards on the table, not as a command row.
-@immutable
-class TableMeldSuggestion {
-  /// Creates a meld suggestion.
-  const TableMeldSuggestion({required this.actionId, required this.cards});
-
-  /// Controller action to run when this exact group is chosen.
-  final String actionId;
-
-  /// Physical cards in the option.
-  final List<HareegCard> cards;
-}
 
 /// Physical table layout for the active Classic Hareeg round.
 class PhysicalTablePlayfield extends StatelessWidget {
@@ -244,8 +233,9 @@ class PhysicalTablePlayfield extends StatelessWidget {
   /// valid selection is in flight.
   final VoidCallback? onPlaySelectedMeld;
 
-  /// Legal table meld options for the current selected cards.
-  final List<TableMeldSuggestion> meldSuggestions;
+  /// Legal table meld options for the current selected cards, rendered as
+  /// cards on the table rather than as a command row.
+  final List<ClassicHareegMeldSuggestion> meldSuggestions;
 
   /// Whether suggestions are allowed by table-aid preferences.
   final bool showMeldSuggestions;

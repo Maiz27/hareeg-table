@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../domain/classic_hareeg/game/classic_hareeg_table_play_planner.dart'
+    show ClassicHareegMeldSuggestion;
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_state.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/cards/card_view.dart';
 import '../../../core/theme/lounge_tokens.dart';
-import 'physical_table_playfield.dart' show TableMeldSuggestion;
 
 /// Horizontal scrollable rack of up to three legal meld suggestions, shown
 /// just above the south meld lane when the player has selected cards that
@@ -26,7 +27,7 @@ class MeldSuggestionRack extends StatelessWidget {
   final HareegCardTheme theme;
 
   /// Legal meld options for the current selection.
-  final List<TableMeldSuggestion> suggestions;
+  final List<ClassicHareegMeldSuggestion> suggestions;
 
   /// Card size used by each suggestion group.
   final Size cardSize;
@@ -92,7 +93,7 @@ class _SuggestionGroup extends StatelessWidget {
   });
 
   final HareegCardTheme theme;
-  final TableMeldSuggestion suggestion;
+  final ClassicHareegMeldSuggestion suggestion;
   final Size cardSize;
   final VoidCallback onTap;
   final ValueChanged<HareegCard> onCardLongPress;
