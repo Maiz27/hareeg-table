@@ -25,6 +25,7 @@ import '../domain/classic_hareeg/history/match_history_summary.dart';
 import '../ui/features/history/views/match_history_screen.dart';
 import '../ui/features/replay/views/match_replay_screen.dart';
 import '../ui/features/history/views/match_statistics_screen.dart';
+import '../ui/features/match_reports/match_report_diagnostics.dart';
 import '../ui/features/home/views/home_screen.dart';
 import '../ui/features/learning/models/practice_lesson_registry.dart';
 import '../ui/features/learning/practice/practice_session.dart';
@@ -53,6 +54,7 @@ class HareegTableApp extends StatefulWidget {
     this.learningProgressRepository,
     this.historyRepository,
     this.initialRouteOverride,
+    this.diagnostics,
     super.key,
   });
 
@@ -72,6 +74,9 @@ class HareegTableApp extends StatefulWidget {
   /// null the app shell starts at [AppRoutes.splash].
   final String? initialRouteOverride;
 
+  /// Crash/bug report gateway; defaults to [MatchReportDiagnostics.instance].
+  final MatchReportDiagnostics? diagnostics;
+
   @override
   State<HareegTableApp> createState() => _HareegTableAppState();
 }
@@ -85,11 +90,32 @@ class _HareegTableAppState extends State<HareegTableApp> {
   late final Future<LearningProgress> _learningFuture;
   late final TableHaptics _haptics;
   late final TableAudio _audio;
+  late final MatchReportDiagnostics _diagnostics;
   GamePreferences _values = GamePreferences.defaults();
+
+  /// Whether saved preferences have been read. Until then the defaults are a
+  /// placeholder, so neither the diagnostics notice nor consent acts on them.
+  bool _preferencesLoaded = false;
+
+  /// Whether the first-run diagnostics disclosure still has to be shown.
+  ///
+  /// A listenable rather than a constructor value because the home route is
+  /// built once, usually before preferences finish loading.
+  final _diagnosticsNoticePending = ValueNotifier<bool>(false);
+
+  /// Only a build that can actually send reports discloses them; a DSN-less
+  /// build has nothing to consent to.
+  void _syncDiagnosticsNotice() {
+    _diagnosticsNoticePending.value =
+        _preferencesLoaded &&
+        _diagnostics.isAvailable &&
+        !_values.diagnosticsNoticeSeen;
+  }
 
   @override
   void initState() {
     super.initState();
+    _diagnostics = widget.diagnostics ?? MatchReportDiagnostics.instance;
     _preferences = widget.preferencesRepository ?? AppRepositories.preferences;
     _matches = widget.matchRepository ?? AppRepositories.matches;
     _history = widget.historyRepository ?? AppRepositories.history;
@@ -154,13 +180,19 @@ class _HareegTableAppState extends State<HareegTableApp> {
       }
       setState(() {
         _values = values;
+        _preferencesLoaded = true;
         _haptics.enabled = values.hapticsEnabled;
         _audio.enabled = values.soundEnabled;
       });
+      _syncDiagnosticsNotice();
+      unawaited(
+        _diagnostics.applyConsent(allowed: values.diagnosticsConsented),
+      );
       if (values.soundEnabled) {
         unawaited(_audio.warmUp());
       }
     } catch (error, stackTrace) {
+      // Diagnostics stay off: without the saved choice there is no consent.
       debugPrint('Failed to load preferences in app shell: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -184,6 +216,10 @@ class _HareegTableAppState extends State<HareegTableApp> {
       _haptics.enabled = next.hapticsEnabled;
       _audio.enabled = next.soundEnabled;
     });
+    if (_preferencesLoaded) {
+      _syncDiagnosticsNotice();
+      unawaited(_diagnostics.applyConsent(allowed: next.diagnosticsConsented));
+    }
     if (next.soundEnabled) {
       unawaited(_audio.warmUp());
     }
@@ -197,6 +233,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
 
   @override
   void dispose() {
+    _diagnosticsNoticePending.dispose();
     unawaited(
       _audio.dispose().catchError((Object error, StackTrace stackTrace) {
         debugPrint('Failed to dispose audio gateway: $error');
@@ -261,8 +298,17 @@ class _HareegTableAppState extends State<HareegTableApp> {
         AppRoutes.splash: (context) => SplashScreen(
           onContinue: () => unawaited(_continueFromSplash(context)),
         ),
-        AppRoutes.home: (context) =>
-            HomeScreen(matchRepository: _matches, historyRepository: _history),
+        AppRoutes.home: (context) => HomeScreen(
+          matchRepository: _matches,
+          historyRepository: _history,
+          diagnosticsNoticePending: _diagnosticsNoticePending,
+          onDiagnosticsNoticeResolved: (enabled) => _updatePreferences(
+            _values.copyWith(
+              diagnosticsEnabled: enabled,
+              diagnosticsNoticeSeen: true,
+            ),
+          ),
+        ),
         AppRoutes.newGame: (context) =>
             NewGameSetupScreen(preferencesRepository: _preferences),
         AppRoutes.history: (context) =>
@@ -303,6 +349,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         cardThemes: CardThemeRegistry.all(),
         isMatchActive: false,
         initialSection: initialSection,
+        showPrivacy: _diagnostics.isAvailable,
       ),
       settings: settings,
     );
@@ -355,6 +402,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         ),
         preferences: _values,
         onPreferencesChanged: _updatePreferences,
+        diagnostics: _diagnostics,
       ),
       settings: settings,
     );

@@ -30,6 +30,7 @@ class SettingsScreen extends StatefulWidget {
     required this.cardThemes,
     required this.isMatchActive,
     this.initialSection,
+    this.showPrivacy = true,
   });
 
   /// Current preferences (driven by the app shell).
@@ -48,6 +49,10 @@ class SettingsScreen extends StatefulWidget {
   /// Section to expand on first frame, e.g. when the Start screen deep-links
   /// here from the "Edit in Settings" affordance.
   final SettingsSection? initialSection;
+
+  /// Whether to show the Privacy (crash & bug reports) section. False in
+  /// builds that cannot send reports, where the switch would do nothing.
+  final bool showPrivacy;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -370,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   preview: [appLanguageLabel(_preferences.language, strings)],
                   expanded: _openSection == SettingsSection.language,
                   onToggle: () => _toggle(SettingsSection.language),
-                  isLast: true,
+                  isLast: !widget.showPrivacy,
                   child: SettingsDropdown<AppLanguage>(
                     label: strings.language,
                     value: _preferences.language,
@@ -380,6 +385,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _save(_preferences.copyWith(language: value)),
                   ),
                 ),
+                if (widget.showPrivacy)
+                  SettingsAccordionSection(
+                    key: _sectionKeys[SettingsSection.privacy],
+                    icon: Icons.shield_outlined,
+                    title: strings.diagnosticsSectionTitle,
+                    description: strings.diagnosticsSectionDescription,
+                    preview: [
+                      _preferences.diagnosticsEnabled
+                          ? strings.diagnosticsPreviewOn
+                          : strings.diagnosticsPreviewOff,
+                    ],
+                    expanded: _openSection == SettingsSection.privacy,
+                    onToggle: () => _toggle(SettingsSection.privacy),
+                    isLast: true,
+                    child: SettingsSwitch(
+                      icon: Icons.bug_report_outlined,
+                      title: strings.diagnosticsToggleTitle,
+                      subtitle: strings.diagnosticsToggleSubtitle,
+                      value: _preferences.diagnosticsEnabled,
+                      // Changing it here is an informed choice, so it also
+                      // counts as having seen the first-run disclosure.
+                      onChanged: (value) => _save(
+                        _preferences.copyWith(
+                          diagnosticsEnabled: value,
+                          diagnosticsNoticeSeen: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: LoungeTokens.space5),
                 _AboutLink(
                   onTap: () =>

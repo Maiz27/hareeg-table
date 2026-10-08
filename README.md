@@ -46,6 +46,21 @@ flutter pub get
 flutter run
 ```
 
+#### Crash and bug reports (optional)
+
+Player reports and crash diagnostics go to Sentry, but only when the build
+is given a DSN at compile time:
+
+```sh
+flutter run --dart-define=SENTRY_DSN=https://<key>@<org>.ingest.sentry.io/<project>
+flutter build apk --release --dart-define=SENTRY_DSN=...
+```
+
+Without `SENTRY_DSN` the app never starts Sentry and sends nothing; "Report
+table issue" falls back to Share/Copy. See
+[Match reports](docs/design/match-reports.md#delivery-sentry) for what is sent
+and how consent works.
+
 ### Test
 
 ```sh

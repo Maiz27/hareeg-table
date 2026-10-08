@@ -43,6 +43,50 @@ timing are recorded. The transcript spans the whole match: one `MatchRecorder`
 is handed to each round's controller, and replay crosses round boundaries via
 the deterministic next-round deal.
 
+## Delivery (Sentry)
+
+Reports reach the developer through Sentry (`sentry_flutter`). The SDK only
+lives in the UI/infra layer (`lib/ui/features/match_reports/`), beside the
+share/copy gateways; the report domain stays Flutter-free (ADR-0001) and the
+attachment is exactly what Share/Copy would export
+(`MatchReportExporter.encode` / `fileNameFor`).
+
+- **Build-time DSN.** Sentry is configured from
+  `--dart-define=SENTRY_DSN=...`. With no DSN the SDK is never started, nothing
+  is transmitted, and the UI does not mention reports: no consent notice, no
+  Settings > Privacy section, and the report sheet offers only Share/Copy.
+- **Consent.** Opt-out, default on, disclosed: a first-run notice on the home
+  menu (shown once) and a Settings > Privacy switch, both only in builds with
+  a DSN.
+  Nothing is sent until the notice has been answered. Opting out closes the
+  SDK, so no event of any kind leaves the device; every event also re-checks
+  consent in `beforeSend`.
+- **Privacy.** `sendDefaultPii: false`; `beforeSend` strips user, IP, server
+  name and all breadcrumbs, and rebuilds the contexts from an allowlist
+  (device model/make/screen/memory, OS name and version, app version and
+  build), which drops the native installation ID, locale, timezone and every
+  other context. No sessions, traces, client reports, screenshots, `print` or
+  Android native breadcrumbs. Native crash capture that would bypass
+  `beforeSend` is off on Android: `enableNativeCrashHandling` / `anrEnabled`
+  cover the JVM handler and ANRs, and the `io.sentry.ndk.enable=false`
+  manifest metadata covers NDK (C/C++ signal) crashes, which are written
+  natively and never reach the Dart hook. The
+  Sentry project should also enable *Prevent Storing of IP Addresses*.
+- **Manual.** "Report table issue" (pause) and "Export match report" (match
+  over) lead with **Send report**: a Sentry event tagged `source: user_report`
+  with the report attached, confirmed by a toast that says it is queued (on
+  Android and iOS the SDK writes it to a native outbox; upload is
+  asynchronous and waits for a connection). Share/Copy remain beneath it
+  as the offline/power-user fallback, and are offered again if a send fails.
+- **Automatic.** A live match registers its in-flight report with
+  `LiveMatchReportSource`. It is attached when a freeze backstop trips
+  (`source: auto_backstop`; trigger `livelock_forced_draw` for the engine's
+  stock-exhaustion forced draw, `cpu_safety_cap` when the CPU loop stops on its
+  safety cap / auto-restart cap) and to errors (`source: uncaught_error`) from
+  the zone guard in `main.dart`, the SDK's `FlutterError` / platform-dispatcher
+  handlers, and a CPU turn that throws (`cpu_turn_error`). Practice, replay and
+  sandbox tables never capture.
+
 ## Replaying a report
 
 `replayMatchReport` (in `match_report_replay.dart`) restores the transcript's

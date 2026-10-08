@@ -72,6 +72,7 @@ import '../../../core/motion/celebration.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
 import '../widgets/table_hud_capsule.dart';
+import '../../match_reports/match_report_diagnostics.dart';
 import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
@@ -163,6 +164,8 @@ class GameTableScreen extends StatefulWidget {
     this.onSandboxRestart,
     this.sandboxCoachEnabled = false,
     this.onSandboxCoachToggled,
+    this.diagnostics,
+    this.liveMatchReports,
   });
 
   /// Setup used to deal the round.
@@ -218,6 +221,13 @@ class GameTableScreen extends StatefulWidget {
   /// Called when the sandbox coach is toggled. Null when the archived match
   /// had no coaching, which is what makes the toggle absent rather than off.
   final ValueChanged<bool>? onSandboxCoachToggled;
+
+  /// Crash/bug report gateway; defaults to [MatchReportDiagnostics.instance].
+  final MatchReportDiagnostics? diagnostics;
+
+  /// Where a live match registers its in-flight report for global error
+  /// handlers; defaults to [LiveMatchReportSource.instance].
+  final LiveMatchReportSource? liveMatchReports;
 
   /// Called when a practice lesson's final step is demonstrated, so the app
   /// shell can persist checklist completion. The table never touches learning
@@ -276,6 +286,11 @@ class _GameTableScreenState extends State<GameTableScreen>
   // table forever (the original freeze). Reset on any round-over / new round.
   int _cpuAutoRestarts = 0;
   static const _maxCpuAutoRestarts = 12;
+
+  /// The round controller whose livelock-backstop draw was already reported,
+  /// so one forced draw produces one diagnostics event however many times the
+  /// persistence path runs over it.
+  ClassicHareegGameController? _livelockReportedFor;
   bool _scoreOpen = false;
 
   /// Bumped for every Fifty strike; drives the strike overlay and the
@@ -474,6 +489,7 @@ class _GameTableScreenState extends State<GameTableScreen>
         data: {'stage': snapshot != null ? 'restore' : 'fresh-deal'},
       );
     }
+    _registerLiveMatchReport();
     _meldFlight = MeldFlightController(
       handLookup: _cardInHand,
       existingMeldCardCounts: (seat) => [
@@ -523,6 +539,7 @@ class _GameTableScreenState extends State<GameTableScreen>
 
   @override
   void dispose() {
+    _liveMatchReports.detach(this);
     _cues.removeListener(_handleCueOrFlightChange);
     _cues.dispose();
     _dealChoreography?.dispose();
@@ -2323,6 +2340,17 @@ class _GameTableScreenState extends State<GameTableScreen>
           );
         }
       });
+      if (hitCpuSafetyLimit && !shouldAutoRestart) {
+        // The freeze backstop stopped the table: ship the in-flight match so
+        // the stall can be replayed.
+        _captureBackstop(
+          'cpu_safety_cap',
+          tags: {
+            'human_removed': '$humanRemoved',
+            'auto_restarts': '$_cpuAutoRestarts',
+          },
+        );
+      }
       if (shouldAutoRestart && mounted) {
         _cpuAutoRestarts += 1;
         // Defer to the next microtask so the surrounding setState commits
@@ -2350,6 +2378,9 @@ class _GameTableScreenState extends State<GameTableScreen>
         'phase=${_controller.turnPhase} error=$error',
       );
       debugPrintStack(stackTrace: stackTrace);
+      // Caught so the table can recover, which also keeps it from every
+      // global handler — report it here, with the match that threw.
+      _captureError(error, stackTrace, trigger: 'cpu_turn_error');
       if (mounted) {
         setState(() {
           _isCpuRunning = false;
@@ -2391,6 +2422,7 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// round, eliminates seats and reaches a winner exactly as live play does,
   /// and reaches no repository because it holds none.
   Future<bool> _persistAndMaybeFinish() async {
+    _captureLivelockBackstopOnce();
     final persistencePlan = _advanceProgression();
     // Practice drives the table from a lesson script and has its own
     // completion overlay, so the round-result / next-round pipeline would

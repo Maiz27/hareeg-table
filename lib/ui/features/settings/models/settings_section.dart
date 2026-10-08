@@ -27,6 +27,9 @@ enum SettingsSection {
 
   /// Language selection.
   language,
+
+  /// Crash and bug report consent.
+  privacy,
 }
 
 /// Navigation arguments accepted by the Settings route.
