@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.0.0-alpha.11](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.10...v1.0.0-alpha.11) (2026-10-08)
+
+
+### Features
+
+* **cpu:** add public table reading and replay analysis coaching ([a6c7147](https://github.com/Maiz27/hareeg-table/commit/a6c7147356b239c539c8e0e90b213acfba2a3379))
+* **history:** add history statistics and recovery navigation ([063df40](https://github.com/Maiz27/hareeg-table/commit/063df40528a06d263b2f736f770e5c518e3a7cd4))
+* **history:** persist recoverable archives across native and web stores ([a7f7a74](https://github.com/Maiz27/hareeg-table/commit/a7f7a744dc410aa8f5bbca8db47be97ac3ef1004))
+* **menus:** bring practice overlays, step banner, reading panels and About into the lounge design ([a941c59](https://github.com/Maiz27/hareeg-table/commit/a941c59fe059aa3be4a323cccbce100b87243dcf))
+* **menus:** restructure home and setup screens ([48ab825](https://github.com/Maiz27/hareeg-table/commit/48ab82558d933680e0384ce670533120bd77b9c7))
+* **menus:** restyle guided practice and settings ([71a5065](https://github.com/Maiz27/hareeg-table/commit/71a5065c60319697ef8a1ebf7de1cb9f6bedef7d))
+* **menus:** restyle match history cards and stats tiles ([5087834](https://github.com/Maiz27/hareeg-table/commit/508783402101c59748dd6b0fb18c719dca0f3e3d))
+* **replay:** add responsive review controls and analysis settings ([0418345](https://github.com/Maiz27/hareeg-table/commit/041834576b20b3aa15fe5af21bf558be3e8a12c4))
+* **replay:** preserve exact match state and deterministic recordings ([2133521](https://github.com/Maiz27/hareeg-table/commit/213352118a3bf61bba2ccfb081d28123c547f2f1))
+* **sandbox:** branch recorded positions into isolated playable sessions ([3ec95d9](https://github.com/Maiz27/hareeg-table/commit/3ec95d9bca72359769664993a1907a03966b80bd))
+* **table:** add replay session capabilities and accessible controls ([ab235ea](https://github.com/Maiz27/hareeg-table/commit/ab235eac85dde384167ea89835874714227f8598))
+* **table:** add table rim, seat plates, and docked coach card ([5f3f53e](https://github.com/Maiz27/hareeg-table/commit/5f3f53e866a34266548c43850f3fe7c5b2626a69))
+* **table:** celebrate a won match and land the Fifty with impact ([45c3ba6](https://github.com/Maiz27/hareeg-table/commit/45c3ba6759cd62886bd73819250f9cf02e946e9c))
+* **table:** give the match-over screen the lounge treatment ([101fc89](https://github.com/Maiz27/hareeg-table/commit/101fc89905fd4f18522f73f5362407c7ad2bfade))
+* **table:** keep match scores as a score book ([4899917](https://github.com/Maiz27/hareeg-table/commit/4899917e638b8e2bb20a8adb73d9d14c3f422472))
+* **table:** redesign the score sheet and pause panel ([599af92](https://github.com/Maiz27/hareeg-table/commit/599af92c318b2c4932d95d63693629c77eb92225))
+* **table:** seat the game on a 2.5D table ([7db6d0f](https://github.com/Maiz27/hareeg-table/commit/7db6d0f74e3074f67397008a69e82498d7ec0642))
+* **theme:** bundle lounge typefaces and design tokens ([22e89d3](https://github.com/Maiz27/hareeg-table/commit/22e89d33a94b9ca0252f0e16c48b63dabdb025b1))
+
+
+### Bug Fixes
+
+* **cpu:** count multi-card covers and joker swaps as ways to keep a pickup ([5f0cadf](https://github.com/Maiz27/hareeg-table/commit/5f0cadfe9e76e5bee71ca5ad3ba674a5e0fdf2d3))
+* **cpu:** never take a discard the seat cannot keep ([43e5c71](https://github.com/Maiz27/hareeg-table/commit/43e5c718ee7c08aabd6d90151416a177bc08c81d))
+* **persistence:** reject malformed state without discarding recovery data ([f8b5e9b](https://github.com/Maiz27/hareeg-table/commit/f8b5e9bed73bbc671cd83d221576646e82e3b929))
+* **replay:** address recovery and CI review findings ([3d2f2ca](https://github.com/Maiz27/hareeg-table/commit/3d2f2ca0724869af8798bfad3311ea7c4bc2ae86))
+* **replay:** omit empty Fifty proof suffixes from saves ([605a1a3](https://github.com/Maiz27/hareeg-table/commit/605a1a38fbb0539e390274624d2c2a2cf44e180a))
+* **replay:** reread the score book after a legacy-web restart; check replay against the frozen state ([a3ad043](https://github.com/Maiz27/hareeg-table/commit/a3ad043206cc9e1c34ba7921ea7508c7991054dc))
+* **replay:** show readable verbosity choices in narrow layouts ([b418de9](https://github.com/Maiz27/hareeg-table/commit/b418de9a90353e8c08bffc06eace9a2ccc108c62))
+* **table:** direction-aware HUD, restored tap targets, spoken seat plates ([fdc0388](https://github.com/Maiz27/hareeg-table/commit/fdc0388f1e2f7183ccde8edf1ca842b9b0a72144))
+* **table:** keep the just-finished round in the score book ([3b15641](https://github.com/Maiz27/hareeg-table/commit/3b15641e9d5565b1c5201876d9734ea1e415f128))
+* **table:** keep the surface graphic centred under perspective ([2f3bcc5](https://github.com/Maiz27/hareeg-table/commit/2f3bcc57e9d26b9e3d6665cda63f7d73e5baa948))
+* **table:** shake the table without rebuilding it on a Fifty strike ([2385033](https://github.com/Maiz27/hareeg-table/commit/2385033308090f1196779f3e5c13a0e91514835d))
+* **ui:** guard sandbox callbacks and clarify save recovery ([f7de432](https://github.com/Maiz27/hareeg-table/commit/f7de432ed573b3e3af3d3ac12c6839d988e1acd6))
+* **ui:** handle setup save errors and accessible replay controls ([6b42ef0](https://github.com/Maiz27/hareeg-table/commit/6b42ef0739b087795a91334f362e788767640fc7))
+
 ## [1.0.0-alpha.10](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.9...v1.0.0-alpha.10) (2026-06-13)
 
 
