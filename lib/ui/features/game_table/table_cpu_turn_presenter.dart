@@ -90,7 +90,6 @@ class ClassicHareegTableCpuTurnPresenter {
     required this.hooks,
     this.actionLimit = 64,
     this.readPause = Duration.zero,
-    this.humanSeat = PlayerSeat.south,
   }) : assert(actionLimit > 0);
 
   /// Rules-engine controller to advance.
@@ -108,16 +107,12 @@ class ClassicHareegTableCpuTurnPresenter {
   /// Delay before each visible CPU decision.
   final Duration readPause;
 
-  /// Human-controlled seat.
-  final PlayerSeat humanSeat;
-
   /// Runs visible CPU turns until control leaves CPU flow.
   Future<ClassicHareegCpuTurnRunResult> runVisible() {
     return ClassicHareegCpuTurnRunner(
       controller: controller,
       strategy: strategy,
       actionLimit: actionLimit,
-      humanSeat: humanSeat,
       hooks: ClassicHareegCpuTurnHooks(
         beforeDecision: _beforeDecision,
         onLegalActions: _onLegalActions,
@@ -137,7 +132,6 @@ class ClassicHareegTableCpuTurnPresenter {
       final runner = ClassicHareegCpuTurnRunner(
         controller: controller,
         strategy: strategy,
-        humanSeat: humanSeat,
         actionLimit: actionLimit,
         // Silent about presentation, not about game state: a fast-forwarded
         // action changes the board exactly as much as a visible one does.

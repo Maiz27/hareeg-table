@@ -453,6 +453,52 @@ class PhysicalTablePlayfield extends StatelessWidget {
           compact: compact,
           axis: axis,
         );
+        Widget sideRail(PlayerSeat seat, {required bool alignRight}) =>
+            OpponentSideRail(
+              theme: theme,
+              count: cardCounts[seat] ?? 0,
+              cardSize: opponentCardSize,
+              active: currentSeat == seat,
+              thinking: isCpuRunning && currentSeat == seat,
+              eliminated: !activeSeats.contains(seat),
+              alignRight: alignRight,
+              compact: compact,
+              faceUpCards: _revealed(seat),
+              onExpand: _expandHandler(seat),
+              expandLabel: strings.branchStudyHandExpand(seat),
+            );
+        Widget stockPile() => TableStockPile(
+          theme: theme,
+          count: stockCount,
+          cardSize: tableCardSize,
+          compact: compact,
+          canDraw: isHumanTurn && canDrawStock,
+          onDraw: onDrawStock,
+          coachHighlight: coachHighlighting.highlightStock,
+        );
+        Widget meldLane(
+          PlayerSeat seat, {
+          Key? key,
+          required Size cardSize,
+          bool Function(HareegCard card)? canAcceptTable,
+          int quarterTurns = 0,
+        }) => SeatMeldLane(
+          key: key,
+          theme: theme,
+          owner: seat,
+          melds: tableMelds[seat] ?? const <PlacedMeld>[],
+          cardSize: cardSize,
+          compact: compact,
+          canAcceptTable: canAcceptTable ?? ((_) => false),
+          onAcceptTable: onPlayCardOnTable,
+          canAcceptMeld: canPlayCardOnMeld,
+          onAcceptMeld: onPlayCardOnMeld,
+          canRetractMeld: canRetractMeld,
+          onRetractMeld: onRetractMeld,
+          onCardLongPress: onCardLongPress,
+          quarterTurns: quarterTurns,
+          coachHighlighting: coachHighlighting,
+        );
 
         // Discard drop is handled by [_DiscardPile] itself so a card released
         // ON the pile gets routed (the previous wide field rectangle was
@@ -505,19 +551,7 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideRailHeight,
               child: SizedBox.expand(
                 key: const ValueKey('west-opponent-rail'),
-                child: OpponentSideRail(
-                  theme: theme,
-                  count: cardCounts[PlayerSeat.west] ?? 0,
-                  cardSize: opponentCardSize,
-                  active: currentSeat == PlayerSeat.west,
-                  thinking: isCpuRunning && currentSeat == PlayerSeat.west,
-                  eliminated: !activeSeats.contains(PlayerSeat.west),
-                  alignRight: false,
-                  compact: compact,
-                  faceUpCards: _revealed(PlayerSeat.west),
-                  onExpand: _expandHandler(PlayerSeat.west),
-                  expandLabel: strings.branchStudyHandExpand(PlayerSeat.west),
-                ),
+                child: sideRail(PlayerSeat.west, alignRight: false),
               ),
             ),
             Positioned(
@@ -527,34 +561,14 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideRailHeight,
               child: SizedBox.expand(
                 key: const ValueKey('east-opponent-rail'),
-                child: OpponentSideRail(
-                  theme: theme,
-                  count: cardCounts[PlayerSeat.east] ?? 0,
-                  cardSize: opponentCardSize,
-                  active: currentSeat == PlayerSeat.east,
-                  thinking: isCpuRunning && currentSeat == PlayerSeat.east,
-                  eliminated: !activeSeats.contains(PlayerSeat.east),
-                  alignRight: true,
-                  compact: compact,
-                  faceUpCards: _revealed(PlayerSeat.east),
-                  onExpand: _expandHandler(PlayerSeat.east),
-                  expandLabel: strings.branchStudyHandExpand(PlayerSeat.east),
-                ),
+                child: sideRail(PlayerSeat.east, alignRight: true),
               ),
             ),
             if (!centerStock)
               Positioned(
                 left: compact ? 6 : 10,
                 bottom: stockBottom,
-                child: TableStockPile(
-                  theme: theme,
-                  count: stockCount,
-                  cardSize: tableCardSize,
-                  compact: compact,
-                  canDraw: isHumanTurn && canDrawStock,
-                  onDraw: onDrawStock,
-                  coachHighlight: coachHighlighting.highlightStock,
-                ),
+                child: stockPile(),
               ),
             Positioned(
               top: discardTop,
@@ -590,22 +604,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
               left: horizontalMeldInset,
               right: horizontalMeldInset,
               height: compact ? 58 : 70,
-              child: SeatMeldLane(
+              child: meldLane(
+                PlayerSeat.north,
                 key: const ValueKey('north-meld-lane'),
-                theme: theme,
-                owner: PlayerSeat.north,
-                melds: tableMelds[PlayerSeat.north] ?? const <PlacedMeld>[],
                 cardSize: meldCardSize,
-                compact: compact,
-                canAcceptTable: (_) => false,
-                onAcceptTable: onPlayCardOnTable,
-                canAcceptMeld: canPlayCardOnMeld,
-                onAcceptMeld: onPlayCardOnMeld,
-                canRetractMeld: canRetractMeld,
-                onRetractMeld: onRetractMeld,
-                onCardLongPress: onCardLongPress,
-                stackVertically: false,
-                coachHighlighting: coachHighlighting,
               ),
             ),
             Positioned(
@@ -615,22 +617,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideMeldHeight,
               child: SizedBox.expand(
                 key: const ValueKey('west-meld-lane'),
-                child: SeatMeldLane(
-                  theme: theme,
-                  owner: PlayerSeat.west,
-                  melds: tableMelds[PlayerSeat.west] ?? const <PlacedMeld>[],
+                child: meldLane(
+                  PlayerSeat.west,
                   cardSize: sideMeldCardSize,
-                  compact: compact,
-                  canAcceptTable: (_) => false,
-                  onAcceptTable: onPlayCardOnTable,
-                  canAcceptMeld: canPlayCardOnMeld,
-                  onAcceptMeld: onPlayCardOnMeld,
-                  canRetractMeld: canRetractMeld,
-                  onRetractMeld: onRetractMeld,
-                  onCardLongPress: onCardLongPress,
-                  stackVertically: false,
                   quarterTurns: 1,
-                  coachHighlighting: coachHighlighting,
                 ),
               ),
             ),
@@ -641,22 +631,10 @@ class PhysicalTablePlayfield extends StatelessWidget {
               height: sideMeldHeight,
               child: SizedBox.expand(
                 key: const ValueKey('east-meld-lane'),
-                child: SeatMeldLane(
-                  theme: theme,
-                  owner: PlayerSeat.east,
-                  melds: tableMelds[PlayerSeat.east] ?? const <PlacedMeld>[],
+                child: meldLane(
+                  PlayerSeat.east,
                   cardSize: sideMeldCardSize,
-                  compact: compact,
-                  canAcceptTable: (_) => false,
-                  onAcceptTable: onPlayCardOnTable,
-                  canAcceptMeld: canPlayCardOnMeld,
-                  onAcceptMeld: onPlayCardOnMeld,
-                  canRetractMeld: canRetractMeld,
-                  onRetractMeld: onRetractMeld,
-                  onCardLongPress: onCardLongPress,
-                  stackVertically: false,
                   quarterTurns: 3,
-                  coachHighlighting: coachHighlighting,
                 ),
               ),
             ),
@@ -665,41 +643,19 @@ class PhysicalTablePlayfield extends StatelessWidget {
               right: horizontalMeldInset,
               bottom: southMeldBottom,
               height: southMeldHeight,
-              child: SeatMeldLane(
-                theme: theme,
-                owner: PlayerSeat.south,
-                melds: tableMelds[PlayerSeat.south] ?? const <PlacedMeld>[],
+              child: meldLane(
+                PlayerSeat.south,
                 cardSize: meldCardSize,
-                compact: compact,
                 // Lane glow is reserved for new-meld drops; covers and
                 // joker replacements light up the per-meld stack instead.
                 canAcceptTable: canPlaceMeldOnTable,
-                onAcceptTable: onPlayCardOnTable,
-                canAcceptMeld: canPlayCardOnMeld,
-                onAcceptMeld: onPlayCardOnMeld,
-                canRetractMeld: canRetractMeld,
-                onRetractMeld: onRetractMeld,
-                onCardLongPress: onCardLongPress,
-                stackVertically: false,
-                coachHighlighting: coachHighlighting,
               ),
             ),
             // The stock sits at the centre beside the discard, like the
             // pot on a real table; layered above the discard and the meld lanes' empty headroom so a tap on
             // the pile always draws (see resolveStockPileRect).
             if (centerStock)
-              Positioned.fromRect(
-                rect: stockRect,
-                child: TableStockPile(
-                  theme: theme,
-                  count: stockCount,
-                  cardSize: tableCardSize,
-                  compact: compact,
-                  canDraw: isHumanTurn && canDrawStock,
-                  onDraw: onDrawStock,
-                  coachHighlight: coachHighlighting.highlightStock,
-                ),
-              ),
+              Positioned.fromRect(rect: stockRect, child: stockPile()),
             if (activeFiftySeconds != null)
               Positioned(
                 left: fiftyCueLeft,

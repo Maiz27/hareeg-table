@@ -34,7 +34,6 @@ abstract final class TableMeldDropTargetPlanner {
     required int cardCount,
     required Offset localPosition,
     required Size bounds,
-    required bool vertical,
     required int quarterTurns,
   }) {
     return TableMeldDropTarget(
@@ -44,7 +43,6 @@ abstract final class TableMeldDropTargetPlanner {
         cardCount: cardCount,
         localPosition: localPosition,
         bounds: bounds,
-        vertical: vertical,
         quarterTurns: quarterTurns,
       ),
     );
@@ -55,17 +53,14 @@ abstract final class TableMeldDropTargetPlanner {
     required int cardCount,
     required Offset localPosition,
     required Size bounds,
-    required bool vertical,
     required int quarterTurns,
   }) {
     if (cardCount < 3) {
       return null;
     }
     final sideFacing = quarterTurns % 2 != 0;
-    final position = vertical || sideFacing
-        ? localPosition.dy
-        : localPosition.dx;
-    final extent = vertical || sideFacing ? bounds.height : bounds.width;
+    final position = sideFacing ? localPosition.dy : localPosition.dx;
+    final extent = sideFacing ? bounds.height : bounds.width;
     if (extent <= 0) {
       return null;
     }

@@ -120,7 +120,6 @@ class ScoreMedallion extends StatelessWidget {
     required this.diameter,
     required this.score,
     required this.eliminationScore,
-    this.active = false,
   });
 
   /// Medallion diameter.
@@ -132,9 +131,6 @@ class ScoreMedallion extends StatelessWidget {
   /// Score at which a seat is eliminated.
   final int eliminationScore;
 
-  /// Whether to draw the active (gold) edge and glow.
-  final bool active;
-
   @override
   Widget build(BuildContext context) {
     final motion = MotionScope.of(context);
@@ -145,7 +141,7 @@ class ScoreMedallion extends StatelessWidget {
       danger: eliminationScore <= 0
           ? 0
           : (score / eliminationScore).clamp(0.0, 1.0),
-      active: active,
+      active: false,
       thinking: false,
       duration: motion.scale(LoungeTokens.motionEmphasis),
       curve: motion.curve(Curves.easeOutCubic),
