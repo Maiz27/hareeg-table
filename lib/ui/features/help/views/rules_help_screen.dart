@@ -4,6 +4,7 @@ import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/brand/app_brand_mark.dart';
+import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../shared/medallion_backdrop.dart';
 
@@ -99,21 +100,14 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
+              // Same order as ever, each part now a card on the felt: the
+              // intro lit as the hero, the way into practice lit gold, and
+              // each rule on a quieter surface (design contract section 8).
               children: [
-                const _HelpIntro(),
-                const SizedBox(height: LoungeTokens.space5),
-                const _LearningEntryCard(),
-                const SizedBox(height: LoungeTokens.space5),
-                for (var i = 0; i < sections.length; i++) ...[
-                  _HelpSection(section: sections[i]),
-                  if (i < sections.length - 1)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: LoungeTokens.space4,
-                      ),
-                      child: _RuleDivider(),
-                    ),
-                ],
+                const _HelpCard(hero: true, child: _HelpIntro()),
+                const _HelpCard(accent: true, child: _LearningEntry()),
+                for (final section in sections)
+                  _HelpCard(child: _HelpSection(section: section)),
               ],
             ),
           ],
@@ -150,73 +144,114 @@ class _HelpIntro extends StatelessWidget {
   }
 }
 
+/// One part of the help page as a lounge card, like the licences screen's.
+class _HelpCard extends StatelessWidget {
+  const _HelpCard({
+    required this.child,
+    this.hero = false,
+    this.accent = false,
+  });
+
+  final Widget child;
+
+  /// The page's lead card, lit warmest and lifted.
+  final bool hero;
+
+  /// A gold-edged call to action, a step quieter than the hero.
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final decoration = hero
+        ? loungeLitPanel(strength: 0.16)
+        : accent
+        ? loungeLitPanel(
+            strength: 0.09,
+          ).copyWith(boxShadow: LoungeTokens.elevationL2)
+        : loungeLitPanel(
+            strength: 0.04,
+            edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+          ).copyWith(boxShadow: const []);
+    return Container(
+      margin: const EdgeInsets.only(bottom: LoungeTokens.space4),
+      padding: EdgeInsets.all(hero ? LoungeTokens.space5 : LoungeTokens.space4),
+      decoration: decoration,
+      child: child,
+    );
+  }
+}
+
+/// A card heading: the section's icon on a lit medallion beside its title.
+class _MedallionHeading extends StatelessWidget {
+  const _MedallionHeading({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        LoungeMedallion(icon: icon, size: 34, tone: LoungeMedallionTone.lit),
+        const SizedBox(width: LoungeTokens.space3),
+        Expanded(child: Text(title, style: LoungeTokens.heading)),
+      ],
+    );
+  }
+}
+
 /// Entry points back into the teaching layer: guided practice and the
 /// first-run onboarding intro.
-class _LearningEntryCard extends StatelessWidget {
-  const _LearningEntryCard();
+class _LearningEntry extends StatelessWidget {
+  const _LearningEntry();
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return Container(
-      padding: const EdgeInsets.all(LoungeTokens.space4),
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(
-          color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MedallionHeading(
+          icon: Icons.school_outlined,
+          title: strings.helpLearningTitle,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.school_outlined,
-                color: LoungeTokens.goldAccent,
-                size: 20,
-              ),
-              const SizedBox(width: LoungeTokens.space3),
-              Text(strings.helpLearningTitle, style: LoungeTokens.heading),
-            ],
-          ),
-          const SizedBox(height: LoungeTokens.space2),
-          Text(strings.helpLearningBody, style: LoungeTokens.bodyMuted),
-          const SizedBox(height: LoungeTokens.space3),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.practice),
-                icon: const Icon(Icons.play_arrow_outlined, size: 18),
-                label: Text(strings.practiceTitle),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: LoungeTokens.goldAccent,
-                  side: BorderSide(
-                    color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  // The theme minimum is full-width; shrink to row content.
-                  minimumSize: const Size(0, 40),
+        const SizedBox(height: LoungeTokens.space3),
+        Text(strings.helpLearningBody, style: LoungeTokens.bodyMuted),
+        const SizedBox(height: LoungeTokens.space3),
+        Wrap(
+          spacing: LoungeTokens.space3,
+          runSpacing: LoungeTokens.space2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.practice),
+              icon: const Icon(Icons.play_arrow_outlined, size: 18),
+              label: Text(strings.practiceTitle),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LoungeTokens.goldAccent,
+                side: BorderSide(
+                  color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
                 ),
+                visualDensity: VisualDensity.compact,
+                // The theme minimum is full-width; shrink to row content.
+                minimumSize: const Size(0, 40),
               ),
-              const SizedBox(width: LoungeTokens.space3),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(context).pushNamed(AppRoutes.onboarding),
-                style: TextButton.styleFrom(
-                  foregroundColor: LoungeTokens.mutedText,
-                  visualDensity: VisualDensity.compact,
-                  minimumSize: const Size(0, 40),
-                ),
-                child: Text(strings.practiceReplayIntro),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.onboarding),
+              style: TextButton.styleFrom(
+                foregroundColor: LoungeTokens.mutedText,
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(0, 40),
               ),
-            ],
-          ),
-        ],
-      ),
+              child: Text(strings.practiceReplayIntro),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -240,37 +275,13 @@ class _HelpSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(section.icon, color: LoungeTokens.goldAccent, size: 20),
-        const SizedBox(width: LoungeTokens.space3),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(section.title, style: LoungeTokens.heading),
-              const SizedBox(height: LoungeTokens.space2),
-              Text(
-                section.body,
-                style: LoungeTokens.body.copyWith(height: 1.45),
-              ),
-            ],
-          ),
-        ),
+        _MedallionHeading(icon: section.icon, title: section.title),
+        const SizedBox(height: LoungeTokens.space3),
+        Text(section.body, style: LoungeTokens.body.copyWith(height: 1.45)),
       ],
-    );
-  }
-}
-
-class _RuleDivider extends StatelessWidget {
-  const _RuleDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      color: LoungeTokens.sandLine.withValues(alpha: 0.22),
     );
   }
 }
