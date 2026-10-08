@@ -71,6 +71,7 @@ import '../widgets/physical_table_playfield.dart';
 import '../../../core/motion/celebration.dart';
 import '../widgets/score_overlay.dart';
 import '../widgets/table_background.dart';
+import '../widgets/table_hud_capsule.dart';
 import '../../match_reports/match_report_export_flow.dart';
 import '../../match_reports/match_report_exporter.dart';
 
@@ -1144,8 +1145,6 @@ class _GameTableScreenState extends State<GameTableScreen>
                 // Sizes scale with viewport width so tablets don't end up
                 // with tiny phone-sized controls.
                 final safe = MediaQuery.paddingOf(context);
-                final isLarge = viewport.maxWidth >= 900;
-                final isTablet = viewport.maxWidth >= 720;
                 // A sandbox floors its chrome at the 44 dp target B63 requires.
                 //
                 // Applied to the whole row rather than to the exit alone: a
@@ -1155,27 +1154,13 @@ class _GameTableScreenState extends State<GameTableScreen>
                 // deliberately — the live and practice tables keep the corner
                 // geometry earlier sprints accepted, and nothing here changes
                 // for them.
-                final chromeFloor = _mode.isBranch ? 44.0 : 0.0;
-                final buttonSize = math.max(
-                  chromeFloor,
-                  isLarge
-                      ? 44.0
-                      : isTablet
-                      ? 38.0
-                      : 30.0,
+                final metrics = TableHudMetrics.forViewport(
+                  viewport.maxWidth,
+                  floor: _mode.isBranch ? 44.0 : 0.0,
                 );
-                final iconSize = isLarge
-                    ? 20.0
-                    : isTablet
-                    ? 18.0
-                    : 16.0;
-                // The chrome now sits on the playing surface inside the rail,
-                // so it needs only a hairline of breathing room.
-                final edgeInset = isLarge
-                    ? 10.0
-                    : isTablet
-                    ? 8.0
-                    : 6.0;
+                final buttonSize = metrics.buttonSize;
+                final iconSize = metrics.iconSize;
+                final edgeInset = metrics.edgeInset;
                 // Side safe-insets are deliberately ignored: in landscape the
                 // OS pads an entire short edge for a punch-hole that actually
                 // sits vertically centered (and for system bars hidden by
@@ -1191,7 +1176,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                 // key and accessible name.
                 final segments = <Widget>[
                   if (_mode.isPractice)
-                    _TableChromeButton(
+                    TableChromeButton(
                       key: const ValueKey('practice-exit'),
                       tooltip: strings.practiceBackToList,
                       icon: Icons.close_rounded,
@@ -1200,7 +1185,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                       onPressed: () => Navigator.of(context).pop(),
                     )
                   else
-                    _TableChromeButton(
+                    TableChromeButton(
                       tooltip: strings.scores,
                       icon: Icons.leaderboard_rounded,
                       diameter: buttonSize,
@@ -1208,7 +1193,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                       onPressed: () => setState(() => _scoreOpen = true),
                     ),
                   if (!_mode.isPractice && _canShowFastForwardRound())
-                    _TableChromeButton(
+                    TableChromeButton(
                       key: const ValueKey('table-chrome-fast-forward'),
                       tooltip: strings.skipToNextRound,
                       icon: Icons.fast_forward_rounded,
@@ -1222,7 +1207,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                   // B46 keeps on a single policy; it asks the host, which
                   // confirms only after divergence.
                   if (_mode.isBranch)
-                    _TableChromeButton(
+                    TableChromeButton(
                       key: const ValueKey('branch-exit'),
                       tooltip: strings.branchExitSandbox,
                       semanticsLabel: strings.branchExitSandbox,
@@ -1234,7 +1219,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                   // Guided practice has no match to pause (its own close
                   // button exits to the hub), so pause is hidden in a lesson.
                   if (!_mode.isPractice)
-                    _TableChromeButton(
+                    TableChromeButton(
                       tooltip: strings.pauseTable,
                       icon: Icons.pause_rounded,
                       diameter: buttonSize,
@@ -1252,7 +1237,7 @@ class _GameTableScreenState extends State<GameTableScreen>
                     PositionedDirectional(
                       top: safe.top + edgeInset,
                       end: edgeInset,
-                      child: _TableHudCapsule(children: segments),
+                      child: TableHudCapsule(children: segments),
                     ),
                     if (_cues.feedback != null)
                       PositionedDirectional(
