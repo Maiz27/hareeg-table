@@ -279,115 +279,125 @@ class _HareegTableAppState extends State<HareegTableApp> {
         AppRoutes.strictnessExplainer: (context) =>
             StrictnessExplainerScreen(learningRepository: _learning),
       },
-      onGenerateRoute: (settings) {
-        if (settings.name == AppRoutes.settings) {
-          final args = settings.arguments;
-          final initialSection = args is SettingsRouteArguments
-              ? args.initialSection
-              : null;
-          return MaterialPageRoute<void>(
-            builder: (context) => SettingsScreen(
-              preferences: _values,
-              onUpdate: _updatePreferences,
-              cardThemes: CardThemeRegistry.all(),
-              isMatchActive: false,
-              initialSection: initialSection,
-            ),
-            settings: settings,
-          );
-        }
-
-        if (settings.name == AppRoutes.replay) {
-          final arguments = settings.arguments;
-          if (arguments is! MatchHistorySummary) {
-            return null;
-          }
-          return MaterialPageRoute<void>(
-            builder: (context) => MatchReplayScreen(
-              summary: arguments,
-              historyRepository: _history,
-              // The saved default seeds the session. The viewer may change it
-              // for this replay, and never writes it back.
-              analysisCoach: _values.analysisCoach,
-              // Read by a branch sandbox for motion, sound and card contrast.
-              // Handed in without `onPreferencesChanged`, because a sandbox
-              // has no route back to the store.
-              preferences: _values,
-            ),
-            settings: settings,
-          );
-        }
-
-        if (settings.name == AppRoutes.table) {
-          final arguments = settings.arguments;
-          // Resuming carries the whole checkpoint — identity, recorder state,
-          // Fifty counters, eliminations, coach history — because a bare
-          // snapshot cannot express any of it, and a match resumed from one
-          // loses its earlier transcript for good.
-          final checkpoint = arguments is MatchCheckpoint ? arguments : null;
-          final snapshot =
-              checkpoint?.snapshot ??
-              (arguments is ClassicHareegMatchSnapshot ? arguments : null);
-          final setup = arguments is ClassicHareegSetup
-              ? arguments
-              : snapshot?.setup ?? ClassicHareegSetup.defaults();
-          return MaterialPageRoute<void>(
-            builder: (context) => GameTableScreen(
-              setup: setup,
-              initialSnapshot: snapshot,
-              initialCheckpoint: checkpoint,
-              session: TableSessionConfig.live(
-                matchRepository: _matches,
-                historyRepository: _history,
-              ),
-              preferences: _values,
-              onPreferencesChanged: _updatePreferences,
-            ),
-            settings: settings,
-          );
-        }
-
-        if (settings.name == AppRoutes.practiceLesson) {
-          final lessonId = settings.arguments;
-          final script = lessonId is String
-              ? PracticeLessonRegistry.scriptFor(lessonId)
-              : null;
-          if (script == null) {
-            return null;
-          }
-          // Lessons run on the real table in practice mode: the session's
-          // deterministic controller, step-gated affordances, no CPU
-          // autonomy, and no active-match writes (PRD #64 amendment).
-          final session = PracticeSession(script: script);
-          return MaterialPageRoute<void>(
-            builder: (context) => GameTableScreen(
-              setup: session.controller.setup,
-              session: TableSessionConfig.practice(session),
-              preferences: _values,
-              onPreferencesChanged: _updatePreferences,
-              onPracticeFinished: _persistPracticeCompletion,
-              nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
-            ),
-            settings: settings,
-          );
-        }
-
-        if (settings.name == AppRoutes.practiceReadingPanel) {
-          final lessonId = settings.arguments;
-          if (lessonId is! String) {
-            return null;
-          }
-          return MaterialPageRoute<void>(
-            builder: (context) => PracticeReadingPanelScreen(
-              lessonId: lessonId,
-              learningRepository: _learning,
-            ),
-            settings: settings,
-          );
-        }
-
-        return null;
+      onGenerateRoute: (settings) => switch (settings.name) {
+        AppRoutes.settings => _settingsRoute(settings),
+        AppRoutes.replay => _replayRoute(settings),
+        AppRoutes.table => _tableRoute(settings),
+        AppRoutes.practiceLesson => _practiceLessonRoute(settings),
+        AppRoutes.practiceReadingPanel => _practiceReadingPanelRoute(settings),
+        _ => null,
       },
+    );
+  }
+
+  /// Settings, optionally opened at a requested section.
+  Route<void> _settingsRoute(RouteSettings settings) {
+    final args = settings.arguments;
+    final initialSection = args is SettingsRouteArguments
+        ? args.initialSection
+        : null;
+    return MaterialPageRoute<void>(
+      builder: (context) => SettingsScreen(
+        preferences: _values,
+        onUpdate: _updatePreferences,
+        cardThemes: CardThemeRegistry.all(),
+        isMatchActive: false,
+        initialSection: initialSection,
+      ),
+      settings: settings,
+    );
+  }
+
+  /// Replay review of one completed match.
+  Route<void>? _replayRoute(RouteSettings settings) {
+    final arguments = settings.arguments;
+    if (arguments is! MatchHistorySummary) {
+      return null;
+    }
+    return MaterialPageRoute<void>(
+      builder: (context) => MatchReplayScreen(
+        summary: arguments,
+        historyRepository: _history,
+        // The saved default seeds the session. The viewer may change it
+        // for this replay, and never writes it back.
+        analysisCoach: _values.analysisCoach,
+        // Read by a branch sandbox for motion, sound and card contrast.
+        // Handed in without `onPreferencesChanged`, because a sandbox
+        // has no route back to the store.
+        preferences: _values,
+      ),
+      settings: settings,
+    );
+  }
+
+  /// The live table, from a setup, a bare snapshot or a full checkpoint.
+  Route<void> _tableRoute(RouteSettings settings) {
+    final arguments = settings.arguments;
+    // Resuming carries the whole checkpoint — identity, recorder state,
+    // Fifty counters, eliminations, coach history — because a bare
+    // snapshot cannot express any of it, and a match resumed from one
+    // loses its earlier transcript for good.
+    final checkpoint = arguments is MatchCheckpoint ? arguments : null;
+    final snapshot =
+        checkpoint?.snapshot ??
+        (arguments is ClassicHareegMatchSnapshot ? arguments : null);
+    final setup = arguments is ClassicHareegSetup
+        ? arguments
+        : snapshot?.setup ?? ClassicHareegSetup.defaults();
+    return MaterialPageRoute<void>(
+      builder: (context) => GameTableScreen(
+        setup: setup,
+        initialSnapshot: snapshot,
+        initialCheckpoint: checkpoint,
+        session: TableSessionConfig.live(
+          matchRepository: _matches,
+          historyRepository: _history,
+        ),
+        preferences: _values,
+        onPreferencesChanged: _updatePreferences,
+      ),
+      settings: settings,
+    );
+  }
+
+  /// A practice lesson on the real table.
+  Route<void>? _practiceLessonRoute(RouteSettings settings) {
+    final lessonId = settings.arguments;
+    final script = lessonId is String
+        ? PracticeLessonRegistry.scriptFor(lessonId)
+        : null;
+    if (script == null) {
+      return null;
+    }
+    // Lessons run on the real table in practice mode: the session's
+    // deterministic controller, step-gated affordances, no CPU
+    // autonomy, and no active-match writes (PRD #64 amendment).
+    final session = PracticeSession(script: script);
+    return MaterialPageRoute<void>(
+      builder: (context) => GameTableScreen(
+        setup: session.controller.setup,
+        session: TableSessionConfig.practice(session),
+        preferences: _values,
+        onPreferencesChanged: _updatePreferences,
+        onPracticeFinished: _persistPracticeCompletion,
+        nextPracticeScript: PracticeLessonRegistry.nextScriptInPack,
+      ),
+      settings: settings,
+    );
+  }
+
+  /// The reading panel for one practice lesson.
+  Route<void>? _practiceReadingPanelRoute(RouteSettings settings) {
+    final lessonId = settings.arguments;
+    if (lessonId is! String) {
+      return null;
+    }
+    return MaterialPageRoute<void>(
+      builder: (context) => PracticeReadingPanelScreen(
+        lessonId: lessonId,
+        learningRepository: _learning,
+      ),
+      settings: settings,
     );
   }
 }
