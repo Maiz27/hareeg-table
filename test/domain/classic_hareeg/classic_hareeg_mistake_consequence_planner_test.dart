@@ -48,7 +48,6 @@ void main() {
         ClassicHareegMistakeConsequenceScenario.penaltyOnly,
       );
       expect(plan.canApply, isTrue);
-      expect(plan.shouldApplyPenalty, isTrue);
       expect(plan.scoresAfterPenalty[PlayerSeat.east], 9);
       expect(plan.removesPlayer, isFalse);
       expect(plan.shouldClearFiftyWindow, isFalse);

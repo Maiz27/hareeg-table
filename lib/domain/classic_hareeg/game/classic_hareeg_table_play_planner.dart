@@ -87,20 +87,6 @@ class ClassicHareegTablePlayPlanner {
   /// Pending discard awaiting use-or-return, if any.
   final HareegCard? pendingDiscard;
 
-  /// Validates selected hand cards as a full table play.
-  MeldValidationResult meldValidationFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  ) {
-    final cards = _cardsFromHand(seat, cardIds);
-    if (cards == null) {
-      return const MeldValidationResult.invalid(
-        'Selected cards are not all in hand.',
-      );
-    }
-    return resolveTablePlay(cards).result;
-  }
-
   /// Validates selected hand cards as one meld.
   MeldValidationResult singleMeldValidationFor(
     PlayerSeat seat,

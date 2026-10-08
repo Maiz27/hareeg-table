@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
-import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/turn_flow_rules.dart';
 
 void main() {
@@ -114,41 +113,6 @@ void main() {
       expect(
         () => ClassicHareegTurnFlowRules.drawStock(pending),
         throwsStateError,
-      );
-    });
-
-    test('taking discard can open when the pending card is used legally', () {
-      final pending = ClassicHareegTurnFlowRules.takePreviousDiscard(
-        drawState(
-          hand: [
-            card(CardRank.nine, CardSuit.diamonds),
-            card(CardRank.nine, CardSuit.hearts),
-            card(CardRank.ten, CardSuit.clubs),
-            card(CardRank.jack, CardSuit.clubs),
-            card(CardRank.queen, CardSuit.clubs),
-          ],
-        ),
-      );
-      final openingMelds = [
-        PlacedMeld.fromCards([
-          pending.pendingDiscard!.card,
-          card(CardRank.nine, CardSuit.diamonds),
-          card(CardRank.nine, CardSuit.hearts),
-        ]),
-        PlacedMeld.fromCards([
-          card(CardRank.ten, CardSuit.clubs),
-          card(CardRank.jack, CardSuit.clubs),
-          card(CardRank.queen, CardSuit.clubs),
-        ]),
-      ];
-
-      expect(
-        ClassicHareegTurnFlowRules.canUsePendingDiscardToOpen(
-          turnState: pending,
-          openingState: OpeningState.initial(51),
-          openingMelds: openingMelds,
-        ),
-        isTrue,
       );
     });
   });

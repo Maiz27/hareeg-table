@@ -138,15 +138,6 @@ class ClassicHareegFinishPlanner {
     return bit != null && (_extensionUnionMask & bit) != 0;
   }
 
-  /// Partitions every card except [finalDiscard] into legal melds.
-  List<PlacedMeld>? partitionWithout(HareegCard finalDiscard) {
-    final discardBit = _bitByCardId[finalDiscard.id];
-    if (discardBit == null) {
-      return null;
-    }
-    return _partition(_fullMask ^ discardBit);
-  }
-
   /// Plans melds plus covers using every card except [finalDiscard].
   ///
   /// Prefers a melds-only partition (the perfect-hand shape, exempt from the

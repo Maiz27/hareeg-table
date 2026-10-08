@@ -292,14 +292,3 @@ class ClassicHareegRestoredMatchState {
   /// empty otherwise.
   final DiscardHistory discardHistory;
 }
-
-extension on PlayerSeat {
-  PlayerSeat get previousAntiClockwise {
-    return switch (this) {
-      PlayerSeat.south => PlayerSeat.west,
-      PlayerSeat.east => PlayerSeat.south,
-      PlayerSeat.north => PlayerSeat.east,
-      PlayerSeat.west => PlayerSeat.north,
-    };
-  }
-}

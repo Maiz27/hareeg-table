@@ -247,23 +247,6 @@ class DiscardHistory implements DiscardHistoryView {
     }
   }
 
-  /// Clears all per-round memory.
-  void resetForNewRound() {
-    _events.clear();
-    for (final indices in _discardIndicesBySeat.values) {
-      indices.clear();
-    }
-    for (final indices in _pickupIndicesBySeat.values) {
-      indices.clear();
-    }
-    for (var i = 0; i < _countsByRank.length; i += 1) {
-      _countsByRank[i] = 0;
-    }
-    _identityCounts.clear();
-    _jokersDiscarded = 0;
-    _nextSequence = 0;
-  }
-
   @override
   Iterable<HareegCard> lastDiscardsBy(PlayerSeat seat, int n) {
     return _lastCardsFor(_discardIndicesBySeat[seat] ?? const [], n);

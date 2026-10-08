@@ -61,18 +61,6 @@ abstract final class ClassicHareegJokerRules {
     return List.unmodifiable(options);
   }
 
-  /// CPU deterministic represented identity choice for a joker placement.
-  static CardIdentity? deterministicCpuIdentity({
-    required List<HareegCard> cards,
-    required HareegCard joker,
-  }) {
-    final options = representationOptionsForMeld(cards: cards, joker: joker);
-    if (options.isEmpty) {
-      return null;
-    }
-    return options.first;
-  }
-
   /// Returns legal represented-joker variants for a single meld candidate.
   static List<JokerMeldResolution> resolveMeldVariants(
     List<HareegCard> cards, {

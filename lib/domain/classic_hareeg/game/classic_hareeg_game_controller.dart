@@ -976,23 +976,6 @@ class ClassicHareegGameController {
     return true;
   }
 
-  /// Plays [cardIds] from [seat]'s hand as one validated table meld.
-  ApplyActionResult playMeldFor(PlayerSeat seat, List<String> cardIds) {
-    if (seat != _currentSeat) {
-      return const ApplyActionResult.failure('It is not this seat\'s turn.');
-    }
-    return _applyPlayMeld(cardIds);
-  }
-
-  /// Validates selected hand cards as a playable meld, resolving an obvious
-  /// single-joker representation when only one identity makes the meld legal.
-  MeldValidationResult meldValidationFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  ) {
-    return _tablePlayPlanner.meldValidationFor(seat, cardIds);
-  }
-
   /// Validates selected hand cards as one meld, not as a full table-play
   /// partition. UI meld pickers use this so selected cards do not advertise
   /// additional opening bundles from the rest of the hand.
@@ -1083,16 +1066,6 @@ class ClassicHareegGameController {
       targetSeat: targetSeat,
       meldIndex: meldIndex,
     );
-  }
-
-  /// Sorts the seat's hand by suit and rank. Pure UI ergonomics; does not
-  /// affect any rule decision.
-  void sortHandFor(PlayerSeat seat) {
-    final hand = _hands[seat];
-    if (hand == null) {
-      return;
-    }
-    hand.sort(_compareCards);
   }
 
   ApplyActionResult _applyDrawStock() {
@@ -2131,7 +2104,7 @@ class ClassicHareegGameController {
     final pending = _pendingDiscard;
     final previousDiscardSeat =
         _previousDiscardSeat ??
-        (pending == null ? null : _previousAntiClockwise(_currentSeat));
+        (pending == null ? null : _currentSeat.previousAntiClockwise);
     return ClassicTurnFlowState(
       currentSeat: _currentSeat,
       phase: _classicTurnPhaseFrom(_phase),
@@ -3453,38 +3426,6 @@ TurnPhase _turnPhaseFrom(ClassicTurnPhase phase) {
     ClassicTurnPhase.draw => TurnPhase.draw,
     ClassicTurnPhase.action => TurnPhase.action,
   };
-}
-
-PlayerSeat _previousAntiClockwise(PlayerSeat seat) {
-  return switch (seat) {
-    PlayerSeat.south => PlayerSeat.west,
-    PlayerSeat.east => PlayerSeat.south,
-    PlayerSeat.north => PlayerSeat.east,
-    PlayerSeat.west => PlayerSeat.north,
-  };
-}
-
-/// Sorts a hand by suit + rank with jokers last via null-identity sort.
-int _compareCards(HareegCard left, HareegCard right) {
-  final leftIdentity = left.effectiveIdentity;
-  final rightIdentity = right.effectiveIdentity;
-  if (leftIdentity == null && rightIdentity == null) {
-    return left.id.compareTo(right.id);
-  }
-  if (leftIdentity == null) {
-    return 1;
-  }
-  if (rightIdentity == null) {
-    return -1;
-  }
-
-  final suitCompare = leftIdentity.suit.index.compareTo(
-    rightIdentity.suit.index,
-  );
-  if (suitCompare != 0) {
-    return suitCompare;
-  }
-  return leftIdentity.rank.order.compareTo(rightIdentity.rank.order);
 }
 
 /// How a discard attempt exits an active Fifty proof turn.

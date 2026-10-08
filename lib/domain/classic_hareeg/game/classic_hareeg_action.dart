@@ -292,11 +292,6 @@ abstract final class ClassicHareegActionIds {
     return ClassicHareegActionDescriptor(id: actionId, kind: exactKind);
   }
 
-  /// Returns whether [actionId] has [kind].
-  static bool hasKind(String actionId, ClassicHareegActionKind kind) {
-    return describe(actionId).kind == kind;
-  }
-
   /// Returns the card id encoded in a discard action id, if present.
   static String? discardCardId(String actionId) {
     final action = describe(actionId);

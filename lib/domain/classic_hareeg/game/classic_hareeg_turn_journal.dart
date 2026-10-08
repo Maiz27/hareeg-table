@@ -59,13 +59,6 @@ class ClassicHareegTurnJournal {
   /// Source of the card that enabled this turn's possible finish.
   FinishCardSource get source => _source;
 
-  /// Whether any reversible table play is staged this turn.
-  bool get hasAnyReversible {
-    return _openingMelds.isNotEmpty ||
-        _turnMelds.isNotEmpty ||
-        _coverPlays.isNotEmpty;
-  }
-
   /// Returns true when [meldIndex] is a valid index into the staged opening
   /// meld stack.
   bool isValidStagedOpeningIndex(int meldIndex) {
@@ -97,11 +90,6 @@ class ClassicHareegTurnJournal {
   void commitOpeningMelds() {
     _openingMelds.clear();
     _consumedPendingDiscard = null;
-  }
-
-  /// Records a regular meld play.
-  void recordTurnMeld(ClassicHareegTurnMeldPlay play) {
-    _turnMelds.add(play);
   }
 
   /// Records several regular meld plays in one batch.

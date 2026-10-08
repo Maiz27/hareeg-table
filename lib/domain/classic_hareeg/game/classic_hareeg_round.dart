@@ -133,11 +133,6 @@ class ClassicHareegRound {
   /// Seats still active in this dealt round.
   final List<PlayerSeat> activeSeats;
 
-  /// Anti-clockwise order beginning from the starter.
-  List<PlayerSeat> get turnOrder {
-    return _orderedActiveSeats(activeSeats, starter);
-  }
-
   /// Cards for a seat.
   List<HareegCard> handFor(PlayerSeat seat) {
     return hands[seat] ?? const [];
@@ -212,19 +207,4 @@ class ClassicHareegRound {
 
     return cards;
   }
-}
-
-List<PlayerSeat> _orderedActiveSeats(
-  List<PlayerSeat> activeSeats,
-  PlayerSeat starter,
-) {
-  final order = <PlayerSeat>[starter];
-  var next = starter.nextAntiClockwise;
-  while (next != starter) {
-    if (activeSeats.contains(next)) {
-      order.add(next);
-    }
-    next = next.nextAntiClockwise;
-  }
-  return List.unmodifiable(order);
 }
