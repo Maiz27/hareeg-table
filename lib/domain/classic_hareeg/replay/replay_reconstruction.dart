@@ -2,7 +2,6 @@ import '../game/classic_hareeg_game_controller.dart';
 import '../game/classic_hareeg_match_snapshot.dart';
 import '../game/round_seed_algorithm.dart';
 import '../game/classic_hareeg_discard_history.dart';
-import '../game/classic_hareeg_round.dart' show TurnPhase;
 import '../models/playing_card.dart';
 import '../rules/opening_rules.dart' show OpeningState, PlacedMeld;
 import '../models/player_seat.dart';
@@ -581,7 +580,3 @@ class ReplayReconstruction {
     );
   }
 }
-
-/// Turn phase re-export so replay consumers do not reach into the round file
-/// for a type the frame model already exposes.
-typedef ReplayTurnPhase = TurnPhase;

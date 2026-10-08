@@ -86,23 +86,6 @@ void main() {
       ]);
     });
 
-    test('CPU chooses deterministic represented identity', () {
-      final joker = HareegCard.joker(deckIndex: 0, jokerIndex: 0);
-      final identity = ClassicHareegJokerRules.deterministicCpuIdentity(
-        cards: [
-          card(CardRank.seven, CardSuit.clubs),
-          joker,
-          card(CardRank.seven, CardSuit.diamonds),
-        ],
-        joker: joker,
-      );
-
-      expect(
-        identity,
-        const CardIdentity(rank: CardRank.seven, suit: CardSuit.hearts),
-      );
-    });
-
     test('resolves meld variants with more than two unresolved jokers', () {
       const firstJoker = HareegCard.joker(deckIndex: 2, jokerIndex: 0);
       const secondJoker = HareegCard.joker(deckIndex: 2, jokerIndex: 1);

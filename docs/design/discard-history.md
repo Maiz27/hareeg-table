@@ -48,7 +48,6 @@ class DiscardHistory {
     required HareegCard card,
     required DiscardEventKind kind,
   });
-  void resetForNewRound();
 
   // --- Read API (consumed by CpuObservation) ---
   /// Last [n] discards by [seat] this round, newest-first. Returns an
@@ -138,9 +137,6 @@ boundary:
   `DiscardHistory`. **No explicit per-round reset method is called by the
   controller mid-life** — round boundaries always cross via controller
   construction, so the reset is structural, not procedural.
-
-`resetForNewRound()` is exposed for tests and future direct-reuse scenarios
-but is unused by production flow.
 
 ## 5. Persistence Stance
 

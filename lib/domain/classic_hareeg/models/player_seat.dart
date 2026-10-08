@@ -22,6 +22,16 @@ enum PlayerSeat {
     };
   }
 
+  /// Seat that acted before this seat in anti-clockwise order.
+  PlayerSeat get previousAntiClockwise {
+    return switch (this) {
+      PlayerSeat.south => PlayerSeat.west,
+      PlayerSeat.east => PlayerSeat.south,
+      PlayerSeat.north => PlayerSeat.east,
+      PlayerSeat.west => PlayerSeat.north,
+    };
+  }
+
   /// Parses a saved seat name.
   static PlayerSeat? fromName(String? name) {
     if (name == null) {

@@ -15,7 +15,6 @@ void main() {
       expect(journal.coverPlaysView, isEmpty);
       expect(journal.consumedPendingDiscard, isNull);
       expect(journal.source, FinishCardSource.stock);
-      expect(journal.hasAnyReversible, isFalse);
     });
 
     group('opening melds round-trip', () {
@@ -32,7 +31,6 @@ void main() {
 
         expect(journal.openingMeldsView, [tens]);
         expect(journal.finishMeldsView, [tens]);
-        expect(journal.hasAnyReversible, isTrue);
 
         final drained = journal.drainOpeningMelds();
         expect(drained, [tens]);
@@ -91,7 +89,7 @@ void main() {
     });
 
     group('turn meld plays round-trip', () {
-      test('recordTurnMeld then removeTurnMeld restores empty state', () {
+      test('recordTurnMelds then removeTurnMeld restores empty state', () {
         final journal = ClassicHareegTurnJournal();
         final meldPlay = ClassicHareegTurnMeldPlay(
           owner: PlayerSeat.south,
@@ -102,7 +100,7 @@ void main() {
           ]),
         );
 
-        journal.recordTurnMeld(meldPlay);
+        journal.recordTurnMelds([meldPlay]);
         journal.recordFinishMelds([meldPlay.meld]);
         expect(journal.turnMeldsView, [meldPlay]);
 
@@ -302,7 +300,7 @@ void main() {
 
         journal
           ..recordOpeningMelds([openingMeld], consumedPendingDiscard: pending)
-          ..recordTurnMeld(turnPlay)
+          ..recordTurnMelds([turnPlay])
           ..recordCoverPlay(coverPlay)
           ..recordFinishMelds([openingMeld, turnPlay.meld, coverPlay.coverMeld])
           ..setSource(FinishCardSource.previousDiscard);

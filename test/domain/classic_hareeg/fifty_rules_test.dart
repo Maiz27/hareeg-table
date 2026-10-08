@@ -46,49 +46,7 @@ void main() {
       expect(wrongPlayer.isValid, isFalse);
     });
 
-    test('blocking-tier action appears only when valid Fifty exists', () {
-      final discarded = card(CardRank.nine, CardSuit.clubs);
-      final window = ClassicHareegFiftyRules.openWindow(
-        discarder: PlayerSeat.south,
-        discardedCard: discarded,
-        durationSeconds: 4,
-      );
-
-      expect(
-        ClassicHareegFiftyRules.shouldShowBlockingTierAction(
-          window: window,
-          viewer: PlayerSeat.east,
-          elapsedSeconds: 1,
-          finishingMelds: [
-            meld([
-              card(CardRank.seven, CardSuit.clubs),
-              card(CardRank.eight, CardSuit.clubs),
-              discarded,
-            ]),
-          ],
-          finalDiscard: card(CardRank.two, CardSuit.hearts),
-        ),
-        isTrue,
-      );
-      expect(
-        ClassicHareegFiftyRules.shouldShowBlockingTierAction(
-          window: window,
-          viewer: PlayerSeat.east,
-          elapsedSeconds: 1,
-          finishingMelds: [
-            meld([
-              card(CardRank.seven, CardSuit.hearts),
-              card(CardRank.eight, CardSuit.hearts),
-              card(CardRank.nine, CardSuit.hearts),
-            ]),
-          ],
-          finalDiscard: card(CardRank.two, CardSuit.hearts),
-        ),
-        isFalse,
-      );
-    });
-
-    test('timer expiry blocks Fifty but allows normal pickup', () {
+    test('timer expiry blocks Fifty', () {
       final discarded = card(CardRank.nine, CardSuit.clubs);
       final window = ClassicHareegFiftyRules.openWindow(
         discarder: PlayerSeat.south,
@@ -110,14 +68,6 @@ void main() {
       );
 
       expect(expired.isValid, isFalse);
-      expect(
-        ClassicHareegFiftyRules.canTakeNormallyAfterMiss(
-          window: window,
-          player: PlayerSeat.east,
-          elapsedSeconds: 4,
-        ),
-        isTrue,
-      );
     });
 
     test('discarded card can be used after chained cover setup', () {

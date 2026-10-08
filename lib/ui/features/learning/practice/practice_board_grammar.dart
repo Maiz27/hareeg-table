@@ -45,17 +45,11 @@ abstract final class PracticeBoardGrammar {
   static bool handAndTableReadAsOneDeal(
     ClassicHareegMatchSnapshot snapshot,
     PlayerSeat seat, {
-    int dealtCards = dealtHandSize,
     int extraCardsInHand = 0,
   }) {
     final handCount = snapshot.hands[seat]?.length ?? 0;
     final tableCount = tableCardCount(snapshot.tableMelds[seat] ?? const []);
-    return handCount + tableCount == dealtCards + extraCardsInHand;
-  }
-
-  /// Id set for [cards].
-  static Set<String> idsOf(Iterable<HareegCard> cards) {
-    return {for (final card in cards) card.id};
+    return handCount + tableCount == dealtHandSize + extraCardsInHand;
   }
 
   /// Audits [snapshot] against declared board-design rules.
@@ -85,28 +79,23 @@ abstract final class PracticeBoardGrammar {
 
     for (final seat in spec.handAndTableSeats) {
       final extra = spec.extraCardsInHand[seat] ?? 0;
-      if (!handAndTableReadAsOneDeal(
-        snapshot,
-        seat,
-        dealtCards: spec.dealtCards,
-        extraCardsInHand: extra,
-      )) {
+      if (!handAndTableReadAsOneDeal(snapshot, seat, extraCardsInHand: extra)) {
         final handCount = snapshot.hands[seat]?.length ?? 0;
         final tableCount = tableCardCount(
           snapshot.tableMelds[seat] ?? const [],
         );
         failures.add(
           '${seat.name} hand + table is ${handCount + tableCount}; '
-          'expected ${spec.dealtCards + extra}.',
+          'expected ${dealtHandSize + extra}.',
         );
       }
     }
 
     for (final seat in spec.fullHandSeats) {
       final actual = snapshot.hands[seat]?.length ?? 0;
-      if (actual != spec.dealtCards) {
+      if (actual != dealtHandSize) {
         failures.add(
-          '${seat.name} hand has $actual cards; expected ${spec.dealtCards}.',
+          '${seat.name} hand has $actual cards; expected $dealtHandSize.',
         );
       }
     }
@@ -129,7 +118,7 @@ abstract final class PracticeBoardGrammar {
   }
 
   /// Cards in [seat]'s hand that are not part of any declared teaching group.
-  static List<HareegCard> fillerCards(
+  static List<HareegCard> _fillerCards(
     ClassicHareegMatchSnapshot snapshot,
     PlayerSeat seat,
     List<Set<String>> taughtMelds,
@@ -151,7 +140,7 @@ abstract final class PracticeBoardGrammar {
     PlayerSeat seat,
     List<Set<String>> taughtMelds,
   ) {
-    final fillers = fillerCards(snapshot, seat, taughtMelds);
+    final fillers = _fillerCards(snapshot, seat, taughtMelds);
     final stray = MeldPartitionEnumerator.partitionsOf(
       fillers,
       maxMelds: 1,
@@ -171,16 +160,12 @@ abstract final class PracticeBoardGrammar {
 class PracticeBoardAuditSpec {
   /// Creates an audit spec.
   const PracticeBoardAuditSpec({
-    this.dealtCards = PracticeBoardGrammar.dealtHandSize,
     this.handAndTableSeats = const {},
     this.extraCardsInHand = const {},
     this.expectedTableValues = const {},
     this.fullHandSeats = const {},
     this.minimumDiscardPileSize,
   });
-
-  /// Expected dealt hand size for seats under audit.
-  final int dealtCards;
 
   /// Seats whose hand plus own table cards must account for one deal.
   final Set<PlayerSeat> handAndTableSeats;

@@ -25,7 +25,6 @@ void main() {
         result.actionId,
         '${ClassicHareegActionIds.discardPrefix}${discard.id}',
       );
-      expect(result.appliesMistake, isFalse);
     });
 
     test('normal joker discards stay hard-blocked and hidden', () {
@@ -97,7 +96,6 @@ void main() {
         '${ClassicHareegActionIds.discardBlockedCoverPrefix}${replacement.id}',
       );
       expect(result.mistakeType, MistakeType.illegalCoverDiscard);
-      expect(result.appliesMistake, isTrue);
       expect(result.mistakeResolution?.penaltyPoints, 3);
       expect(result.mistakeResolution?.removeFromRound, isFalse);
     });
@@ -127,7 +125,6 @@ void main() {
         );
         expect(result.isAllowed, isTrue);
         expect(result.shouldAdvertise, isTrue);
-        expect(result.appliesMistake, isTrue);
         expect(result.mistakeResolution?.penaltyPoints, 17);
         expect(result.mistakeResolution?.removeFromRound, isTrue);
       },
@@ -165,7 +162,6 @@ void main() {
           expect(result.isAllowed, isTrue);
           expect(result.shouldAdvertise, isTrue);
           expect(result.actionPrefix, ClassicHareegActionIds.discardPrefix);
-          expect(result.appliesMistake, isFalse);
         }
       },
     );

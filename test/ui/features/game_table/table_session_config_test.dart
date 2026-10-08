@@ -241,7 +241,7 @@ void main() {
         );
         expect(identical(config.branchSeed, _seed), isTrue);
         expect(config.practiceSession, isNull);
-        expect(config.durable, isNull);
+        expect(config.persistence, isA<EphemeralTablePersistence>());
       }
     });
 

@@ -8,6 +8,11 @@ import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 HareegCard _c(CardRank rank, CardSuit suit, {int deckIndex = 0}) =>
     HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex);
 
+/// Keep score for a single [card] within [hand], read off [handKeepScores].
+int discardKeepScore(HareegCard card, List<HareegCard> hand) {
+  return handKeepScores(hand)[card.id] ?? partialSoloValue(card, hand);
+}
+
 /// The lowest-scoring card id in [hand] — the one the discard logic would shed.
 String _lowestKeep(List<HareegCard> hand) {
   final scores = handKeepScores(hand);

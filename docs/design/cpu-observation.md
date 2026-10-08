@@ -93,7 +93,6 @@ abstract interface class MeldPartitionView {
   /// partitions; Skilled/Expert can rank by partition score, joker count,
   /// or meld length. Pulling is bounded so the CPU never blocks the isolate.
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
   });
 
@@ -225,7 +224,8 @@ ship while Expert is still a passthrough alias to Skilled).
    pass untouched.
 2. **Move `ClassicHareegCpuMovePlanner.evaluate` into `PriorityCpuMovePlanner`,**
    keeping the static `evaluate(legalActionIds)` as a deprecated facade that
-   delegates. `cpu_move_planner_test.dart` keeps using the facade.
+   delegates. `cpu_move_planner_test.dart` keeps using the facade. (The facade
+   was later removed; callers and tests use `PriorityCpuMovePlanner.evaluate`.)
 3. **Add `DiscardHistory` to the controller** (sibling design). Runner threads it
    into `LiveCpuObservation`. Still no strategy change.
 4. **Add `MeldPartitionEnumerator` and wire it through `MeldPartitionView`** in
@@ -255,7 +255,7 @@ or dealing a round:
 - "Near elimination (ownScore == 26, threshold 30), Expert chooses to claim Fifty
   even when a meld play is available" — fake `scoreView` and `legalActionIds`.
 - "Skilled returns pending discard when no partition uses it" — fake `partitions`
-  returning empty when `includePendingDiscard: true`.
+  returning empty.
 
 None of these need the rules engine. They become fast, deterministic unit tests
 against the strategy module alone.

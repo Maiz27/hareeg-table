@@ -48,7 +48,7 @@ abstract final class TableMechanicsPracticePack {
     return PracticeLessonScript(
       lessonId: 'pending-discard',
       taughtMelds: [
-        {for (final card in twos) card.id},
+        PracticeBoard.idsOf(twos),
         {fourHearts.id, fourDiamonds.id},
       ],
       buildSnapshot: () => PracticeBoard.build(
@@ -110,13 +110,14 @@ abstract final class TableMechanicsPracticePack {
           prompt: (s) => s.practicePendingStep4,
           hint: (s) => s.practicePendingStep4Hint,
           successNote: (s) => s.practicePendingStep4Done,
-          allows: PracticeScriptAuthoring.playsExactly({
-            for (final card in twos) card.id,
-          }),
-          isDemonstrated: PracticeScriptAuthoring.tableHolds(PlayerSeat.south, {
-            for (final card in twos) card.id,
-          }),
-          highlightCardIds: {for (final card in twos) card.id},
+          allows: PracticeScriptAuthoring.playsExactly(
+            PracticeBoard.idsOf(twos),
+          ),
+          isDemonstrated: PracticeScriptAuthoring.tableHolds(
+            PlayerSeat.south,
+            PracticeBoard.idsOf(twos),
+          ),
+          highlightCardIds: PracticeBoard.idsOf(twos),
         ),
         PracticeStep.kinds(
           prompt: (s) => s.practiceCoverFinishStep,
@@ -163,9 +164,7 @@ abstract final class TableMechanicsPracticePack {
     ];
     return PracticeLessonScript(
       lessonId: 'benchmark-pressure',
-      taughtMelds: [
-        {for (final card in heartRun) card.id},
-      ],
+      taughtMelds: [PracticeBoard.idsOf(heartRun)],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
           ...heartRun,
@@ -211,10 +210,10 @@ abstract final class TableMechanicsPracticePack {
           prompt: (s) => s.practiceBenchmarkStep2,
           hint: (s) => s.practiceBenchmarkStep2Hint,
           successNote: (s) => s.practiceBenchmarkStep2Done,
-          allows: PracticeScriptAuthoring.playsExactly({
-            for (final card in heartRun) card.id,
-          }),
-          highlightCardIds: {for (final card in heartRun) card.id},
+          allows: PracticeScriptAuthoring.playsExactly(
+            PracticeBoard.idsOf(heartRun),
+          ),
+          highlightCardIds: PracticeBoard.idsOf(heartRun),
         ),
         // The retract as the taught move: the step filter names the
         // take-back kinds, so they advance here instead of holding as
@@ -334,7 +333,7 @@ abstract final class TableMechanicsPracticePack {
           // Group 0: the cover you hold. Group 1: west's set it completes.
           highlightGroups: [
             {kingClubs.id},
-            {for (final card in westKings) card.id},
+            PracticeBoard.idsOf(westKings),
           ],
         ),
         PracticeStep.kinds(
@@ -452,7 +451,7 @@ abstract final class TableMechanicsPracticePack {
           // Group 0: the cards you stack. Group 1: west's run they extend.
           highlightGroups: [
             {jackDiamonds.id, queenDiamonds.id},
-            {for (final card in westRun) card.id},
+            PracticeBoard.idsOf(westRun),
           ],
         ),
         PracticeStep(
@@ -469,7 +468,7 @@ abstract final class TableMechanicsPracticePack {
           // Group 0: the cover you hold. Group 1: west's eights it fills.
           highlightGroups: [
             {eightDiamonds.id},
-            {for (final card in westEights) card.id},
+            PracticeBoard.idsOf(westEights),
           ],
         ),
         PracticeStep.kinds(
@@ -557,7 +556,7 @@ abstract final class TableMechanicsPracticePack {
           // complete — the reason the pile refuses it.
           highlightGroups: [
             {tenHearts.id},
-            {for (final card in westTens) card.id},
+            PracticeBoard.idsOf(westTens),
           ],
         ),
       ],

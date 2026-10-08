@@ -178,8 +178,14 @@ void main() {
       final workflow = LearningProgressWorkflow(repository);
 
       await workflow.completeLesson('turn-rhythm');
-      await workflow.skipLesson('first-meld');
-      await workflow.unskipLesson('first-meld');
+      await workflow.setLessonStatus(
+        'first-meld',
+        PracticeLessonStatus.skipped,
+      );
+      await workflow.setLessonStatus(
+        'first-meld',
+        PracticeLessonStatus.notStarted,
+      );
 
       expect(
         repository.progress.statusFor('turn-rhythm'),
@@ -201,7 +207,10 @@ void main() {
         final screenA = LearningProgressWorkflow(repository);
         final screenB = LearningProgressWorkflow(repository);
 
-        final first = screenA.skipLesson('turn-rhythm');
+        final first = screenA.setLessonStatus(
+          'turn-rhythm',
+          PracticeLessonStatus.skipped,
+        );
         final second = screenB.completeLesson('first-meld');
         await Future.wait([first, second]);
 

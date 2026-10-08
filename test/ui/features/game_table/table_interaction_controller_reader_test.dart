@@ -9,6 +9,7 @@ import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/cover_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 import 'package:hareeg_table/ui/features/game_table/table_interaction_planner.dart';
+import 'package:hareeg_table/ui/features/game_table/table_meld_drop_target.dart';
 
 void main() {
   group('ClassicHareegTableInteractionPlanner controller reader', () {
@@ -261,18 +262,15 @@ void main() {
       );
       final planner = _controllerPlanner(controller);
 
-      final blocked = planner.resolveMeldDrop(
-        duplicateHeart,
-        PlayerSeat.east,
-        0,
+      const eastMeld = TableMeldDropTarget(
+        owner: PlayerSeat.east,
+        meldIndex: 0,
       );
+      final blocked = planner.resolveMeldDropTarget(duplicateHeart, eastMeld);
 
       expect(blocked.isAction, isFalse);
       expect(blocked.failureMessage, 'That card does not fit this meld.');
-      expect(
-        planner.canDropCardToMeld(missingDiamond, PlayerSeat.east, 0),
-        isTrue,
-      );
+      expect(planner.canDropCardToMeldTarget(missingDiamond, eastMeld), isTrue);
     });
   });
 }
@@ -375,14 +373,6 @@ class _FakeTableInteractionActionReader
   }
 
   @override
-  List<CardIdentity> jokerRepresentationOptionsFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  ) {
-    return const [];
-  }
-
-  @override
   List<JokerMeldActionChoice> jokerMeldChoicesFor(
     PlayerSeat seat,
     List<String> cardIds,
@@ -393,9 +383,8 @@ class _FakeTableInteractionActionReader
   @override
   List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
     PlayerSeat seat,
-    List<String> selectedCardIds, {
-    int limit = 5,
-  }) {
+    List<String> selectedCardIds,
+  ) {
     return const [];
   }
 

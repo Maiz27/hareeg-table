@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_action.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
 import 'package:hareeg_table/ui/features/game_table/table_hand_interaction_state.dart';
 
@@ -79,40 +78,6 @@ void main() {
           first.id,
         ]);
         expect(snapshot.selectedCardIds, [second.id, third.id, first.id]);
-      },
-    );
-
-    test(
-      'action clearing preserves selection for draw and clears table play',
-      () {
-        final first = _card(CardRank.ten, CardSuit.spades, 5);
-        final second = _card(CardRank.jack, CardSuit.spades, 5);
-        final third = _card(CardRank.queen, CardSuit.spades, 5);
-        final state = ClassicHareegHandInteractionState()
-          ..resetFromHand([first, second, third], HandSortMode.manual)
-          ..toggleSelection(first)
-          ..toggleSelection(second)
-          ..toggleSelection(third);
-
-        state.clearSelectionForAction(ClassicHareegActionIds.drawStock);
-        expect(state.reconcile([first, second, third]).selectedCardIds, [
-          first.id,
-          second.id,
-          third.id,
-        ]);
-
-        state.clearSelectionForAction(
-          ClassicHareegActionIds.playMeldActionId([
-            first.id,
-            second.id,
-            third.id,
-          ]),
-        );
-
-        expect(
-          state.reconcile([first, second, third]).selectedCardIds,
-          isEmpty,
-        );
       },
     );
   });

@@ -290,10 +290,6 @@ class ReplayTableGeometry {
     eastCards,
   ];
 
-  /// The two surfaces the owner allowed the west-side analysis popover to cover
-  /// while it is open. Everything else in [protectedRects] stays inviolable.
-  List<Rect> get popoverCoverable => <Rect>[westCards, westMeldLane];
-
   /// Protected content the popover must still avoid.
   ///
   /// Listed rather than filtered out of [protectedRects]: two seats can project
@@ -385,9 +381,6 @@ class ReplayLayoutDecision {
 
   /// The placement the HUD renders at.
   final ReplayHudRails rails;
-
-  /// Width available to the HUD.
-  double get bodyWidth => body.width;
 }
 
 /// Pure geometry for the replay HUD.

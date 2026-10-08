@@ -155,7 +155,6 @@ abstract interface class CpuObservation {
 abstract interface class MeldPartitionView {
   /// Lazily enumerates candidate partitions for the CPU hand.
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -171,7 +170,6 @@ final class EmptyMeldPartitionView implements MeldPartitionView {
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -376,19 +374,7 @@ final class CpuObservationFacts implements CpuObservation {
 
   @override
   List<PlayerSeat> get opponents {
-    final configured = _opponents;
-    if (configured != null) {
-      return configured;
-    }
-    final result = <PlayerSeat>[];
-    var cursor = seat.nextAntiClockwise;
-    while (cursor != seat) {
-      if (activeSeats.contains(cursor)) {
-        result.add(cursor);
-      }
-      cursor = cursor.nextAntiClockwise;
-    }
-    return List.unmodifiable(result);
+    return _opponents ?? _opponentsInTurnOrder(seat, activeSeats);
   }
 
   @override
@@ -396,33 +382,12 @@ final class CpuObservationFacts implements CpuObservation {
 
   @override
   MeldPartition? shortestSingleMeld() {
-    final configured = _shortestSingleMeld;
-    if (configured != null) {
-      return configured;
-    }
-    final candidates =
-        partitions
-            .enumerate(maxPartitions: 128, minMelds: 1, maxMelds: 1)
-            .toList()
-          ..sort(MeldPartitionRankers.byMeanMeldLengthAsc);
-    if (candidates.isEmpty) {
-      return null;
-    }
-    return candidates.first;
+    return _shortestSingleMeld ?? _shortestSingleMeldOf(partitions);
   }
 
   @override
   MeldPartition? finishingPartition() {
-    final configured = _finishingPartition;
-    if (configured != null) {
-      return configured;
-    }
-    for (final partition in partitions.enumerate(maxPartitions: 128)) {
-      if (partition.cardsRemaining.length <= 1) {
-        return partition;
-      }
-    }
-    return null;
+    return _finishingPartition ?? _finishingPartitionOf(partitions);
   }
 
   @override
@@ -453,7 +418,6 @@ final class LiveMeldPartitionView implements MeldPartitionView {
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -464,17 +428,8 @@ final class LiveMeldPartitionView implements MeldPartitionView {
       return const [];
     }
 
-    final pending = controller.pendingDiscard;
-    final hand = controller.handFor(seat);
-    final cards = !includePendingDiscard && pending != null
-        ? [
-            for (final card in hand)
-              if (card.id != pending.id) card,
-          ]
-        : hand;
-
     return MeldPartitionEnumerator.partitionsOf(
-      cards,
+      controller.handFor(seat),
       minMelds: minMelds,
       maxMelds: maxMelds,
       mustUseCardId: mustUseCardId,
@@ -593,17 +548,7 @@ final class LiveCpuObservation implements CpuObservation {
   PlayerSeat get currentSeat => controller.currentSeat;
 
   @override
-  List<PlayerSeat> get opponents {
-    final opponents = <PlayerSeat>[];
-    var cursor = seat.nextAntiClockwise;
-    while (cursor != seat) {
-      if (activeSeats.contains(cursor)) {
-        opponents.add(cursor);
-      }
-      cursor = cursor.nextAntiClockwise;
-    }
-    return List.unmodifiable(opponents);
-  }
+  List<PlayerSeat> get opponents => _opponentsInTurnOrder(seat, activeSeats);
 
   @override
   PlayerSeat? get fiftyClaimant => controller.fiftyClaimant;
@@ -619,30 +564,50 @@ final class LiveCpuObservation implements CpuObservation {
       controller.isFiftyProofTurn && controller.currentSeat == seat;
 
   @override
-  MeldPartition? shortestSingleMeld() {
-    final candidates =
-        partitions
-            .enumerate(maxPartitions: 128, minMelds: 1, maxMelds: 1)
-            .toList()
-          ..sort(MeldPartitionRankers.byMeanMeldLengthAsc);
-    if (candidates.isEmpty) {
-      return null;
-    }
-    return candidates.first;
-  }
+  MeldPartition? shortestSingleMeld() => _shortestSingleMeldOf(partitions);
 
   @override
-  MeldPartition? finishingPartition() {
-    for (final partition in partitions.enumerate(maxPartitions: 128)) {
-      if (partition.cardsRemaining.length <= 1) {
-        return partition;
-      }
-    }
-    return null;
-  }
+  MeldPartition? finishingPartition() => _finishingPartitionOf(partitions);
 
   @override
   CpuDifficultyProfile get difficultyProfile {
     return CpuDifficultyProfile.forDifficulty(difficulty);
   }
+}
+
+/// Active seats other than [seat], anti-clockwise from [seat].
+List<PlayerSeat> _opponentsInTurnOrder(
+  PlayerSeat seat,
+  List<PlayerSeat> activeSeats,
+) {
+  final opponents = <PlayerSeat>[];
+  var cursor = seat.nextAntiClockwise;
+  while (cursor != seat) {
+    if (activeSeats.contains(cursor)) {
+      opponents.add(cursor);
+    }
+    cursor = cursor.nextAntiClockwise;
+  }
+  return List.unmodifiable(opponents);
+}
+
+MeldPartition? _shortestSingleMeldOf(MeldPartitionView partitions) {
+  final candidates =
+      partitions
+          .enumerate(maxPartitions: 128, minMelds: 1, maxMelds: 1)
+          .toList()
+        ..sort(MeldPartitionRankers.byMeanMeldLengthAsc);
+  if (candidates.isEmpty) {
+    return null;
+  }
+  return candidates.first;
+}
+
+MeldPartition? _finishingPartitionOf(MeldPartitionView partitions) {
+  for (final partition in partitions.enumerate(maxPartitions: 128)) {
+    if (partition.cardsRemaining.length <= 1) {
+      return partition;
+    }
+  }
+  return null;
 }

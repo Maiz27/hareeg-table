@@ -105,13 +105,8 @@ class _CasualCpuPlanPolicy implements CpuPlanPolicy {
         return starvedCompare;
       }
 
-      final valueCompare = cardPipValue(
-        right.card,
-      ).compareTo(cardPipValue(left.card));
-      if (valueCompare != 0) {
-        return valueCompare;
-      }
-      return left.action.actionId.compareTo(right.action.actionId);
+      // Ties fall through to the pipeline's action-id tie-break.
+      return cardPipValue(right.card).compareTo(cardPipValue(left.card));
     };
   }
 

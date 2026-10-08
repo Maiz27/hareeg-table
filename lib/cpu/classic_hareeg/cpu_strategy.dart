@@ -1,7 +1,11 @@
 import '../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../domain/classic_hareeg/models/player_seat.dart';
-import 'cpu_move_planner.dart';
+import 'casual_cpu_move_planner.dart';
+import 'cpu_move_plan.dart';
 import 'cpu_observation.dart';
+import 'expert_cpu_move_planner.dart';
+import 'priority_cpu_move_planner.dart';
+import 'skilled_cpu_move_planner.dart';
 
 export 'cpu_difficulty_profile.dart';
 export 'cpu_observation.dart' show CpuObservation;

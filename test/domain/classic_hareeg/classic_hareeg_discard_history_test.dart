@@ -92,19 +92,6 @@ void main() {
       expect(history.jokersDiscarded, 1);
     });
 
-    test('resetForNewRound clears events and counters', () {
-      final history = DiscardHistory();
-      final card = _card(CardRank.five, CardSuit.clubs, 6);
-      history.recordDiscard(PlayerSeat.south, card);
-
-      history.resetForNewRound();
-
-      expect(history.events, isEmpty);
-      expect(history.lastDiscardsBy(PlayerSeat.south, 1), isEmpty);
-      expect(history.cardSeenAt(CardRank.five, CardSuit.clubs), isFalse);
-      expect(history.discardsCount(CardRank.five), 0);
-    });
-
     test(
       'JSON round-trip preserves CPU-visible memory across persistence',
       () {

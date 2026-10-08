@@ -23,7 +23,6 @@ void main() {
       expect(preferences.handSortMode, HandSortMode.byRank);
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.fastCpuTurns, isTrue);
-      expect(preferences.reducedMotion, isFalse);
       expect(preferences.soundEnabled, isTrue);
       expect(preferences.language, AppLanguage.english);
       expect(preferences.highContrastCards, isFalse);
@@ -63,7 +62,6 @@ void main() {
       expect(restored.handSortMode, HandSortMode.bySuit);
       expect(restored.motionSpeed, MotionSpeed.reduced);
       expect(restored.fastCpuTurns, isFalse);
-      expect(restored.reducedMotion, isTrue);
       expect(restored.soundEnabled, isFalse);
       expect(restored.language, AppLanguage.arabic);
       expect(restored.highContrastCards, isTrue);

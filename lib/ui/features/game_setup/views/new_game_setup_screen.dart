@@ -5,9 +5,9 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../settings/models/settings_section.dart';
+import '../../shared/medallion_backdrop.dart';
 
 /// Classic Hareeg pre-game setup flow.
 ///
@@ -48,7 +48,12 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _SetupBackdrop(),
+            const MedallionBackdrop(
+              top: 24,
+              right: -54,
+              opacity: 0.05,
+              size: 210,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -228,44 +233,6 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
       _preferences = preferences;
       _setup = preferences.setup;
     });
-  }
-}
-
-class _SetupBackdrop extends StatelessWidget {
-  const _SetupBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: 24,
-          right: -54,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.05,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(210),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 18,
-          child: SizedBox(
-            height: 30,
-            child: CustomPaint(
-              painter: const GeometricMotifPainter(
-                variant: LoungeMotifVariant.border,
-                opacity: 0.08,
-                strokeWidth: 1.0,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 

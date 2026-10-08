@@ -20,12 +20,6 @@ abstract interface class TableInteractionActionReader {
   /// Exact selected-meld action for [cardIds], if legal.
   String? selectedMeldActionIdFor(PlayerSeat seat, List<String> cardIds);
 
-  /// Explicit represented-card options for an ambiguous joker meld.
-  List<CardIdentity> jokerRepresentationOptionsFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  );
-
   /// Explicit represented-joker choices for selected meld cards.
   List<JokerMeldActionChoice> jokerMeldChoicesFor(
     PlayerSeat seat,
@@ -35,9 +29,8 @@ abstract interface class TableInteractionActionReader {
   /// Playable single-meld suggestions for a hand selection.
   List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
     PlayerSeat seat,
-    List<String> selectedCardIds, {
-    int limit = 5,
-  });
+    List<String> selectedCardIds,
+  );
 
   /// First legal cover action for [cardIds], if any.
   String? coverActionIdFor(PlayerSeat seat, List<String> cardIds);
@@ -132,14 +125,6 @@ class ClassicHareegControllerTableInteractionReader
   }
 
   @override
-  List<CardIdentity> jokerRepresentationOptionsFor(
-    PlayerSeat seat,
-    List<String> cardIds,
-  ) {
-    return controller.jokerRepresentationOptionsFor(seat, cardIds);
-  }
-
-  @override
   List<JokerMeldActionChoice> jokerMeldChoicesFor(
     PlayerSeat seat,
     List<String> cardIds,
@@ -150,14 +135,9 @@ class ClassicHareegControllerTableInteractionReader
   @override
   List<ClassicHareegMeldSuggestion> meldSuggestionsForSelection(
     PlayerSeat seat,
-    List<String> selectedCardIds, {
-    int limit = 5,
-  }) {
-    return controller.meldSuggestionsForSelection(
-      seat,
-      selectedCardIds,
-      limit: limit,
-    );
+    List<String> selectedCardIds,
+  ) {
+    return controller.meldSuggestionsForSelection(seat, selectedCardIds);
   }
 
   @override
@@ -272,36 +252,17 @@ class TableInteractionResolution {
   bool get isAction => actionId != null;
 }
 
-/// Meld suggestion resolved from selected hand cards.
-class TableInteractionMeldSuggestion {
-  /// Creates a table interaction meld suggestion.
-  const TableInteractionMeldSuggestion({
-    required this.actionId,
-    required this.cards,
-  });
-
-  /// Legal controller action id for this suggestion.
-  final String actionId;
-
-  /// Cards to show for the suggestion.
-  final List<HareegCard> cards;
-}
-
 /// Explicit represented-joker choice for a selected meld.
 class TableInteractionJokerChoice {
   /// Creates a table interaction joker choice.
   const TableInteractionJokerChoice({
     required this.identity,
-    required this.assignments,
     required this.actionId,
     required this.cards,
   });
 
   /// Identity to assign to the unresolved joker.
   final CardIdentity identity;
-
-  /// Identities to assign to all unresolved jokers in the meld.
-  final List<JokerMeldAssignment> assignments;
 
   /// Legal controller action id for this represented identity.
   final String actionId;
@@ -414,43 +375,9 @@ class ClassicHareegTableInteractionPlanner {
     );
   }
 
-  /// Whether [card] can be dropped onto a specific table meld.
-  bool canDropCardToMeld(
-    HareegCard card,
-    PlayerSeat owner,
-    int meldIndex, {
-    CoverPlacement? coverPlacement,
-  }) {
-    return canDropCardToMeldTarget(
-      card,
-      TableMeldDropTarget(
-        owner: owner,
-        meldIndex: meldIndex,
-        coverPlacement: coverPlacement,
-      ),
-    );
-  }
-
   /// Whether [card] can be dropped onto a typed table meld target.
   bool canDropCardToMeldTarget(HareegCard card, TableMeldDropTarget target) {
     return resolveMeldDropTarget(card, target).isAction;
-  }
-
-  /// Resolves a drop onto a specific table meld.
-  TableInteractionResolution resolveMeldDrop(
-    HareegCard card,
-    PlayerSeat owner,
-    int meldIndex, {
-    CoverPlacement? coverPlacement,
-  }) {
-    return resolveMeldDropTarget(
-      card,
-      TableMeldDropTarget(
-        owner: owner,
-        meldIndex: meldIndex,
-        coverPlacement: coverPlacement,
-      ),
-    );
   }
 
   /// Resolves a drop onto a typed table meld target.
@@ -497,38 +424,27 @@ class ClassicHareegTableInteractionPlanner {
   /// Returns selected-card-only meld suggestions for the table.
   ///
   /// The combinatorial enumeration lives in the rules engine. The UI just
-  /// forwards the current selection and re-shapes the domain suggestion type.
-  List<TableInteractionMeldSuggestion> meldSuggestions() {
-    final domainSuggestions = reader.meldSuggestionsForSelection(
-      seat,
-      selectedCardIds,
-    );
+  /// forwards the current selection and drops gated actions.
+  List<ClassicHareegMeldSuggestion> meldSuggestions() {
     return [
-      for (final suggestion in domainSuggestions)
-        if (_allowsActionId(suggestion.actionId))
-          TableInteractionMeldSuggestion(
-            actionId: suggestion.actionId,
-            cards: suggestion.cards,
-          ),
+      for (final suggestion in reader.meldSuggestionsForSelection(
+        seat,
+        selectedCardIds,
+      ))
+        if (_allowsActionId(suggestion.actionId)) suggestion,
     ];
   }
 
-  /// Returns explicit represented-joker choices for [cardIds].
+  /// Returns explicit represented-joker choices for [cardIds], or nothing
+  /// when the meld leaves at most one choice.
   List<TableInteractionJokerChoice> jokerChoicesForCardIds(
     List<String> cardIds,
   ) {
-    return _jokerChoicesForCardIds(cardIds, includeDeterministic: false);
-  }
-
-  List<TableInteractionJokerChoice> _jokerChoicesForCardIds(
-    List<String> cardIds, {
-    required bool includeDeterministic,
-  }) {
     final choices = [
       for (final choice in reader.jokerMeldChoicesFor(seat, cardIds))
         if (_allowsActionId(choice.actionId)) choice,
     ];
-    if (!includeDeterministic && choices.length <= 1) {
+    if (choices.length <= 1) {
       return const [];
     }
     final cards = _cardsForIds(cardIds);
@@ -540,7 +456,6 @@ class ClassicHareegTableInteractionPlanner {
       for (final choice in choices)
         TableInteractionJokerChoice(
           identity: choice.identity,
-          assignments: choice.assignments,
           actionId: choice.actionId,
           cards: _cardsWithJokerAssignments(cards, choice.assignments),
         ),

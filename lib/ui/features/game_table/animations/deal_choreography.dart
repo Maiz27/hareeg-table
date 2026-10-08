@@ -196,8 +196,11 @@ Duration _durationTimes(Duration duration, int factor) {
   return Duration(microseconds: duration.inMicroseconds * factor);
 }
 
-/// Default per-step stagger for the opening deal.
-const Duration kDealStagger = Duration(milliseconds: 48);
+/// Per-step stagger for the opening deal, before motion scaling.
+const Duration _dealStagger = Duration(milliseconds: 48);
+
+/// Per-card flight time for the opening deal, before motion scaling.
+const Duration _dealFlight = Duration(milliseconds: 220);
 
 /// Owns the deal animation's controller, timing, and audio firing.
 ///
@@ -216,13 +219,11 @@ class DealChoreography {
     required this.audio,
     required MotionSettings motion,
     required this.sequence,
-    Duration stagger = kDealStagger,
-    Duration flight = const Duration(milliseconds: 220),
-  }) : flightDuration = motion.scale(flight),
-       stagger = motion.scale(stagger) {
+  }) : flightDuration = motion.scale(_dealFlight),
+       stagger = motion.scale(_dealStagger) {
     totalDuration = sequence.totalDuration(
       flightDuration: flightDuration,
-      stagger: this.stagger,
+      stagger: stagger,
     );
     _controller = AnimationController(vsync: vsync, duration: totalDuration);
   }

@@ -73,23 +73,6 @@ abstract final class ClassicHareegFiftyRules {
     );
   }
 
-  /// Whether blocking-tier UI should show the Fifty action.
-  static bool shouldShowBlockingTierAction({
-    required FiftyClaimWindow window,
-    required PlayerSeat viewer,
-    required int elapsedSeconds,
-    required List<PlacedMeld> finishingMelds,
-    required HareegCard finalDiscard,
-  }) {
-    return validateClaim(
-      window: window,
-      claimant: viewer,
-      elapsedSeconds: elapsedSeconds,
-      finishingMelds: finishingMelds,
-      finalDiscard: finalDiscard,
-    ).isValid;
-  }
-
   /// Validates an explicit Fifty claim.
   static FiftyClaimResult validateClaim({
     required FiftyClaimWindow window,
@@ -145,14 +128,5 @@ abstract final class ClassicHareegFiftyRules {
       message: 'Valid Fifty.',
       firstRoundException: window.isFirstDealtRound,
     );
-  }
-
-  /// After timer expiry, normal discard pickup remains available if legal.
-  static bool canTakeNormallyAfterMiss({
-    required FiftyClaimWindow window,
-    required PlayerSeat player,
-    required int elapsedSeconds,
-  }) {
-    return window.isExpired(elapsedSeconds) && player == window.claimant;
   }
 }

@@ -67,9 +67,6 @@ class ReviewedAction {
   /// Parsed meaning of the applied action.
   final ClassicHareegActionDescriptor descriptor;
 
-  /// Whether this action was taken by the reviewing seat.
-  bool get isPerspectiveAction => actingSeat == reviewPerspectiveSeat;
-
   /// Stable identity for equality and signatures.
   String get signature => '${actingSeat.name}:${descriptor.id}';
 }

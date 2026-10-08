@@ -21,7 +21,6 @@ class PracticeLessonScript {
     this.boardAuditSpec,
     this.taughtMelds,
     this.introActionIds = const [],
-    this.seat = PlayerSeat.south,
     this.completionNote,
     this.showScoresOnCompletion = false,
     this.fiftyTimerPausesAtSeconds,
@@ -60,9 +59,10 @@ class PracticeLessonScript {
   /// the turn to [seat].
   final List<String> introActionIds;
 
-  /// Seat the player controls. Practice lessons drive only this seat; beyond
-  /// the scripted intro, no CPU autonomy runs on the teaching surface.
-  final PlayerSeat seat;
+  /// Seat the player controls: always south. Practice lessons drive only this
+  /// seat; beyond the scripted intro, no CPU autonomy runs on the teaching
+  /// surface.
+  PlayerSeat get seat => PlayerSeat.south;
 
   /// Optional localized outcome note for the completion panel. Receives the
   /// finished controller so finish/Fifty lessons can cite the real score
@@ -133,18 +133,17 @@ class PracticeStep {
     this.successNote,
     this.hint,
     this.holdNote,
-    this.deadEndNote,
     this.highlightCardIds = const {},
     this.highlightGroups = const [],
     this.completesOnPenalty = false,
     bool Function(ClassicHareegActionDescriptor action)? allows,
     bool Function(PracticeStepContext context)? isSatisfied,
     bool Function(ClassicHareegGameController controller)? isDemonstrated,
-    bool Function(ClassicHareegGameController controller)? isDeadEnd,
-  }) : _allows = allows,
+  }) : deadEndNote = null,
+       _allows = allows,
        _isSatisfied = isSatisfied,
        _isDemonstrated = isDemonstrated,
-       _isDeadEnd = isDeadEnd;
+       _isDeadEnd = null;
 
   /// Convenience step that allows exactly the given action kinds and is
   /// satisfied by any successful allowed action.
@@ -157,11 +156,11 @@ class PracticeStep {
     this.deadEndNote,
     this.highlightCardIds = const {},
     this.highlightGroups = const [],
-    this.completesOnPenalty = false,
     bool Function(PracticeStepContext context)? isSatisfied,
     bool Function(ClassicHareegGameController controller)? isDemonstrated,
     bool Function(ClassicHareegGameController controller)? isDeadEnd,
-  }) : _allows = ((action) => kinds.contains(action.kind)),
+  }) : completesOnPenalty = false,
+       _allows = ((action) => kinds.contains(action.kind)),
        _isSatisfied = isSatisfied,
        _isDemonstrated = isDemonstrated,
        _isDeadEnd = isDeadEnd;

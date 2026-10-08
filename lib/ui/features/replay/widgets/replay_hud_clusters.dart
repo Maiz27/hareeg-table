@@ -56,7 +56,6 @@ class ReplayRailGlyph extends StatelessWidget {
   const ReplayRailGlyph({
     required this.icon,
     required this.direction,
-    this.size = 22,
     this.color,
     super.key,
   });
@@ -67,15 +66,12 @@ class ReplayRailGlyph extends StatelessWidget {
   /// Whether this glyph follows the timeline or the locale.
   final ReplayGlyphDirection direction;
 
-  /// Glyph size in logical pixels.
-  final double size;
-
   /// Glyph colour.
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final glyph = Icon(icon, size: size, color: color);
+    final glyph = Icon(icon, size: 22, color: color);
     return switch (direction) {
       ReplayGlyphDirection.locale => glyph,
       ReplayGlyphDirection.timeline => Directionality(

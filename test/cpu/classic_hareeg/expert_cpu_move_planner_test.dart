@@ -830,7 +830,6 @@ final class _FakeMeldPartitionView implements MeldPartitionView {
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,

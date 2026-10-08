@@ -157,16 +157,6 @@ class TableCueChoreographer extends ChangeNotifier {
     _notifyIfMounted();
   }
 
-  /// Drains every pending joker cue and cancels the active dwell timer
-  /// without firing the active cue's end callback. Mirrors the legacy
-  /// `_jokerCueQueue.clear()` semantics — callers withdraw any active
-  /// message themselves (typically by replacing the feedback line).
-  void clearJokerCues() {
-    if (!_jokerQueue.isActive && _jokerQueue.pendingCount == 0) return;
-    _jokerQueue.clear();
-    _notifyIfMounted();
-  }
-
   // -------------------------------------------------------------------------
   // Feedback chip
   // -------------------------------------------------------------------------
@@ -259,13 +249,6 @@ class TableCueChoreographer extends ChangeNotifier {
       _roundAdvanceTimer = null;
       callback();
     });
-  }
-
-  /// Cancels any pending round-advance without firing the callback.
-  void cancelRoundAdvance() {
-    if (_roundAdvanceTimer == null) return;
-    _roundAdvanceTimer?.cancel();
-    _roundAdvanceTimer = null;
   }
 
   // -------------------------------------------------------------------------

@@ -856,10 +856,7 @@ CpuObservationFacts _mirror(
     // enumerates whatever the controller holds right now, so carrying its
     // partition view into a stored position would silently start answering
     // about a later turn.
-    partitions: _ValuePartitionView(
-      hand: source.ownHand,
-      pendingDiscard: source.pendingDiscard,
-    ),
+    partitions: _ValuePartitionView(hand: source.ownHand),
     shortestSingleMeld: source.shortestSingleMeld(),
     finishingPartition: source.finishingPartition(),
   );
@@ -868,14 +865,12 @@ CpuObservationFacts _mirror(
 /// Partition enumeration over a fixed hand, mirroring [LiveMeldPartitionView]
 /// with the controller replaced by the captured cards.
 class _ValuePartitionView implements MeldPartitionView {
-  const _ValuePartitionView({required this.hand, required this.pendingDiscard});
+  const _ValuePartitionView({required this.hand});
 
   final List<HareegCard> hand;
-  final HareegCard? pendingDiscard;
 
   @override
   Iterable<MeldPartition> enumerate({
-    bool includePendingDiscard = true,
     int maxPartitions = 32,
     int minMelds = 1,
     int maxMelds = 5,
@@ -885,16 +880,9 @@ class _ValuePartitionView implements MeldPartitionView {
     if (maxPartitions <= 0) {
       return const [];
     }
-    final pending = pendingDiscard;
-    final cards = !includePendingDiscard && pending != null
-        ? [
-            for (final card in hand)
-              if (card.id != pending.id) card,
-          ]
-        : hand;
 
     return MeldPartitionEnumerator.partitionsOf(
-      cards,
+      hand,
       minMelds: minMelds,
       maxMelds: maxMelds,
       mustUseCardId: mustUseCardId,

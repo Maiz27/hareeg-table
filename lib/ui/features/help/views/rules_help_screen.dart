@@ -4,8 +4,8 @@ import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/brand/app_brand_mark.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../shared/medallion_backdrop.dart';
 
 /// Player-facing Classic Hareeg help.
 class RulesHelpScreen extends StatefulWidget {
@@ -86,7 +86,12 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _HelpBackdrop(),
+            const MedallionBackdrop(
+              top: -44,
+              right: -48,
+              opacity: 0.052,
+              size: 220,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -114,44 +119,6 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _HelpBackdrop extends StatelessWidget {
-  const _HelpBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -44,
-          right: -48,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.052,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(220),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 18,
-          child: SizedBox(
-            height: 30,
-            child: CustomPaint(
-              painter: const GeometricMotifPainter(
-                variant: LoungeMotifVariant.border,
-                opacity: 0.08,
-                strokeWidth: 1.0,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

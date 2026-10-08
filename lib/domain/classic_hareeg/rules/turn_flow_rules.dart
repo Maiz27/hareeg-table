@@ -1,6 +1,5 @@
 import '../models/player_seat.dart';
 import '../models/playing_card.dart';
-import 'opening_rules.dart';
 
 /// Phase within a Classic Hareeg turn.
 enum ClassicTurnPhase {
@@ -222,30 +221,5 @@ abstract final class ClassicHareegTurnFlowRules {
       activeSeats: state.activeSeats,
       removedSeats: state.removedSeats,
     );
-  }
-
-  /// Checks whether pending discard use can satisfy an opening attempt.
-  static bool canUsePendingDiscardToOpen({
-    required ClassicTurnFlowState turnState,
-    required OpeningState openingState,
-    required List<PlacedMeld> openingMelds,
-  }) {
-    final pending = turnState.pendingDiscard;
-    if (pending == null) {
-      return false;
-    }
-
-    final usesPending = openingMelds.any((meld) {
-      return meld.cards.any((card) => card.id == pending.card.id);
-    });
-    if (!usesPending) {
-      return false;
-    }
-
-    return ClassicHareegOpeningRules.validateOpening(
-      state: openingState,
-      seat: turnState.currentSeat,
-      melds: openingMelds,
-    ).isValid;
   }
 }

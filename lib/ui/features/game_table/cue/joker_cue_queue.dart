@@ -62,9 +62,6 @@ class JokerCueQueue<T> {
     _pumpIfIdle();
   }
 
-  /// Single-cue convenience for [enqueueAll].
-  void enqueue(T cue) => enqueueAll(<T>[cue]);
-
   /// Drops every pending cue, cancels the active dwell timer, and marks the
   /// queue idle. [onCueEnd] is NOT called for the active cue — callers that
   /// need to withdraw it should do so themselves (e.g. by clearing the

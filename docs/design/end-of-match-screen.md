@@ -8,7 +8,7 @@ Reads:
 - `direction.md` — Warm Sudanese Lounge visual language.
 - `table-strictness.md` — `TableStrictness` axis referenced in §7.
 - `lib/ui/features/match_over/views/match_over_screen.dart` — the shipped end-of-match screen (replaced the dead `round_summary` screen).
-- `lib/ui/features/game_table/views/game_table_screen.dart` — `_RoundResultOverlay`, `_MatchWinnerLine`, `_persistAndMaybeFinish`, `_showRoundResultOverlay`.
+- `lib/ui/features/game_table/views/game_table_screen.dart` — `_persistAndMaybeFinish`, `_showRoundResultOverlay`; its part `game_table_round_result.dart` holds `_RoundResultOverlay` and `_MatchWinnerLine`.
 - `lib/ui/features/game_table/table_persistence_planner.dart` — `abandonActiveMatch` path on match end.
 - `lib/domain/classic_hareeg/rules/match_progression_rules.dart` — `MatchProgressState.matchWinner`.
 - `lib/app/hareeg_table_app.dart` — `/table` and `/match-over` routes.
@@ -89,7 +89,7 @@ All durations are at `TableMotion` normal speed and scale via `MotionScope.of(co
 
 Audio: one new cue `TableSoundEvent.matchEnd` — a single sustained chime or oud-string-pluck (asset choice deferred to audio direction). Fires once on first frame. Respects `audio.enabled`. No looped victory bed.
 
-Haptic: one `TableHapticEvent.matchEnd` heavy-impact on first frame, only if winner is south. CPU wins skip the haptic — the human doesn't want congratulatory haptics for losing.
+Haptic: none. A south-win `matchEnd` heavy impact was planned here but never wired up, and the unused event has been removed.
 
 ## 4. Navigation flow
 

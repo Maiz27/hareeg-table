@@ -195,14 +195,6 @@ class MatchCheckpoint {
     return _copy(coachWasEnabled: true);
   }
 
-  /// Returns a copy marked permanently ineligible for replay.
-  MatchCheckpoint withReplayIneligible() {
-    if (replayIneligible) {
-      return this;
-    }
-    return _copy(replayIneligible: true);
-  }
-
   /// Returns the terminal form of this checkpoint.
   ///
   /// The live elimination map is frozen into [facts]; from here on
@@ -225,7 +217,6 @@ class MatchCheckpoint {
     MatchRecorderState? recorderState,
     Map<PlayerSeat, int>? eliminationRounds,
     bool? coachWasEnabled,
-    bool? replayIneligible,
   }) {
     return MatchCheckpoint(
       matchId: matchId,
@@ -234,7 +225,7 @@ class MatchCheckpoint {
       eliminationRounds: eliminationRounds ?? _liveEliminationRounds,
       coachWasEnabled: coachWasEnabled ?? this.coachWasEnabled,
       fiftyCountersComplete: fiftyCountersComplete,
-      replayIneligible: replayIneligible ?? this.replayIneligible,
+      replayIneligible: replayIneligible,
       terminalFacts: terminalFacts,
     );
   }

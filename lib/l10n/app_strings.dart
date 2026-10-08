@@ -57,17 +57,11 @@ class AppStrings {
   String get setupTitle => _v('setupTitle');
   String get couldNotSaveSetup => _v('couldNotSaveSetup');
   String get startTable => _v('startTable');
-  String get tableTitle => _v('tableTitle');
   String get humanSeat => _v('humanSeat');
   String get stock => _v('stock');
   String get discard => _v('discard');
-  String get meldZone => _v('meldZone');
   String get drawStock => _v('drawStock');
-  String get discardCard => _v('discardCard');
-  String get takeDiscard => _v('takeDiscard');
-  String get returnDiscard => _v('returnDiscard');
   String get takeBackMelds => _v('takeBackMelds');
-  String get pendingDiscard => _v('pendingDiscard');
   String get settingsTitle => _v('settingsTitle');
   String get helpTitle => _v('helpTitle');
   String get helpIntro => _v('helpIntro');
@@ -125,10 +119,6 @@ class AppStrings {
   String get fontPlexArabicAttribution => _v('fontPlexArabicAttribution');
   String get licensesFooter => _v('licensesFooter');
   String get playMeld => _v('playMeld');
-  String get placeCover => _v('placeCover');
-  String get replaceJoker => _v('replaceJoker');
-  String get claimFifty => _v('claimFifty');
-  String get sortModeLabel => _v('sortModeLabel');
   String get sortByRank => _v('sortByRank');
   String get sortBySuit => _v('sortBySuit');
   String get sortManual => _v('sortManual');
@@ -185,10 +175,8 @@ class AppStrings {
   String get crimsonClay => _v('crimsonClay');
   String get close => _v('close');
   String get empty => _v('empty');
-  String get noMeldsYet => _v('noMeldsYet');
   String get matchOver => _v('matchOver');
   String get youWinTheMatch => _v('youWinTheMatch');
-  String get finalStandings => _v('finalStandings');
   String get newMatchSameSetup => _v('newMatchSameSetup');
   String get wonByFifty => _v('wonByFifty');
   String get wonByFinish => _v('wonByFinish');
@@ -574,8 +562,6 @@ class AppStrings {
   String get turn => isRtl ? 'الدور' : 'Turn';
   String get starter => isRtl ? 'البداية' : 'Starter';
   String get out => isRtl ? 'خارج' : 'Out';
-  String get matchWinner => isRtl ? 'فائز المباراة' : 'Match winner';
-  String get nextStarter => isRtl ? 'البداية التالية' : 'Next starter';
   String get roundDrawn => isRtl ? 'الجولة تعادلت' : 'Round drawn';
   String get roundScore => isRtl ? 'نقاط الجولة' : 'Round score';
   String get openMeld => isRtl ? 'افتح مجموعة' : 'Open meld';
@@ -1089,11 +1075,6 @@ class AppStrings {
     return isRtl ? 'اعرض يد $who' : "Show $who's hand";
   }
 
-  /// Round the sandbox branched from, shown in the sandbox chrome.
-  String branchFromRound(int roundNumber) {
-    return isRtl ? 'من الجولة $roundNumber' : 'From round $roundNumber';
-  }
-
   // --- replay analysis coach ---------------------------------------------
   //
   // Whole sentences per case rather than glued fragments: Arabic and English
@@ -1303,7 +1284,6 @@ class AppStrings {
   String get historyOutcomeHeading => _v('historyOutcomeHeading');
   String get historyWinnerLabel => _v('historyWinnerLabel');
   String get historyPlacementLabel => _v('historyPlacementLabel');
-  String get historyRoundsLabel => _v('historyRoundsLabel');
 
   String get statisticsTitle => _v('statisticsTitle');
   String get statisticsMenuLabel => _v('statisticsMenuLabel');
@@ -1606,28 +1586,6 @@ class AppStrings {
 
   String cardsCountTag(int cards) => isRtl ? '$cards أوراق' : 'cards $cards';
 
-  String meldsAndCardsCount(int melds, int cards) {
-    return isRtl ? '$meldsم · $cards' : '${melds}m · $cards';
-  }
-
-  String get selectedCardsDoNotFormLegalMeld => isRtl
-      ? 'الأوراق المحددة لا تشكل مجموعة قانونية.'
-      : 'Selected cards do not form a legal meld.';
-
-  String get legalMeld => isRtl ? 'مجموعة قانونية.' : 'Legal meld.';
-
-  String openingReady(int value) {
-    return isRtl
-        ? 'الافتتاح جاهز (القيمة $value).'
-        : 'Opening ready (value $value).';
-  }
-
-  String valueNeedsOpening(int value, int requirement) {
-    return isRtl
-        ? 'القيمة $value. تحتاج $requirement للافتتاح.'
-        : 'Value $value. Needs $requirement to open.';
-  }
-
   String nextRoundStartsWith(PlayerSeat seat) {
     return isRtl
         ? 'الجولة التالية تبدأ مع ${seatLabel(seat)}.'
@@ -1842,17 +1800,11 @@ const _englishValues = {
   'startTable': 'Start Table',
   'couldNotSaveSetup':
       'Could not save game setup. You can still start with your selected settings.',
-  'tableTitle': 'Classic Hareeg Table',
   'humanSeat': 'You',
   'stock': 'Stock',
   'discard': 'Discard',
-  'meldZone': 'Meld area',
   'drawStock': 'Draw Stock',
-  'discardCard': 'Discard',
-  'takeDiscard': 'Take Discard',
-  'returnDiscard': 'Return + Draw',
   'takeBackMelds': 'Take Back Melds',
-  'pendingDiscard': 'Pending discard',
   'settingsTitle': 'Settings',
   'helpTitle': 'Classic Hareeg rules',
   'helpIntro':
@@ -1942,10 +1894,6 @@ const _englishValues = {
   'licensesFooter':
       'Bundled assets keep their original CC0 / Public Domain licenses.',
   'playMeld': 'Play meld',
-  'placeCover': 'Place cover',
-  'replaceJoker': 'Replace joker',
-  'claimFifty': 'Claim Fifty',
-  'sortModeLabel': 'Sort',
   'sortByRank': 'Rank',
   'sortBySuit': 'Suit',
   'sortManual': 'Manual',
@@ -2098,7 +2046,6 @@ const _englishValues = {
   'historyOutcomeHeading': 'Result',
   'historyWinnerLabel': 'Winner',
   'historyPlacementLabel': 'Your place',
-  'historyRoundsLabel': 'Rounds',
   'statisticsTitle': 'Statistics',
   'statisticsMenuLabel': 'Stats',
   'statisticsEmptyTitle': 'No statistics yet',
@@ -2135,10 +2082,8 @@ const _englishValues = {
   'crimsonClay': 'Crimson clay',
   'close': 'Close',
   'empty': 'Empty',
-  'noMeldsYet': 'No melds yet',
   'matchOver': 'Match over',
   'youWinTheMatch': 'You win the match',
-  'finalStandings': 'Final standings',
   'newMatchSameSetup': 'New match, same setup',
   'wonByFifty': 'Won by Fifty',
   'wonByFinish': 'Won by finish',
@@ -2601,17 +2546,11 @@ const _arabicValues = {
   'startTable': 'ابدأ الطاولة',
   'couldNotSaveSetup':
       'تعذر حفظ إعدادات اللعبة. لا يزال بإمكانك بدء اللعب بالإعدادات المحددة.',
-  'tableTitle': 'طاولة حريق',
   'humanSeat': 'أنت',
   'stock': 'كومة السحب',
   'discard': 'ساحة الرمي',
-  'meldZone': 'مجموعات الطاولة',
   'drawStock': 'اسحب ورقة من الكومة',
-  'discardCard': 'ارمِ ورقة في الساحة',
-  'takeDiscard': 'خذ ورقة الرمي',
-  'returnDiscard': 'أعد ورقة الرمي مكانها',
   'takeBackMelds': 'استرجع أوراق الطاولة إلى يدك',
-  'pendingDiscard': 'ورقة رمي معلقة',
   'settingsTitle': 'الإعدادات',
   'helpTitle': 'القوانين والتعليم',
   'helpIntro':
@@ -2686,10 +2625,6 @@ const _arabicValues = {
   'licensesFooter':
       'جميع أكواد المحرك وبنية التطبيق مفتوحة المصدر ومتاحة تحت شروط الاستخدام المرنة القياسية.',
   'playMeld': 'أنزل المجموعة',
-  'placeCover': 'ركّب الورقة',
-  'replaceJoker': 'استبدل الجوكر',
-  'claimFifty': 'إعلان حريق (خمسين)!',
-  'sortModeLabel': 'طريقة ترتيب الأوراق في اليد',
   'sortByRank': 'ترتيب حسب الرتبة (الأرقام)',
   'sortBySuit': 'ترتيب حسب الفئة (النوع)',
   'sortManual': 'ترتيب يدوي حر',
@@ -2840,7 +2775,6 @@ const _arabicValues = {
   'historyOutcomeHeading': 'النتيجة',
   'historyWinnerLabel': 'الفائز',
   'historyPlacementLabel': 'مركزك',
-  'historyRoundsLabel': 'الجولات',
   'statisticsTitle': 'الإحصائيات',
   'statisticsMenuLabel': 'إحصائياتي',
   'statisticsEmptyTitle': 'لا توجد إحصائيات بعد',
@@ -2875,10 +2809,8 @@ const _arabicValues = {
   'crimsonClay': 'طين قرمزي غني',
   'close': 'إغلاق',
   'empty': 'مكان فارغ',
-  'noMeldsYet': 'لم يقم أي لاعب بإنزال مجموعات على الطاولة بعد.',
   'matchOver': 'انتهت المباراة كاملة',
   'youWinTheMatch': 'تهانينا الحارة! لقد فزت بالمباراة وتصدرت الطاولة!',
-  'finalStandings': 'النتائج النهائية للمباراة',
   'newMatchSameSetup': 'إعادة اللعب (بنفس القوانين)',
   'wonByFifty': 'انتهت الجولة بإعلان حريق (خمسين) ناجح.',
   'wonByFinish': 'انتهت الجولة بإنهاء لاعب لكافة أوراقه (خروج).',

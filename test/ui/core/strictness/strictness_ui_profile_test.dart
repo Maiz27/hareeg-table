@@ -14,14 +14,6 @@ void main() {
       });
     });
 
-    group('showsCardValueInInspect', () {
-      test('is true for every tier', () {
-        for (final tier in TableStrictness.values) {
-          expect(tier.showsCardValueInInspect, isTrue, reason: 'tier=$tier');
-        }
-      });
-    });
-
     group('inspectVerbosity', () {
       test('is coaching for the coaching tier', () {
         expect(

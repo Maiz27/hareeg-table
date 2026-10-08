@@ -349,17 +349,17 @@ class ClassicHareegCpuTurnRunner {
   }
 
   ClassicHareegCpuTurnRunResult? _stopResultFor(
-    ClassicHareegCpuTurnLoopPlan plan, [
-    int appliedActionCount = 0,
-    Iterable<ClassicHareegCpuTurnDecision> appliedDecisions = const [],
-  ]) {
+    ClassicHareegCpuTurnLoopPlan plan,
+    int appliedActionCount,
+    Iterable<ClassicHareegCpuTurnDecision> appliedDecisions,
+  ) {
     if (plan.canContinue) {
       return null;
     }
-    return _result(
-      _stopReasonFor(plan.scenario),
-      appliedActionCount,
-      appliedDecisions,
+    return ClassicHareegCpuTurnRunResult(
+      stopReason: _stopReasonFor(plan.scenario),
+      appliedActionCount: appliedActionCount,
+      appliedDecisions: appliedDecisions,
     );
   }
 
@@ -391,18 +391,6 @@ class ClassicHareegCpuTurnRunner {
       pendingDiscard: controller.pendingDiscard,
       stockCount: controller.stockCount,
       discardCount: controller.discardPile.length,
-    );
-  }
-
-  ClassicHareegCpuTurnRunResult _result(
-    ClassicHareegCpuTurnStopReason reason, [
-    int appliedActionCount = 0,
-    Iterable<ClassicHareegCpuTurnDecision> appliedDecisions = const [],
-  ]) {
-    return ClassicHareegCpuTurnRunResult(
-      stopReason: reason,
-      appliedActionCount: appliedActionCount,
-      appliedDecisions: appliedDecisions,
     );
   }
 }

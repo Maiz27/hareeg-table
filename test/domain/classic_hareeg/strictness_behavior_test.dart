@@ -5,7 +5,6 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
-import 'package:hareeg_table/domain/classic_hareeg/rules/mistake_preset_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 import 'package:hareeg_table/domain/classic_hareeg/rules/strictness_rule_profile.dart';
 
@@ -351,19 +350,6 @@ void main() {
             control.contains(ClassicHareegActionIds.claimFifty),
             shouldAdvertise,
             reason: '${tier.name}: control surface mirrors legal surface',
-          );
-        });
-      }
-    });
-
-    group('CPU mistakes allowed', () {
-      for (final tier in TableStrictness.values) {
-        test('${tier.name} matches profile cpuMistakesAllowed flag', () {
-          expect(
-            ClassicHareegMistakePresetRules.cpuMistakesAllowed(tier),
-            tier.cpuMistakesAllowed,
-            reason:
-                'mistake handling must agree with strictness profile for $tier',
           );
         });
       }

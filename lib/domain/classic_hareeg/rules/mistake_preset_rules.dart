@@ -9,9 +9,6 @@ enum MistakeType {
   /// Wrong Fifty claim.
   wrongFiftyClaim,
 
-  /// Opening below the current requirement.
-  insufficientOpening,
-
   /// Wrong joker replacement attempt.
   wrongJokerReplacement,
 
@@ -103,13 +100,5 @@ abstract final class ClassicHareegMistakePresetRules {
       TableStrictness.strict => 'Strict penalty: +3.',
       TableStrictness.table => 'Table mistake: +17 and out of this round.',
     };
-  }
-
-  /// Whether CPU mistakes may be generated under this strictness.
-  ///
-  /// CPU difficulty no longer gates mistake permission; mistakes are a rules
-  /// concern (governed by [TableStrictness]) rather than a tier concern.
-  static bool cpuMistakesAllowed(TableStrictness strictness) {
-    return strictness.cpuMistakesAllowed;
   }
 }

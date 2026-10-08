@@ -277,7 +277,8 @@ void main() {
         final checkpoint = MatchCheckpoint(
           matchId: testMatchId,
           snapshot: buildSnapshot(),
-        ).withReplayIneligible();
+          replayIneligible: true,
+        );
 
         expect(checkpoint.replayIneligible, isTrue);
         expect(

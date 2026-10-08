@@ -58,7 +58,4 @@ class MatchHistoryFailed extends MatchHistoryViewState {
   /// MatchHistoryFailureKind.corrupt] read returns the same bad bytes, so
   /// offering a retry would be a false promise.
   final MatchHistoryFailure failure;
-
-  /// Whether retrying could plausibly help.
-  bool get isRetryable => failure.kind == MatchHistoryFailureKind.retryable;
 }
