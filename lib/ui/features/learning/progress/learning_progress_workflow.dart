@@ -30,16 +30,6 @@ class LearningProgressWorkflow {
     return setLessonStatus(lessonId, PracticeLessonStatus.completed);
   }
 
-  /// Marks [lessonId] skipped.
-  Future<void> skipLesson(String lessonId) {
-    return setLessonStatus(lessonId, PracticeLessonStatus.skipped);
-  }
-
-  /// Removes a skipped status for [lessonId].
-  Future<void> unskipLesson(String lessonId) {
-    return setLessonStatus(lessonId, PracticeLessonStatus.notStarted);
-  }
-
   /// Sets one lesson status.
   Future<void> setLessonStatus(String lessonId, PracticeLessonStatus status) {
     return repository.update(

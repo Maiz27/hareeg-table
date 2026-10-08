@@ -536,7 +536,7 @@ abstract final class FinishFiftyPracticePack {
   /// the punishment is the lesson. The REAL score sheet opens over the
   /// finished board before the completion panel, so the numbers are read
   /// where a match would show them.
-  static PracticeLessonScript fiftyScoring({bool pauseTimer = true}) {
+  static PracticeLessonScript fiftyScoring() {
     final priorThrees = [
       PracticeBoard.card(CardRank.three, CardSuit.spades),
       PracticeBoard.card(CardRank.three, CardSuit.diamonds),
@@ -594,7 +594,7 @@ abstract final class FinishFiftyPracticePack {
         ClassicHareegActionIds.drawStock,
         '${ClassicHareegActionIds.discardPrefix}${fiveHearts.id}',
       ],
-      fiftyTimerPausesAtSeconds: pauseTimer ? 3 : null,
+      fiftyTimerPausesAtSeconds: 3,
       steps: [
         PracticeStep.kinds(
           prompt: (s) => s.practiceFiftyScoringStep1,

@@ -44,11 +44,7 @@ abstract final class PracticeBoard {
     PlayerSeat currentSeat = PlayerSeat.south,
     TurnPhase turnPhase = TurnPhase.draw,
     ClassicHareegSetup? setup,
-    Map<PlayerSeat, int> scores = const {},
     int roundNumber = 1,
-    DateTime? fiftyWindowOpenedAt,
-    PlayerSeat? fiftyWindowDiscarder,
-    int seed = 404,
   }) {
     final effectiveSetup = setup ?? ClassicHareegSetup.defaults();
     // One ruleset feeds both the deal and the CPU hand padding below, so
@@ -57,7 +53,7 @@ abstract final class PracticeBoard {
     final base = ClassicHareegRound.deal(
       setup: effectiveSetup,
       rules: rules,
-      seed: seed,
+      seed: 404,
       // South never starts: lessons that teach the draw phase need a seat
       // that begins its turn by drawing.
       starterOverride: PlayerSeat.east,
@@ -162,13 +158,10 @@ abstract final class PracticeBoard {
       currentSeat: currentSeat,
       turnPhase: turnPhase,
       openingState: openingState,
-      scores: scores,
       roundNumber: roundNumber,
-      // Restoration falls back to savedAt (deliberately ancient) when no
-      // window time is given, so boards without an explicit Fifty window
-      // never restore a live claim.
-      fiftyWindowOpenedAt: fiftyWindowOpenedAt,
-      fiftyWindowDiscarder: fiftyWindowDiscarder,
+      // No Fifty window is given, so restoration falls back to savedAt
+      // (deliberately ancient) and a practice board never restores a live
+      // claim.
       savedAt: _savedAt,
     );
   }
@@ -178,18 +171,18 @@ abstract final class PracticeBoard {
     return HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex);
   }
 
-  /// Physical joker shorthand matching the deal's joker numbering, so a
-  /// claimed joker lines up with the dealt pool by id.
-  static HareegCard joker({int jokerIndex = 0}) {
-    return HareegCard.joker(deckIndex: jokerIndex ~/ 2, jokerIndex: jokerIndex);
+  /// The first physical joker, numbered as the deal numbers it, so a claimed
+  /// joker lines up with the dealt pool by id.
+  static HareegCard joker() {
+    return HareegCard.joker(deckIndex: 0, jokerIndex: 0);
   }
 
-  /// Opening state with [seat] already opened so table plays do not stage
-  /// behind the opening benchmark.
-  static OpeningState openedFor(PlayerSeat seat, {int requirement = 51}) {
+  /// Opening state with [seat] already opened at the default 51 benchmark, so
+  /// table plays do not stage behind it.
+  static OpeningState openedFor(PlayerSeat seat) {
     return OpeningState(
-      baseRequirement: requirement,
-      currentRequirement: requirement,
+      baseRequirement: 51,
+      currentRequirement: 51,
       openedSeats: {seat},
     );
   }

@@ -45,7 +45,6 @@ class MatchReplayScreen extends StatefulWidget {
     required this.analysisCoach,
     super.key,
     this.preferences,
-    this.clock,
   });
 
   /// The match being reviewed.
@@ -67,9 +66,6 @@ class MatchReplayScreen extends StatefulWidget {
   /// route back to a preferences store, so nothing downstream of this writes.
   final GamePreferences? preferences;
 
-  /// Clock a branch sandbox runs on, or null for the wall clock.
-  final DateTime Function()? clock;
-
   /// The mode this surface runs as. Fixed, and read rather than assumed.
   static const mode = TableMode.replayReview;
 
@@ -81,7 +77,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
   ReplayViewerViewState _state = const ReplayViewerLoading();
   IncrementalTimelineBuild? _build;
   late AnalysisCoachSettings _settings = widget.analysisCoach;
-  int _openAttempts = 0;
 
   @override
   void initState() {
@@ -104,7 +99,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
 
   Future<void> _load() async {
     setState(() => _state = const ReplayViewerLoading());
-    _openAttempts += 1;
 
     final MatchReplayOpenOutcome outcome;
     try {
@@ -294,7 +288,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
           visibility: visibility,
           coachEligible: widget.summary.coachWasEnabled,
           preferences: widget.preferences ?? GamePreferences.defaults(),
-          clock: widget.clock,
         ),
       ),
     );
@@ -367,7 +360,7 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
           cards: const {},
         ).unavailableReason(reason),
       ),
-      ReplayViewerFailed(:final failure, :final isRetryable) => _MessageBody(
+      ReplayViewerFailed(:final isRetryable) => _MessageBody(
         title: context.strings.replayUnavailableTitle,
         body: isRetryable
             ? context.strings.replayLoadFailedRetryable
@@ -376,7 +369,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
         // retryable failure gets the affordance.
         onRetry: isRetryable ? _load : null,
         retryLabel: context.strings.replayRetry,
-        semanticFailureKind: failure.kind.name,
       ),
       ReplayViewerReady(:final review) => _ReadyBody(
         decision: decision,
@@ -394,10 +386,6 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
       ),
     };
   }
-
-  /// Exposed for tests that need to know a retry really re-opened the record.
-  @visibleForTesting
-  int get openAttempts => _openAttempts;
 }
 
 /// The docked layout's branch entry, in the app bar.
@@ -472,14 +460,12 @@ class _MessageBody extends StatelessWidget {
     required this.body,
     this.onRetry,
     this.retryLabel,
-    this.semanticFailureKind,
   });
 
   final String title;
   final String body;
   final VoidCallback? onRetry;
   final String? retryLabel;
-  final String? semanticFailureKind;
 
   @override
   Widget build(BuildContext context) {

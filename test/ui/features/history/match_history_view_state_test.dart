@@ -59,7 +59,10 @@ void main() {
       // history had been deleted.
       expect(state, isA<MatchHistoryFailed>());
       expect(state, isNot(isA<MatchHistoryEmpty>()));
-      expect((state as MatchHistoryFailed).isRetryable, isTrue);
+      expect(
+        (state as MatchHistoryFailed).failure.kind,
+        MatchHistoryFailureKind.retryable,
+      );
     });
 
     test('a corrupt failure keeps its kind so the copy can differ', () {
@@ -77,7 +80,6 @@ void main() {
       // Flattening the failure would make the retryable/corrupt distinction
       // unrenderable, which is the whole point of the typed outcome.
       expect(failed.failure.kind, MatchHistoryFailureKind.corrupt);
-      expect(failed.isRetryable, isFalse);
       expect(failed.failure.message, 'index does not decode');
     });
   });
