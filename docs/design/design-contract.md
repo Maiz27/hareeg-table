@@ -78,12 +78,12 @@ ad-hoc shadow. **Target:** add `LoungeElevation.l1…l4` box-shadow tokens.
 | State | Token | Meaning | Where it appears |
 | --- | --- | --- | --- |
 | Selection | `goldAccent`, `selectedGlow` | Player picked this | Hand cards, chosen controls |
-| Cover target | `coverTargetTint` | Legal drop zone | Meld lanes |
+| Cover target | `goldAccent` hover ring (no dedicated token) | Legal drop zone | Meld lanes |
 | Pending discard | `pendingDiscard` | Will leave the hand on confirm | Hand card |
 | Invalid | `invalidAction` | Rejected action | Ring/border flash |
 | Fifty | `fiftyFlame` | Fifty / Khamsin, high stakes | Fifty moments, danger scores |
 | Active turn | Turn hue over the active seat's cards | Whose turn it is | Seat rails, hand |
-| Eliminated | `eliminatedDim` | Seat out of the round | Seat overlay |
+| Eliminated | Dimmed seat plate (no dedicated token) | Seat out of the round | Seat overlay |
 | Coach (keep) | `coachHighlight` teal, `coachHighlightB` blue, `coachHighlightC` violet | Coach-tier proactive hint, one hue per meld group | Coaching strictness only |
 | Coach (let go) | `coachDiscard` rose | Coach-recommended discard | Coaching strictness only |
 
@@ -165,8 +165,7 @@ literal durations are spread over 17 UI files (most common: 220, 180, 200,
 | `motionQuick` | 180 ms | Card lift, chip/state changes |
 | `motionStandard` | 220 ms | Panels, toasts, seat plate state |
 | `motionEmphasis` | 280 ms | Turn change, coach card in/out |
-| `motionFlight` | 420 ms | Card flight (draw, discard, meld placement) |
-| `motionDeal` | 60 ms stagger + `motionFlight` | Opening deal |
+| Card flights | `TableMotion` in `motion_speed.dart` | Card flight (draw, discard, meld placement) and the opening deal keep their own tuned durations |
 | `motionCelebrate` | 1200–1400 ms | Fifty, match won/lost |
 
 Curves: `easeOutCubic` for things arriving, `easeInCubic` for leaving,
@@ -221,7 +220,7 @@ Every CPU seat gets an L2 plate attached to its rail:
 - **Active turn:** keeps the existing turn hue over the seat's cards and adds a
   `goldAccent` plate edge with a `motionEmphasis` glow-in.
 - **Thinking:** a quiet three-dot or sand-line sweep, no spinner.
-- **Eliminated:** `eliminatedDim` over plate and rail, score struck through.
+- **Eliminated:** plate and rail dimmed, score struck through.
 - **Fifty pressure:** plate edge shifts toward `fiftyFlame` when that seat is
   in Fifty danger.
 
