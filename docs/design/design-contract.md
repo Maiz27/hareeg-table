@@ -2,11 +2,10 @@
 
 ## Status
 
-Accepted and in rollout (see section 13). Sections marked **Current** codify what the app already
+Accepted and shipped (see section 13). The contract describes what the app
 ships (mostly in `lib/ui/core/theme/lounge_tokens.dart` and
-`lib/ui/core/theme/app_theme.dart`). Sections marked **Target** are the
-redesign: they are binding for new UI work once accepted, and existing screens
-migrate to them per the rollout plan at the end.
+`lib/ui/core/theme/app_theme.dart`) and is binding for new UI work. Lines
+marked **Rule** are constraints on future work rather than descriptions.
 
 `direction.md` stays the short brand brief (mood, palette, icon). This file is
 the working contract: what tokens exist, how each layer of the UI is built, and
@@ -60,7 +59,7 @@ what a screen must satisfy before it ships. The card art contract stays in
 | `offWhiteText` | `#F5EFE3` | Primary text on dark |
 | `mutedText` | `#B8AA91` | Secondary text on dark |
 
-### 3.2 Surface tones and elevation — Current tokens, Target usage
+### 3.2 Surface tones and elevation
 
 | Level | Use | Fill | Edge | Shadow |
 | --- | --- | --- | --- | --- |
@@ -71,7 +70,8 @@ what a screen must satisfy before it ships. The card art contract stays in
 | L4 Modal | Blocking dialogs | L3 + `overlayScrim` behind | as L3 | as L3 |
 
 Shadow notation is `x y blur / alpha` in black. A widget picks a level, not an
-ad-hoc shadow. **Target:** add `LoungeElevation.l1…l4` box-shadow tokens.
+ad-hoc shadow. L2 and L3 are `LoungeTokens.elevationL2` / `elevationL3`; L1
+card shadows live with the card view, and L4 reuses L3 over the scrim.
 
 ### 3.3 State colours — Current (reserved meanings)
 
@@ -101,19 +101,9 @@ coaching UI. No other feature may use these hues.
 
 ## 4. Typography
 
-### Current
+Two bundled families, both with Latin **and** Arabic coverage:
 
-No `fontFamily` is set anywhere, so the app renders in the platform default
-(Roboto on Android/web). Text styles exist as tokens (`display` 28/700,
-`heading` 18/700, `titleSmall` 13/700, `body` 14, `bodyMuted` 13,
-`numericChip` 14/700).
-
-### Target
-
-Two bundled families, both with Latin **and** Arabic coverage so the planned
-Arabic localization needs no type redesign:
-
-| Role | Family (proposed) | Why |
+| Role | Family | Why |
 | --- | --- | --- |
 | Display (wordmark, screen titles, big scores, Fifty) | **Reem Kufi** (OFL) | Geometric Kufic. Matches the geometric motif; bilingual. |
 | UI / body | **IBM Plex Sans Arabic** (OFL) | Neutral, very legible at small sizes, Latin + Arabic. |
@@ -133,31 +123,26 @@ Type scale (logical px, line-height in brackets):
 | `titleSmall` | 13 / 700 [1.3], +0.6 tracking | UI | Chips, overlines (uppercase allowed only here) |
 | `body` | 14 / 400 [1.45] | UI | Copy |
 | `bodyMuted` | 13 / 400 [1.45] | UI | Secondary copy |
-| `numeric` | 14–32 / 700, tabular figures | Display or UI | Scores, counts, open-need |
+| `numericChip`, `numericDisplay` | 14–32 / 700, tabular figures | UI | Scores, counts, open-need |
 
 Scores and counts always use tabular figures so numbers don't jitter as they
 change.
 
-## 5. Spacing, radius, touch targets — Current
+## 5. Spacing, radius, touch targets
 
 - Spacing: 4 dp base, `space1`–`space8` (4, 8, 12, 16, 20, 24, 32).
-  **Target:** add `space12` (48) and `space16` (64) for screen-level rhythm.
-- Radius: `radiusCard` 10, `radiusButton` 12, `radiusPanel` 18.
-  **Target:** add `radiusPill` (999) for HUD chips and seat plates.
+- Radius: `radiusCard` 10, `radiusButton` 12, `radiusPanel` 18, `radiusPill`
+  999 for HUD chips and seat plates.
 - Touch targets: primary 48, hand card short edge 44, compact cover 36,
   overlay 40. These are floors, not suggestions.
 
 ## 6. Motion
 
-### Current
-
 `MotionSpeed` multiplies durations (normal 1.0, fast 0.6, reduced 0.35 with
-linear curves, OS reduce-motion honoured). Its doc comment points to durations
-"listed in the design doc", but none were listed: today about 20 distinct
-literal durations are spread over 17 UI files (most common: 220, 180, 200,
-140 ms).
+linear curves, OS reduce-motion honoured). Durations equal to a token use it;
+the remaining literals are capped by the token ratchet (section 12).
 
-### Target duration tokens
+### Duration tokens
 
 | Token | Normal | Use |
 | --- | --- | --- |
@@ -166,7 +151,7 @@ literal durations are spread over 17 UI files (most common: 220, 180, 200,
 | `motionStandard` | 220 ms | Panels, toasts, seat plate state |
 | `motionEmphasis` | 280 ms | Turn change, coach card in/out |
 | Card flights | `TableMotion` in `motion_speed.dart` | Card flight (draw, discard, meld placement) and the opening deal keep their own tuned durations |
-| `motionCelebrate` | 1200–1400 ms | Fifty, match won/lost |
+| Celebrations | Each effect's own `duration` in `celebration.dart` | Win fireworks 3400 ms, Fifty strike 1500 ms, table shake 560 ms (section 6.1) |
 
 Curves: `easeOutCubic` for things arriving, `easeInCubic` for leaving,
 `easeInOutCubic` for things moving across the table. Reduced motion uses linear
@@ -190,7 +175,7 @@ brief glow.
 
 ## 7. The table
 
-### 7.1 Layout contract (landscape) — Current structure, Target treatment
+### 7.1 Layout contract (landscape)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -211,7 +196,7 @@ brief glow.
 - HUD corners hold at most one control each (stats, pause) plus the open-need
   chip by the hand.
 
-### 7.2 Seat plate — Target (new component)
+### 7.2 Seat plate
 
 Every CPU seat gets an L2 plate attached to its rail:
 
@@ -251,7 +236,7 @@ standard Flutter so web and low-end Android keep working:
 - **Hand:** a flat row. An arc was considered and left out: drag reorder and
   the 44 dp card tap target rely on the row's straight slots.
 
-### 7.4 Coach UI — Target
+### 7.4 Coach UI
 
 The coach (Coaching strictness, the setup default) renders as an L3 **coach
 card** docked in the top-start corner (the HUD capsule owns the other), clear of
@@ -281,9 +266,9 @@ history lives.
 | Component | Status | Contract |
 | --- | --- | --- |
 | Primary button | Current (`FilledButton` theme) | Gold fill, charcoal label, 48 dp, one per view region |
-| Secondary button | Current (`OutlinedButton`) | Sand outline. **Target:** max two stacked; beyond that use a section or list |
+| Secondary button | Current (`OutlinedButton`) | Sand outline. **Rule:** max two stacked; beyond that use a section or list |
 | Text button | Current | Gold label, for tertiary actions |
-| Segmented control | Current (setup) | Gold selected segment. **Target:** shown inside an option card with a one-line explanation |
+| Segmented control | Current (setup) | Gold selected segment, shown inside an option card with a one-line explanation |
 | Option card | Current | L2 card: icon, title, value summary, chevron/edit; replaces bare segmented rows |
 | Lounge panel | Current (`LoungePanel`) | L3 modal surface with medallion; the only modal shell |
 | Lounge toast | Current (`LoungeToast`) | L2 transient message; never over a seat zone |
@@ -292,9 +277,9 @@ history lives.
 | Score medallion | Current | Score ringed by an arc that fills and warms toward elimination; shared by seat plates, the score sheet and the pause standings |
 | Seat plate | Current | Section 7.2 |
 | Coach card | Current | Section 7.4 |
-| Screen header | Target | Replaces the stock black `AppBar`: transparent over the screen background, display-face title, back as an icon button |
-| List row | Target | History/report rows: title, meta line, trailing result badge; 56 dp min |
-| Stat tile | Target | Big tabular number + label + optional trend; used by Stats and match reports |
+| Screen header | Current | Replaces the stock black `AppBar`: transparent over the screen background, display-face title, back as an icon button |
+| List row | Current | History/report rows: title, meta line, trailing result badge; 56 dp min |
+| Stat tile | Current | Big tabular number + label + optional trend; used by Stats and match reports |
 
 ## 9. Screens and navigation
 
@@ -305,7 +290,7 @@ practice (checklist, reading panel, strictness explainer), Match history,
 Match statistics, Match replay, Branch sandbox, Settings (incl. card theme
 preview, licences).
 
-### 9.2 Home — Target information architecture
+### 9.2 Home — information architecture
 
 1. **Hero:** wordmark, card fan, then **one** primary action that adapts:
    `Continue` when a saved match exists (with a one-line match summary),
@@ -318,7 +303,7 @@ preview, licences).
 The rule: a new feature adds a row to a section, never another full-width
 button to the home stack.
 
-### 9.3 Setup — Target
+### 9.3 Setup
 
 Option cards (section 8) grouped as *Opponents* (difficulty, starter),
 *Rules* (strictness, opening, jokers, house rules). The strictness card shows
