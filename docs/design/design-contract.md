@@ -195,6 +195,8 @@ brief glow.
   north rail and the centre, or anchors beside the hand.
 - HUD corners hold at most one control each (stats, pause) plus the open-need
   chip by the hand.
+- The replay screen is this same table with replay chrome (section 7.6); it
+  keeps the same reserved zones.
 
 ### 7.2 Seat plate
 
@@ -232,7 +234,7 @@ standard Flutter so web and low-end Android keep working:
   hands, piles and melds read as stacked physical cards. Selected cards lift.
 - **The pot:** the stock sits at the centre beside the discard
   (`resolveStockPileRect`, shared by playfield and flights). The replay
-  surface keeps the corner stock; its geometry is frozen.
+  surface uses the same centred stock (section 7.6).
 - **Hand:** a flat row. An arc was considered and left out: drag reorder and
   the 44 dp card tap target rely on the row's straight slots.
 
@@ -261,6 +263,46 @@ The pause panel keeps only the at-a-glance standings; the round-result panel
 shows just the round that ended. The book is the one place the whole match
 history lives.
 
+### 7.6 Replay review — Current
+
+The replay is the live table plus replay chrome; the live table is the base.
+
+- **Table:** the live playfield exactly — inset inside the rail
+  (`TableBackground.insetChild`), the stock at the centre, seat plates with the
+  scores in force at the reviewed position. Passive: nothing on it is playable.
+- **HUD capsule (top-end):** the live table's capsule
+  (`table_hud_capsule.dart`, shared, not copied) with the replay's segments in
+  reading order: **Analysis** (a switch, lit gold when on) | **Branch** (play
+  on from here; refused frames say why in its label) | **Exit**. Segments are
+  floored at 44 dp, as in the sandbox.
+- **Replay card (top-start):** an L3 lounge card docked where the coach card
+  docks (`CoachOverlay.dockedStartFor` / `dockedTopFor`, never inside the west
+  column, stopping short of the north seat). It holds, top to bottom: the
+  position overline (*Round 1 · 31 of 568*), the event line, the timeline
+  scrubber and **one row** of the six transport controls — start, previous
+  round, step back, step forward, next round, end. The step pair is the
+  emphasised gold pair; round and end jumps are quiet outlines. Every control
+  is a 44 dp target. The timeline (row, glyphs and scrubber) runs left to
+  right in both languages.
+- **Analysis** opens as a section inside the same card, under the transport,
+  so opening it never moves a control. It is sticky: stepping updates it in
+  place; only the capsule switch closes it.
+- **Room:** the card never covers a seat plate, a rail, the hand or the
+  capsule. At rest it also keeps off the pot wherever the table leaves room;
+  an opened analysis section may reach over the pot and the meld lanes, down
+  to the hand. Out of room, the card trims in order — the event line's second
+  line (only to keep an opened section), then the analysis section, then the
+  event line — and never gives up the position, scrubber or transport.
+- **Band fallback:** where six 44 dp targets do not fit between the west
+  column and the north seat (640x360, 915x412 and other compact or crowded
+  landscapes), the same card sits in the free band between the north rail and
+  the pot, still start-docked, with the position and scrubber between the two
+  halves of the transport row and the event line under it.
+- **Portrait:** the same table on top, the same card docked full width below
+  it, and the capsule in a slim header over the table's top-end corner (on a
+  table that narrow the north plate fills the corner).
+- Loading, error, branch entry and sandbox exit keep their lounge panels.
+
 ## 8. Components
 
 | Component | Status | Contract |
@@ -272,11 +314,12 @@ history lives.
 | Option card | Current | L2 card: icon, title, value summary, chevron/edit; replaces bare segmented rows |
 | Lounge panel | Current (`LoungePanel`) | L3 modal surface with medallion; the only modal shell |
 | Lounge toast | Current (`LoungeToast`) | L2 transient message; never over a seat zone |
-| HUD capsule | Current | One lacquered pill in the top-end corner holding every table control (scores, fast-forward, sandbox exit, pause), segments split by hairlines; sandbox floors segments at 44 dp |
+| HUD capsule | Current | One lacquered pill in the top-end corner holding every table control (scores, fast-forward, sandbox exit, pause; replay: analysis, branch, exit), segments split by hairlines; sandbox and replay floor segments at 44 dp |
 | HUD chip | Current | Open-need chip: lacquered, brass edge, overline caption over a tabular number |
 | Score medallion | Current | Score ringed by an arc that fills and warms toward elimination; shared by seat plates, the score sheet and the pause standings |
 | Seat plate | Current | Section 7.2 |
 | Coach card | Current | Section 7.4 |
+| Replay card | Current | Section 7.6: position, event line, scrubber, one transport row, collapsible analysis |
 | Screen header | Current | Replaces the stock black `AppBar`: transparent over the screen background, display-face title, back as an icon button |
 | List row | Current | History/report rows: title, meta line, trailing result badge; 56 dp min |
 | Stat tile | Current | Big tabular number + label + optional trend; used by Stats and match reports |
@@ -346,8 +389,10 @@ rest.
   removes literals.
 - **Goldens:** deliberately not pixel goldens. Rasterised text and blur
   differ across Flutter versions and machines, so pixel goldens would fail on
-  unrelated toolchain upgrades. Layout is guarded instead by the existing
-  geometry tests (frozen replay oracle, hand-span parity, coach docking).
+  unrelated toolchain upgrades. Layout is guarded instead by geometry tests
+  on the rendered tree (coach docking; `replay_layout_test`: the replay table
+  matches the live one rect for rect, and the replay card clears every seat,
+  rail, the hand and the capsule at every contracted size).
 - PR checklist: a UI change names the contract sections it touches.
 
 ## 13. Rollout plan
@@ -375,6 +420,10 @@ rest.
    medallion heading (as licences); history and stats loading, empty and
    error states are lit cards with a state medallion; the splash wordmark is
    set in the display face over a lamp pool, timing unchanged.
+7. **Replay** — done: the replay screen is the live table plus replay chrome
+   (7.6). The full-bleed table with the corner stock, the 44 dp edge rails,
+   the scrub target, the analysis popover and the frozen layout oracle that
+   pinned them are retired.
 
 ## 14. Decisions taken
 
@@ -394,3 +443,11 @@ were decided rather than left open. Each is easy to revisit.
 6. **Player (South) plate:** not added. Both bottom corners share their edge
    columns with the side rails, and the hand hue already marks the player's
    turn; the player's score is one tap away in the score sheet.
+7. **Replay transport:** one row of six 44 dp targets is 268 dp wide, wider
+   than the coach card's dock on most phones. Where it fits beside the north
+   seat (844x390, tablets) the card docks exactly as the coach card does;
+   elsewhere it falls back to the band under the north rail (7.6) rather than
+   shrinking a target, splitting the row or covering a seat.
+8. **Replay capsule floor:** the replay capsule uses the sandbox's 44 dp
+   floor rather than the live table's 30/38 dp phone sizes, since the touch
+   target floor (section 5) is not traded away.

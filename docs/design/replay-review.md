@@ -248,3 +248,30 @@ unfiltered generation is identical across settings.
 The persisted default lives in the existing preferences record. A replay may
 override it on the fly, and that override is never written back — a test counts
 save calls and requires zero across an entire review session.
+
+## 8. The review screen
+
+The viewer is the live table plus replay chrome (design contract 7.6), so the
+player recognises what they are reviewing:
+
+- **The table** is the live playfield, inset inside the rail with the stock at
+  the centre and seat plates showing the scores in force at that position. It
+  is passive (`ReviewTablePlayfield`): every interactive hook is switched off.
+- **The HUD capsule** in the top-end corner is the live table's capsule with
+  three segments: Analysis (a switch), Branch (play on from this frame, or say
+  why it cannot) and Exit.
+- **The replay card** docks in the top-start corner where the live coach card
+  docks. It carries the position (*Round 1 · 31 of 568*), the event line, the
+  scrubber and one row of transport — start, previous round, step back, step
+  forward, next round, end — with the step pair emphasised. Analysis opens as
+  a section of this card, under the transport, and stays open while stepping.
+- Where the row of six 44 dp controls does not fit beside the north seat, the
+  card sits in the band between the north rail and the pot instead; in a
+  portrait body it docks full width under the table. When the card runs out of
+  room it gives up the analysis section, then the event line — never the
+  transport.
+
+Placement is pure geometry (`replay_card_layout.dart`), projected from the
+table's size, and `replay_layout_test` checks the rendered card against the
+rendered seats, rails, hand and capsule at every contracted size, in both
+languages, at text scale 1 and 2.
