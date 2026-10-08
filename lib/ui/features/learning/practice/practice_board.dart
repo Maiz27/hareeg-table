@@ -171,6 +171,11 @@ abstract final class PracticeBoard {
     return HareegCard.standard(rank: rank, suit: suit, deckIndex: deckIndex);
   }
 
+  /// Physical ids of [cards], for taught-meld groups, rings and step gates.
+  static Set<String> idsOf(Iterable<HareegCard> cards) {
+    return {for (final card in cards) card.id};
+  }
+
   /// The first physical joker, numbered as the deal numbers it, so a claimed
   /// joker lines up with the dealt pool by id.
   static HareegCard joker() {
