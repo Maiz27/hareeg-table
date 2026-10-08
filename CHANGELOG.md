@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.0-alpha.12](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.11...v1.0.0-alpha.12) (2026-10-08)
+
+
+### Features
+
+* **help:** set rules help sections as lounge cards ([86bdbd0](https://github.com/Maiz27/hareeg-table/commit/86bdbd05a611a4b1f4ec1eb48b776f5fb27efb00))
+* **history:** restyle loading, empty and error states ([4fd90ef](https://github.com/Maiz27/hareeg-table/commit/4fd90efb1a47e373e597e8fa95aaf4a3ff63e13e))
+* **learning:** bring onboarding and the strictness explainer into the lounge ([d8068f5](https://github.com/Maiz27/hareeg-table/commit/d8068f5f0eb55c2e84aa6bc1ff7e47156ba41db1))
+* **replay:** bring the replay viewer chrome into the lounge language ([0a3b99d](https://github.com/Maiz27/hareeg-table/commit/0a3b99da51107984adc42e4b5825ff2ca41a8f48))
+* **replay:** rebuild the replay screen on the live table ([4422a27](https://github.com/Maiz27/hareeg-table/commit/4422a278eecc5b3dddd3626d8125cf1dbe417887))
+* **replay:** show seat scores on the replay table's plates ([7d0c892](https://github.com/Maiz27/hareeg-table/commit/7d0c892ccefad1fc75223b07c56c05600260ed7e))
+* **splash:** set the wordmark in the display face over a lamp pool ([6628935](https://github.com/Maiz27/hareeg-table/commit/6628935098a67df0664623a6ceb46d7fc4671340))
+
+
+### Bug Fixes
+
+* **cards:** repaint when a joker's represented card or the variant changes ([0e0e88a](https://github.com/Maiz27/hareeg-table/commit/0e0e88a80f4abe269d2b11d152b5d6327b298e37))
+* **cpu:** bucket the Fifty miss chance the same way on web as on native ([6f157af](https://github.com/Maiz27/hareeg-table/commit/6f157afd1e59c393a4db743d302c20e3cc55218b))
+* **panels:** style panel actions by tone rather than slot ([976ded2](https://github.com/Maiz27/hareeg-table/commit/976ded2dca3404438ac71510a05cf48fe2721ff8))
+
 ## [1.0.0-alpha.11](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.10...v1.0.0-alpha.11) (2026-10-08)
 
 
