@@ -138,6 +138,46 @@ void main() {
       );
     });
 
+    test('denies a card it can cover with together with a hand card', () {
+      // Table run 3-4-5♥, discard 7♥, 6♥ in hand: 6-7 is a legal two-card
+      // cover even though 7♥ alone is not.
+      final run = PlacedMeld.fromCards([
+        _card(CardRank.three, CardSuit.hearts),
+        _card(CardRank.four, CardSuit.hearts),
+        _card(CardRank.five, CardSuit.hearts),
+      ]);
+      final observation = CpuObservationFacts(
+        ownHand: [
+          _card(CardRank.six, CardSuit.hearts),
+          _card(CardRank.queen, CardSuit.spades),
+        ],
+        topDiscard: _card(CardRank.seven, CardSuit.hearts),
+        tableMelds: {
+          PlayerSeat.west: [run],
+        },
+        stockCount: 4,
+      );
+      expect(canCoverWithTakenDiscard(observation), isTrue);
+    });
+
+    test('never counts a cover that would empty the hand', () {
+      final run = PlacedMeld.fromCards([
+        _card(CardRank.three, CardSuit.hearts),
+        _card(CardRank.four, CardSuit.hearts),
+        _card(CardRank.five, CardSuit.hearts),
+      ]);
+      final observation = CpuObservationFacts(
+        ownHand: [_card(CardRank.six, CardSuit.hearts)],
+        topDiscard: _card(CardRank.seven, CardSuit.hearts),
+        tableMelds: {
+          PlayerSeat.west: [run],
+        },
+        stockCount: 4,
+      );
+      // 6-7♥ covers, but leaves nothing to discard; 7♥ alone does not cover.
+      expect(canCoverWithTakenDiscard(observation), isFalse);
+    });
+
     test('still denies a card it can lay as a cover', () {
       final run = PlacedMeld.fromCards([
         _card(CardRank.six, CardSuit.diamonds),

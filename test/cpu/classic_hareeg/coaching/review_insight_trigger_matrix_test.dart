@@ -286,10 +286,7 @@ void main() {
           actor: PlayerSeat.east,
         ),
       );
-      expect(
-        categories,
-        isNot(contains(ReviewInsightCategory.opponentOpened)),
-      );
+      expect(categories, isNot(contains(ReviewInsightCategory.opponentOpened)));
     });
   });
 
@@ -507,51 +504,51 @@ void main() {
 
       expect(all.length, greaterThan(key.length));
       expect(key.length, greaterThanOrEqualTo(mistakes.length));
-      expect(
-        key.every((i) => i.severity != ReviewSeverity.narration),
-        isTrue,
-      );
+      expect(key.every((i) => i.severity != ReviewSeverity.narration), isTrue);
       expect(
         mistakes.every((i) => i.severity == ReviewSeverity.mistake),
         isTrue,
       );
     });
 
-    test('dead-card warnings can be silenced without silencing anything else', () {
-      final loud = _review(
-        snapshot: snapshot,
-        actionId: actionId,
-        settings: const AnalysisCoachSettings(
-          verbosity: AnalysisVerbosity.narrateAll,
-          cardDeathWarnings: true,
-        ),
-      );
-      final quiet = _review(
-        snapshot: snapshot,
-        actionId: actionId,
-        settings: const AnalysisCoachSettings(
-          verbosity: AnalysisVerbosity.narrateAll,
-          cardDeathWarnings: false,
-        ),
-      );
+    test(
+      'dead-card warnings can be silenced without silencing anything else',
+      () {
+        final loud = _review(
+          snapshot: snapshot,
+          actionId: actionId,
+          settings: const AnalysisCoachSettings(
+            verbosity: AnalysisVerbosity.narrateAll,
+            cardDeathWarnings: true,
+          ),
+        );
+        final quiet = _review(
+          snapshot: snapshot,
+          actionId: actionId,
+          settings: const AnalysisCoachSettings(
+            verbosity: AnalysisVerbosity.narrateAll,
+            cardDeathWarnings: false,
+          ),
+        );
 
-      expect(
-        _categories(loud),
-        contains(ReviewInsightCategory.deadDevelopmentKept),
-      );
-      expect(
-        _categories(quiet),
-        isNot(contains(ReviewInsightCategory.deadDevelopmentKept)),
-      );
-      // Everything that was not a dead-card warning survives.
-      expect(
-        quiet.map((i) => i.category).toSet(),
-        loud
-            .where((i) => !i.category.isCardDeathWarning)
-            .map((i) => i.category)
-            .toSet(),
-      );
-    });
+        expect(
+          _categories(loud),
+          contains(ReviewInsightCategory.deadDevelopmentKept),
+        );
+        expect(
+          _categories(quiet),
+          isNot(contains(ReviewInsightCategory.deadDevelopmentKept)),
+        );
+        // Everything that was not a dead-card warning survives.
+        expect(
+          quiet.map((i) => i.category).toSet(),
+          loud
+              .where((i) => !i.category.isCardDeathWarning)
+              .map((i) => i.category)
+              .toSet(),
+        );
+      },
+    );
   });
 
   test('an insight without evidence cannot be built', () {
@@ -571,13 +568,13 @@ void main() {
       final state = buildCompletedMatch(seed: 13).recorderState;
       final timeline =
           (MatchReplayTimeline.build(
-                MatchActionTranscript(
-                  initialSnapshot: state.initialSnapshot!,
-                  entries: state.entries,
-                ),
-              )
-              as ReplayTimelineBuilt)
-          .timeline;
+                    MatchActionTranscript(
+                      initialSnapshot: state.initialSnapshot!,
+                      entries: state.entries,
+                    ),
+                  )
+                  as ReplayTimelineBuilt)
+              .timeline;
 
       var reviewed = 0;
       for (var i = 1; i < timeline.length; i++) {
@@ -622,8 +619,7 @@ void main() {
           expect(
             referenced.intersection(hidden),
             isEmpty,
-            reason:
-                'frame $i (${insight.category.name}) named a hidden card',
+            reason: 'frame $i (${insight.category.name}) named a hidden card',
           );
           expect(
             referenced.difference(visible),

@@ -111,7 +111,8 @@ void main() {
       expect(scores[sixClubs.id], CardRank.six.value * 3);
       expect(scores[sixDiamonds.id], CardRank.six.value * 3);
       // Exactly one physical 6♥ joins the set; the other is the redundant 0.
-      final heartScores = [scores[sixHeartA.id]!, scores[sixHeartB.id]!]..sort();
+      final heartScores = [scores[sixHeartA.id]!, scores[sixHeartB.id]!]
+        ..sort();
       expect(heartScores, [0, CardRank.six.value * 3]);
       // The redundant 6♥ ranks below even a lone low card with future upside,
       // so it is the shed card — never the lone 2 and never a distinct member.
@@ -119,42 +120,38 @@ void main() {
       expect(scores[loneTwo.id], greaterThan(0));
     });
 
-    test(
-      'a redundant duplicate is shed even when its twin completes a set, '
-      'keeping the multi-suit member (Issue R)',
-      () {
-        // Opened seat holds two 9♣ alongside 9♥/9♦ (a complete 9-set) and a
-        // 7♥/8♥ run start. The old per-card sum let the second 9♣ claim a run
-        // slot its twin already used (phantom value), so the genuinely useful
-        // 9♥ was shed. Disjoint grouping fills the 9-set with one 9♣, drops the
-        // second 9♣ to 0, and keeps the 9♥ (a set member).
-        final nineClubA = _c(CardRank.nine, CardSuit.clubs);
-        final nineClubB = _c(CardRank.nine, CardSuit.clubs, deckIndex: 1);
-        final nineHeart = _c(CardRank.nine, CardSuit.hearts);
-        final nineDiamond = _c(CardRank.nine, CardSuit.diamonds);
-        final sevenHeart = _c(CardRank.seven, CardSuit.hearts);
-        final eightHeart = _c(CardRank.eight, CardSuit.hearts);
-        final hand = [
-          nineClubA,
-          nineClubB,
-          nineHeart,
-          nineDiamond,
-          sevenHeart,
-          eightHeart,
-        ];
-        final scores = handKeepScores(hand);
+    test('a redundant duplicate is shed even when its twin completes a set, '
+        'keeping the multi-suit member (Issue R)', () {
+      // Opened seat holds two 9♣ alongside 9♥/9♦ (a complete 9-set) and a
+      // 7♥/8♥ run start. The old per-card sum let the second 9♣ claim a run
+      // slot its twin already used (phantom value), so the genuinely useful
+      // 9♥ was shed. Disjoint grouping fills the 9-set with one 9♣, drops the
+      // second 9♣ to 0, and keeps the 9♥ (a set member).
+      final nineClubA = _c(CardRank.nine, CardSuit.clubs);
+      final nineClubB = _c(CardRank.nine, CardSuit.clubs, deckIndex: 1);
+      final nineHeart = _c(CardRank.nine, CardSuit.hearts);
+      final nineDiamond = _c(CardRank.nine, CardSuit.diamonds);
+      final sevenHeart = _c(CardRank.seven, CardSuit.hearts);
+      final eightHeart = _c(CardRank.eight, CardSuit.hearts);
+      final hand = [
+        nineClubA,
+        nineClubB,
+        nineHeart,
+        nineDiamond,
+        sevenHeart,
+        eightHeart,
+      ];
+      final scores = handKeepScores(hand);
 
-        // The 9-set members each carry 27; one 9♣ is the redundant 0.
-        expect(scores[nineHeart.id], CardRank.nine.value * 3);
-        expect(scores[nineDiamond.id], CardRank.nine.value * 3);
-        final clubScores = [scores[nineClubA.id]!, scores[nineClubB.id]!]
-          ..sort();
-        expect(clubScores, [0, CardRank.nine.value * 3]);
-        // A 9♣ is the shed card; the useful 9♥ is never shed.
-        expect(_lowestKeep(hand), anyOf(nineClubA.id, nineClubB.id));
-        expect(scores[nineHeart.id], greaterThan(scores[sevenHeart.id]!));
-      },
-    );
+      // The 9-set members each carry 27; one 9♣ is the redundant 0.
+      expect(scores[nineHeart.id], CardRank.nine.value * 3);
+      expect(scores[nineDiamond.id], CardRank.nine.value * 3);
+      final clubScores = [scores[nineClubA.id]!, scores[nineClubB.id]!]..sort();
+      expect(clubScores, [0, CardRank.nine.value * 3]);
+      // A 9♣ is the shed card; the useful 9♥ is never shed.
+      expect(_lowestKeep(hand), anyOf(nineClubA.id, nineClubB.id));
+      expect(scores[nineHeart.id], greaterThan(scores[sevenHeart.id]!));
+    });
 
     test(
       'a card committed to a meld does not inflate a loose neighbour (Issue P)',
@@ -242,7 +239,9 @@ void _keepScoreOracleParity() {
 
         final actual = handKeepScores(cards);
         if (actual.length != expected.length) {
-          mismatches.add('$name: ${actual.length} scores vs ${expected.length}');
+          mismatches.add(
+            '$name: ${actual.length} scores vs ${expected.length}',
+          );
           continue;
         }
         for (final id in expected.keys) {

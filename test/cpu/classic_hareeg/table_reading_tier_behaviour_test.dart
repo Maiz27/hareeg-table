@@ -214,7 +214,10 @@ void main() {
     test('Skilled sheds a starved card over an equal-pip live one', () {
       // Both candidates are worth ten pips. The queens can never complete;
       // the jacks still can.
-      expect(_queenHearts.identity!.rank.value, _jackHearts.identity!.rank.value);
+      expect(
+        _queenHearts.identity!.rank.value,
+        _jackHearts.identity!.rank.value,
+      );
 
       final blind = _materialPosition(CpuDifficulty.skilled, queensDead: false);
       final seeing = _materialPosition(CpuDifficulty.skilled, queensDead: true);
@@ -264,68 +267,86 @@ void main() {
       expect(TableReadingPolicy.casual.pickupMemoryDepth, 1);
     });
 
-    test('an attended position sheds the starved card, an ignored one does not', () {
-      // Two positions differing only in stock count, one either side of the
-      // attention gate. The same starved queens are visible in both.
-      final attended = _casualStock(applied: true);
-      final ignored = _casualStock(applied: false);
+    test(
+      'an attended position sheds the starved card, an ignored one does not',
+      () {
+        // Two positions differing only in stock count, one either side of the
+        // attention gate. The same starved queens are visible in both.
+        final attended = _casualStock(applied: true);
+        final ignored = _casualStock(applied: false);
 
-      expect(
-        _shed(_materialPosition(CpuDifficulty.casual, queensDead: true,
-            stockCount: attended)),
-        _discardAction(_queenHearts),
-      );
-      // Ignored: Casual falls back to its own highest-pip rule, which cannot
-      // separate four ten-pip cards and settles on the first action id.
-      expect(
-        _shed(_materialPosition(CpuDifficulty.casual, queensDead: true,
-            stockCount: ignored)),
-        _discardAction(_jackHearts),
-      );
-    });
-
-    test('feed availability moves between depth one and two, Casual does not', () {
-      // The tell sits second-newest: inside a two-deep memory, outside a
-      // one-deep one. Casual's memory is one.
-      final history = _feedHistory(depthFromNewest: 2);
-      final observation = _position(
-        difficulty: CpuDifficulty.casual,
-        hand: _feedHand,
-        discardHistory: history,
-        handCounts: const {PlayerSeat.east: 3},
-      );
-
-      FeedRiskAssessment availableAt(int depth) {
-        return FeedRiskAnalysis.assess(
-          candidate: _fourSpades,
-          perspective: PlayerSeat.south,
-          activeSeats: _allSeats,
-          recentPickups: history.lastPickupsBy(PlayerSeat.east, depth).toList(),
-          targetMelds: const [],
-          targetHasOpened: true,
-        );
-      }
-
-      // Availability differs across the boundary...
-      expect(availableAt(1).isRisky, isFalse);
-      expect(availableAt(2).isRisky, isTrue);
-
-      // ...while Casual's attention, application, and plan do not move.
-      final reading = CpuTableReading.forObservation(observation);
-      expect(reading.policy.attendsFeedRisk, isFalse);
-      expect(reading.appliedFeedRiskFor(_fourSpades), isNull);
-      expect(reading.isFeedRisk(_fourSpades), isFalse);
-      expect(
-        _shed(observation),
-        _shed(
-          _position(
-            difficulty: CpuDifficulty.casual,
-            hand: _feedHand,
-            handCounts: const {PlayerSeat.east: 3},
+        expect(
+          _shed(
+            _materialPosition(
+              CpuDifficulty.casual,
+              queensDead: true,
+              stockCount: attended,
+            ),
           ),
-        ),
-      );
-    });
+          _discardAction(_queenHearts),
+        );
+        // Ignored: Casual falls back to its own highest-pip rule, which cannot
+        // separate four ten-pip cards and settles on the first action id.
+        expect(
+          _shed(
+            _materialPosition(
+              CpuDifficulty.casual,
+              queensDead: true,
+              stockCount: ignored,
+            ),
+          ),
+          _discardAction(_jackHearts),
+        );
+      },
+    );
+
+    test(
+      'feed availability moves between depth one and two, Casual does not',
+      () {
+        // The tell sits second-newest: inside a two-deep memory, outside a
+        // one-deep one. Casual's memory is one.
+        final history = _feedHistory(depthFromNewest: 2);
+        final observation = _position(
+          difficulty: CpuDifficulty.casual,
+          hand: _feedHand,
+          discardHistory: history,
+          handCounts: const {PlayerSeat.east: 3},
+        );
+
+        FeedRiskAssessment availableAt(int depth) {
+          return FeedRiskAnalysis.assess(
+            candidate: _fourSpades,
+            perspective: PlayerSeat.south,
+            activeSeats: _allSeats,
+            recentPickups: history
+                .lastPickupsBy(PlayerSeat.east, depth)
+                .toList(),
+            targetMelds: const [],
+            targetHasOpened: true,
+          );
+        }
+
+        // Availability differs across the boundary...
+        expect(availableAt(1).isRisky, isFalse);
+        expect(availableAt(2).isRisky, isTrue);
+
+        // ...while Casual's attention, application, and plan do not move.
+        final reading = CpuTableReading.forObservation(observation);
+        expect(reading.policy.attendsFeedRisk, isFalse);
+        expect(reading.appliedFeedRiskFor(_fourSpades), isNull);
+        expect(reading.isFeedRisk(_fourSpades), isFalse);
+        expect(
+          _shed(observation),
+          _shed(
+            _position(
+              difficulty: CpuDifficulty.casual,
+              hand: _feedHand,
+              handCounts: const {PlayerSeat.east: 3},
+            ),
+          ),
+        );
+      },
+    );
 
     test('Casual still makes a discard Skilled avoids', () {
       // Degradation asserted positively, not as an absence of evidence: East
@@ -340,10 +361,14 @@ void main() {
         discardHistory: history,
       );
 
-      expect(_shed(position(CpuDifficulty.casual)),
-          _discardAction(_nineHearts));
-      expect(_shed(position(CpuDifficulty.skilled)),
-          _discardAction(_fourSpades));
+      expect(
+        _shed(position(CpuDifficulty.casual)),
+        _discardAction(_nineHearts),
+      );
+      expect(
+        _shed(position(CpuDifficulty.skilled)),
+        _discardAction(_fourSpades),
+      );
     });
   });
 
@@ -373,9 +398,9 @@ void main() {
         isTrue,
       );
       expect(
-        CpuTableReading.forObservation(risky).appliedFeedRiskFor(
-          _c(CardRank.jack, CardSuit.clubs),
-        ),
+        CpuTableReading.forObservation(
+          risky,
+        ).appliedFeedRiskFor(_c(CardRank.jack, CardSuit.clubs)),
         isNull,
       );
       expect(_shed(risky), _shed(safe));
@@ -433,37 +458,40 @@ void main() {
       expect(TableReadingPolicy.expert.pickupMemoryDepth, 6);
     });
 
-    test('the new feed value changes the choice with legacy danger held equal', () {
-      // The pair differs only in whether East's visible three-card set is on
-      // the table. A set produces no legacy run-end threat and East has no
-      // readable pickups, so every legacy danger value is zero on both sides —
-      // the old comparator cannot be what moved.
-      final withSet = _expertCoverPosition(setOnTable: true);
-      final withoutSet = _expertCoverPosition(setOnTable: false);
-      final fourDiamonds = _c(CardRank.four, CardSuit.diamonds);
+    test(
+      'the new feed value changes the choice with legacy danger held equal',
+      () {
+        // The pair differs only in whether East's visible three-card set is on
+        // the table. A set produces no legacy run-end threat and East has no
+        // readable pickups, so every legacy danger value is zero on both sides —
+        // the old comparator cannot be what moved.
+        final withSet = _expertCoverPosition(setOnTable: true);
+        final withoutSet = _expertCoverPosition(setOnTable: false);
+        final fourDiamonds = _c(CardRank.four, CardSuit.diamonds);
 
-      final dangerWith = OpponentThreatProfile.fromObservation(withSet);
-      final dangerWithout = OpponentThreatProfile.fromObservation(withoutSet);
-      for (final card in [fourDiamonds, _nineHearts]) {
-        expect(dangerWith.dangerScore(card), 0);
-        expect(dangerWithout.dangerScore(card), 0);
-        expect(dangerWith.avoidFeedingScore(card), 0);
-        expect(dangerWithout.avoidFeedingScore(card), 0);
-      }
+        final dangerWith = OpponentThreatProfile.fromObservation(withSet);
+        final dangerWithout = OpponentThreatProfile.fromObservation(withoutSet);
+        for (final card in [fourDiamonds, _nineHearts]) {
+          expect(dangerWith.dangerScore(card), 0);
+          expect(dangerWithout.dangerScore(card), 0);
+          expect(dangerWith.avoidFeedingScore(card), 0);
+          expect(dangerWithout.avoidFeedingScore(card), 0);
+        }
 
-      // Only the new signal moves.
-      expect(
-        CpuTableReading.forObservation(withSet).isFeedRisk(fourDiamonds),
-        isTrue,
-      );
-      expect(
-        CpuTableReading.forObservation(withoutSet).isFeedRisk(fourDiamonds),
-        isFalse,
-      );
+        // Only the new signal moves.
+        expect(
+          CpuTableReading.forObservation(withSet).isFeedRisk(fourDiamonds),
+          isTrue,
+        );
+        expect(
+          CpuTableReading.forObservation(withoutSet).isFeedRisk(fourDiamonds),
+          isFalse,
+        );
 
-      expect(_shed(withoutSet), _discardAction(fourDiamonds));
-      expect(_shed(withSet), _discardAction(_nineHearts));
-    });
+        expect(_shed(withoutSet), _discardAction(fourDiamonds));
+        expect(_shed(withSet), _discardAction(_nineHearts));
+      },
+    );
 
     test('the feed value and the plan move across the six-deep boundary', () {
       // East has opened and is down to three cards, so the legacy profile has
@@ -537,9 +565,9 @@ void main() {
       // run-end 120 > near identity 90 > near rank 45 > identity 35 >
       // near suit 20 > rank 15 > suit 5, applied cumulatively.
       expect(
-        profileWith(melds: [clubRun()]).dangerScore(
-          _c(CardRank.jack, CardSuit.clubs),
-        ),
+        profileWith(
+          melds: [clubRun()],
+        ).dangerScore(_c(CardRank.jack, CardSuit.clubs)),
         120,
       );
       expect(
@@ -551,8 +579,9 @@ void main() {
         90 + 45 + 35 + 15,
       );
       expect(
-        profileWith(pickups: [_c(CardRank.nine, CardSuit.clubs)])
-            .dangerScore(_c(CardRank.ten, CardSuit.clubs)),
+        profileWith(
+          pickups: [_c(CardRank.nine, CardSuit.clubs)],
+        ).dangerScore(_c(CardRank.ten, CardSuit.clubs)),
         5,
       );
       expect(profileWith().dangerScore(_nineHearts), 0);
@@ -569,13 +598,17 @@ void main() {
 
     test('a seat that has stopped collecting drops its pickup tells', () {
       expect(
-        profileWith(pickups: [_nineHearts], handCount: 3)
-            .dangerScore(_nineHearts),
+        profileWith(
+          pickups: [_nineHearts],
+          handCount: 3,
+        ).dangerScore(_nineHearts),
         0,
       );
       expect(
-        profileWith(pickups: [_nineHearts], handCount: 4)
-            .dangerScore(_nineHearts),
+        profileWith(
+          pickups: [_nineHearts],
+          handCount: 4,
+        ).dangerScore(_nineHearts),
         greaterThan(0),
       );
     });
@@ -586,13 +619,17 @@ void main() {
         1,
       );
       expect(
-        profileWith(pickups: [_nineHearts], score: 25)
-            .avoidFeedingScore(_nineHearts),
+        profileWith(
+          pickups: [_nineHearts],
+          score: 25,
+        ).avoidFeedingScore(_nineHearts),
         2,
       );
       expect(
-        profileWith(pickups: [_nineHearts], score: 28)
-            .avoidFeedingScore(_nineHearts),
+        profileWith(
+          pickups: [_nineHearts],
+          score: 28,
+        ).avoidFeedingScore(_nineHearts),
         3,
       );
     });
@@ -603,14 +640,10 @@ void main() {
       final fixtures = <CpuObservationFacts Function(CpuDifficulty)>[
         (difficulty) => _materialPosition(difficulty, queensDead: true),
         (difficulty) => _materialPosition(difficulty, queensDead: false),
-        (difficulty) => _expertCoverPosition(
-          setOnTable: true,
-          difficulty: difficulty,
-        ),
-        (difficulty) => _expertMemoryPosition(
-          depthFromNewest: 6,
-          difficulty: difficulty,
-        ),
+        (difficulty) =>
+            _expertCoverPosition(setOnTable: true, difficulty: difficulty),
+        (difficulty) =>
+            _expertMemoryPosition(depthFromNewest: 6, difficulty: difficulty),
         (difficulty) => _position(
           difficulty: difficulty,
           hand: _feedHand,
@@ -652,7 +685,10 @@ int _casualStock({required bool applied}) {
 CpuObservationFacts _skilledFeedPosition({required bool coverable}) {
   return _position(
     difficulty: CpuDifficulty.skilled,
-    hand: [_c(CardRank.jack, CardSuit.clubs), _c(CardRank.three, CardSuit.hearts)],
+    hand: [
+      _c(CardRank.jack, CardSuit.clubs),
+      _c(CardRank.three, CardSuit.hearts),
+    ],
     tableMelds: {
       PlayerSeat.east: [
         coverable

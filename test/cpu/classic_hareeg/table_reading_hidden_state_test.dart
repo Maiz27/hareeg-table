@@ -127,9 +127,9 @@ String _publicFace(CpuObservation observation) {
     observation.legalActionIds.join(','),
     for (final seat in PlayerSeat.values)
       '${seat.name}:${observation.handCountFor(seat)}'
-      ':${observation.scoreFor(seat)}'
-      ':${observation.hasOpened(seat)}'
-      ':${observation.tableMeldsFor(seat).map((meld) => meld.cards.map((card) => card.id).join('+')).join('/')}',
+          ':${observation.scoreFor(seat)}'
+          ':${observation.hasOpened(seat)}'
+          ':${observation.tableMeldsFor(seat).map((meld) => meld.cards.map((card) => card.id).join('+')).join('/')}',
   ].join('|');
 }
 
@@ -140,12 +140,13 @@ String _signals(CpuObservation observation) {
   final feed = [
     for (final card in observation.ownHand)
       '${card.id}='
-      '${(reading.availableFeedRiskFor(card).evidence.map((kind) => kind.name).toList()..sort()).join('+')}',
+          '${(reading.availableFeedRiskFor(card).evidence.map((kind) => kind.name).toList()..sort()).join('+')}',
   ];
-  final dead = reading.analysis.deadNeededIdentities
-      .map((identity) => identity.key)
-      .toList()
-    ..sort();
+  final dead =
+      reading.analysis.deadNeededIdentities
+          .map((identity) => identity.key)
+          .toList()
+        ..sort();
   return [
     'target=${reading.feedTarget?.name}',
     'starved=${starved.join(',')}',
@@ -176,7 +177,8 @@ void _expectIndistinguishable(
     expect(
       _plan(a).actionId,
       _plan(b).actionId,
-      reason: '${difficulty.name} changed its plan with hidden state ($because)',
+      reason:
+          '${difficulty.name} changed its plan with hidden state ($because)',
     );
     expect(
       _plan(a).scenario,
@@ -388,7 +390,11 @@ void main() {
         stock: _stockB(),
       );
 
-      for (final seat in [PlayerSeat.south, PlayerSeat.north, PlayerSeat.west]) {
+      for (final seat in [
+        PlayerSeat.south,
+        PlayerSeat.north,
+        PlayerSeat.west,
+      ]) {
         expect(
           left.handFor(seat).map((card) => card.id),
           isNot(right.handFor(seat).map((card) => card.id)),
