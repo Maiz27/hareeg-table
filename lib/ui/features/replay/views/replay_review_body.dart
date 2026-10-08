@@ -250,6 +250,7 @@ class _ReplayReviewBodyState extends State<ReplayReviewBody> {
                       label: widget.branchLabel,
                       // Route navigation, not a move along the timeline.
                       glyphDirection: ReplayGlyphDirection.locale,
+                      emphasized: true,
                       onPressed: widget.onBranch,
                     ),
                   ),

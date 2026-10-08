@@ -4,6 +4,7 @@ import '../../../../domain/classic_hareeg/game/classic_hareeg_match_snapshot.dar
 import '../../../../domain/classic_hareeg/models/player_seat.dart';
 import '../../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../../domain/classic_hareeg/replay/review_observation.dart';
+import '../../../../domain/classic_hareeg/rules/classic_hareeg_rules.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../game_table/table_mode.dart';
 import '../../game_table/widgets/physical_table_playfield.dart';
@@ -99,6 +100,15 @@ class ReviewTablePlayfield extends StatelessWidget {
 
   static const _passive = PassiveTableInteraction();
 
+  /// The elimination score a recorded match was played to.
+  ///
+  /// A transcript does not carry its ruleset, and it does not need to: every
+  /// match the app records is dealt with the default rules (the live table
+  /// reads the same value off its controller's `rules`), and the replay
+  /// reconstruction rebuilds on those same defaults.
+  static final _eliminationScore =
+      ClassicHareegRules.defaults().eliminationScore;
+
   /// Records that a pointer entered the table's hit-test path, in debug builds
   /// only.
   ///
@@ -135,6 +145,11 @@ class ReviewTablePlayfield extends StatelessWidget {
       // invites an action that will never happen.
       showSouthControls: false,
       theme: theme,
+      // The same plates the live table shows: each seat's running match
+      // score against the elimination line. The position's scores are the
+      // ones in force while it was played, before its round is settled.
+      seatScores: snapshot.scores,
+      eliminationScore: _eliminationScore,
       stockCount: snapshot.stock.length,
       discardPile: snapshot.discardPile,
       topDiscard: snapshot.discardPile.isEmpty

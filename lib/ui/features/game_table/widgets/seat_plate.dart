@@ -320,27 +320,33 @@ class _CountPill extends StatelessWidget {
               : LoungeTokens.edgeL2,
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // A tiny card glyph so the number reads as "cards in hand".
-          Container(
-            width: iconSize * 0.72,
-            height: iconSize,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(1.5),
-              border: Border.all(color: LoungeTokens.sandLine, width: 1),
+      // Scaled down, never overflowed: a side seat's pill sits in the rail
+      // column, and at large text scales the count no longer fits its width.
+      // At ordinary scales it fits and this changes nothing.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // A tiny card glyph so the number reads as "cards in hand".
+            Container(
+              width: iconSize * 0.72,
+              height: iconSize,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(1.5),
+                border: Border.all(color: LoungeTokens.sandLine, width: 1),
+              ),
             ),
-          ),
-          SizedBox(width: compact ? 3 : 4),
-          Text(
-            '$count',
-            style: LoungeTokens.numericChip.copyWith(
-              fontSize: compact ? 10 : 11.5,
-              height: 1.1,
+            SizedBox(width: compact ? 3 : 4),
+            Text(
+              '$count',
+              style: LoungeTokens.numericChip.copyWith(
+                fontSize: compact ? 10 : 11.5,
+                height: 1.1,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
