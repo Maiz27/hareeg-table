@@ -34,6 +34,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Sentry: no NDK (C/C++ signal) crash capture. Those reports are
+             written natively and sent without passing the Dart beforeSend
+             scrub. Read by SentryAndroid.init before the Dart options apply. -->
+        <meta-data
+            android:name="io.sentry.ndk.enable"
+            android:value="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

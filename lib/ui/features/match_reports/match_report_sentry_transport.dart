@@ -78,8 +78,11 @@ SentryAttachment sentryAttachmentFor(DiagnosticsAttachment attachment) {
 ///   screenshots, `print` breadcrumbs or Android native breadcrumbs (system
 ///   events, lifecycle, user interaction); view hierarchies are off by
 ///   default, and `beforeSend` drops any breadcrumbs that remain.
-/// - Native crash/ANR capture off, so every event passes through
-///   [gateAndScrubSentryEvent] (native events would bypass it).
+/// - Native crash/ANR capture off, so Android events pass through
+///   [gateAndScrubSentryEvent] (native events would bypass it). This flag
+///   only covers the JVM exception handler and ANRs; NDK (C/C++ signal)
+///   capture is turned off separately by the `io.sentry.ndk.enable`
+///   metadata in `android/app/src/main/AndroidManifest.xml`.
 void configureSentryOptions(
   SentryFlutterOptions options, {
   required String dsn,

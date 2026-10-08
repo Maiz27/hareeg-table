@@ -65,8 +65,11 @@ attachment is exactly what Share/Copy would export
   (device model/make/screen/memory, OS name and version, app version and
   build), which drops the native installation ID, locale, timezone and every
   other context. No sessions, traces, client reports, screenshots, `print` or
-  Android native breadcrumbs; native
-  crash/ANR capture is off so every event passes through `beforeSend`. The
+  Android native breadcrumbs. Native crash capture that would bypass
+  `beforeSend` is off on Android: `enableNativeCrashHandling` / `anrEnabled`
+  cover the JVM handler and ANRs, and the `io.sentry.ndk.enable=false`
+  manifest metadata covers NDK (C/C++ signal) crashes, which are written
+  natively and never reach the Dart hook. The
   Sentry project should also enable *Prevent Storing of IP Addresses*.
 - **Manual.** "Report table issue" (pause) and "Export match report" (match
   over) lead with **Send report**: a Sentry event tagged `source: user_report`
