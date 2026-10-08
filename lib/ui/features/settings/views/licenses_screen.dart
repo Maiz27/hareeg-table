@@ -4,9 +4,10 @@ import '../../../../app/app_orientation.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/brand/app_brand_mark.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../shared/medallion_backdrop.dart';
+import 'meta_pill.dart';
 
 /// Attribution + license screen reached from Settings -> About.
 class LicensesScreen extends StatefulWidget {
@@ -38,7 +39,12 @@ class _LicensesScreenState extends State<LicensesScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _LicensesBackdrop(),
+            const MedallionBackdrop(
+              top: -36,
+              right: -48,
+              opacity: 0.05,
+              size: 220,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -92,44 +98,6 @@ class _AboutCard extends StatelessWidget {
   }
 }
 
-class _LicensesBackdrop extends StatelessWidget {
-  const _LicensesBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -36,
-          right: -48,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.05,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(220),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 18,
-          child: SizedBox(
-            height: 30,
-            child: CustomPaint(
-              painter: const GeometricMotifPainter(
-                variant: LoungeMotifVariant.border,
-                opacity: 0.08,
-                strokeWidth: 1.0,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _AboutIntro extends StatelessWidget {
   const _AboutIntro();
 
@@ -154,11 +122,11 @@ class _AboutIntro extends StatelessWidget {
                 spacing: LoungeTokens.space2,
                 runSpacing: LoungeTokens.space2,
                 children: [
-                  _LicensePill(
+                  MetaPill(
                     icon: Icons.offline_bolt_outlined,
                     label: strings.offlineFirst,
                   ),
-                  _LicensePill(
+                  MetaPill(
                     icon: Icons.favorite_border,
                     label: strings.noAdsOrPaidLocks,
                   ),
@@ -387,40 +355,6 @@ class _FontLicenseSection extends StatelessWidget {
           const SizedBox(height: LoungeTokens.space2),
         ],
       ],
-    );
-  }
-}
-
-class _LicensePill extends StatelessWidget {
-  const _LicensePill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space2,
-          vertical: LoungeTokens.space1,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: LoungeTokens.goldAccent),
-            const SizedBox(width: LoungeTokens.space1),
-            Text(label, style: LoungeTokens.bodyMuted),
-          ],
-        ),
-      ),
     );
   }
 }

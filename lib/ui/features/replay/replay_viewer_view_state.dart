@@ -72,9 +72,6 @@ class ReplayViewerReady extends ReplayViewerViewState {
 
   /// Where the reviewer is standing.
   final ReplayReviewState review;
-
-  /// The reconstructed match.
-  MatchReplayTimeline get timeline => review.timeline;
 }
 
 /// The replay exists in history but cannot be shown.

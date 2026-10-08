@@ -49,7 +49,7 @@ abstract final class FinishFiftyPracticePack {
       PracticeBoard.card(CardRank.nine, CardSuit.diamonds),
       PracticeBoard.card(CardRank.nine, CardSuit.hearts),
     ];
-    final ninesIds = {for (final card in nines) card.id};
+    final ninesIds = PracticeBoard.idsOf(nines);
     final fiveSpades = PracticeBoard.card(CardRank.five, CardSuit.spades);
     return PracticeLessonScript(
       lessonId: 'final-discard',
@@ -127,7 +127,7 @@ abstract final class FinishFiftyPracticePack {
       PracticeBoard.card(CardRank.queen, CardSuit.diamonds),
       PracticeBoard.card(CardRank.queen, CardSuit.hearts),
     ];
-    final queenIds = {for (final card in queens) card.id};
+    final queenIds = PracticeBoard.idsOf(queens);
     final heartRun = [
       PracticeBoard.card(CardRank.four, CardSuit.hearts),
       PracticeBoard.card(CardRank.five, CardSuit.hearts),
@@ -135,7 +135,7 @@ abstract final class FinishFiftyPracticePack {
       PracticeBoard.card(CardRank.seven, CardSuit.hearts),
       PracticeBoard.card(CardRank.eight, CardSuit.hearts),
     ];
-    final heartRunIds = {for (final card in heartRun) card.id};
+    final heartRunIds = PracticeBoard.idsOf(heartRun);
     final sevenSpades = PracticeBoard.card(CardRank.seven, CardSuit.spades);
     return PracticeLessonScript(
       lessonId: 'normal-finish',
@@ -231,10 +231,10 @@ abstract final class FinishFiftyPracticePack {
       PracticeBoard.card(CardRank.five, CardSuit.diamonds),
       PracticeBoard.card(CardRank.five, CardSuit.hearts),
     ];
-    final twosIds = {for (final card in twos) card.id};
-    final threesIds = {for (final card in threes) card.id};
-    final foursIds = {for (final card in fours) card.id};
-    final fivesIds = {for (final card in fives) card.id};
+    final twosIds = PracticeBoard.idsOf(twos);
+    final threesIds = PracticeBoard.idsOf(threes);
+    final foursIds = PracticeBoard.idsOf(fours);
+    final fivesIds = PracticeBoard.idsOf(fives);
     final meldCards = [...twos, ...threes, ...fours, ...fives];
     final kingSpades = PracticeBoard.card(CardRank.king, CardSuit.spades);
     return PracticeLessonScript(
@@ -350,7 +350,7 @@ abstract final class FinishFiftyPracticePack {
       PracticeBoard.card(CardRank.eight, CardSuit.diamonds),
       PracticeBoard.card(CardRank.eight, CardSuit.hearts),
     ];
-    final eightsIds = {for (final card in eights) card.id};
+    final eightsIds = PracticeBoard.idsOf(eights);
     final joker = PracticeBoard.joker();
     return PracticeLessonScript(
       lessonId: 'joker-final-discard',
@@ -439,7 +439,7 @@ abstract final class FinishFiftyPracticePack {
     ];
     final eightDiamonds = PracticeBoard.card(CardRank.eight, CardSuit.diamonds);
     final eightsIds = {for (final card in eightPair) card.id, eightDiamonds.id};
-    final twosIds = {for (final card in twos) card.id};
+    final twosIds = PracticeBoard.idsOf(twos);
     final queenSpades = PracticeBoard.card(CardRank.queen, CardSuit.spades);
     return PracticeLessonScript(
       lessonId: 'fifty-claim',
@@ -483,7 +483,7 @@ abstract final class FinishFiftyPracticePack {
           hint: (s) => s.practiceFiftyClaimStep1Hint,
           deadEndNote: (s) => s.practiceFiftyMissed,
           kinds: const {ClassicHareegActionKind.claimFifty},
-          highlightCardIds: {for (final card in eightPair) card.id},
+          highlightCardIds: PracticeBoard.idsOf(eightPair),
           // The claim leaves the rules surface for good when the window
           // dies on the player's turn; only a fresh board restores it.
           // Unreachable while the timer holds — kept as the safety net.
@@ -536,7 +536,7 @@ abstract final class FinishFiftyPracticePack {
   /// the punishment is the lesson. The REAL score sheet opens over the
   /// finished board before the completion panel, so the numbers are read
   /// where a match would show them.
-  static PracticeLessonScript fiftyScoring({bool pauseTimer = true}) {
+  static PracticeLessonScript fiftyScoring() {
     final priorThrees = [
       PracticeBoard.card(CardRank.three, CardSuit.spades),
       PracticeBoard.card(CardRank.three, CardSuit.diamonds),
@@ -594,14 +594,14 @@ abstract final class FinishFiftyPracticePack {
         ClassicHareegActionIds.drawStock,
         '${ClassicHareegActionIds.discardPrefix}${fiveHearts.id}',
       ],
-      fiftyTimerPausesAtSeconds: pauseTimer ? 3 : null,
+      fiftyTimerPausesAtSeconds: 3,
       steps: [
         PracticeStep.kinds(
           prompt: (s) => s.practiceFiftyScoringStep1,
           hint: (s) => s.practiceFiftyClaimStep1Hint,
           deadEndNote: (s) => s.practiceFiftyMissed,
           kinds: const {ClassicHareegActionKind.claimFifty},
-          highlightCardIds: {for (final card in fivePair) card.id},
+          highlightCardIds: PracticeBoard.idsOf(fivePair),
           isDeadEnd: (controller) =>
               controller.currentSeat == PlayerSeat.south &&
               controller.fiftySecondsRemaining == null,

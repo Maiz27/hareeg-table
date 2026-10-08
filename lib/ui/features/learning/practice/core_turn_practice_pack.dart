@@ -65,9 +65,7 @@ abstract final class CoreTurnPracticePack {
     ];
     return PracticeLessonScript(
       lessonId: 'first-meld',
-      taughtMelds: [
-        {for (final card in heartRun) card.id},
-      ],
+      taughtMelds: [PracticeBoard.idsOf(heartRun)],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
           ...heartRun,
@@ -99,7 +97,7 @@ abstract final class CoreTurnPracticePack {
           // the way out instead.
           holdNote: (s) => s.practiceFirstMeldStep2Hold,
           kinds: const {ClassicHareegActionKind.playMeld},
-          highlightCardIds: {for (final card in heartRun) card.id},
+          highlightCardIds: PracticeBoard.idsOf(heartRun),
           // Staging below the benchmark applies but does not demonstrate the
           // opening; the step holds until the table is actually open — and
           // a take-back that un-opens it walks the lesson back here.
@@ -140,8 +138,8 @@ abstract final class CoreTurnPracticePack {
     return PracticeLessonScript(
       lessonId: 'discard-opening',
       taughtMelds: [
-        {for (final card in queens) card.id},
-        {for (final card in eightPair) card.id},
+        PracticeBoard.idsOf(queens),
+        PracticeBoard.idsOf(eightPair),
       ],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
@@ -178,7 +176,7 @@ abstract final class CoreTurnPracticePack {
           successNote: (s) => s.practiceDiscardOpeningStep1Done,
           kinds: const {ClassicHareegActionKind.takeDiscard},
           // The pair the take completes rings alongside the pile.
-          highlightCardIds: {for (final card in eightPair) card.id},
+          highlightCardIds: PracticeBoard.idsOf(eightPair),
         ),
         // The relaxed taken-discard rule lets any meld hit the table while
         // the eight sits pending, so the step pins the eights explicitly —
@@ -194,7 +192,7 @@ abstract final class CoreTurnPracticePack {
           // Group 0: the held pair. Group 1: the eight just taken from the
           // pile that completes them.
           highlightGroups: [
-            {for (final card in eightPair) card.id},
+            PracticeBoard.idsOf(eightPair),
             {eightDiamonds.id},
           ],
         ),
@@ -202,7 +200,7 @@ abstract final class CoreTurnPracticePack {
           prompt: (s) => s.practiceDiscardOpeningStep3,
           successNote: (s) => s.practiceDiscardOpeningStep3Done,
           kinds: const {ClassicHareegActionKind.playMeld},
-          highlightCardIds: {for (final card in queens) card.id},
+          highlightCardIds: PracticeBoard.idsOf(queens),
           isDemonstrated: (controller) =>
               controller.openingState.hasOpened(PlayerSeat.south),
         ),
@@ -309,10 +307,7 @@ abstract final class CoreTurnPracticePack {
     ];
     return PracticeLessonScript(
       lessonId: 'opening-51',
-      taughtMelds: [
-        {for (final card in kings) card.id},
-        {for (final card in jacks) card.id},
-      ],
+      taughtMelds: [PracticeBoard.idsOf(kings), PracticeBoard.idsOf(jacks)],
       buildSnapshot: () => PracticeBoard.build(
         southHand: [
           ...kings,
@@ -343,18 +338,18 @@ abstract final class CoreTurnPracticePack {
           prompt: (s) => s.practiceOpeningStep1,
           hint: (s) => s.practiceOpeningStep1Hint,
           successNote: (s) => s.practiceOpeningStep1Done,
-          allows: PracticeScriptAuthoring.playsExactly({
-            for (final card in kings) card.id,
-          }),
-          highlightCardIds: {for (final card in kings) card.id},
+          allows: PracticeScriptAuthoring.playsExactly(
+            PracticeBoard.idsOf(kings),
+          ),
+          highlightCardIds: PracticeBoard.idsOf(kings),
         ),
         PracticeStep(
           prompt: (s) => s.practiceOpeningStep2,
           successNote: (s) => s.practiceOpeningStep2Done,
-          allows: PracticeScriptAuthoring.playsExactly({
-            for (final card in jacks) card.id,
-          }),
-          highlightCardIds: {for (final card in jacks) card.id},
+          allows: PracticeScriptAuthoring.playsExactly(
+            PracticeBoard.idsOf(jacks),
+          ),
+          highlightCardIds: PracticeBoard.idsOf(jacks),
           isDemonstrated: (controller) =>
               controller.openingState.hasOpened(PlayerSeat.south),
         ),
