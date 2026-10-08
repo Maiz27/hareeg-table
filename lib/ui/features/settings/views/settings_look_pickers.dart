@@ -6,6 +6,7 @@ import '../../../core/theme/lounge_tokens.dart';
 import '../../../core/theme/table_surface_theme.dart';
 import '../../game_table/widgets/table_background.dart';
 import 'card_theme_preview.dart';
+import 'meta_pill.dart';
 import 'settings_controls.dart';
 import 'settings_labels.dart';
 
@@ -275,7 +276,7 @@ class _CardThemeRow extends StatelessWidget {
                         spacing: LoungeTokens.space2,
                         runSpacing: LoungeTokens.space2,
                         children: [
-                          _MetaPill(
+                          MetaPill(
                             icon:
                                 theme.source ==
                                     CardThemeAssetSource.codeRendered
@@ -287,7 +288,7 @@ class _CardThemeRow extends StatelessWidget {
                                 ? strings.codeRendered
                                 : strings.bundledAsset,
                           ),
-                          _MetaPill(
+                          MetaPill(
                             icon: theme.readableOnCompactLayouts
                                 ? Icons.check_circle_outline
                                 : Icons.visibility_off_outlined,
@@ -322,40 +323,6 @@ class _CardThemeRow extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetaPill extends StatelessWidget {
-  const _MetaPill({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: LoungeTokens.space2,
-          vertical: LoungeTokens.space1,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: LoungeTokens.goldAccent),
-            const SizedBox(width: LoungeTokens.space1),
-            Text(label, style: LoungeTokens.bodyMuted),
-          ],
         ),
       ),
     );
