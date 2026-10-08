@@ -5,10 +5,10 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/preferences_repository.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../replay/widgets/analysis_coach_panel.dart' show verbosityLabel;
+import '../../shared/medallion_backdrop.dart';
 import '../models/settings_section.dart';
 import 'settings_accordion_section.dart';
 import 'settings_controls.dart';
@@ -114,7 +114,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _SettingsBackdrop(),
+            const MedallionBackdrop(
+              top: 24,
+              right: -54,
+              opacity: 0.05,
+              size: 210,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -385,44 +390,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SettingsBackdrop extends StatelessWidget {
-  const _SettingsBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: 24,
-          right: -54,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.05,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(210),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 18,
-          child: SizedBox(
-            height: 30,
-            child: CustomPaint(
-              painter: const GeometricMotifPainter(
-                variant: LoungeMotifVariant.border,
-                opacity: 0.08,
-                strokeWidth: 1.0,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

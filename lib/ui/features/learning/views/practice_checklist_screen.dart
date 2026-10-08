@@ -6,8 +6,8 @@ import '../../../../app/app_orientation.dart';
 import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/learning_progress_repository.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../shared/medallion_backdrop.dart';
 import '../models/practice_catalog.dart';
 import '../models/practice_lesson_registry.dart';
 import '../progress/learning_progress_workflow.dart';
@@ -128,7 +128,13 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _PracticeBackdrop(),
+            const MedallionBackdrop(
+              top: -44,
+              right: -48,
+              opacity: 0.052,
+              size: 220,
+              borderStrip: false,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -565,29 +571,6 @@ class _LessonMedallion extends StatelessWidget {
                 color: LoungeTokens.sandLine,
               ),
             ),
-    );
-  }
-}
-
-class _PracticeBackdrop extends StatelessWidget {
-  const _PracticeBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -44,
-          right: -48,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.052,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(220),
-          ),
-        ),
-      ],
     );
   }
 }

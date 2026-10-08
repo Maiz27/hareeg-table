@@ -4,9 +4,9 @@ import '../../../../app/app_orientation.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/brand/app_brand_mark.dart';
-import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../shared/medallion_backdrop.dart';
 
 /// Attribution + license screen reached from Settings -> About.
 class LicensesScreen extends StatefulWidget {
@@ -38,7 +38,12 @@ class _LicensesScreenState extends State<LicensesScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const _LicensesBackdrop(),
+            const MedallionBackdrop(
+              top: -36,
+              right: -48,
+              opacity: 0.05,
+              size: 220,
+            ),
             ListView(
               padding: const EdgeInsets.fromLTRB(
                 LoungeTokens.space5,
@@ -88,44 +93,6 @@ class _AboutCard extends StatelessWidget {
               edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
             ).copyWith(boxShadow: const []),
       child: child,
-    );
-  }
-}
-
-class _LicensesBackdrop extends StatelessWidget {
-  const _LicensesBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -36,
-          right: -48,
-          child: LoungeMotif(
-            variant: LoungeMotifVariant.medallion,
-            opacity: 0.05,
-            strokeWidth: 1.0,
-            density: 4,
-            size: const Size.square(220),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 18,
-          child: SizedBox(
-            height: 30,
-            child: CustomPaint(
-              painter: const GeometricMotifPainter(
-                variant: LoungeMotifVariant.border,
-                opacity: 0.08,
-                strokeWidth: 1.0,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
