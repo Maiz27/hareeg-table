@@ -346,19 +346,25 @@ class _FanHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The fan on the home stage's warm pool of lamp light.
+    // The fan on the home stage's warm pool of ember lamp light. The pool
+    // must reach zero inside its own box: a radial gradient is sized by the
+    // box's shorter side, so with the old 0.7 radius it was still lit at the
+    // top and bottom edges and cut off in a hard line above the fan.
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          radius: 0.7,
+          radius: 0.5,
           colors: [
-            LoungeTokens.goldAccent.withValues(alpha: 0.16),
-            LoungeTokens.goldAccent.withValues(alpha: 0),
+            LoungeTokens.accentGlow.withValues(alpha: 0.16),
+            LoungeTokens.accentGlow.withValues(alpha: 0),
           ],
         ),
       ),
       child: const Padding(
-        padding: EdgeInsets.all(LoungeTokens.space5),
+        padding: EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space5,
+          vertical: LoungeTokens.space8,
+        ),
         child: ShowcaseCardFan(
           width: 232,
           height: 132,
