@@ -668,8 +668,10 @@ class _GameTableScreenState extends State<GameTableScreen>
   /// pipeline as an applied action so a settled draw is saved and shown.
   Future<void> _settleLapsedFiftyWindow() async {
     if (!mounted || !_mode.capabilities.runsMatchProgression) return;
-    // A human apply or CPU run in flight re-enters [_ensureFiftyTicker] once it
-    // lands, so the lapse is picked up then, against the settled state.
+    // A human action in flight re-enters [_ensureFiftyTicker] when it lands,
+    // applied or not, so the lapse is picked up then against the settled
+    // state. A CPU run owns the current seat, and the runner settles a lapse
+    // itself.
     if (_isHumanActionPending || _isCpuRunning || _isOpeningDealRunning) {
       return;
     }
@@ -1989,6 +1991,10 @@ class _GameTableScreenState extends State<GameTableScreen>
         setState(() {
           _isHumanActionPending = false;
         });
+        // A rejected, reverted or cancelled action never reaches the
+        // post-apply ticker call, so a Fifty window that lapsed while this
+        // action held the table would otherwise stay unsettled.
+        _ensureFiftyTicker();
       } else {
         _isHumanActionPending = false;
       }
