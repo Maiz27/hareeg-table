@@ -16,21 +16,94 @@ import 'package:flutter_test/flutter_test.dart';
 /// itself, where these literals belong.
 const _ceilings = <String, int>{
   r'Duration\(milliseconds:': 49,
-  r'Color\(0x': 136,
+  // What remains is artwork, not chrome: the per-theme card palettes under
+  // `lib/ui/core/cards/themes/` and the wood / sapphire / clay table
+  // materials in `table_background.dart`. Chrome paints with roles.
+  r'Color\(0x': 121,
 };
 
-const _tokenFile = 'lib/ui/core/theme/lounge_tokens.dart';
+/// Hue-named tokens retired by the Lit card identity. They were deleted from
+/// `LoungeTokens`; this keeps them from coming back under the same names.
+const _retiredTokens = [
+  'feltGreen',
+  'coffeeCharcoal',
+  'cardIvory',
+  'sandLine',
+  'goldAccent',
+  'fiftyFlame',
+  'deepRed',
+  'indigoAccent',
+  'offWhiteText',
+  'mutedText',
+  'feltRaised',
+  'feltSpotlight',
+  'overlayScrim',
+  'selectedGlow',
+  'pendingDiscard',
+  'invalidAction',
+  'surfaceL2',
+  'edgeL2',
+];
+
+/// The theme layer: the raw palette and the role tokens. The only place a hex
+/// value or a `BrandPalette` reference belongs.
+const _themeDir = 'lib/ui/core/theme/';
 
 void main() {
   final files = Directory('lib/ui')
       .listSync(recursive: true)
       .whereType<File>()
       .where((f) => f.path.endsWith('.dart'))
-      .where((f) => f.path.replaceAll(r'\', '/') != _tokenFile)
+      .where((f) => !f.path.replaceAll(r'\', '/').startsWith(_themeDir))
       .toList(growable: false);
 
   test('the ratchet scans the UI tree', () {
     expect(files.length, greaterThan(50));
+  });
+
+  test('the raw palette is private to the theme layer', () {
+    // Design contract section 2: feature code paints with roles from
+    // `LoungeTokens`; the hues behind them are `BrandPalette`'s business. A
+    // widget reaching for a hue by name would survive a palette change with
+    // the wrong colour.
+    final hits = <String>[];
+    for (final file in [
+      ...files,
+      ...Directory('lib/app')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart')),
+    ]) {
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].contains('BrandPalette')) {
+          hits.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+    expect(hits, isEmpty, reason: 'Use a LoungeTokens role instead.');
+  });
+
+  test('retired hue-named tokens stay retired', () {
+    final pattern = RegExp('LoungeTokens\\.(${_retiredTokens.join('|')})\\b');
+    final hits = <String>[];
+    for (final file
+        in Directory('lib')
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.dart'))) {
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        if (pattern.hasMatch(lines[i])) {
+          hits.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+    expect(
+      hits,
+      isEmpty,
+      reason: 'Colours are roles, not hues (design contract section 2).',
+    );
   });
 
   for (final entry in _ceilings.entries) {

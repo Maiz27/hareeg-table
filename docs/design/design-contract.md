@@ -34,68 +34,152 @@ what a screen must satisfy before it ships. The card art contract stays in
 
 ## 2. Token rules
 
-- Feature code uses tokens from `LoungeTokens` (or a successor `lib/ui/core/theme`
-  file). Raw `Color(0x...)`, raw font sizes and raw `Duration(milliseconds: …)`
-  in `lib/ui/features/**` are contract violations unless commented with the
-  reason.
-- New tokens are added to code **and** to this file in the same change.
+- **Colours are roles, not hues.** A widget asks for `accent`, `surface` or
+  `stateSelected`, never for "ember" or "sand". Role names say what a colour
+  is for; the hue behind a role can change without touching a call site.
+- **Two files, two jobs.** `lib/ui/core/theme/brand_palette.dart`
+  (`BrandPalette`) holds the raw hues, named by what they are (`ember`,
+  `charcoal`, `sand`, `felt` …). It is the only file that holds a brand hex
+  value. `lib/ui/core/theme/lounge_tokens.dart` (`LoungeTokens`) maps each role
+  onto a palette hue, plus the few translucent role values (glows, scrim,
+  `lineSoft`) that have no palette entry of their own.
+- **`BrandPalette` is private to the theme layer.** Nothing outside
+  `lib/ui/core/theme/` references it: feature code, shared widgets and
+  `lib/app/` paint with `LoungeTokens` roles only. A widget that reached for a
+  hue by name would keep the wrong colour after a palette change.
+- Feature code uses tokens from `LoungeTokens` (or a successor
+  `lib/ui/core/theme` file). Raw `Color(0x...)`, raw font sizes and raw
+  `Duration(milliseconds: …)` in `lib/ui/features/**` are contract violations
+  unless commented with the reason.
+- **Adding a role:** add it to `LoungeTokens` pointing at an existing palette
+  hue, with a doc comment saying what it is for, and add it to section 3 of
+  this file in the same change. Add a hue to `BrandPalette` only when no
+  existing hue fits, and say which role needs it. Never add a role named after
+  a hue.
+- **Changing a hue:** edit its value in `BrandPalette`; every role that points
+  at it follows. To move one role to a different hue, re-point that role in
+  `LoungeTokens` (one line). Either change updates the hex column in section
+  3.1 in the same change.
+- The hue-named tokens from the Sandline Lounge era (`feltGreen`,
+  `coffeeCharcoal`, `cardIvory`, `sandLine`, `goldAccent`, `fiftyFlame`,
+  `deepRed`, `indigoAccent`, `offWhiteText`, `mutedText`, `feltRaised`,
+  `feltSpotlight`, `overlayScrim`, `selectedGlow`, `pendingDiscard`,
+  `invalidAction`, `surfaceL2`, `edgeL2`) are retired. They survive only as
+  `@Deprecated` aliases while call sites move to roles, and are removed once
+  nothing references them. New code never uses them. An alias points at the
+  closest role, which is not always the right one: a menu background is
+  `surface`, not `tableFelt`; a selected card is `stateSelected`, not
+  `accent`. Each call site picks its role during migration.
 - Table surface themes (`TableSurfaceTheme`) and card themes may restyle
   surfaces, but they must not redefine state colours (section 3.3).
 
 ## 3. Colour
 
-### 3.1 Brand palette — Current
+### 3.1 Colour roles — Current
 
-| Token | Hex | Role |
-| --- | --- | --- |
-| `feltGreen` | `#12382F` | Primary table surface, menu backgrounds |
-| `coffeeCharcoal` | `#15110E` | Chrome, panels, deep edges |
-| `cardIvory` | `#F8F0DD` | Card face base |
-| `sandLine` | `#D7BD83` | Hairlines, motif strokes, secondary borders |
-| `goldAccent` | `#D69B35` | Primary action, selection, active control |
-| `fiftyFlame` | `#EF5A24` | Fifty / Khamsin heat only |
-| `deepRed` | `#A92E24` | Danger, hearts/diamonds |
-| `indigoAccent` | `#23395B` | Opponent badges, inactive seats |
-| `offWhiteText` | `#F5EFE3` | Primary text on dark |
-| `mutedText` | `#B8AA91` | Secondary text on dark |
+The identity is the **Lit card** (`direction.md`): charcoal ground, ember
+accent, sand hairlines, ivory paper. Felt green is the playing surface and
+nothing else. Hex values come from `BrandPalette`; the table lists them so a
+reader does not have to open the code, and section 2 says how to change one.
+
+| Group | Role (`LoungeTokens`) | Palette hue | Hex | Use |
+| --- | --- | --- | --- | --- |
+| Surfaces | `surface` | `charcoal` | `#15110E` | The ground: scaffold, menus, screen headers, the splash |
+| | `surfaceRaised` | `charcoalRaised` | `#221B16` | One step up: raised chips, banners, inset panels on `surface` |
+| | `surfaceSpotlight` | `charcoalSpotlight` | `#2C231C` | Two steps up: the pool behind cards and lit medallions on `surface` |
+| | `surfaceInset` | `charcoalDeep` | `#0E0B09` | Sunk one step: recessed fills, progress tracks, inset trays |
+| | `panel` | `charcoalRaised` | `#221B16` | L3 fill: sheets, pause, score, the coach card |
+| | `panelTranslucent` | (role value) | `#15110E` @ 88% | L2 fill, slightly translucent over the table |
+| | `scrim` | (role value) | `#0B0A08` @ 80% | Behind sheets and overlays above the table |
+| | `paper` | `ivory` | `#F8F0DD` | Paper panels, the light brand pairing |
+| Table | `tableFelt` | `felt` | `#12382F` | The playing surface |
+| | `tableFeltRaised` | `feltRaised` | `#184235` | Meld lanes, inset panels on the table |
+| | `tableFeltSpotlight` | `feltSpotlight` | `#1B4A3C` | The lighter pool behind on-table cards |
+| | `cardFace` | `ivory` | `#F8F0DD` | Default card face base |
+| Accent | `accent` | `ember` | `#E4522B` | Primary action: filled buttons, active controls, progress, medallion rings, the lamp |
+| | `accentPressed` | `emberDeep` | `#C8401F` | `accent` pressed or deepened; the dark end of a lit gradient |
+| | `accentBright` | `emberBright` | `#F07A52` | `accent` caught by the light; the bright end of a lit gradient |
+| | `onAccent` | `charcoal` | `#15110E` | Text and icons on `accent` |
+| | `accentGlow` | (role value) | `#E4522B` @ 40% | Outer glow for accent rings and lit medallions |
+| Lines and text | `line` | `sand` | `#D7BD83` | Hairlines, motif strokes, secondary borders, overlines |
+| | `lineSoft` | (role value) | `#D7BD83` @ 25% | Hairline edge for L2 surfaces |
+| | `textPrimary` | `offWhite` | `#F5EFE3` | Primary text on dark surfaces |
+| | `textMuted` | `stone` | `#B8AA91` | Secondary text on dark surfaces |
+| | `textOnPaper` | `charcoal` | `#15110E` | Text on `paper` and `cardFace` |
+| Signals | `danger` | `crimson` | `#A92E24` | Warnings, elimination, illegal-action copy |
+| | `suitRed` | `crimson` | `#A92E24` | Hearts and diamonds on the default card faces |
+| | `seatCool` | `indigo` | `#23395B` | Opponent badges, inactive seats, the west seat |
+| | `seatEast` | `slate` | `#2F5F6D` | The east seat's identity, a second cool told apart from `seatCool` |
+| | `fiftyHeatCore` | `flameCore` | `#FFE3A0` | The white-hot core of the Fifty flame: stamp edge, first shockwave ring, fresh embers |
+| | `celebrationCool` | `lagoon` | `#5FA8D3` | A decorative cool spark in celebrations only; never a state |
+| High contrast | `highContrastSelected` (+`Glow`), `highContrastPending` (+`Glow`, `Tint`), `highContrastCover` (+`Glow`, `Tint`), `highContrastCoach` (+`Glow`), `highContrastInvalid` | `signalYellow`, `signalOrange`, `signalCyan`, `signalMint`, `signalRed` | `#FFD400`, `#FF6F00`, `#00D9FF`, `#36F0DC`, `#FF2F2F` | Overlay-only replacements for the states (and the panel edge) when the high-contrast cues setting is on; saturated by design |
+| States | see section 3.3 | | | Reserved meanings |
+
+"(role value)" marks a translucent value defined in `LoungeTokens` itself; its
+base hue is the palette hue named in the hex column.
 
 ### 3.2 Surface tones and elevation
 
+Menus, headers, panels and the splash sit on charcoal. Felt appears only on
+the playing table (and the table's own surface theme, `TableSurfaceTheme`);
+a menu that needs depth lifts to `surfaceRaised` or `surfaceSpotlight`, never
+to felt.
+
 | Level | Use | Fill | Edge | Shadow |
 | --- | --- | --- | --- | --- |
-| L0 Surface | Table felt, menu background | `feltGreen` / surface theme | — | — |
-| L1 On-table | Cards, meld lanes, stock, discard | card face / `feltSpotlight` | theme border | `0 2 4 / 35%` + `0 6 14 / 20%` |
-| L2 HUD | Seat plates, HUD chips, toasts | `coffeeCharcoal` @ 88% | `sandLine` @ 25% | `0 4 12 / 35%` |
-| L3 Panel | Sheets, pause, score, coach card | `coffeeCharcoal` | `sandLine` @ 40–45% | `0 12 32 / 45%` |
-| L4 Modal | Blocking dialogs | L3 + `overlayScrim` behind | as L3 | as L3 |
+| L0 Surface | Menu and screen background; table surface | `surface` (menus) / `tableFelt` or surface theme (table) | — | — |
+| L1 On-table | Cards, meld lanes, stock, discard | `cardFace` / `tableFeltSpotlight`, `tableFeltRaised` | theme border | `0 2 4 / 35%` + `0 6 14 / 20%` |
+| L1 On-menu | Raised chips, banners, inset panels, card pools on menus | `surfaceRaised` / `surfaceSpotlight` | `lineSoft` | none, or L2 |
+| L2 HUD | Seat plates, HUD chips, toasts | `panelTranslucent` | `lineSoft` | `0 4 12 / 35%` |
+| L3 Panel | Sheets, pause, score, coach card | `panel` | `line` @ 40–45% | `0 12 32 / 45%` |
+| L4 Modal | Blocking dialogs | L3 + `scrim` behind | as L3 | as L3 |
 
 Shadow notation is `x y blur / alpha` in black. A widget picks a level, not an
 ad-hoc shadow. L2 and L3 are `LoungeTokens.elevationL2` / `elevationL3`; L1
-card shadows live with the card view, and L4 reuses L3 over the scrim.
+card shadows live with the card view, and L4 reuses L3 over the scrim. On
+charcoal a shadow alone separates little, so L2 and L3 always carry their edge
+hairline.
 
 ### 3.3 State colours — Current (reserved meanings)
 
-| State | Token | Meaning | Where it appears |
-| --- | --- | --- | --- |
-| Selection | `goldAccent`, `selectedGlow` | Player picked this | Hand cards, chosen controls |
-| Cover target | `goldAccent` hover ring (no dedicated token) | Legal drop zone | Meld lanes |
-| Pending discard | `pendingDiscard` | Will leave the hand on confirm | Hand card |
-| Invalid | `invalidAction` | Rejected action | Ring/border flash |
-| Fifty | `fiftyFlame` | Fifty / Khamsin, high stakes | Fifty moments, danger scores |
-| Active turn | Turn hue over the active seat's cards | Whose turn it is | Seat rails, hand |
-| Eliminated | Dimmed seat plate (no dedicated token) | Seat out of the round | Seat overlay |
-| Coach (keep) | `coachHighlight` teal, `coachHighlightB` blue, `coachHighlightC` violet | Coach-tier proactive hint, one hue per meld group | Coaching strictness only |
-| Coach (let go) | `coachDiscard` rose | Coach-recommended discard | Coaching strictness only |
+| State | Token | Hue | Meaning | Where it appears |
+| --- | --- | --- | --- | --- |
+| Selection | `stateSelected`, `stateSelectedGlow` | sand | Player picked this | Hand cards, chosen controls |
+| Cover target | `stateSelected` hover ring | sand | Legal drop zone | Meld lanes |
+| Pending discard | `statePending` | amber | Will leave the hand on confirm | Hand card |
+| Invalid | `stateInvalid` | rose | Rejected action | Ring/border flash |
+| Fifty | `fiftyHeat` | ember | Fifty / Khamsin, high stakes | Fifty moments, danger scores |
+| Active turn | Turn hue over the active seat's cards | — | Whose turn it is | Seat rails, hand |
+| Eliminated | Dimmed seat plate (no dedicated token) | — | Seat out of the round | Seat overlay |
+| Coach (keep) | `coachHighlight`, `coachHighlightB`, `coachHighlightC` (`coachRingPalette`) | teal, blue, violet | Coach-tier proactive hint, one hue per meld group | Coaching strictness only |
+| Coach (let go) | `coachDiscard` | orchid rose | Coach-recommended discard | Coaching strictness only |
+
+Selection is **quiet sand** so the flame stays reserved for fire: ember on the
+table means Fifty and nothing else. `fiftyHeat` and the chrome `accent` share
+the ember hue on purpose (it is the brand flame), but they are separate roles.
+Chrome uses `accent`; nothing on the playing surface uses `accent` to mark a
+card, a lane or a seat state.
 
 The coach family is **deliberately cool** so a coached card can never be
-mistaken for selection (gold), pending (amber), invalid (red) or Fifty (flame).
-This is an intentional exception to the warm palette, and it holds only inside
-coaching UI. No other feature may use these hues.
+mistaken for selection (sand), pending (amber), invalid (rose) or Fifty
+(ember). This is an intentional exception to the warm palette, and it holds
+only inside coaching UI. The one warm coach hue, orchid "let go", sits apart
+from rose by hue and only ever appears alongside the cool "keep" rings of the
+same hint. No other feature may use these hues.
 
 ### 3.4 Contrast
 
 - Body text ≥ 4.5:1 against its surface; large text and icons ≥ 3:1.
-- `mutedText` on `feltGreen` is the floor for secondary copy; never go lower.
+- `textMuted` on `surfaceSpotlight` (the lightest charcoal step, about 6.7:1)
+  is the floor for secondary copy on menus and panels; never put secondary
+  copy on a lighter fill.
+- On the table the floor is `textMuted` on `tableFelt` (about 5.6:1). The
+  felt spotlight pool is lighter: `textMuted` on `tableFeltSpotlight` is about
+  4.4:1, below the body floor, so secondary copy there uses `textPrimary` or
+  sits on an L2 plate.
+- `onAccent` (charcoal, about 5:1) is the only label colour on an `accent`
+  fill; off-white on ember (about 3.3:1) falls below the body-text floor.
+- Text on `paper` and `cardFace` uses `textOnPaper`.
 - The existing **High-contrast cues** setting strengthens state rings and pop-up
   surfaces; every new state ring must define its high-contrast variant.
 
@@ -164,7 +248,8 @@ Two moments are allowed to be loud (principle 4), both one-shot and
 pointer-transparent (`lib/ui/core/motion/celebration.dart`):
 
 - **Match won:** fireworks and confetti over the match-over standings —
-  nine bursts and drifting confetti in the lounge palette, about three
+  nine bursts and drifting confetti in the brand palette (ember, ivory,
+  crimson), about three
   seconds, then silence. Only when the player wins.
 - **Fifty strike:** on any seat's Fifty claim and on a round won on a Fifty —
   a flame flash, two shockwaves from the table's centre, a *50* slammed down
@@ -202,13 +287,13 @@ brief glow.
 
 Every CPU seat gets an L2 plate attached to its rail:
 
-- Name / persona, CPU level badge (`indigoAccent`).
+- Name / persona, CPU level badge (`seatCool`).
 - Card count (tabular numeric), opened yes/no, running score.
-- **Active turn:** keeps the existing turn hue over the seat's cards and adds a
-  `goldAccent` plate edge with a `motionEmphasis` glow-in.
-- **Thinking:** a quiet three-dot or sand-line sweep, no spinner.
+- **Active turn:** keeps the existing turn hue over the seat's cards and adds an
+  `accent` plate edge with a `motionEmphasis` glow-in.
+- **Thinking:** a quiet three-dot or `line` (sand) sweep, no spinner.
 - **Eliminated:** plate and rail dimmed, score struck through.
-- **Fifty pressure:** plate edge shifts toward `fiftyFlame` when that seat is
+- **Fifty pressure:** plate edge shifts toward `fiftyHeat` when that seat is
   in Fifty danger.
 
 The player (South) gets the same data in a compact strip by the hand.
@@ -255,7 +340,7 @@ round's change beneath it (true minus sign for a drop); a total at or past
 the elimination score is struck through in red. The round in play is the last,
 lit row, labelled *Now*; the page scrolls from the bottom so the latest rounds
 are always in view. Column heads are seat medallions whose ring warms toward
-flame with the seat's total, gold on the seat to play. Earlier rounds are
+flame with the seat's total, `accent` on the seat to play. Earlier rounds are
 recovered from the match transcript (`ScoreBookReader`), reconstructed in
 small steps while the sheet opens, so it works after a resume too.
 
@@ -272,7 +357,7 @@ The replay is the live table plus replay chrome; the live table is the base.
   scores in force at the reviewed position. Passive: nothing on it is playable.
 - **HUD capsule (top-end):** the live table's capsule
   (`table_hud_capsule.dart`, shared, not copied) with the replay's segments in
-  reading order: **Analysis** (a switch, lit gold when on) | **Branch** (play
+  reading order: **Analysis** (a switch, lit `accent` when on) | **Branch** (play
   on from here; refused frames say why in its label) | **Exit**. Segments are
   floored at 44 dp, as in the sandbox.
 - **Replay card (top-start):** an L3 lounge card docked where the coach card
@@ -281,7 +366,7 @@ The replay is the live table plus replay chrome; the live table is the base.
   position overline (*Round 1 · 31 of 568*), the event line, the timeline
   scrubber and **one row** of the six transport controls — start, previous
   round, step back, step forward, next round, end. The step pair is the
-  emphasised gold pair; round and end jumps are quiet outlines. Every control
+  emphasised `accent` pair; round and end jumps are quiet outlines. Every control
   is a 44 dp target. The timeline (row, glyphs and scrubber) runs left to
   right in both languages.
 - **Analysis** opens as a section inside the same card, under the transport,
@@ -307,10 +392,10 @@ The replay is the live table plus replay chrome; the live table is the base.
 
 | Component | Status | Contract |
 | --- | --- | --- |
-| Primary button | Current (`FilledButton` theme) | Gold fill, charcoal label, 48 dp, one per view region |
-| Secondary button | Current (`OutlinedButton`) | Sand outline. **Rule:** max two stacked; beyond that use a section or list |
-| Text button | Current | Gold label, for tertiary actions |
-| Segmented control | Current (setup) | Gold selected segment, shown inside an option card with a one-line explanation |
+| Primary button | Current (`FilledButton` theme) | `accent` (ember) fill, `onAccent` (charcoal) label, 48 dp, one per view region |
+| Secondary button | Current (`OutlinedButton`) | `line` (sand) outline. **Rule:** max two stacked; beyond that use a section or list |
+| Text button | Current | `accent` label, for tertiary actions |
+| Segmented control | Current (setup) | `accent` selected segment, shown inside an option card with a one-line explanation |
 | Option card | Current | L2 card: icon, title, value summary, chevron/edit; replaces bare segmented rows |
 | Lounge panel | Current (`LoungePanel`) | L3 modal surface with medallion; the only modal shell |
 | Lounge toast | Current (`LoungeToast`) | L2 transient message; never over a seat zone |
@@ -320,7 +405,7 @@ The replay is the live table plus replay chrome; the live table is the base.
 | Seat plate | Current | Section 7.2 |
 | Coach card | Current | Section 7.4 |
 | Replay card | Current | Section 7.6: position, event line, scrubber, one transport row, collapsible analysis |
-| Screen header | Current | Replaces the stock black `AppBar`: transparent over the screen background, display-face title, back as an icon button |
+| Screen header | Current | Replaces the stock black `AppBar`: transparent over the charcoal `surface`, display-face title, back as an icon button |
 | List row | Current | History/report rows: title, meta line, trailing result badge; 56 dp min |
 | Stat tile | Current | Big tabular number + label + optional trend; used by Stats and match reports |
 
@@ -386,7 +471,15 @@ rest.
   count of raw `Color(0x…)` and `Duration(milliseconds: …)` literals under
   `lib/ui/` (every occurrence; the token file is excluded) as a ceiling.
   Counts may fall, never rise; lower the ceiling in the same change that
-  removes literals.
+  removes literals. The theme layer (`lib/ui/core/theme/`) is excluded: hex
+  values belong there.
+- **Palette privacy** (same test): any reference to `BrandPalette` outside
+  `lib/ui/core/theme/` (under `lib/ui/` or `lib/app/`) fails. Feature code
+  paints with `LoungeTokens` roles (section 2).
+- **Retired names:** the Sandline Lounge hue-named tokens listed in section 2
+  are `@Deprecated`, so the analyzer reports every use with the role to move
+  to. New code must not add a use; migrations replace them by role, and the
+  aliases are deleted once nothing references them.
 - **Goldens:** deliberately not pixel goldens. Rasterised text and blur
   differ across Flutter versions and machines, so pixel goldens would fail on
   unrelated toolchain upgrades. Layout is guarded instead by geometry tests
@@ -398,7 +491,8 @@ rest.
 ## 13. Rollout plan
 
 1. **Foundation** — done: bundled fonts, typography / elevation / motion
-   tokens in `AppTheme`, screen headers on the felt. Literal durations equal
+   tokens in `AppTheme`, screen headers on the menu ground (felt then,
+   charcoal since step 8). Literal durations equal
    to a token now use it; the rest are held by the token ratchet.
 2. **Table** — done: inset playing surface, foreshortened rail, perspective
    surface and lamp, card shadows, centred stock, seat plates, docked coach
@@ -409,11 +503,12 @@ rest.
    fireworks), Fifty strike (6.1).
 4. **Menus** — done: home, setup, guided practice (progress ring, numbered
    lesson medallions), settings (section cards with icon medallions), history
-   (placement medallions, gold-edged wins) and stats tiles. Rules help kept
+   (placement medallions, accent-edged wins) and stats tiles. Rules help kept
    its layout under the new type and header (its cards came in step 6).
 5. **Enforcement** — done: token ratchet (section 12).
 6. **Menu gap pass** — done: the screens the menus pass missed now share its
-   language. Onboarding moves onto the felt with lit medallion heroes, a lit
+   language. Onboarding moves onto the menu ground (charcoal since step 8)
+   with lit medallion heroes, a lit
    card per page and numbered page medallions; the strictness explainer gets
    a lit intro under its checklist number and a medallion card per tier;
    rules help keeps its order but sets each part as a lounge card with a
@@ -424,6 +519,18 @@ rest.
    (7.6). The full-bleed table with the corner stock, the 44 dp edge rails,
    the scrub target, the analysis popover and the frozen layout oracle that
    pinned them are retired.
+8. **Identity** — done: the Sandline Lounge look (felt-green menus, gold
+   accent) gives way to the Lit card identity. The theme layer is split into
+   `BrandPalette` (raw hues, the only hex values) and `LoungeTokens` (roles);
+   the role table is section 3.1. Menus, headers, panels and the splash move
+   to charcoal; felt stays on the playing table only. The chrome accent
+   (buttons, active controls, medallions, the lamp) is ember; selection moves
+   from gold to quiet sand, pending stays amber, invalid is rose, and Fifty is
+   the ember flame (3.3). The launcher, splash and web icons use the Lit card
+   in its colour pairings (`assets/brand/README.md`). Spacing, radii,
+   typography and motion are unchanged. The hue-named tokens remain as
+   `@Deprecated` aliases until the remaining call sites move to roles
+   (section 12).
 
 ## 14. Decisions taken
 
@@ -451,3 +558,23 @@ were decided rather than left open. Each is easy to revisit.
 8. **Replay capsule floor:** the replay capsule uses the sandbox's 44 dp
    floor rather than the live table's 30/38 dp phone sizes, since the touch
    target floor (section 5) is not traded away.
+9. **Accent is ember.** The chrome accent (filled buttons, active controls,
+   progress, medallion rings, the lamp) is the brand flame, `#E4522B`,
+   replacing gold. One warm accent ties the app to its launcher icon.
+10. **Selection is sand.** A picked card or chosen control rings in quiet
+    sand, not the accent. With ember as the accent, an ember selection ring
+    would read as Fifty; sand keeps the flame on the table reserved for Fifty
+    and danger scores.
+11. **Menus on charcoal.** Every screen that is not the table (home, setup,
+    history, stats, settings, help, onboarding, the splash) sits on the
+    charcoal `surface`, with depth from `surfaceRaised` and
+    `surfaceSpotlight`.
+12. **Felt is table-only.** Felt green is the playing surface, not a brand
+    colour. Taking it off the menus makes the table the one green place in
+    the app, so arriving at it reads as sitting down to play.
+13. **Colour pairings, not one tile.** The mark appears in three pairings
+    (`assets/brand/README.md`): the launcher, web icons and store art use an
+    ember ground with an ivory card and charcoal flame; the splash and in-app
+    surfaces use a charcoal ground with an ivory card and ember flame; light
+    surfaces use ivory with a charcoal card and ember flame. The logo never
+    sits directly on felt.

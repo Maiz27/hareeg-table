@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'lounge_tokens.dart';
 
-/// Theme factory for the Warm Sudanese Lounge visual direction.
+/// Theme factory for the Hareeg Table visual direction: charcoal ground, ember
+/// accent, sand lines, ivory paper; felt only on the table.
 ///
-/// Pulls its palette and typography from [LoungeTokens] so colour/text
+/// Pulls its roles and typography from [LoungeTokens] so colour/text
 /// updates flow from one source. Buttons, dialogs, dividers, and selection
 /// controls are tuned to match the lounge look without each screen
 /// re-declaring them locally.
@@ -12,13 +13,13 @@ abstract final class AppTheme {
   /// Dark table-first theme used by the current app shell.
   static ThemeData dark() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: LoungeTokens.goldAccent,
+      seedColor: LoungeTokens.accent,
       brightness: Brightness.dark,
-      surface: LoungeTokens.coffeeCharcoal,
-      primary: LoungeTokens.goldAccent,
-      secondary: LoungeTokens.sandLine,
-      tertiary: LoungeTokens.fiftyFlame,
-      error: LoungeTokens.deepRed,
+      surface: LoungeTokens.panel,
+      primary: LoungeTokens.accent,
+      secondary: LoungeTokens.line,
+      tertiary: LoungeTokens.fiftyHeat,
+      error: LoungeTokens.danger,
     );
 
     final textTheme = TextTheme(
@@ -37,37 +38,35 @@ abstract final class AppTheme {
       useMaterial3: true,
       fontFamily: LoungeTokens.uiFamily,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: LoungeTokens.feltGreen,
-      canvasColor: LoungeTokens.coffeeCharcoal,
-      dividerColor: LoungeTokens.sandLine.withValues(alpha: 0.3),
+      scaffoldBackgroundColor: LoungeTokens.surface,
+      canvasColor: LoungeTokens.surface,
+      dividerColor: LoungeTokens.line.withValues(alpha: 0.3),
       textTheme: textTheme,
       // Screen header (design contract section 8): the header sits on the
-      // screen's own felt instead of a stock black bar, titled in the display
-      // face. It darkens slightly only once content scrolls beneath it.
+      // screen's own ground instead of a stock black bar, titled in the
+      // display face. It darkens slightly only once content scrolls beneath it.
       appBarTheme: AppBarTheme(
-        backgroundColor: LoungeTokens.feltGreen,
+        backgroundColor: LoungeTokens.surface,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.5),
-        foregroundColor: LoungeTokens.offWhiteText,
+        foregroundColor: LoungeTokens.textPrimary,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: LoungeTokens.display.copyWith(fontSize: 22),
       ),
       cardTheme: CardThemeData(
-        color: LoungeTokens.coffeeCharcoal,
+        color: LoungeTokens.panel,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          side: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.45),
-          ),
+          side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.45)),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: LoungeTokens.goldAccent,
-          foregroundColor: LoungeTokens.coffeeCharcoal,
+          backgroundColor: LoungeTokens.accent,
+          foregroundColor: LoungeTokens.onAccent,
           minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
           padding: const EdgeInsets.symmetric(
             horizontal: LoungeTokens.space4,
@@ -81,9 +80,9 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: LoungeTokens.offWhiteText,
+          foregroundColor: LoungeTokens.textPrimary,
           minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
-          side: const BorderSide(color: LoungeTokens.sandLine),
+          side: const BorderSide(color: LoungeTokens.line),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
           ),
@@ -92,7 +91,7 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: LoungeTokens.goldAccent,
+          foregroundColor: LoungeTokens.accent,
           minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
           padding: const EdgeInsets.symmetric(
             horizontal: LoungeTokens.space3,
@@ -101,74 +100,71 @@ abstract final class AppTheme {
           textStyle: LoungeTokens.titleSmall,
         ),
       ),
-      iconTheme: const IconThemeData(color: LoungeTokens.offWhiteText),
+      iconTheme: const IconThemeData(color: LoungeTokens.textPrimary),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: LoungeTokens.offWhiteText,
+          foregroundColor: LoungeTokens.textPrimary,
           minimumSize: const Size.square(LoungeTokens.tapTargetPrimary),
         ),
       ),
       sliderTheme: const SliderThemeData(
-        activeTrackColor: LoungeTokens.goldAccent,
-        inactiveTrackColor: LoungeTokens.sandLine,
-        thumbColor: LoungeTokens.goldAccent,
+        activeTrackColor: LoungeTokens.accent,
+        inactiveTrackColor: LoungeTokens.line,
+        thumbColor: LoungeTokens.accent,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? LoungeTokens.goldAccent
-              : LoungeTokens.mutedText,
+              ? LoungeTokens.accent
+              : LoungeTokens.textMuted,
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? LoungeTokens.goldAccent.withValues(alpha: 0.4)
-              : LoungeTokens.mutedText.withValues(alpha: 0.3),
+              ? LoungeTokens.accent.withValues(alpha: 0.4)
+              : LoungeTokens.textMuted.withValues(alpha: 0.3),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: LoungeTokens.coffeeCharcoal,
-        labelStyle: const TextStyle(color: LoungeTokens.mutedText),
-        floatingLabelStyle: const TextStyle(color: LoungeTokens.goldAccent),
+        fillColor: LoungeTokens.panel,
+        labelStyle: const TextStyle(color: LoungeTokens.textMuted),
+        floatingLabelStyle: const TextStyle(color: LoungeTokens.accent),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
           borderSide: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.45),
+            color: LoungeTokens.line.withValues(alpha: 0.45),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
           borderSide: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.45),
+            color: LoungeTokens.line.withValues(alpha: 0.45),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-          borderSide: const BorderSide(
-            color: LoungeTokens.goldAccent,
-            width: 1.6,
-          ),
+          borderSide: const BorderSide(color: LoungeTokens.accent, width: 1.6),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
-        modalBackgroundColor: LoungeTokens.coffeeCharcoal,
+        backgroundColor: LoungeTokens.panel,
+        modalBackgroundColor: LoungeTokens.panel,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
+        backgroundColor: LoungeTokens.panel,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-          side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
+          side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.4)),
         ),
         titleTextStyle: LoungeTokens.heading,
         contentTextStyle: LoungeTokens.body,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
+        backgroundColor: LoungeTokens.panel,
         contentTextStyle: LoungeTokens.body,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-          side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
+          side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.4)),
         ),
       ),
     );
@@ -179,7 +175,7 @@ abstract final class AppTheme {
   static ThemeData light() {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: LoungeTokens.goldAccent),
+      colorScheme: ColorScheme.fromSeed(seedColor: LoungeTokens.accent),
     );
   }
 }
