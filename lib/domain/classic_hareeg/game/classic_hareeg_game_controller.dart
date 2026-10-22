@@ -551,6 +551,37 @@ class ClassicHareegGameController {
     return graceElapsed <= _fiftyCueExpiryGraceSeconds ? 0 : null;
   }
 
+  /// Settles a Fifty window that has lapsed by the clock.
+  ///
+  /// Expiry is a clock event with no action behind it, and the round-end
+  /// evaluation otherwise runs only at action seams. A stock-exhausted draw
+  /// phase that stayed open solely because the claimant could still call Fifty
+  /// (a valid finish on the thrown card) would therefore sit forever once the
+  /// timer lapses: no stock to draw, no claim to make, and — for an unopened
+  /// seat whose finish routed through a cover — no take that finishes either.
+  /// Whoever drives the clock (the live table's Fifty ticker, the CPU runner,
+  /// the replay machine, the test driver) calls this when it observes the
+  /// lapse. The lapsed window is dropped and the stock-exhaustion decision
+  /// re-runs, so a dead round draws and a round with a realizable pickup
+  /// finish stays open on that finish alone.
+  ///
+  /// Returns true when a lapsed window was settled. A no-op (false) while no
+  /// window is open, the window is still live, or the round is already over,
+  /// so callers may invoke it freely; each window settles at most once.
+  bool settleLapsedFiftyWindow() {
+    final window = _fiftyWindow;
+    if (window == null || _roundOutcome != null) {
+      return false;
+    }
+    if (!window.isExpired(_fiftyElapsedSeconds())) {
+      return false;
+    }
+    _fiftyWindow = null;
+    _fiftyWindowOpenedAt = null;
+    _evaluateRoundEnd();
+    return true;
+  }
+
   /// Snapshots the live game state for persistence.
   ClassicHareegMatchSnapshot toSnapshot({DateTime? savedAt}) {
     return _snapshot(savedAt: savedAt, exact: false);

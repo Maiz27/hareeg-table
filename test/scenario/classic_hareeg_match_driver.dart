@@ -328,6 +328,10 @@ class ClassicHareegMatchDriver {
                 totalActions, setup, seed);
           }
           _expireFiftyWindow(controller);
+          if (controller.isRoundOver) {
+            // The lapse settled a stock-exhausted round as a draw.
+            break;
+          }
           legalActionIds = controller.cpuActionIdsFor(seat);
           if (legalActionIds.isEmpty) {
             return _report(MatchStopReason.stuckNoLegalActions, null, rounds,
@@ -436,6 +440,9 @@ class ClassicHareegMatchDriver {
     _clock = _clock.add(
       Duration(seconds: controller.setup.fiftyTimerSeconds + 30),
     );
+    // Mirror production: the live table settles the lapsed window through the
+    // engine, which may end a stock-exhausted round as a draw.
+    controller.settleLapsedFiftyWindow();
   }
 
   Never _throwNoChoice(

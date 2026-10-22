@@ -170,6 +170,7 @@ If the timer expires:
 - Fifty can no longer be claimed.
 - The player may still take the discard normally if legal.
 - If they finish this way, it scores as a normal finish, not Fifty.
+- If the stock is empty and the claim was the only thing keeping the turn alive (see Stock Exhaustion), the lapse itself settles the round: it ends as a draw the moment the timer runs out, without the player having to take and return the discard.
 
 ## Stock Exhaustion
 
@@ -177,6 +178,7 @@ If the timer expires:
 - If stock is empty and the current player cannot draw, the round ends as a draw.
 - Caveat: if the previous discard can be used to finish the game outright, play may continue for that finish.
 - A non-finishing discard pickup is not enough to continue once stock is empty.
+- A live Fifty window also keeps the turn open while a valid Fifty finish exists on the thrown card. If that window lapses unclaimed, the stock-exhaustion decision is taken again at that instant: the round continues only if a plain pickup finish remains, otherwise it ends as a draw.
 - Liveness: once stock is empty the only way a card leaves a hand is onto the table (a meld or cover), so if a full rotation of the active seats passes with no such progress — nobody can complete the finish that kept play going — the round is dead and ends as a draw. This prevents an endgame from cycling the discard pile forever.
 - Drawn rounds do not change scores.
 - The same starter starts the next dealt round.

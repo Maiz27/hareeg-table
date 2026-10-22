@@ -323,7 +323,26 @@ class ReplayReconstruction {
     // One round crossing per advance, so a multi-round gap still yields
     // control between deals.
     if (_controller.roundNumber < entry.roundNumber) {
-      final next = _controller.nextRoundSnapshot(savedAt: _clock);
+      // One round-crossing seam, like the one apply seam: the lapse retry
+      // below goes back through it rather than adding a second call site.
+      ClassicHareegMatchSnapshot? crossRound() =>
+          _controller.nextRoundSnapshot(savedAt: _clock);
+      var next = crossRound();
+      if (next == null && _controller.fiftyClaimant != null) {
+        // The lapse retry, the round-crossing twin of the Fifty retry below:
+        // the original round ended because a Fifty window lapsed by wall
+        // clock with the stock empty, while the synthetic window is still
+        // open. Expire it and let the engine settle the round.
+        _clock = _clock.add(
+          Duration(
+            seconds:
+                _controller.setup.fiftyTimerSeconds +
+                replayFiftyExpiryPaddingSeconds,
+          ),
+        );
+        _controller.settleLapsedFiftyWindow();
+        next = crossRound();
+      }
       if (next == null) {
         _fail(
           kind: ReplayTimelineFailureKind.roundUnavailable,

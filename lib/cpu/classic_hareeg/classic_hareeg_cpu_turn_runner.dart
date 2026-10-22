@@ -222,6 +222,14 @@ class ClassicHareegCpuTurnRunner {
       }
 
       final legalActionIds = controller.cpuActionIdsFor(step.seat);
+      if (legalActionIds.isEmpty && controller.settleLapsedFiftyWindow()) {
+        // The seat had nothing because a stock-exhausted draw phase was being
+        // held open by a Fifty window that has since lapsed by the clock (the
+        // read pause can outlast a short timer). The engine has re-settled the
+        // round; go round again so the turn gate reads the outcome instead of
+        // reporting a stranded seat.
+        continue;
+      }
       hooks.onLegalActions?.call(step, legalActionIds);
       final legalActionStop = _stopResultFor(
         ClassicHareegCpuTurnLoopPlanner.legalActionGate(
