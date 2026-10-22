@@ -6,38 +6,50 @@ Hareeg Table should feel like a warm Sudanese card table built for modern mobile
 
 ## Visual Direction
 
-Theme: Warm Sudanese Lounge.
+Identity: the Lit card. Charcoal ground, ember accent, sand hairlines, ivory paper.
 
-- Clean dark felt table for the primary play surface.
-- Warm textile and pattern accents around menus, table edges, card backs, and theme surfaces.
-- Flame and heat treatment reserved for Fifty, danger, and high-stakes scoring.
+- Menus, headers, panels and the splash sit on charcoal.
+- Clean dark felt table for the primary play surface. Felt is used for the table and nowhere else.
+- Sand-line pattern accents around menu corners, table edges, card backs, and theme surfaces.
+- Ember is the brand flame: the chrome accent and, on the table, Fifty heat only.
 - Avoid casino neon, childish cartooning, and constant flame decoration.
 
 ## Palette
 
-- Felt green: #12382F
-- Coffee charcoal: #15110E
-- Card ivory: #F8F0DD
-- Sand line: #D7BD83
-- Gold accent: #D69B35
-- Fifty flame: #EF5A24
-- Deep red: #A92E24
-- Indigo accent: #23395B
-- Off-white text: #F5EFE3
-- Muted text: #B8AA91
+Hues live in `lib/ui/core/theme/brand_palette.dart`; the app paints with the roles in `lounge_tokens.dart` that map onto them. The full role table is [Design Contract](design-contract.md) section 3.
+
+- Ember #E4522B (`accent`, `fiftyHeat`); deepened #C8401F (`accentPressed`)
+- Charcoal #15110E (`surface`, `onAccent`, `textOnPaper`); raised #221B16 (`surfaceRaised`, `panel`); spotlight #2C231C (`surfaceSpotlight`)
+- Ivory #F8F0DD (`paper`, `cardFace`)
+- Sand #D7BD83 (`line`, `stateSelected`)
+- Felt green #12382F (`tableFelt`); raised #184235; spotlight #1B4A3C. Table only.
+- Amber #F0962E (`statePending`)
+- Rose #E07466 (`stateInvalid`)
+- Crimson #A92E24 (`danger`, `suitRed`)
+- Indigo #23395B (`seatCool`)
+- Off-white #F5EFE3 (`textPrimary`)
+- Stone #B8AA91 (`textMuted`)
+- Coach family, coaching UI only: teal #2FB4A6, blue #4FA8E0, violet #B07BE6, orchid #DC6FA0 ("let go")
 
 ## Icon Direction
 
-![Current Hareeg Table app icon concept](../../assets/brand/app-icon-concept-v2.png)
+![Hareeg Table launcher icon: the Lit card on its ember tile](../../assets/brand/launcher/lit_card_composite.png)
 
-Current selected concept: dark felt table, fanned ivory cards, warm flame, and a subtle Fifty token. Use this as the visual anchor for future launcher-icon refinement and brand polish.
+Current identity: the **Lit card**, a single playing card whose top edge is a
+flame, with a diamond pip cut from it. One silhouette, two colours on a tile.
+Masters, lockups in both scripts and the usage guide live in
+`assets/brand/explorations/identity-2026-10/`.
 
-- Rounded-square app icon.
-- Dark green or charcoal base.
-- Fanned playing cards.
-- Flame or heat shape.
-- Subtle 50 mark integrated as a stamp, glow, or table mark.
-- Avoid copying existing Hareeg app icon compositions.
+- Launcher: ember tile (`#E4522B`), ivory card, charcoal flame. Colour earns
+  its keep on the home screen, where a game should look like one.
+- Splash and in-app: charcoal ground, ivory card, ember flame, so the launch
+  frame bridges the home screen and the app's dark surfaces.
+- Felt green stays the table surface. It is not a brand colour.
+- Off-limits: fanned royal cards, chips, coins, casino bevels, glows.
+- The Arabic-Indic fifty (٥٠ as a flame ring and spark, `b-fifty/` in the
+  explorations folder) is reserved for the in-game Fifty cue, not the logo.
+- The earlier painted concept (`assets/brand/app-icon-concept-v2.png`) is
+  superseded.
 
 ## Interaction Principles
 

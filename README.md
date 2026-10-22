@@ -29,7 +29,7 @@ Hareeg Table is offline-first and ad-free. It doesn't interrupt your hand to ent
 - Primary launch language: English
 - Planned localization: Arabic
 - Default mode: Classic Hareeg, human + 3 CPUs
-- Design direction: warm Sudanese lounge
+- Design direction: the Lit card (charcoal, ember, sand and ivory; felt green on the table only)
 - Signature mechanic: Fifty / Khamsin
 - Mobile orientation: portrait for menu/setup/help/settings, landscape for the table screen
 
