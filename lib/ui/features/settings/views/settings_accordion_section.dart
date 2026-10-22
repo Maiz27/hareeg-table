@@ -116,9 +116,15 @@ class SettingsAccordionSection extends StatelessWidget {
                 opacity: expanded ? 1 : 0,
                 child: expanded
                     ? Padding(
+                        // The clip above starts exactly where the header's
+                        // padding ends, and an outlined field's floating label
+                        // straddles its top border — half of it sits above
+                        // the field. Without headroom inside the clip that
+                        // half is cut off (the "Language" / "Deck count"
+                        // labels on the release build).
                         padding: const EdgeInsets.fromLTRB(
                           LoungeTokens.space4,
-                          0,
+                          LoungeTokens.space3,
                           LoungeTokens.space4,
                           LoungeTokens.space5,
                         ),

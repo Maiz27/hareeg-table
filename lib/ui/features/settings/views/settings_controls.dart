@@ -291,11 +291,21 @@ class MotionSpeedPicker extends StatelessWidget {
     return SegmentedButton<MotionSpeed>(
       style: _segmentedStyle,
       segments: [
-        ButtonSegment(value: MotionSpeed.normal, label: Text(strings.normal)),
-        ButtonSegment(value: MotionSpeed.fast, label: Text(strings.fast)),
-        ButtonSegment(value: MotionSpeed.reduced, label: Text(strings.reduced)),
+        ButtonSegment(
+          value: MotionSpeed.normal,
+          label: _SegmentLabel(strings.normal),
+        ),
+        ButtonSegment(
+          value: MotionSpeed.fast,
+          label: _SegmentLabel(strings.fast),
+        ),
+        ButtonSegment(
+          value: MotionSpeed.reduced,
+          label: _SegmentLabel(strings.reduced),
+        ),
       ],
       selected: {value},
+      showSelectedIcon: false,
       onSelectionChanged: (selection) => onChanged(selection.first),
     );
   }
@@ -326,11 +336,31 @@ class VerbosityPicker extends StatelessWidget {
         for (final verbosity in AnalysisVerbosity.values)
           ButtonSegment(
             value: verbosity,
-            label: Text(verbosityLabel(strings, verbosity)),
+            label: _SegmentLabel(verbosityLabel(strings, verbosity)),
           ),
       ],
       selected: {value},
+      showSelectedIcon: false,
       onSelectionChanged: (selection) => onChanged(selection.first),
     );
+  }
+}
+
+/// Label for one segment of the settings pickers.
+///
+/// Three segments share the row, so each gets a third of the width and a
+/// two-word label has to wrap. Centred, it wraps at the space; the selected
+/// check icon the pickers used to show stole enough of that third for the
+/// label to break mid-word instead ("Key moment / s" on the release build),
+/// which is why the pickers no longer show it — the ember fill already marks
+/// the selection, as it does on the setup screen and the pause overlay.
+class _SegmentLabel extends StatelessWidget {
+  const _SegmentLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, textAlign: TextAlign.center);
   }
 }
