@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.0.0-alpha.13](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.12...v1.0.0-alpha.13) (2026-10-22)
+
+
+### Features
+
+* **brand:** add the Lit card identity masters and kit ([150d4cb](https://github.com/Maiz27/hareeg-table/commit/150d4cb816c63a543b7711da941fbea1384d887d))
+* **brand:** cut the Lit card launcher icon, splash and web icons ([b50dd25](https://github.com/Maiz27/hareeg-table/commit/b50dd259765591fcae9faa5630fb88862f960b5b))
+* **home:** offer a pending update again when the menu is revealed ([63ce86f](https://github.com/Maiz27/hareeg-table/commit/63ce86f0ecd6b6a4321ccff0ac51e2d068c6d905))
+* **panels:** let a lounge panel skip its corner medallion ([45afd3a](https://github.com/Maiz27/hareeg-table/commit/45afd3aca9fe5f84e16aa8c52034ff4761413263))
+* **setup:** default new tables to Standard strictness ([1e5ea31](https://github.com/Maiz27/hareeg-table/commit/1e5ea31f3c9e7e48f66441b8e486c7316d8ff30d))
+* **theme:** split the palette into raw brand hues and role tokens ([069e0df](https://github.com/Maiz27/hareeg-table/commit/069e0dfbc6313ae6f81d63a537da68841df43774))
+* **updates:** add a manual check row to the Updates section ([b152d3e](https://github.com/Maiz27/hareeg-table/commit/b152d3ecca0918811f337b67d661c617a930c336))
+* **updates:** learn about newer releases from GitHub ([bd80d53](https://github.com/Maiz27/hareeg-table/commit/bd80d5323d7f5819c7c9a102189bed1a1f7be01a))
+* **updates:** offer a newer release on the home screen and in Settings ([f72f1dd](https://github.com/Maiz27/hareeg-table/commit/f72f1dde13c876c56456fe2ca05fa74114791b37))
+* **updates:** offer the release as a dialog with the notes as a list ([5f5499b](https://github.com/Maiz27/hareeg-table/commit/5f5499b5581fde9796a6d4309926cb1ee8556337))
+* **updates:** show the notes of every release since the installed build ([a47d804](https://github.com/Maiz27/hareeg-table/commit/a47d80467f7cf262290764eef4892c8b9c319d54))
+
+
+### Bug Fixes
+
+* **brand:** centre the symbol in the stacked lockups ([32d101f](https://github.com/Maiz27/hareeg-table/commit/32d101f4df459aac5386af11ee5f841441a91bb9))
+* **home:** space the rules and settings buttons apart ([22c225c](https://github.com/Maiz27/hareeg-table/commit/22c225ccdd321f14774f12e66bd886adebd86df5))
+* **ios:** restore the asset symbol build setting the icon generator overwrote ([2926e2b](https://github.com/Maiz27/hareeg-table/commit/2926e2b42ad181dc8b83be7d0896ec5cf72803a4))
+* **onboarding:** keep the hero lamp glow inside its padding ([4f4d38e](https://github.com/Maiz27/hareeg-table/commit/4f4d38e967c0f598076e6717ae55741db0a67f28))
+* **replay:** measure the Fifty expiry jump from the window's opening instant ([2f69a1a](https://github.com/Maiz27/hareeg-table/commit/2f69a1aa66695dbfb2fffbe936cf93a409b180c0))
+* **rules:** settle a lapsed Fifty window when the stock is exhausted ([6fa7278](https://github.com/Maiz27/hareeg-table/commit/6fa72782a8bc6c5eb7b0681d385e3d347f800d84))
+* **settings:** keep floating labels inside the accordion and stop segment labels wrapping mid-word ([d97bb55](https://github.com/Maiz27/hareeg-table/commit/d97bb558870624676fee0ed3842ffc4d3ffc8b6c))
+* **table:** re-enter the Fifty ticker after a human action that did not apply ([6c34067](https://github.com/Maiz27/hareeg-table/commit/6c3406732108b223861b11e8ae72343f88f9b2a8))
+* **table:** settle the lapsed Fifty window from the live ticker ([6a35cba](https://github.com/Maiz27/hareeg-table/commit/6a35cbae67b2c18480add2daecd237700c301bfb))
+* **table:** show the lapse chip only when the stock is empty ([6c4ad63](https://github.com/Maiz27/hareeg-table/commit/6c4ad633016408658b930bd148de54c2ed5bccd4))
+* **updates:** treat a throwing link opener as a failed open ([70d3b5c](https://github.com/Maiz27/hareeg-table/commit/70d3b5cbbab89d7aeb2dfecec14300a1668a6bb6))
+
 ## [1.0.0-alpha.12](https://github.com/Maiz27/hareeg-table/compare/v1.0.0-alpha.11...v1.0.0-alpha.12) (2026-10-08)
 
 
