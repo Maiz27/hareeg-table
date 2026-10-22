@@ -44,11 +44,28 @@ abstract interface class UpdateChannel {
   /// The store listing to open instead of comparing versions, or null.
   Uri? get storeListingUrl;
 
-  /// The newest published release, or null when the channel has none to
-  /// report.
+  /// The published releases the channel can see, newest first; empty when it
+  /// has none to report.
   ///
   /// Throws [UpdateCheckException] when the lookup fails.
-  Future<AppRelease?> fetchLatestRelease();
+  Future<ReleaseListing> fetchReleases();
+}
+
+/// The releases a channel reported, and whether older ones may exist beyond
+/// what it returned.
+class ReleaseListing {
+  /// Creates a listing. [releases] is newest first.
+  const ReleaseListing({this.releases = const [], this.mayBeTruncated = false});
+
+  /// A listing with no releases that is known to be complete.
+  static const empty = ReleaseListing();
+
+  /// The usable releases, newest first.
+  final List<AppRelease> releases;
+
+  /// True when the channel returned a full page, so older releases may exist
+  /// that it did not list. False when the listing is known to be complete.
+  final bool mayBeTruncated;
 }
 
 /// The compile-time channel selector: `github` (default) or `play`.

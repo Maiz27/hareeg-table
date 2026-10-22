@@ -115,6 +115,130 @@ void main() {
     });
   });
 
+  group('buildUpdateOffer', () {
+    final listing = [
+      release('v1.0.0-alpha.9'),
+      release('v1.0.0-alpha.13'),
+      release('v1.0.0-alpha.12'),
+      release('v1.0.0-alpha.11'),
+    ];
+
+    List<String>? tags(UpdateOffer? offer) =>
+        offer?.releases.map((r) => r.tag).toList();
+
+    // Defaults to a possibly truncated listing, so a false hasOlderUnlisted
+    // below comes from the version rule, not from the flag.
+    UpdateOffer? offerFor({
+      required String? installedVersion,
+      required List<AppRelease> releases,
+      bool listingMayBeTruncated = true,
+      String? skippedVersion,
+    }) => buildUpdateOffer(
+      installedVersion: installedVersion,
+      releases: releases,
+      listingMayBeTruncated: listingMayBeTruncated,
+      skippedVersion: skippedVersion,
+    );
+
+    test('one release behind offers just that release', () {
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.12',
+        releases: listing,
+      );
+      expect(offer?.newest.tag, 'v1.0.0-alpha.13');
+      expect(tags(offer), ['v1.0.0-alpha.13']);
+      expect(offer?.hasOlderUnlisted, isFalse);
+    });
+
+    test('several behind offers each newer release, newest first', () {
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.10',
+        releases: listing,
+      );
+      expect(offer?.newest.tag, 'v1.0.0-alpha.13');
+      expect(tags(offer), [
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+        'v1.0.0-alpha.11',
+      ]);
+      // alpha.9 is listed and older, so nothing in between is missing.
+      expect(offer?.hasOlderUnlisted, isFalse);
+    });
+
+    test('a skipped newest hides the offer; a newer one brings it back', () {
+      expect(
+        offerFor(
+          installedVersion: '1.0.0-alpha.11',
+          releases: listing,
+          skippedVersion: '1.0.0-alpha.13',
+        ),
+        isNull,
+      );
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.11',
+        releases: [release('v1.0.0-alpha.14'), ...listing],
+        skippedVersion: '1.0.0-alpha.13',
+      );
+      expect(offer?.newest.tag, 'v1.0.0-alpha.14');
+      // The skipped release ships with the update, so its notes still count.
+      expect(tags(offer), [
+        'v1.0.0-alpha.14',
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+      ]);
+    });
+
+    test('a truncated listing entirely newer flags older releases', () {
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.5',
+        releases: listing,
+      );
+      expect(tags(offer), [
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+        'v1.0.0-alpha.11',
+        'v1.0.0-alpha.9',
+      ]);
+      expect(offer?.hasOlderUnlisted, isTrue);
+    });
+
+    test('a complete listing never flags older unlisted releases', () {
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.5',
+        releases: listing,
+        listingMayBeTruncated: false,
+      );
+      expect(tags(offer), hasLength(4));
+      expect(offer?.hasOlderUnlisted, isFalse);
+    });
+
+    test('installed is the oldest listed release: nothing is unlisted', () {
+      final offer = offerFor(
+        installedVersion: '1.0.0-alpha.9',
+        releases: listing,
+      );
+      expect(tags(offer)?.last, 'v1.0.0-alpha.11');
+      expect(offer?.hasOlderUnlisted, isFalse);
+    });
+
+    test('up to date, empty listing or unreadable install offers nothing', () {
+      expect(
+        offerFor(installedVersion: '1.0.0-alpha.13', releases: listing),
+        isNull,
+      );
+      expect(
+        offerFor(installedVersion: '1.0.0-alpha.14', releases: listing),
+        isNull,
+      );
+      expect(
+        offerFor(installedVersion: '1.0.0-alpha.1', releases: const []),
+        isNull,
+      );
+      expect(offerFor(installedVersion: 'debug', releases: listing), isNull);
+      expect(offerFor(installedVersion: null, releases: listing), isNull);
+    });
+  });
+
   group('parseReleaseNotes', () {
     test('turns headings and bullets into headed plain-text items', () {
       final sections = parseReleaseNotes(

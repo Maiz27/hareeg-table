@@ -80,18 +80,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onUpdatesChanged() {
     final updates = widget.updates;
-    final release = updates?.prompt;
-    if (updates == null || release == null) {
+    final offer = updates?.prompt;
+    if (updates == null || offer == null) {
       _promptedTag = null;
       return;
     }
-    if (release.tag == _promptedTag) return;
+    if (offer.newest.tag == _promptedTag) return;
     // Only the menu prompts from here. A check that lands while another
     // screen is up stays quiet (a manual check offers the release where it
     // was run) and is left unmarked, so the next notification here shows it.
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-    _promptedTag = release.tag;
-    unawaited(offerUpdate(context, updates, release));
+    _promptedTag = offer.newest.tag;
+    unawaited(offerUpdate(context, updates, offer));
   }
 
   @override

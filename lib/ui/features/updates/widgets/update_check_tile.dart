@@ -45,7 +45,7 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
       _result = result;
     });
     if (result is UpdateCheckAvailable) {
-      await offerUpdate(context, widget.controller, result.release);
+      await offerUpdate(context, widget.controller, result.offer);
     }
   }
 
@@ -65,8 +65,8 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
                 UpdateCheckUpToDate() => strings.updateUpToDate,
                 UpdateCheckFailed() => strings.updateCheckFailed,
                 UpdateCheckStoreManaged() => strings.updateStoreManaged,
-                UpdateCheckAvailable(:final release) =>
-                  strings.updateAvailableTitle(release.version.toString()),
+                UpdateCheckAvailable(:final offer) =>
+                  strings.updateAvailableTitle(offer.newest.version.toString()),
               };
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -97,12 +97,12 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
                   child: Text(strings.updateOpenStore),
                 ),
               ),
-            if (result case UpdateCheckAvailable(:final release))
+            if (result case UpdateCheckAvailable(:final offer))
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: TextButton.icon(
                   onPressed: () =>
-                      offerUpdate(context, widget.controller, release),
+                      offerUpdate(context, widget.controller, offer),
                   icon: const Icon(Icons.system_update_outlined, size: 18),
                   label: Text(strings.updateViewOffer),
                 ),

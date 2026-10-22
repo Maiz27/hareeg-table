@@ -1,4 +1,3 @@
-import '../../domain/updates/app_release.dart';
 import 'update_channel.dart';
 
 /// Update channel for a Google Play build.
@@ -21,5 +20,5 @@ class PlayStoreUpdateChannel implements UpdateChannel {
   Uri? get storeListingUrl => listingUrl;
 
   @override
-  Future<AppRelease?> fetchLatestRelease() async => null;
+  Future<ReleaseListing> fetchReleases() async => ReleaseListing.empty;
 }

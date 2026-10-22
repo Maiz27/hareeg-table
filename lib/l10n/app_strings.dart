@@ -169,6 +169,8 @@ class AppStrings {
   String get updateOpenStore => _v('updateOpenStore');
   String get updateViewOffer => _v('updateViewOffer');
   String get updateVersionUnknown => _v('updateVersionUnknown');
+  String get updateEarlierReleasesUnlisted =>
+      _v('updateEarlierReleasesUnlisted');
   String get language => _v('language');
   String get languageDescription => _v('languageDescription');
   String get englishLanguage => _v('englishLanguage');
@@ -2582,6 +2584,7 @@ const _englishValues = {
   'updateOpenStore': 'Open Google Play',
   'updateViewOffer': 'View update',
   'updateVersionUnknown': 'unknown',
+  'updateEarlierReleasesUnlisted': 'Earlier releases are not listed.',
 };
 
 const _arabicValues = {
@@ -3329,4 +3332,5 @@ const _arabicValues = {
   'updateOpenStore': 'فتح Google Play',
   'updateViewOffer': 'عرض التحديث',
   'updateVersionUnknown': 'غير معروف',
+  'updateEarlierReleasesUnlisted': 'الإصدارات الأقدم غير مدرجة هنا.',
 };

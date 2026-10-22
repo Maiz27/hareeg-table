@@ -16,10 +16,18 @@ AppRelease fakeRelease(String tag, {String notes = 'Notes for the release.'}) {
 
 /// An [UpdateChannel] that answers from memory and counts its lookups.
 class FakeUpdateChannel implements UpdateChannel {
-  FakeUpdateChannel({this.release, this.failure});
+  FakeUpdateChannel({
+    AppRelease? release,
+    List<AppRelease>? releases,
+    this.mayBeTruncated = false,
+    this.failure,
+  }) : releases = releases ?? [?release];
 
-  /// What the next lookup returns.
-  AppRelease? release;
+  /// What the next lookup returns, newest first.
+  List<AppRelease> releases;
+
+  /// Whether the next lookup reports a possibly truncated listing.
+  bool mayBeTruncated;
 
   /// When set, the next lookups throw this instead.
   UpdateCheckException? failure;
@@ -34,11 +42,11 @@ class FakeUpdateChannel implements UpdateChannel {
   Uri? get storeListingUrl => null;
 
   @override
-  Future<AppRelease?> fetchLatestRelease() async {
+  Future<ReleaseListing> fetchReleases() async {
     fetchCount++;
     final error = failure;
     if (error != null) throw error;
-    return release;
+    return ReleaseListing(releases: releases, mayBeTruncated: mayBeTruncated);
   }
 }
 

@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/data/persistence/preferences_repository.dart';
+import 'package:hareeg_table/data/updates/github_releases_update_channel.dart';
+import 'package:hareeg_table/data/updates/http_text_client.dart';
 import 'package:hareeg_table/data/updates/play_store_update_channel.dart';
 import 'package:hareeg_table/data/updates/update_cache_repository.dart';
 import 'package:hareeg_table/data/updates/update_channel.dart';
@@ -34,14 +38,14 @@ void main() {
   });
 
   group('startupCheck cadence', () {
-    test('first launch checks, offers, and caches the release', () async {
+    test('first launch checks, offers, and caches the listing', () async {
       final offered = await service().startupCheck(autoCheckEnabled: true);
 
-      expect(offered?.tag, 'v1.0.0-alpha.13');
+      expect(offered?.newest.tag, 'v1.0.0-alpha.13');
       expect(channel.fetchCount, 1);
       final cache = await UpdateCacheRepository(store: store).load();
       expect(cache.lastCheckedAt, now);
-      expect(cache.lastSeenRelease?.tag, 'v1.0.0-alpha.13');
+      expect(cache.releases.map((r) => r.tag), ['v1.0.0-alpha.13']);
     });
 
     test(
@@ -49,24 +53,108 @@ void main() {
       () async {
         await service().startupCheck(autoCheckEnabled: true);
         now = now.add(const Duration(hours: 23));
-        channel.release = fakeRelease('v1.0.0-alpha.14');
+        channel.releases = [fakeRelease('v1.0.0-alpha.14')];
 
         final offered = await service().startupCheck(autoCheckEnabled: true);
 
         expect(channel.fetchCount, 1);
-        expect(offered?.tag, 'v1.0.0-alpha.13');
+        expect(offered?.newest.tag, 'v1.0.0-alpha.13');
       },
     );
 
     test('after 24 hours checks again', () async {
       await service().startupCheck(autoCheckEnabled: true);
       now = now.add(const Duration(hours: 24, minutes: 1));
-      channel.release = fakeRelease('v1.0.0-alpha.14');
+      channel.releases = [fakeRelease('v1.0.0-alpha.14')];
 
       final offered = await service().startupCheck(autoCheckEnabled: true);
 
       expect(channel.fetchCount, 2);
-      expect(offered?.tag, 'v1.0.0-alpha.14');
+      expect(offered?.newest.tag, 'v1.0.0-alpha.14');
+    });
+
+    test('offers every release newer than the installed one', () async {
+      channel.releases = [
+        fakeRelease('v1.0.0-alpha.14'),
+        fakeRelease('v1.0.0-alpha.13'),
+        fakeRelease('v1.0.0-alpha.12'),
+        fakeRelease('v1.0.0-alpha.11'),
+      ];
+
+      final offered = await service(
+        installed: '1.0.0-alpha.11',
+      ).startupCheck(autoCheckEnabled: true);
+
+      expect(offered?.newest.tag, 'v1.0.0-alpha.14');
+      expect(offered?.releases.map((r) => r.tag), [
+        'v1.0.0-alpha.14',
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+      ]);
+      expect(offered?.hasOlderUnlisted, isFalse);
+    });
+
+    group('a listing older than the install', () {
+      GitHubReleasesUpdateChannel githubAnswering(int count) {
+        final body = jsonEncode([
+          for (var n = 13 + count - 1; n >= 13; n--)
+            {
+              'tag_name': 'v1.0.0-alpha.$n',
+              'html_url': 'https://x.test/$n',
+              'draft': false,
+              'body': '* change $n',
+            },
+        ]);
+        return GitHubReleasesUpdateChannel(
+          httpGet:
+              (
+                Uri uri, {
+                Map<String, String> headers = const {},
+                Duration timeout = const Duration(seconds: 8),
+              }) async => HttpTextResponse(statusCode: 200, body: body),
+        );
+      }
+
+      test('a full page is marked truncated and flags missing ones', () async {
+        final offered = await service(
+          installed: '1.0.0-alpha.5',
+          overrideChannel: githubAnswering(
+            GitHubReleasesUpdateChannel.pageSize,
+          ),
+        ).startupCheck(autoCheckEnabled: true);
+
+        expect(offered?.releases, hasLength(20));
+        expect(offered?.hasOlderUnlisted, isTrue);
+        final cache = await UpdateCacheRepository(store: store).load();
+        expect(cache.mayBeTruncated, isTrue);
+      });
+
+      test('a short listing is complete and never flags', () async {
+        final offered = await service(
+          installed: '1.0.0-alpha.5',
+          overrideChannel: githubAnswering(3),
+        ).startupCheck(autoCheckEnabled: true);
+
+        expect(offered?.releases, hasLength(3));
+        expect(offered?.hasOlderUnlisted, isFalse);
+      });
+    });
+
+    test('the cached listing is offered against a later install', () async {
+      channel.releases = [
+        fakeRelease('v1.0.0-alpha.14'),
+        fakeRelease('v1.0.0-alpha.13'),
+      ];
+      await service().startupCheck(autoCheckEnabled: true);
+      now = now.add(const Duration(hours: 1));
+
+      // The player installed alpha.13 meanwhile; no new network check.
+      final offered = await service(
+        installed: '1.0.0-alpha.13',
+      ).startupCheck(autoCheckEnabled: true);
+
+      expect(channel.fetchCount, 1);
+      expect(offered?.releases.map((r) => r.tag), ['v1.0.0-alpha.14']);
     });
 
     test('a failed check is silent, not recorded, and retried', () async {
@@ -80,7 +168,7 @@ void main() {
       now = now.add(const Duration(minutes: 5));
       final offered = await service().startupCheck(autoCheckEnabled: true);
       expect(channel.fetchCount, 2);
-      expect(offered?.tag, 'v1.0.0-alpha.13');
+      expect(offered?.newest.tag, 'v1.0.0-alpha.13');
     });
 
     test('a failed check still offers a release cached earlier', () async {
@@ -92,7 +180,7 @@ void main() {
 
       final offered = await service().startupCheck(autoCheckEnabled: true);
 
-      expect(offered?.tag, 'v1.0.0-alpha.13');
+      expect(offered?.newest.tag, 'v1.0.0-alpha.13');
     });
 
     test('switched off: no network and no prompt', () async {
@@ -108,12 +196,20 @@ void main() {
       expect(skipped, isNull);
 
       now = now.add(const Duration(days: 1));
-      channel.release = fakeRelease('v1.0.0-alpha.14');
+      channel.releases = [
+        fakeRelease('v1.0.0-alpha.14'),
+        fakeRelease('v1.0.0-alpha.13'),
+      ];
       final newer = await service().startupCheck(
         autoCheckEnabled: true,
         skippedVersion: '1.0.0-alpha.13',
       );
-      expect(newer?.tag, 'v1.0.0-alpha.14');
+      expect(newer?.newest.tag, 'v1.0.0-alpha.14');
+      // The skipped release still ships with the update, so its notes stay.
+      expect(newer?.releases.map((r) => r.tag), [
+        'v1.0.0-alpha.14',
+        'v1.0.0-alpha.13',
+      ]);
     });
 
     test('already on the newest release: nothing to offer', () async {
@@ -142,6 +238,10 @@ void main() {
       final result = await service().checkNow();
       expect(channel.fetchCount, 2);
       expect(result, isA<UpdateCheckAvailable>());
+      expect(
+        (result as UpdateCheckAvailable).offer.newest.tag,
+        'v1.0.0-alpha.13',
+      );
     });
 
     test('reports up to date and could-not-check', () async {
@@ -149,7 +249,7 @@ void main() {
         await service(installed: '1.0.0-alpha.13').checkNow(),
         isA<UpdateCheckUpToDate>(),
       );
-      channel.release = null;
+      channel.releases = [];
       expect(await service().checkNow(), isA<UpdateCheckUpToDate>());
       channel.failure = const UpdateCheckException(
         UpdateCheckFailureKind.network,
@@ -181,7 +281,66 @@ void main() {
       store.values[UpdateCacheRepository.key] = '{nope';
       final cache = await UpdateCacheRepository(store: store).load();
       expect(cache.lastCheckedAt, isNull);
-      expect(cache.lastSeenRelease, isNull);
+      expect(cache.releases, isEmpty);
+    });
+
+    test('v2 round-trips the whole listing, newest first', () async {
+      final repository = UpdateCacheRepository(store: store);
+      await repository.save(
+        UpdateCache(
+          lastCheckedAt: now,
+          mayBeTruncated: true,
+          releases: [
+            fakeRelease('v1.0.0-alpha.13', notes: '### Features\n* new'),
+            fakeRelease('v1.0.0-alpha.12'),
+          ],
+        ),
+      );
+
+      expect(UpdateCacheRepository.key, 'updates.cache.v2');
+      final cache = await repository.load();
+      expect(cache.lastCheckedAt, now);
+      expect(cache.releases.map((r) => r.tag), [
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+      ]);
+      expect(cache.mayBeTruncated, isTrue);
+      expect(cache.releases.first.notes, '### Features\n* new');
+      expect(
+        cache.releases.first.downloadUrl.toString(),
+        'https://example.test/download/v1.0.0-alpha.13.apk',
+      );
+    });
+
+    test('unreadable entries are dropped and the rest sorted', () async {
+      store.values[UpdateCacheRepository.key] =
+          '{"releases":[{"tag":"v1.0.0-alpha.9","releaseNotesUrl":"https://x.test/9"},'
+          '{"tag":"nightly","releaseNotesUrl":"https://x.test/n"},'
+          '{"tag":"v1.0.0-alpha.13","releaseNotesUrl":"https://x.test/13"},'
+          '"garbage"]}';
+      final cache = await UpdateCacheRepository(store: store).load();
+      expect(cache.lastCheckedAt, isNull);
+      // No flag stored reads as a complete listing.
+      expect(cache.mayBeTruncated, isFalse);
+      expect(cache.releases.map((r) => r.tag), [
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.9',
+      ]);
+    });
+
+    test('a v1 entry is ignored: the next launch checks again', () async {
+      store.values['updates.cache.v1'] =
+          '{"lastCheckedAt":"${now.toIso8601String()}",'
+          '"lastSeenRelease":{"tag":"v1.0.0-alpha.13",'
+          '"releaseNotesUrl":"https://x.test/13"}}';
+
+      final cache = await UpdateCacheRepository(store: store).load();
+      expect(cache.lastCheckedAt, isNull);
+      expect(cache.releases, isEmpty);
+
+      final offered = await service().startupCheck(autoCheckEnabled: true);
+      expect(channel.fetchCount, 1);
+      expect(offered?.newest.tag, 'v1.0.0-alpha.13');
     });
   });
 

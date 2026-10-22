@@ -8,8 +8,9 @@ import 'update_channel.dart';
 /// Update channel backed by the GitHub releases of `Maiz27/hareeg-table`.
 ///
 /// Every release so far is marked pre-release, and GitHub's `releases/latest`
-/// skips pre-releases, so this lists the most recent releases and picks the
-/// newest non-draft one by version order instead.
+/// skips pre-releases, so this lists the most recent releases and orders the
+/// non-draft ones by version instead. The whole listing is kept so the prompt
+/// can show the notes of every release newer than the installed one.
 class GitHubReleasesUpdateChannel implements UpdateChannel {
   /// Creates the GitHub channel. [httpGet] defaults to the platform client.
   GitHubReleasesUpdateChannel({
@@ -17,9 +18,14 @@ class GitHubReleasesUpdateChannel implements UpdateChannel {
     this.timeout = const Duration(seconds: 8),
   }) : _httpGet = httpGet ?? platformHttpGetText;
 
+  /// How many releases one listing asks for. A response this long may have
+  /// left older releases out.
+  static const pageSize = 20;
+
   /// The releases listing the channel reads.
   static final releasesUri = Uri.parse(
-    'https://api.github.com/repos/Maiz27/hareeg-table/releases?per_page=10',
+    'https://api.github.com/repos/Maiz27/hareeg-table/releases'
+    '?per_page=$pageSize',
   );
 
   /// Request headers. Unauthenticated; the User-Agent is required by GitHub
@@ -41,7 +47,7 @@ class GitHubReleasesUpdateChannel implements UpdateChannel {
   Uri? get storeListingUrl => null;
 
   @override
-  Future<AppRelease?> fetchLatestRelease() async {
+  Future<ReleaseListing> fetchReleases() async {
     final HttpTextResponse response;
     try {
       response = await _httpGet(
@@ -62,29 +68,31 @@ class GitHubReleasesUpdateChannel implements UpdateChannel {
       throw UpdateCheckException(UpdateCheckFailureKind.http, status);
     }
     try {
-      return parseLatestRelease(jsonDecode(response.body));
+      return parseReleases(jsonDecode(response.body));
     } on FormatException catch (error) {
       throw UpdateCheckException(UpdateCheckFailureKind.malformed, error);
     }
   }
 
-  /// Picks the newest non-draft release from a decoded releases listing.
+  /// The usable releases of a decoded releases listing, newest first by
+  /// version order (the API lists by creation date, which can disagree).
   ///
-  /// Returns null when the listing holds no usable release. Throws
-  /// [FormatException] when [decoded] is not a listing at all.
-  static AppRelease? parseLatestRelease(Object? decoded) {
+  /// Drafts and tags that are not versions are dropped; no releases means
+  /// the listing holds no usable release. The listing may be truncated when
+  /// the response held a full page of [pageSize] entries, counted before
+  /// anything is dropped. Throws [FormatException] when [decoded] is not a
+  /// listing at all.
+  static ReleaseListing parseReleases(Object? decoded) {
     if (decoded is! List) {
       throw const FormatException('Expected a list of releases.');
     }
-    AppRelease? newest;
-    for (final entry in decoded) {
-      final release = _parseRelease(entry);
-      if (release == null) continue;
-      if (newest == null || release.version.isNewerThan(newest.version)) {
-        newest = release;
-      }
-    }
-    return newest;
+    final releases = <AppRelease>[
+      for (final entry in decoded) ?_parseRelease(entry),
+    ]..sort((a, b) => b.version.compareTo(a.version));
+    return ReleaseListing(
+      releases: releases,
+      mayBeTruncated: decoded.length >= pageSize,
+    );
   }
 
   static AppRelease? _parseRelease(Object? entry) {

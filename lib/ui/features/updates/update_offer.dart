@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/updates/app_release.dart';
+import '../../../domain/updates/update_decision.dart';
 import '../../../l10n/app_strings.dart';
 import '../../core/cards/card_theme.dart';
 import 'update_prompt_controller.dart';
 import 'widgets/update_available_dialog.dart';
 
-/// Offers [release] in the update dialog over whatever screen is up and
-/// applies the player's answer to [updates]: Skip persists the version, any
-/// other way out collapses the prompt for this session.
+/// Shows [offer] in the update dialog over whatever screen is up and applies
+/// the player's answer to [updates]: Skip persists the newest version, any
+/// other way out collapses the prompt for this session. Download and Release
+/// notes open the newest release.
 Future<void> offerUpdate(
   BuildContext context,
   UpdatePromptController updates,
-  AppRelease release,
+  UpdateOffer offer,
 ) async {
+  final release = offer.newest;
   final choice = await showUpdateAvailableDialog(
     context,
-    release: release,
+    offer: offer,
     installedVersion: updates.installedVersion,
     highContrast: CardContrastScope.enabledOf(context),
     onDownload: () => openUpdateLink(context, updates.download(release)),

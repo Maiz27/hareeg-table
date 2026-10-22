@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../../domain/updates/app_release.dart';
 import '../../domain/updates/update_decision.dart';
 import 'installed_version_source.dart';
 import 'update_cache_repository.dart';
@@ -14,10 +13,11 @@ sealed class UpdateCheckResult {
 /// A newer release than the installed build exists.
 final class UpdateCheckAvailable extends UpdateCheckResult {
   /// Creates an available-update result.
-  const UpdateCheckAvailable(this.release);
+  const UpdateCheckAvailable(this.offer);
 
-  /// The newer release.
-  final AppRelease release;
+  /// The newest release and every listed release between it and the
+  /// installed build.
+  final UpdateOffer offer;
 }
 
 /// The installed build is the newest release.
@@ -94,8 +94,8 @@ class UpdateService {
   ///
   /// Reaches the network only when [autoCheckEnabled] and the last successful
   /// check is at least [interval] old; otherwise it answers from the cached
-  /// release. Returns the release to offer, or null.
-  Future<AppRelease?> startupCheck({
+  /// listing. Returns the offer to show, or null.
+  Future<UpdateOffer?> startupCheck({
     required bool autoCheckEnabled,
     String? skippedVersion,
   }) async {
@@ -117,14 +117,12 @@ class UpdateService {
           debugPrint('[updates] Automatic check failed: $error');
         }
       }
-      final release = cache.lastSeenRelease;
-      return shouldOfferUpdate(
-            installedVersion: installed,
-            release: release,
-            skippedVersion: skippedVersion,
-          )
-          ? release
-          : null;
+      return buildUpdateOffer(
+        installedVersion: installed,
+        releases: cache.releases,
+        listingMayBeTruncated: cache.mayBeTruncated,
+        skippedVersion: skippedVersion,
+      );
     } catch (error) {
       debugPrint('[updates] Automatic check failed: $error');
       return null;
@@ -144,12 +142,14 @@ class UpdateService {
       final installed = await installedVersion();
       if (installed == null) return const UpdateCheckFailed();
       final cache = await _fetchAndRemember();
-      final release = cache.lastSeenRelease;
-      if (release != null &&
-          shouldOfferUpdate(installedVersion: installed, release: release)) {
-        return UpdateCheckAvailable(release);
-      }
-      return const UpdateCheckUpToDate();
+      final offer = buildUpdateOffer(
+        installedVersion: installed,
+        releases: cache.releases,
+        listingMayBeTruncated: cache.mayBeTruncated,
+      );
+      return offer == null
+          ? const UpdateCheckUpToDate()
+          : UpdateCheckAvailable(offer);
     } on UpdateCheckException catch (error) {
       debugPrint('[updates] Manual check failed: $error');
       return UpdateCheckFailed(error.kind);
@@ -168,11 +168,15 @@ class UpdateService {
     }
   }
 
-  /// Fetches the newest release and records it with the check time. Only a
+  /// Fetches the release listing and records it with the check time. Only a
   /// successful lookup is recorded, so an offline launch retries next time.
   Future<UpdateCache> _fetchAndRemember() async {
-    final release = await _channel.fetchLatestRelease();
-    final next = UpdateCache(lastCheckedAt: _clock(), lastSeenRelease: release);
+    final listing = await _channel.fetchReleases();
+    final next = UpdateCache(
+      lastCheckedAt: _clock(),
+      releases: listing.releases,
+      mayBeTruncated: listing.mayBeTruncated,
+    );
     try {
       await _cache.save(next);
     } catch (error) {

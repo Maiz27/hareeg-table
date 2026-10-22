@@ -44,7 +44,7 @@ class UpdatePromptController extends ChangeNotifier {
   final Future<void> Function(String version) _onSkip;
   final ExternalUrlOpener _openUrl;
 
-  AppRelease? _available;
+  UpdateOffer? _available;
   String? _installedVersion;
   var _collapsed = false;
   var _startupCheckStarted = false;
@@ -53,8 +53,8 @@ class UpdatePromptController extends ChangeNotifier {
   /// Whether this platform has an update flow at all (false on web).
   bool get supported => _service.supported;
 
-  /// The release the home panel should offer, or null to show nothing.
-  AppRelease? get prompt => _collapsed ? null : _available;
+  /// The offer the home menu should show, or null to show nothing.
+  UpdateOffer? get prompt => _collapsed ? null : _available;
 
   /// The installed version, once read.
   String? get installedVersion => _installedVersion;
@@ -66,11 +66,11 @@ class UpdatePromptController extends ChangeNotifier {
     try {
       final preferences = await _preferences();
       _installedVersion = await _service.installedVersion();
-      final release = await _service.startupCheck(
+      final offer = await _service.startupCheck(
         autoCheckEnabled: preferences.updateCheckEnabled,
         skippedVersion: preferences.skippedUpdateVersion,
       );
-      if (release != null) _available = release;
+      if (offer != null) _available = offer;
       _notify();
     } catch (error) {
       debugPrint('[updates] Startup check failed: $error');
@@ -105,10 +105,10 @@ class UpdatePromptController extends ChangeNotifier {
       }
       if (shouldOfferUpdate(
         installedVersion: _installedVersion,
-        release: result.release,
+        release: result.offer.newest,
         skippedVersion: preferences?.skippedUpdateVersion,
       )) {
-        _available = result.release;
+        _available = result.offer;
         _collapsed = false;
       }
     }
@@ -122,14 +122,14 @@ class UpdatePromptController extends ChangeNotifier {
     _notify();
   }
 
-  /// Skips the offered release for good: the prompt returns only for a
-  /// newer one.
+  /// Skips the offered release (the offer's newest) for good: the prompt
+  /// returns only for a newer one.
   Future<void> skip() async {
-    final release = _available;
-    if (release == null) return;
+    final offer = _available;
+    if (offer == null) return;
     _available = null;
     _notify();
-    await _onSkip(release.version.toString());
+    await _onSkip(offer.newest.version.toString());
   }
 
   /// Opens the release's download, falling back to its release page.

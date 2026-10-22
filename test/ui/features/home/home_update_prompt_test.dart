@@ -48,15 +48,18 @@ void main() {
     tester,
   ) async {
     final channel = FakeUpdateChannel(
-      release: fakeRelease(
-        'v1.0.0-alpha.13',
-        notes:
-            '## [1.0.0-alpha.13](https://x.test) (2026-10-20)\n\n'
-            '### Features\n\n'
-            '* **cpu:** faster CPUs ([abc1234](https://x.test/c))\n'
-            '### Bug Fixes\n\n'
-            '* the round ends\n',
-      ),
+      releases: [
+        fakeRelease(
+          'v1.0.0-alpha.13',
+          notes:
+              '## [1.0.0-alpha.13](https://x.test) (2026-10-20)\n\n'
+              '### Features\n\n'
+              '* **cpu:** faster CPUs ([abc1234](https://x.test/c))\n'
+              '### Bug Fixes\n\n'
+              '* the round ends\n',
+        ),
+        fakeRelease('v1.0.0-alpha.12', notes: '* already installed'),
+      ],
     );
     final prefs = await pumpHome(tester, channel: channel);
 
@@ -74,6 +77,11 @@ void main() {
     expect(find.text('cpu: faster CPUs'), findsOneWidget);
     expect(find.text('Bug Fixes'), findsOneWidget);
     expect(find.text('the round ends'), findsOneWidget);
+    // One release: the title names it, so no version heading, and the
+    // installed release is listed, so nothing is missing.
+    expect(find.text('1.0.0-alpha.13'), findsNothing);
+    expect(find.text('already installed'), findsNothing);
+    expect(find.text(strings.updateEarlierReleasesUnlisted), findsNothing);
     expect(find.text(strings.updateDownload), findsOneWidget);
     expect(find.text(strings.updateReleaseNotes), findsOneWidget);
     // The menu is still underneath, not pushed around.
@@ -84,6 +92,77 @@ void main() {
 
     expect(find.byType(UpdateAvailableDialog), findsNothing);
     expect(prefs.preferences.skippedUpdateVersion, '1.0.0-alpha.13');
+  });
+
+  testWidgets('two releases behind shows both, each under its version', (
+    tester,
+  ) async {
+    final channel = FakeUpdateChannel(
+      releases: [
+        fakeRelease('v1.0.0-alpha.14', notes: '### Features\n* newest change'),
+        fakeRelease('v1.0.0-alpha.13', notes: '### Bug Fixes\n* older fix'),
+        fakeRelease('v1.0.0-alpha.12', notes: '* already installed'),
+      ],
+    );
+    final prefs = await pumpHome(tester, channel: channel);
+
+    expect(
+      find.text(strings.updateAvailableTitle('1.0.0-alpha.14')),
+      findsOneWidget,
+    );
+    final newest = find.text('1.0.0-alpha.14');
+    final older = find.text('1.0.0-alpha.13');
+    expect(newest, findsOneWidget);
+    expect(older, findsOneWidget);
+    expect(find.text('newest change'), findsOneWidget);
+    expect(find.text('older fix'), findsOneWidget);
+    expect(find.text('already installed'), findsNothing);
+    // Newest first.
+    expect(tester.getTopLeft(newest).dy, lessThan(tester.getTopLeft(older).dy));
+    expect(
+      tester.getTopLeft(find.text('newest change')).dy,
+      lessThan(tester.getTopLeft(older).dy),
+    );
+    expect(find.text(strings.updateEarlierReleasesUnlisted), findsNothing);
+
+    // Skip records the newest version, not one of the older ones.
+    await tester.tap(find.text(strings.updateSkipVersion));
+    await tester.pumpAndSettle();
+    expect(prefs.preferences.skippedUpdateVersion, '1.0.0-alpha.14');
+  });
+
+  testWidgets('says so when a truncated listing may miss older releases', (
+    tester,
+  ) async {
+    final channel = FakeUpdateChannel(
+      releases: [
+        fakeRelease('v1.0.0-alpha.15', notes: '* fifteen'),
+        fakeRelease('v1.0.0-alpha.14', notes: '* fourteen'),
+      ],
+      mayBeTruncated: true,
+    );
+    await pumpHome(tester, channel: channel);
+
+    expect(find.byType(UpdateAvailableDialog), findsOneWidget);
+    expect(find.text('fifteen'), findsOneWidget);
+    expect(find.text('fourteen'), findsOneWidget);
+    expect(find.text(strings.updateEarlierReleasesUnlisted), findsOneWidget);
+  });
+
+  testWidgets('a complete listing never says releases are missing', (
+    tester,
+  ) async {
+    final channel = FakeUpdateChannel(
+      releases: [
+        fakeRelease('v1.0.0-alpha.15', notes: '* fifteen'),
+        fakeRelease('v1.0.0-alpha.14', notes: '* fourteen'),
+      ],
+    );
+    await pumpHome(tester, channel: channel);
+
+    expect(find.byType(UpdateAvailableDialog), findsOneWidget);
+    expect(find.text('fifteen'), findsOneWidget);
+    expect(find.text(strings.updateEarlierReleasesUnlisted), findsNothing);
   });
 
   testWidgets('a skipped release does not prompt', (tester) async {

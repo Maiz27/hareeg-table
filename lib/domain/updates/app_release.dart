@@ -3,7 +3,8 @@ import 'app_version.dart';
 /// A published app release, as the update flow knows it.
 ///
 /// Channel-neutral: the GitHub channel builds one from the releases API, and
-/// the update cache stores one so a known release survives an offline launch.
+/// the update cache stores the listing it last saw so known releases survive
+/// an offline launch.
 class AppRelease {
   /// Creates a release description.
   const AppRelease({

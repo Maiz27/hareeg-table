@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/updates/app_release.dart';
+import '../../../../domain/updates/update_decision.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/panels/lounge_panel.dart';
 import '../../../core/theme/lounge_tokens.dart';
@@ -24,7 +24,7 @@ enum UpdateDialogChoice {
 /// to download. Any other way out resolves to [UpdateDialogChoice.later].
 Future<UpdateDialogChoice> showUpdateAvailableDialog(
   BuildContext context, {
-  required AppRelease release,
+  required UpdateOffer offer,
   required String? installedVersion,
   required bool highContrast,
   required VoidCallback onDownload,
@@ -34,7 +34,7 @@ Future<UpdateDialogChoice> showUpdateAvailableDialog(
     context: context,
     barrierColor: LoungeTokens.scrim,
     builder: (context) => UpdateAvailableDialog(
-      release: release,
+      offer: offer,
       installedVersion: installedVersion,
       highContrast: highContrast,
       onDownload: onDownload,
@@ -44,24 +44,29 @@ Future<UpdateDialogChoice> showUpdateAvailableDialog(
   return choice ?? UpdateDialogChoice.later;
 }
 
-/// The update prompt: version, what changed as a capped scrollable list of
-/// bullets, Download and Release notes, and a quieter Skip.
+/// The update prompt: the newest version, what changed since the installed
+/// build as a capped scrollable list of bullets, Download and Release notes,
+/// and a quieter Skip.
+///
+/// The notes add up every release in the offer, newest first, each under its
+/// version; a single release needs no version heading because the title
+/// already names it.
 ///
 /// A lounge panel without its corner medallion: the dialog floats over the
 /// menu backdrop's motif already. Pops with an [UpdateDialogChoice].
 class UpdateAvailableDialog extends StatelessWidget {
-  /// Creates the dialog for [release].
+  /// Creates the dialog for [offer].
   const UpdateAvailableDialog({
     super.key,
-    required this.release,
+    required this.offer,
     required this.installedVersion,
     required this.highContrast,
     required this.onDownload,
     required this.onReleaseNotes,
   });
 
-  /// The newer release.
-  final AppRelease release;
+  /// The newest release and the releases between it and the installed build.
+  final UpdateOffer offer;
 
   /// The installed version, when known.
   final String? installedVersion;
@@ -78,7 +83,7 @@ class UpdateAvailableDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final sections = release.noteSections;
+    final notes = _ReleaseNotesList.entriesFor(offer, strings);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -98,7 +103,7 @@ class UpdateAvailableDialog extends StatelessWidget {
                 LoungePanelHeader(
                   icon: Icons.system_update_outlined,
                   title: strings.updateAvailableTitle(
-                    release.version.toString(),
+                    offer.newest.version.toString(),
                   ),
                   subtitle: strings.updateInstalledVersion(
                     installedVersion ?? strings.updateVersionUnknown,
@@ -107,9 +112,9 @@ class UpdateAvailableDialog extends StatelessWidget {
                       Navigator.of(context).pop(UpdateDialogChoice.later),
                   closeTooltip: strings.updateLater,
                 ),
-                if (sections.isNotEmpty) ...[
+                if (notes.isNotEmpty) ...[
                   const SizedBox(height: LoungeTokens.space4),
-                  _ReleaseNotesList(sections: sections),
+                  _ReleaseNotesList(children: notes),
                 ],
                 const SizedBox(height: LoungeTokens.space5),
                 LoungePanelActions(
@@ -153,11 +158,68 @@ class UpdateAvailableDialog extends StatelessWidget {
 /// The release notes as headed bullets inside an inset box that grows with
 /// its content up to [maxHeight] and scrolls beyond it.
 class _ReleaseNotesList extends StatefulWidget {
-  const _ReleaseNotesList({required this.sections});
+  const _ReleaseNotesList({required this.children});
 
-  final List<ReleaseNoteSection> sections;
+  /// The rows built by [entriesFor].
+  final List<Widget> children;
 
   static const maxHeight = 220.0;
+
+  /// A release's version above its notes: a notch above the section
+  /// headings, in the accent.
+  static final versionStyle = LoungeTokens.title.copyWith(
+    color: LoungeTokens.accent,
+  );
+
+  /// The rows for [offer]'s notes, or none when there is nothing to show.
+  ///
+  /// Each release, newest first, gets its version (only when the offer holds
+  /// more than one) and then its headed bullets. A last muted line says so
+  /// when releases older than the listing were left out.
+  static List<Widget> entriesFor(UpdateOffer offer, AppStrings strings) {
+    final showVersions = offer.releases.length > 1;
+    final children = <Widget>[];
+    for (final release in offer.releases) {
+      final sections = release.noteSections;
+      if (!showVersions && sections.isEmpty) continue;
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: LoungeTokens.space4));
+      }
+      if (showVersions) {
+        children
+          ..add(Text(release.version.toString(), style: versionStyle))
+          ..add(const SizedBox(height: LoungeTokens.space2));
+      }
+      var firstSection = true;
+      for (final section in sections) {
+        if (!firstSection) {
+          children.add(const SizedBox(height: LoungeTokens.space3));
+        }
+        firstSection = false;
+        final heading = section.heading;
+        if (heading != null) {
+          children
+            ..add(Text(heading, style: LoungeTokens.titleSmall))
+            ..add(const SizedBox(height: LoungeTokens.space1));
+        }
+        for (final item in section.items) {
+          children.add(_Bullet(text: item));
+        }
+      }
+    }
+    if (offer.hasOlderUnlisted) {
+      if (children.isNotEmpty) {
+        children.add(const SizedBox(height: LoungeTokens.space3));
+      }
+      children.add(
+        Text(
+          strings.updateEarlierReleasesUnlisted,
+          style: LoungeTokens.bodyMuted,
+        ),
+      );
+    }
+    return children;
+  }
 
   @override
   State<_ReleaseNotesList> createState() => _ReleaseNotesListState();
@@ -174,22 +236,6 @@ class _ReleaseNotesListState extends State<_ReleaseNotesList> {
 
   @override
   Widget build(BuildContext context) {
-    final children = <Widget>[];
-    for (final section in widget.sections) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(height: LoungeTokens.space3));
-      }
-      final heading = section.heading;
-      if (heading != null) {
-        children
-          ..add(Text(heading, style: LoungeTokens.titleSmall))
-          ..add(const SizedBox(height: LoungeTokens.space1));
-      }
-      for (final item in section.items) {
-        children.add(_Bullet(text: item));
-      }
-    }
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: _ReleaseNotesList.maxHeight),
       child: DecoratedBox(
@@ -210,7 +256,7 @@ class _ReleaseNotesListState extends State<_ReleaseNotesList> {
               LoungeTokens.space4,
               LoungeTokens.space3,
             ),
-            children: children,
+            children: widget.children,
           ),
         ),
       ),

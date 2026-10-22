@@ -26,7 +26,7 @@ void main() {
   }
 
   group('GitHubReleasesUpdateChannel', () {
-    test('picks the newest non-draft release by version order', () async {
+    test('lists the non-draft releases newest first by version', () async {
       Uri? requested;
       Map<String, String>? sentHeaders;
       final channel = channelAnswering((uri, headers) {
@@ -35,18 +35,32 @@ void main() {
         return HttpTextResponse(statusCode: 200, body: fixture);
       });
 
-      final release = await channel.fetchLatestRelease();
+      final listing = await channel.fetchReleases();
+      final releases = listing.releases;
 
       expect(
         requested.toString(),
-        'https://api.github.com/repos/Maiz27/hareeg-table/releases?per_page=10',
+        'https://api.github.com/repos/Maiz27/hareeg-table/releases?per_page=20',
       );
       expect(sentHeaders?['Accept'], 'application/vnd.github+json');
       expect(sentHeaders?['User-Agent'], isNotEmpty);
       // alpha.14 is a draft, "nightly" does not parse, and alpha.9 sits
       // above alpha.13 in the listing but is older by version order.
-      expect(release, isNotNull);
-      expect(release!.tag, 'v1.0.0-alpha.13');
+      expect(releases.map((r) => r.tag), [
+        'v1.0.0-alpha.13',
+        'v1.0.0-alpha.12',
+        'v1.0.0-alpha.9',
+      ]);
+      // Five entries is less than a page: nothing older was left out.
+      expect(listing.mayBeTruncated, isFalse);
+      expect(releases[1].notes, 'Alpha 12.');
+      expect(
+        releases[2].downloadUrl.toString(),
+        'https://github.com/Maiz27/hareeg-table/releases/download/'
+        'v1.0.0-alpha.9/hareeg-table-v1.0.0-alpha.9-android.apk',
+      );
+      final release = releases.first;
+      expect(release.tag, 'v1.0.0-alpha.13');
       expect(release.version.toString(), '1.0.0-alpha.13');
       expect(
         release.downloadUrl.toString(),
@@ -67,23 +81,46 @@ void main() {
     });
 
     test('a release without an APK asset has no download url', () {
-      final release = GitHubReleasesUpdateChannel.parseLatestRelease(
+      final listing = GitHubReleasesUpdateChannel.parseReleases(
         jsonDecode(
           '[{"tag_name":"v2.0.0","html_url":"https://x.test/r","draft":false,'
           '"assets":[{"name":"notes.txt","browser_download_url":"https://x.test/n"}]}]',
         ),
       );
-      expect(release!.downloadUrl, isNull);
+      expect(listing.releases.single.downloadUrl, isNull);
     });
 
     test('an empty listing reports no release', () {
-      expect(GitHubReleasesUpdateChannel.parseLatestRelease(const []), isNull);
+      final listing = GitHubReleasesUpdateChannel.parseReleases(const []);
+      expect(listing.releases, isEmpty);
+      expect(listing.mayBeTruncated, isFalse);
+    });
+
+    test('a full page may be truncated, counting dropped entries', () {
+      Map<String, Object?> entry(String tag, {bool draft = false}) => {
+        'tag_name': tag,
+        'html_url': 'https://x.test/$tag',
+        'draft': draft,
+      };
+      final page = [
+        for (var n = 30; n > 12; n--) entry('v1.0.0-alpha.$n'),
+        entry('v1.0.0-alpha.31', draft: true),
+        entry('nightly'),
+      ];
+      expect(page, hasLength(GitHubReleasesUpdateChannel.pageSize));
+
+      final full = GitHubReleasesUpdateChannel.parseReleases(page);
+      expect(full.releases, hasLength(18));
+      expect(full.mayBeTruncated, isTrue);
+
+      final short = GitHubReleasesUpdateChannel.parseReleases(page.sublist(1));
+      expect(short.mayBeTruncated, isFalse);
     });
 
     test('rate limiting, HTTP errors and bad bodies are typed failures', () {
       Future<UpdateCheckFailureKind> kindFor(HttpTextResponse response) async {
         try {
-          await channelAnswering((_, _) => response).fetchLatestRelease();
+          await channelAnswering((_, _) => response).fetchReleases();
         } on UpdateCheckException catch (error) {
           return error.kind;
         }
@@ -122,7 +159,7 @@ void main() {
             }) => Future.error(const SocketException('offline')),
       );
       await expectLater(
-        channel.fetchLatestRelease(),
+        channel.fetchReleases(),
         throwsA(
           isA<UpdateCheckException>().having(
             (error) => error.kind,
@@ -151,7 +188,9 @@ void main() {
     test('the Play stub reports no version and opens the listing', () async {
       const channel = PlayStoreUpdateChannel();
       expect(channel.reportsVersions, isFalse);
-      expect(await channel.fetchLatestRelease(), isNull);
+      final listing = await channel.fetchReleases();
+      expect(listing.releases, isEmpty);
+      expect(listing.mayBeTruncated, isFalse);
       expect(
         channel.storeListingUrl.toString(),
         'https://play.google.com/store/apps/details?id=com.maiz27.hareegtable',
