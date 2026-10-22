@@ -408,6 +408,7 @@ class _BrandHeader extends StatelessWidget {
               tooltip: strings.rulesHelp,
               onPressed: onRulesHelp,
             ),
+            const SizedBox(width: LoungeTokens.space2),
             _ChromeIconButton(
               icon: Icons.settings_outlined,
               tooltip: strings.settings,
