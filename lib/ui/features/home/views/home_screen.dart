@@ -365,7 +365,7 @@ class _BrandHeader extends StatelessWidget {
           child: Text(
             strings.classicModeDescription,
             style: const TextStyle(
-              color: LoungeTokens.mutedText,
+              color: LoungeTokens.textMuted,
               fontSize: 14.5,
               height: 1.45,
               letterSpacing: 0.1,
@@ -399,13 +399,13 @@ class _ChromeIconButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, size: 22),
       tooltip: tooltip,
-      color: LoungeTokens.mutedText,
+      color: LoungeTokens.textMuted,
       splashRadius: 22,
       visualDensity: VisualDensity.compact,
       style: IconButton.styleFrom(
-        foregroundColor: LoungeTokens.mutedText,
-        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
-        side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.18)),
+        foregroundColor: LoungeTokens.textMuted,
+        backgroundColor: LoungeTokens.surfaceRaised,
+        side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.18)),
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(LoungeTokens.space2),
       ),

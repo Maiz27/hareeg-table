@@ -108,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.settingsTitle)),
       body: SafeArea(
         child: Stack(
@@ -418,7 +418,7 @@ class _AboutLink extends StatelessWidget {
               const Icon(
                 Icons.article_outlined,
                 size: 18,
-                color: LoungeTokens.goldAccent,
+                color: LoungeTokens.accent,
               ),
               const SizedBox(width: LoungeTokens.space3),
               Expanded(
@@ -427,7 +427,7 @@ class _AboutLink extends StatelessWidget {
                   style: LoungeTokens.titleSmall,
                 ),
               ),
-              const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
+              const Icon(Icons.chevron_right, color: LoungeTokens.line),
             ],
           ),
         ),

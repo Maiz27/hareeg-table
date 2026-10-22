@@ -33,7 +33,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.aboutLicenses)),
       body: SafeArea(
         child: Stack(
@@ -91,7 +91,7 @@ class _AboutCard extends StatelessWidget {
           ? loungeLitPanel(strength: 0.16)
           : loungeLitPanel(
               strength: 0.04,
-              edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+              edge: LoungeTokens.line.withValues(alpha: 0.18),
             ).copyWith(boxShadow: const []),
       child: child,
     );
@@ -231,7 +231,7 @@ class _ThemeLicenseRow extends StatelessWidget {
               ? Icons.brush_outlined
               : Icons.collections_bookmark_outlined,
           size: 20,
-          color: LoungeTokens.goldAccent,
+          color: LoungeTokens.accent,
         ),
         const SizedBox(width: LoungeTokens.space3),
         Expanded(
@@ -289,7 +289,7 @@ class _SoundLicenseSection extends StatelessWidget {
             const Icon(
               Icons.volume_up_outlined,
               size: 20,
-              color: LoungeTokens.goldAccent,
+              color: LoungeTokens.accent,
             ),
             const SizedBox(width: LoungeTokens.space3),
             Expanded(
@@ -364,9 +364,6 @@ class _RuleDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      color: LoungeTokens.sandLine.withValues(alpha: 0.14),
-    );
+    return Divider(height: 1, color: LoungeTokens.line.withValues(alpha: 0.14));
   }
 }

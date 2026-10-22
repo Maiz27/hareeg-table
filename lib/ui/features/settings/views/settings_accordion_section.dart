@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/lounge_tokens.dart';
 
-/// One collapsible settings section: a card on the felt with an icon
+/// One collapsible settings section: a panel on the charcoal ground with an icon
 /// medallion, a title, a description and, while closed, preview pills of the
 /// current values.
 class SettingsAccordionSection extends StatelessWidget {
@@ -30,8 +30,8 @@ class SettingsAccordionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Each section is a card on the felt (design contract 8, option card):
-    // an icon medallion, a raised surface, and a gold edge with warm light
+    // Each section is a panel on the ground (design contract 8, option card):
+    // an icon medallion, a raised surface, and an ember edge with warm light
     // while it is open.
     return AnimatedContainer(
       duration: LoungeTokens.motionStandard,
@@ -44,22 +44,19 @@ class SettingsAccordionSection extends StatelessWidget {
           colors: expanded
               ? [
                   Color.lerp(
-                    LoungeTokens.coffeeCharcoal,
-                    LoungeTokens.goldAccent,
+                    LoungeTokens.surfaceSpotlight,
+                    LoungeTokens.accent,
                     0.08,
-                  )!.withValues(alpha: 0.85),
-                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.7),
+                  )!,
+                  LoungeTokens.panel,
                 ]
-              : [
-                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
-                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.38),
-                ],
+              : [LoungeTokens.panel, LoungeTokens.panel.withValues(alpha: 0.8)],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
           color: expanded
-              ? LoungeTokens.goldAccent.withValues(alpha: 0.45)
-              : LoungeTokens.sandLine.withValues(alpha: 0.16),
+              ? LoungeTokens.accent.withValues(alpha: 0.45)
+              : LoungeTokens.line.withValues(alpha: 0.16),
         ),
         boxShadow: expanded ? LoungeTokens.elevationL2 : null,
       ),
@@ -157,22 +154,22 @@ class _IconMedallion extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: const RadialGradient(
           center: Alignment(-0.3, -0.45),
-          colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+          colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
         ),
         border: Border.all(
           color: lit
-              ? LoungeTokens.goldAccent
-              : LoungeTokens.sandLine.withValues(alpha: 0.35),
+              ? LoungeTokens.accent
+              : LoungeTokens.line.withValues(alpha: 0.35),
         ),
         boxShadow: [
           if (lit)
             BoxShadow(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+              color: LoungeTokens.accent.withValues(alpha: 0.3),
               blurRadius: 10,
             ),
         ],
       ),
-      child: Icon(icon, color: LoungeTokens.goldAccent, size: 19),
+      child: Icon(icon, color: LoungeTokens.accent, size: 19),
     );
   }
 }
@@ -186,11 +183,9 @@ class _PreviewPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+        color: LoungeTokens.surface.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.22)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -200,7 +195,7 @@ class _PreviewPill extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(
-            color: LoungeTokens.offWhiteText,
+            color: LoungeTokens.textPrimary,
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.4,
@@ -227,7 +222,7 @@ class _RotatingChevron extends StatelessWidget {
           angle: value * 3.141592653589793,
           child: const Icon(
             Icons.expand_more,
-            color: LoungeTokens.sandLine,
+            color: LoungeTokens.line,
             size: 22,
           ),
         );
