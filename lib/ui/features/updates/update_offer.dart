@@ -33,10 +33,19 @@ Future<void> offerUpdate(
 }
 
 /// Awaits [opening] and tells the player when the link could not be opened.
+///
+/// An opener that throws counts as "could not open": the platform opener
+/// already answers false on failure, but an injected one may not.
 Future<void> openUpdateLink(BuildContext context, Future<bool> opening) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
   final message = context.strings.updateCouldNotOpenLink;
-  if (!await opening) {
+  var opened = false;
+  try {
+    opened = await opening;
+  } catch (error) {
+    debugPrint('[updates] Could not open a link: $error');
+  }
+  if (!opened) {
     messenger?.showSnackBar(SnackBar(content: Text(message)));
   }
 }
