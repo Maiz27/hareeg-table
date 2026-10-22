@@ -19,6 +19,7 @@ class LoungePanel extends StatelessWidget {
     required this.highContrast,
     required this.child,
     this.padding = const EdgeInsets.all(LoungeTokens.space5),
+    this.showMotif = true,
   });
 
   /// Whether the high-contrast accessibility surface is active.
@@ -29,6 +30,10 @@ class LoungePanel extends StatelessWidget {
 
   /// Inner padding around [child]. Defaults to symmetric `space5`.
   final EdgeInsetsGeometry padding;
+
+  /// Whether to draw the quiet corner medallion. Off for a panel that already
+  /// sits over the menu backdrop's motif, where a second one is only noise.
+  final bool showMotif;
 
   @override
   Widget build(BuildContext context) {
@@ -60,23 +65,24 @@ class LoungePanel extends StatelessWidget {
             children: [
               // Quiet corner medallion echoes the home menu backdrop so the
               // panel reads as the same product, not a stock dialog.
-              Positioned(
-                top: -34,
-                right: -42,
-                child: IgnorePointer(
-                  child: SizedBox.square(
-                    dimension: 168,
-                    child: CustomPaint(
-                      painter: const GeometricMotifPainter(
-                        variant: LoungeMotifVariant.medallion,
-                        opacity: 0.05,
-                        strokeWidth: 1.0,
-                        density: 4,
+              if (showMotif)
+                Positioned(
+                  top: -34,
+                  right: -42,
+                  child: IgnorePointer(
+                    child: SizedBox.square(
+                      dimension: 168,
+                      child: CustomPaint(
+                        painter: const GeometricMotifPainter(
+                          variant: LoungeMotifVariant.medallion,
+                          opacity: 0.05,
+                          strokeWidth: 1.0,
+                          density: 4,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               Padding(padding: padding, child: child),
             ],
           ),
