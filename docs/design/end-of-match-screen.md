@@ -85,7 +85,7 @@ All durations are at `TableMotion` normal speed and scale via `MotionScope.of(co
 | Standings | Rows stagger-fade in top-to-bottom | 100ms each, total ~500ms | Single 220ms fade for the whole block |
 | Actions | Buttons fade in last | 200ms after 720ms | Same |
 
-**No confetti, no particles, no flame burst.** Per `direction.md`: "Avoid casino neon, childish cartooning, and constant flame decoration." Flame is reserved for Fifty. The match-end celebration is a quiet medallion pulse + the accent winner row glow. The Sudanese lounge feels solemn-warm at the close, not loud.
+**Celebration is for the player's win only.** When the human wins, the design contract's match-won effect plays over the standings: fireworks and drifting confetti in the brand palette from `lib/ui/core/motion/celebration.dart` (section 6.1 of the contract), on top of the medallion pulse and the accent winner-row glow. A CPU win stays quiet: the pulse and the glow only, no fireworks, no confetti. Flame bursts stay reserved for Fifty, per `direction.md`: "Avoid casino neon, childish cartooning, and constant flame decoration." Reduced motion skips the fireworks either way.
 
 Audio: one new cue `TableSoundEvent.matchEnd` — a single sustained chime or oud-string-pluck (asset choice deferred to audio direction). Fires once on first frame. Respects `audio.enabled`. No looped victory bed.
 

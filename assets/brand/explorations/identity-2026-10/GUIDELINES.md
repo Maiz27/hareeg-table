@@ -39,17 +39,19 @@ fixed distance.
 
 | Name | HEX | RGB | CMYK (approx.) | Pantone (approx.) | Use |
 |---|---|---|---|---|---|
-| Ember | #E4522B | 228 82 43 | 0 64 81 11 | 1665 C | Flame, key accent, one-colour logo |
-| Charcoal | #15110E | 21 17 14 | 0 19 33 92 | Black 7 C | Ground, app-icon tile, type |
+| Ember | #E4522B | 228 82 43 | 0 64 81 11 | 1665 C | Flame, key accent, one-colour logo, launcher and web-icon tile |
+| Charcoal | #15110E | 21 17 14 | 0 19 33 92 | Black 7 C | Ground, in-app surfaces, splash tile, type |
 | Sand | #D7BD83 | 215 189 131 | 0 12 39 16 | 7502 C | Spark (B), lines, secondary accent |
 | Ivory | #F8F0DD | 248 240 221 | 0 3 11 3 | 7499 C | Card (A), paper, light backgrounds |
 
 Felt green (#12382F) stays the in-game table surface. It is not a brand colour
 and the logo never sits on it without the charcoal tile.
 
-**Approved logo/background pairs**: colour symbol on Charcoal · Ember on Ivory
-· Charcoal on Ivory · white on Charcoal · black on white. On photos or busy
-art, use the symbol in its charcoal tile.
+**Approved logo/background pairs**: ivory card with charcoal flame on the
+Ember tile (the shipped launcher and web icons) · colour symbol on Charcoal
+(the splash and in-app surfaces) · Ember on Ivory · Charcoal on Ivory · white
+on Charcoal · black on white. On photos or busy art, use the symbol in its
+charcoal tile.
 
 Pantone and CMYK values are approximations; verify against a physical guide
 before any print run.
