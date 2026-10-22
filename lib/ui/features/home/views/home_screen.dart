@@ -44,7 +44,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   MatchCheckpoint? _savedMatch;
   var _loadingSavedMatch = true;
   var _recoveryFailed = false;
@@ -73,10 +73,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null && widget.updates != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     widget.updates?.removeListener(_onUpdatesChanged);
     super.dispose();
   }
+
+  /// The menu is revealed again: a release that arrived while another screen
+  /// covered it was left unprompted, so offer it now.
+  @override
+  void didPopNext() => _onUpdatesChanged();
 
   void _onUpdatesChanged() {
     final updates = widget.updates;
@@ -88,7 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (offer.newest.tag == _promptedTag) return;
     // Only the menu prompts from here. A check that lands while another
     // screen is up stays quiet (a manual check offers the release where it
-    // was run) and is left unmarked, so the next notification here shows it.
+    // was run) and is left unmarked, so [didPopNext] or the next notification
+    // here shows it.
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
     _promptedTag = offer.newest.tag;
     unawaited(offerUpdate(context, updates, offer));

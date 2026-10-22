@@ -249,6 +249,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       initialRoute: widget.initialRouteOverride ?? AppRoutes.splash,
+      navigatorObservers: [appRouteObserver],
       builder: (context, child) {
         final osReduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
         final motion = MotionSettings(

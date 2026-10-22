@@ -1,3 +1,11 @@
+import 'package:flutter/widgets.dart';
+
+/// The app navigator's route observer, for screens that need to know when a
+/// route pushed over them is popped again (the home menu re-checks a pending
+/// update offer when it is revealed).
+final RouteObserver<ModalRoute<void>> appRouteObserver =
+    RouteObserver<ModalRoute<void>>();
+
 /// Named routes used by the Hareeg Table app shell.
 abstract final class AppRoutes {
   /// Splash screen shown on first frame before the home menu.
