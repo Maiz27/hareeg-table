@@ -129,6 +129,7 @@ class AppStrings {
   String get tableRulesDescription => _v('tableRulesDescription');
   String get deckCount => _v('deckCount');
   String get fiftyTimer => _v('fiftyTimer');
+  String get fiftyLapsedFinishOnly => _v('fiftyLapsedFinishOnly');
   String get handSort => _v('handSort');
   String get handSortDescription => _v('handSortDescription');
   String get tableStrictnessTitle => _v('tableStrictnessTitle');
@@ -1904,6 +1905,8 @@ const _englishValues = {
   'tableRulesDescription': 'Deck count and fifty-claim window.',
   'deckCount': 'Deck count',
   'fiftyTimer': 'Fifty timer',
+  'fiftyLapsedFinishOnly':
+      'Fifty window closed. Stock is empty: take the discard only to finish, or return it to end the round.',
   'handSort': 'Card sorting',
   'handSortDescription': 'Initial sort applied to your hand each round.',
   'tableStrictnessTitle': 'Table strictness',
@@ -2638,6 +2641,8 @@ const _arabicValues = {
   'tableRulesDescription': 'المعطيات والإعدادات التي تحكم جلسة اللعب الحالية.',
   'deckCount': 'عدد رزم الأوراق',
   'fiftyTimer': 'مهلة إعلان الحريق',
+  'fiftyLapsedFinishOnly':
+      'أُغلقت نافذة الخمسين. كومة السحب فارغة: خذ الرمية فقط لإنهاء يدك، أو أعدها لتنتهي الجولة.',
   'handSort': 'الترتيب الافتراضي',
   'handSortDescription':
       'طريقة الترتيب التي تُطبق تلقائياً فور توزيع الأوراق في يدك.',

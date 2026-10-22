@@ -639,12 +639,60 @@ class _GameTableScreenState extends State<GameTableScreen>
         onTick: () {
           if (_controller.fiftySecondsRemaining == null) {
             _cues.stopFiftyTicker();
+            unawaited(_settleLapsedFiftyWindow());
           }
         },
       );
-    } else if (!fiftyVisible && _cues.isFiftyTickerActive) {
-      _cues.stopFiftyTicker();
+    } else if (!fiftyVisible) {
+      if (_cues.isFiftyTickerActive) {
+        _cues.stopFiftyTicker();
+      }
+      // The ring is already gone (a window that lapsed while a human action
+      // or CPU run held the table, or while the app was backgrounded): settle
+      // it now rather than wait for a tick that will never come. Post-frame,
+      // because this also runs from initState, where a rebuild is not allowed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_settleLapsedFiftyWindow());
+      });
     }
+  }
+
+  /// Hands a Fifty window that lapsed by the clock back to the engine.
+  ///
+  /// Only the human seat lets a window run out — CPU claimants decide at once
+  /// and a practice board freezes its clock — and expiry is the one turn
+  /// transition with no action behind it, so nothing else re-runs the
+  /// stock-exhaustion decision. Without this a draw phase with no stock and no
+  /// claim left sat on the table until the player took and returned the
+  /// discard by hand. Runs through the same persistence and round-result
+  /// pipeline as an applied action so a settled draw is saved and shown.
+  Future<void> _settleLapsedFiftyWindow() async {
+    if (!mounted || !_mode.capabilities.runsMatchProgression) return;
+    // A human apply or CPU run in flight re-enters [_ensureFiftyTicker] once it
+    // lands, so the lapse is picked up then, against the settled state.
+    if (_isHumanActionPending || _isCpuRunning || _isOpeningDealRunning) {
+      return;
+    }
+    if (!_controller.settleLapsedFiftyWindow()) return;
+    _debugTableLog(
+      'fifty window lapsed current=${_controller.currentSeat.name} '
+      'phase=${_controller.turnPhase} stock=${_controller.stockCount} '
+      'roundOver=${_controller.isRoundOver}',
+    );
+    final roundOver = _controller.isRoundOver;
+    setState(() {
+      if (!roundOver) {
+        // The round stays open on a finishing take alone, which looks like
+        // nothing happened. Say what is left: take to finish, or take and
+        // return to end the round (the return is what draws it).
+        _replaceHumanFeedback(
+          context.strings.fiftyLapsedFinishOnly,
+          isError: false,
+        );
+      }
+    });
+    if (!roundOver) return;
+    await _persistAndMaybeFinish();
   }
 
   void _scheduleTurnFlow() {
