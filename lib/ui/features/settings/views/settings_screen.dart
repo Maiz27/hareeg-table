@@ -9,6 +9,8 @@ import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../replay/widgets/analysis_coach_panel.dart' show verbosityLabel;
 import '../../shared/medallion_backdrop.dart';
+import '../../updates/update_prompt_controller.dart';
+import '../../updates/widgets/update_check_tile.dart';
 import '../models/settings_section.dart';
 import 'settings_accordion_section.dart';
 import 'settings_controls.dart';
@@ -31,11 +33,16 @@ class SettingsScreen extends StatefulWidget {
     required this.isMatchActive,
     this.initialSection,
     this.showUpdateSettings = true,
+    this.updates,
   });
 
   /// Whether to show the Updates section. False on web, where the PWA
   /// updates itself and there is nothing to switch.
   final bool showUpdateSettings;
+
+  /// The update flow behind the manual "Check for updates" row in the
+  /// Updates section, or null to show the automatic-check switch alone.
+  final UpdatePromptController? updates;
 
   /// Current preferences (driven by the app shell).
   final GamePreferences preferences;
@@ -399,14 +406,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     expanded: _openSection == SettingsSection.updates,
                     onToggle: () => _toggle(SettingsSection.updates),
                     isLast: true,
-                    child: SettingsSwitch(
-                      icon: Icons.update_outlined,
-                      title: strings.updateCheckAutomatically,
-                      subtitle: strings.updateCheckAutomaticallyDescription,
-                      value: _preferences.updateCheckEnabled,
-                      onChanged: (value) => _save(
-                        _preferences.copyWith(updateCheckEnabled: value),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SettingsSwitch(
+                          icon: Icons.update_outlined,
+                          title: strings.updateCheckAutomatically,
+                          subtitle: strings.updateCheckAutomaticallyDescription,
+                          value: _preferences.updateCheckEnabled,
+                          onChanged: (value) => _save(
+                            _preferences.copyWith(updateCheckEnabled: value),
+                          ),
+                        ),
+                        if (widget.updates case final updates?) ...[
+                          const SettingsDivider(),
+                          UpdateCheckTile(controller: updates),
+                        ],
+                      ],
                     ),
                   ),
                 const SizedBox(height: LoungeTokens.space5),

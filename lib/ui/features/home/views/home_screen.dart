@@ -7,13 +7,11 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/match_history_repository.dart';
 import '../../../../data/persistence/match_repository.dart';
 import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
-import '../../../../domain/updates/app_release.dart';
 import '../../../../l10n/app_strings.dart';
-import '../../../core/cards/card_theme.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../updates/update_offer.dart';
 import '../../updates/update_prompt_controller.dart';
-import '../../updates/widgets/update_available_dialog.dart';
 import 'home_hero_section.dart';
 
 /// Main menu and navigation shell.
@@ -88,44 +86,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     if (release.tag == _promptedTag) return;
-    _promptedTag = release.tag;
-    // Only the menu prompts. A check that lands while another screen is up
-    // (About shows a manual check's answer inline) stays quiet; the cached
-    // release offers itself again on the next launch.
+    // Only the menu prompts from here. A check that lands while another
+    // screen is up stays quiet (a manual check offers the release where it
+    // was run) and is left unmarked, so the next notification here shows it.
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-    unawaited(_showUpdatePrompt(updates, release));
-  }
-
-  Future<void> _showUpdatePrompt(
-    UpdatePromptController updates,
-    AppRelease release,
-  ) async {
-    final choice = await showUpdateAvailableDialog(
-      context,
-      release: release,
-      installedVersion: updates.installedVersion,
-      highContrast: CardContrastScope.enabledOf(context),
-      onDownload: () => _openUpdateLink(updates.download(release)),
-      onReleaseNotes: () => _openUpdateLink(updates.openReleaseNotes(release)),
-    );
-    if (!mounted) return;
-    switch (choice) {
-      case UpdateDialogChoice.skip:
-        await updates.skip();
-      case UpdateDialogChoice.download:
-      case UpdateDialogChoice.later:
-        // Closed, or the download is on its way: do not ask again this
-        // session.
-        updates.later();
-    }
-  }
-
-  Future<void> _openUpdateLink(Future<bool> opening) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final message = context.strings.updateCouldNotOpenLink;
-    if (!await opening) {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
-    }
+    _promptedTag = release.tag;
+    unawaited(offerUpdate(context, updates, release));
   }
 
   @override

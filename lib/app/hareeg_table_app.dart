@@ -333,6 +333,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         isMatchActive: false,
         initialSection: initialSection,
         showUpdateSettings: _updates.supported,
+        updates: _updates.supported ? _updates : null,
       ),
       settings: settings,
     );

@@ -167,6 +167,7 @@ class AppStrings {
   String get updateCheckFailed => _v('updateCheckFailed');
   String get updateStoreManaged => _v('updateStoreManaged');
   String get updateOpenStore => _v('updateOpenStore');
+  String get updateViewOffer => _v('updateViewOffer');
   String get updateVersionUnknown => _v('updateVersionUnknown');
   String get language => _v('language');
   String get languageDescription => _v('languageDescription');
@@ -2579,6 +2580,7 @@ const _englishValues = {
   'updateCheckFailed': 'Could not check. Try again when you are online.',
   'updateStoreManaged': 'Updates come through Google Play.',
   'updateOpenStore': 'Open Google Play',
+  'updateViewOffer': 'View update',
   'updateVersionUnknown': 'unknown',
 };
 
@@ -3325,5 +3327,6 @@ const _arabicValues = {
   'updateCheckFailed': 'تعذّر التحقق. حاول مجدداً عند اتصالك بالإنترنت.',
   'updateStoreManaged': 'تصلك التحديثات عبر Google Play.',
   'updateOpenStore': 'فتح Google Play',
+  'updateViewOffer': 'عرض التحديث',
   'updateVersionUnknown': 'غير معروف',
 };
