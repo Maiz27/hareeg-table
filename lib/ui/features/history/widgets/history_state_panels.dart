@@ -6,7 +6,7 @@ import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 
 /// Shown while a history-backed surface reads its index: the surface's
-/// medallion ringed by a thin gold progress arc, on the felt.
+/// medallion ringed by a thin ember progress arc, on the charcoal ground.
 class HistoryLoadingPanel extends StatelessWidget {
   /// Creates a loading panel.
   const HistoryLoadingPanel({this.icon = Icons.history, super.key});
@@ -27,8 +27,8 @@ class HistoryLoadingPanel extends StatelessWidget {
               dimension: 76,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: LoungeTokens.goldAccent,
-                backgroundColor: LoungeTokens.sandLine.withValues(alpha: 0.12),
+                color: LoungeTokens.accent,
+                backgroundColor: LoungeTokens.line.withValues(alpha: 0.12),
               ),
             ),
           ],
@@ -176,7 +176,7 @@ class _InlineNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: LoungeTokens.mutedText),
+          Icon(icon, size: 15, color: LoungeTokens.textMuted),
           const SizedBox(width: LoungeTokens.space2),
           Expanded(
             child: Text(
@@ -227,13 +227,11 @@ class _CenteredPanel extends StatelessWidget {
               LoungeTokens.space5,
             ),
             decoration: loungeLitPanel(
-              glow: alert
-                  ? LoungeTokens.invalidAction
-                  : LoungeTokens.goldAccent,
+              glow: alert ? LoungeTokens.stateInvalid : LoungeTokens.accent,
               strength: alert ? 0.08 : 0.06,
               edge: alert
-                  ? LoungeTokens.invalidAction.withValues(alpha: 0.35)
-                  : LoungeTokens.sandLine.withValues(alpha: 0.18),
+                  ? LoungeTokens.stateInvalid.withValues(alpha: 0.35)
+                  : LoungeTokens.line.withValues(alpha: 0.18),
             ).copyWith(boxShadow: LoungeTokens.elevationL2),
             child: Column(
               mainAxisSize: MainAxisSize.min,

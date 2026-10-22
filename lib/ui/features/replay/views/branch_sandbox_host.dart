@@ -128,7 +128,7 @@ class _BranchSandboxHostState extends State<BranchSandboxHost> {
     _leaving = true;
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: LoungeTokens.overlayScrim,
+      barrierColor: LoungeTokens.scrim,
       builder: (context) => const _BranchExitConfirmation(),
     );
     _leaving = false;

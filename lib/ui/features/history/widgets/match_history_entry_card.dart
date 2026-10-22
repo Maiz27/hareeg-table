@@ -43,7 +43,7 @@ class MatchHistoryEntryCard extends StatelessWidget {
     final won = summary.winner == PlayerSeat.south;
     final placement = summary.southPlacement;
     // A page from the match book: lit from the top-start corner, edged in
-    // gold when the player won.
+    // ember when the player won.
     return Container(
       margin: const EdgeInsets.only(bottom: LoungeTokens.space3),
       padding: const EdgeInsets.all(LoungeTokens.space4),
@@ -53,18 +53,18 @@ class MatchHistoryEntryCard extends StatelessWidget {
           radius: 1.6,
           colors: [
             Color.lerp(
-              LoungeTokens.coffeeCharcoal,
-              LoungeTokens.goldAccent,
+              LoungeTokens.surfaceSpotlight,
+              LoungeTokens.accent,
               won ? 0.12 : 0.05,
-            )!.withValues(alpha: 0.75),
-            LoungeTokens.coffeeCharcoal.withValues(alpha: 0.5),
+            )!,
+            LoungeTokens.panel,
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(
           color: won
-              ? LoungeTokens.goldAccent.withValues(alpha: 0.5)
-              : LoungeTokens.sandLine.withValues(alpha: 0.18),
+              ? LoungeTokens.accent.withValues(alpha: 0.5)
+              : LoungeTokens.line.withValues(alpha: 0.18),
         ),
         boxShadow: LoungeTokens.elevationL2,
       ),
@@ -87,8 +87,8 @@ class MatchHistoryEntryCard extends StatelessWidget {
                       '${strings.seatLabel(summary.winner)}',
                       style: LoungeTokens.display.copyWith(
                         color: won
-                            ? LoungeTokens.goldAccent
-                            : LoungeTokens.offWhiteText,
+                            ? LoungeTokens.accent
+                            : LoungeTokens.textPrimary,
                         fontSize: 18,
                       ),
                     ),
@@ -99,7 +99,7 @@ class MatchHistoryEntryCard extends StatelessWidget {
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, size: 20),
                 tooltip: strings.historyDeleteTooltip,
-                color: LoungeTokens.mutedText,
+                color: LoungeTokens.textMuted,
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -176,7 +176,7 @@ class MatchHistoryEntryCard extends StatelessWidget {
   }
 
   static const _sectionLabel = TextStyle(
-    color: LoungeTokens.mutedText,
+    color: LoungeTokens.textMuted,
     fontSize: 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.9,
@@ -237,7 +237,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = muted ? LoungeTokens.mutedText : LoungeTokens.sandLine;
+    final color = muted ? LoungeTokens.textMuted : LoungeTokens.line;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -267,7 +267,7 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-/// The player's finishing place on a lacquered medallion: gold for a win,
+/// The player's finishing place on a lacquered medallion: ember for a win,
 /// a trophy in place of the 1.
 class _PlacementMedallion extends StatelessWidget {
   const _PlacementMedallion({required this.placement, required this.won});
@@ -287,21 +287,19 @@ class _PlacementMedallion extends StatelessWidget {
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFE8B95A), LoungeTokens.goldAccent],
+                colors: [LoungeTokens.accent, LoungeTokens.accentPressed],
               )
             : const RadialGradient(
                 center: Alignment(-0.3, -0.45),
-                colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
               ),
         border: Border.all(
-          color: won
-              ? LoungeTokens.goldAccent
-              : LoungeTokens.sandLine.withValues(alpha: 0.4),
+          color: won ? LoungeTokens.accent : LoungeTokens.lineSoft,
         ),
         boxShadow: [
           if (won)
             BoxShadow(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.35),
+              color: LoungeTokens.accent.withValues(alpha: 0.35),
               blurRadius: 12,
             ),
         ],
@@ -310,13 +308,13 @@ class _PlacementMedallion extends StatelessWidget {
           ? const Icon(
               Icons.emoji_events_outlined,
               size: 22,
-              color: LoungeTokens.coffeeCharcoal,
+              color: LoungeTokens.onAccent,
             )
           : Text(
               placement > 0 ? '$placement' : '–',
               style: LoungeTokens.numericDisplay.copyWith(
                 fontSize: 18,
-                color: LoungeTokens.sandLine,
+                color: LoungeTokens.line,
               ),
             ),
     );

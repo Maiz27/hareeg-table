@@ -14,7 +14,7 @@ import '../progress/learning_progress_workflow.dart';
 /// Generic conceptual reference panel for the Fundamentals pack.
 ///
 /// Renders the [PracticeReadingPanel] content keyed by [lessonId] — a title
-/// and a list of headed/unheaded sections — over the shared felt-green
+/// and a list of headed/unheaded sections — over the shared charcoal
 /// scaffold. "Got it" marks the lesson complete and pops, mirroring
 /// [StrictnessExplainerScreen]. The bespoke `strictness-tiers` panel keeps its
 /// own screen with hand-built tier cards.
@@ -69,14 +69,14 @@ class _PracticeReadingPanelScreenState
       // Defensive: routing only sends keyed lesson ids here. An unknown id
       // gets a quiet bail-out rather than a crash.
       return Scaffold(
-        backgroundColor: LoungeTokens.feltGreen,
+        backgroundColor: LoungeTokens.surface,
         appBar: AppBar(title: Text(strings.practiceTitle)),
         body: const SizedBox.shrink(),
       );
     }
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(panel.title(strings))),
       body: SafeArea(
         child: ListView(
@@ -137,8 +137,8 @@ class _SectionCard extends StatelessWidget {
       decoration: loungeLitPanel(
         strength: lead ? 0.12 : 0.05,
         edge: lead
-            ? LoungeTokens.goldAccent.withValues(alpha: 0.45)
-            : LoungeTokens.sandLine.withValues(alpha: 0.18),
+            ? LoungeTokens.accent.withValues(alpha: 0.45)
+            : LoungeTokens.line.withValues(alpha: 0.18),
       ).copyWith(boxShadow: lead ? LoungeTokens.elevationL2 : const []),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

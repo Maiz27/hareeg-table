@@ -292,7 +292,7 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
     // header, or there would be no way out of them.
     if (_state case ReplayViewerReady(:final review)) {
       return Scaffold(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
+        backgroundColor: LoungeTokens.surface,
         body: ReplayReviewBody(
           review: review,
           settings: _settings,
@@ -306,10 +306,10 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
     }
 
     return Scaffold(
-      backgroundColor: LoungeTokens.coffeeCharcoal,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
-        // Lacquered like the table's HUD capsule, with a brass hairline where
+        backgroundColor: LoungeTokens.surface,
+        // Lacquered like the table's HUD capsule, with a sand hairline where
         // the bar meets the rail.
         flexibleSpace: DecoratedBox(
           decoration: BoxDecoration(
@@ -317,21 +317,13 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color.lerp(
-                  LoungeTokens.coffeeCharcoal,
-                  LoungeTokens.sandLine,
-                  0.08,
-                )!,
-                LoungeTokens.coffeeCharcoal,
+                Color.lerp(LoungeTokens.surface, LoungeTokens.line, 0.08)!,
+                LoungeTokens.surface,
               ],
             ),
           ),
         ),
-        shape: Border(
-          bottom: BorderSide(
-            color: LoungeTokens.sandLine.withValues(alpha: 0.32),
-          ),
-        ),
+        shape: const Border(bottom: BorderSide(color: LoungeTokens.lineSoft)),
         titleSpacing: LoungeTokens.space4,
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -398,13 +390,13 @@ class _MatchReplayScreenState extends State<MatchReplayScreen> {
 }
 
 /// The lit lounge card the loading and message states sit on, centred on the
-/// felt: the same panel the practice overlays and the About card use.
+/// table background: the same panel the practice overlays and the About card use.
 class _StateCard extends StatelessWidget {
   const _StateCard({required this.children, this.glow});
 
   final List<Widget> children;
 
-  /// Tint of the panel's light, gold by default.
+  /// Tint of the panel's light, the ember accent by default.
   final Color? glow;
 
   @override
@@ -416,7 +408,7 @@ class _StateCard extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 420),
           child: DecoratedBox(
             decoration: loungeLitPanel(
-              glow: glow ?? LoungeTokens.goldAccent,
+              glow: glow ?? LoungeTokens.accent,
               strength: 0.12,
             ),
             child: Padding(
@@ -440,7 +432,7 @@ class _LoadingBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return _StateCard(
       children: [
-        // The medallion with a thin gold ring turning around it: the match
+        // The medallion with a thin ember ring turning around it: the match
         // being dealt back out, rather than a bare stock spinner.
         const SizedBox.square(
           dimension: 64,
@@ -451,7 +443,7 @@ class _LoadingBody extends StatelessWidget {
                 dimension: 64,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: LoungeTokens.goldAccent,
+                  color: LoungeTokens.accent,
                 ),
               ),
               LoungeMedallion(
@@ -499,7 +491,7 @@ class _MessageBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _StateCard(
-      glow: LoungeTokens.deepRed,
+      glow: LoungeTokens.danger,
       children: [
         const LoungeMedallion(
           icon: Icons.history_toggle_off_rounded,

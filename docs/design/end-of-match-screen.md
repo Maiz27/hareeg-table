@@ -5,7 +5,7 @@ The dead `RoundSummaryScreen` and its `/round-summary` route were deleted in the
 same change; the `lib/ui/features/round_summary/` directory no longer exists.
 
 Reads:
-- `direction.md` — Warm Sudanese Lounge visual language.
+- `direction.md` — the visual language (written under the Warm Sudanese Lounge look; now the Lit card identity).
 - `table-strictness.md` — `TableStrictness` axis referenced in §7.
 - `lib/ui/features/match_over/views/match_over_screen.dart` — the shipped end-of-match screen (replaced the dead `round_summary` screen).
 - `lib/ui/features/game_table/views/game_table_screen.dart` — `_persistAndMaybeFinish`, `_showRoundResultOverlay`; its part `game_table_round_result.dart` holds `_RoundResultOverlay` and `_MatchWinnerLine`.
@@ -30,22 +30,22 @@ Portrait, single scrollable column, centered medallion motif behind content. Lan
 ```text
 +----------------------------------------------------+
 |                                                    |
-|        [ medallion motif, sandLine, opacity .06 ]  |   <- _BackdropMotif (scaled 320dp)
+|        [ medallion motif, line, opacity .06 ]      |   <- _BackdropMotif (scaled 320dp)
 |                                                    |
 |                                                    |
-|                MATCH OVER                          |   <- titleSmall, goldAccent, letter-spaced
+|                MATCH OVER                          |   <- titleSmall, accent, letter-spaced
 |                                                    |
 |                                                    |
-|             ###  YOU WIN  ###                      |   <- display style, scale 1.4x, goldAccent
+|             ###  YOU WIN  ###                      |   <- display style, scale 1.4x, accent
 |         ( or: CPU East wins the match )            |      animated entry (see §3)
 |                                                    |
 |         _____________________________              |   <- thin sand-line divider, opacity .24
 |                                                    |
-|        FINAL STANDINGS                             |   <- titleSmall, mutedText
+|        FINAL STANDINGS                             |   <- titleSmall, textMuted
 |                                                    |
-|  1.  You              -3                           |   <- winner row: goldAccent text, trophy icon
+|  1.  You              -3                           |   <- winner row: accent text, trophy icon
 |     -------------------------------                |
-|  2.  CPU North        +31    eliminated R5         |   <- losers: offWhiteText, mutedText footnote
+|  2.  CPU North        +31    eliminated R5         |   <- losers: textPrimary, textMuted footnote
 |     -------------------------------                |
 |  3.  CPU West         +34    eliminated R4         |
 |     -------------------------------                |
@@ -56,7 +56,7 @@ Portrait, single scrollable column, centered medallion motif behind content. Lan
 |        7 rounds played                             |   <- bodyMuted
 |                                                    |
 |                                                    |
-|     [  Return to menu  ]   <- FilledButton (gold)  |
+|     [  Return to menu  ]   <- FilledButton (ember) |
 |     [  New match, same setup  ] <- OutlinedButton  |
 |                                                    |
 |        [ thin border motif, bottom ]               |
@@ -66,9 +66,9 @@ Portrait, single scrollable column, centered medallion motif behind content. Lan
 Hierarchy beats:
 
 - **Beat 1, headline**: `MATCH OVER` eyebrow + winner name in `display` weight scaled to ~38pt. South-wins variant uses the localized "You" personalization (`strings.youWinTheMatch`). CPU-wins uses `strings.seatLabel(winner)` (`CPU East`, `CPU North`, `CPU West`).
-- **Beat 2, standings**: a four-row table sorted by final score ascending (lower is better). Winner row has the trophy icon, `goldAccent` text, and a soft `selectedGlow` background tint. Each eliminated row shows the round it was eliminated in as muted footnote text. Final score uses `numericChip` style with a `+` prefix on positives.
+- **Beat 2, standings**: a four-row table sorted by final score ascending (lower is better). Winner row has the trophy icon, `accent` text, and a soft `stateSelectedGlow` background tint. Each eliminated row shows the round it was eliminated in as muted footnote text. Final score uses `numericChip` style with a `+` prefix on positives.
 - **Beat 3, match meta**: round count, derived from `presentation.progress.scores`'s underlying snapshot `roundNumber`. Single muted line.
-- **Beat 4, actions**: gold `FilledButton` for *Return to menu* (primary), outlined `New match, same setup` (secondary). No "Resume" button — match is abandoned.
+- **Beat 4, actions**: ember `accent` `FilledButton` for *Return to menu* (primary), outlined `New match, same setup` (secondary). No "Resume" button — match is abandoned.
 
 Background uses the same `_SummaryBackdrop` pattern from the dead screen (top-right medallion at 0.052 opacity, bottom border motif at 0.08 opacity), preserving the lounge frame.
 
@@ -85,7 +85,7 @@ All durations are at `TableMotion` normal speed and scale via `MotionScope.of(co
 | Standings | Rows stagger-fade in top-to-bottom | 100ms each, total ~500ms | Single 220ms fade for the whole block |
 | Actions | Buttons fade in last | 200ms after 720ms | Same |
 
-**No confetti, no particles, no flame burst.** Per `direction.md`: "Avoid casino neon, childish cartooning, and constant flame decoration." Flame is reserved for Fifty. The match-end celebration is a quiet medallion pulse + the gold-accent winner row glow. The Sudanese lounge feels solemn-warm at the close, not loud.
+**No confetti, no particles, no flame burst.** Per `direction.md`: "Avoid casino neon, childish cartooning, and constant flame decoration." Flame is reserved for Fifty. The match-end celebration is a quiet medallion pulse + the accent winner row glow. The Sudanese lounge feels solemn-warm at the close, not loud.
 
 Audio: one new cue `TableSoundEvent.matchEnd` — a single sustained chime or oud-string-pluck (asset choice deferred to audio direction). Fires once on first frame. Respects `audio.enabled`. No looped victory bed.
 

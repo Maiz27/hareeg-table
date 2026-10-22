@@ -44,7 +44,7 @@ class PracticeMissedOverlay extends StatelessWidget {
           margin: const EdgeInsets.all(LoungeTokens.space5),
           padding: const EdgeInsets.all(LoungeTokens.space5),
           decoration: loungeLitPanel(
-            glow: LoungeTokens.invalidAction,
+            glow: LoungeTokens.stateInvalid,
             strength: 0.1,
           ),
           // Scrollable so the panel never overflows a short landscape
@@ -77,9 +77,9 @@ class PracticeMissedOverlay extends StatelessWidget {
                 OutlinedButton(
                   onPressed: onDone,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: LoungeTokens.goldAccent,
+                    foregroundColor: LoungeTokens.accent,
                     side: BorderSide(
-                      color: LoungeTokens.goldAccent.withValues(alpha: 0.6),
+                      color: LoungeTokens.accent.withValues(alpha: 0.6),
                     ),
                   ),
                   child: Text(strings.practiceBackToList),

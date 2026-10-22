@@ -81,7 +81,7 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.helpTitle)),
       body: SafeArea(
         child: Stack(
@@ -100,8 +100,8 @@ class _RulesHelpScreenState extends State<RulesHelpScreen> {
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
-              // Same order as ever, each part now a card on the felt: the
-              // intro lit as the hero, the way into practice lit gold, and
+              // Same order as ever, each part now a card on the ground: the
+              // intro lit as the hero, the way into practice lit ember, and
               // each rule on a quieter surface (design contract section 8).
               children: [
                 const _HelpCard(hero: true, child: _HelpIntro()),
@@ -157,7 +157,7 @@ class _HelpCard extends StatelessWidget {
   /// The page's lead card, lit warmest and lifted.
   final bool hero;
 
-  /// A gold-edged call to action, a step quieter than the hero.
+  /// An ember-edged call to action, a step quieter than the hero.
   final bool accent;
 
   @override
@@ -170,7 +170,7 @@ class _HelpCard extends StatelessWidget {
           ).copyWith(boxShadow: LoungeTokens.elevationL2)
         : loungeLitPanel(
             strength: 0.04,
-            edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+            edge: LoungeTokens.line.withValues(alpha: 0.18),
           ).copyWith(boxShadow: const []);
     return Container(
       margin: const EdgeInsets.only(bottom: LoungeTokens.space4),
@@ -230,9 +230,9 @@ class _LearningEntry extends StatelessWidget {
               icon: const Icon(Icons.play_arrow_outlined, size: 18),
               label: Text(strings.practiceTitle),
               style: OutlinedButton.styleFrom(
-                foregroundColor: LoungeTokens.goldAccent,
+                foregroundColor: LoungeTokens.accent,
                 side: BorderSide(
-                  color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
+                  color: LoungeTokens.accent.withValues(alpha: 0.5),
                 ),
                 visualDensity: VisualDensity.compact,
                 // The theme minimum is full-width; shrink to row content.
@@ -243,7 +243,7 @@ class _LearningEntry extends StatelessWidget {
               onPressed: () =>
                   Navigator.of(context).pushNamed(AppRoutes.onboarding),
               style: TextButton.styleFrom(
-                foregroundColor: LoungeTokens.mutedText,
+                foregroundColor: LoungeTokens.textMuted,
                 visualDensity: VisualDensity.compact,
                 minimumSize: const Size(0, 40),
               ),

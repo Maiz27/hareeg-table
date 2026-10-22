@@ -59,7 +59,7 @@ class _StrictnessExplainerScreenState extends State<StrictnessExplainerScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.practiceStrictnessTitle)),
       body: SafeArea(
         child: Stack(
@@ -177,7 +177,7 @@ class _TierCard extends StatelessWidget {
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: loungeLitPanel(
         strength: 0.05,
-        edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        edge: LoungeTokens.line.withValues(alpha: 0.18),
       ).copyWith(boxShadow: LoungeTokens.elevationL2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

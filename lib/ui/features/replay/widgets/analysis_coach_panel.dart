@@ -118,7 +118,7 @@ class AnalysisCoachPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    // Standing alone it paints its own band with a brass top edge; inside
+    // Standing alone it paints its own band with an ember top edge; inside
     // the replay card the card paints the surface and the band goes clear.
     return Container(
       padding: const EdgeInsets.all(12),
@@ -133,18 +133,18 @@ class AnalysisCoachPanel extends StatelessWidget {
                 radius: 1.6,
                 colors: [
                   Color.lerp(
-                    LoungeTokens.coffeeCharcoal,
-                    LoungeTokens.goldAccent,
+                    LoungeTokens.panel,
+                    LoungeTokens.accent,
                     0.1,
                   )!.withValues(alpha: 0.97),
-                  LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+                  LoungeTokens.panel.withValues(alpha: 0.97),
                 ],
               ),
         border: Border(
           top: BorderSide(
             color: inset
                 ? Colors.transparent
-                : LoungeTokens.goldAccent.withValues(alpha: 0.4),
+                : LoungeTokens.accent.withValues(alpha: 0.4),
             width: 0.5,
           ),
         ),
@@ -201,7 +201,7 @@ class AnalysisCoachPanel extends StatelessWidget {
             Text(
               strings.replayOverrideNote,
               style: LoungeTokens.bodyMuted.copyWith(
-                color: LoungeTokens.goldAccent,
+                color: LoungeTokens.accent,
               ),
             ),
           ],
@@ -217,13 +217,13 @@ class AnalysisCoachPanel extends StatelessWidget {
             ...insights.map(
               (insight) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                // Each finding hangs off a gold rule at its start edge, the
+                // Each finding hangs off an ember rule at its start edge, the
                 // way the live coach card carries its accent.
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     border: BorderDirectional(
                       start: BorderSide(
-                        color: LoungeTokens.goldAccent.withValues(alpha: 0.7),
+                        color: LoungeTokens.accent.withValues(alpha: 0.7),
                         width: 2,
                       ),
                     ),
@@ -296,12 +296,10 @@ class _VerbosityMenu extends StatelessWidget {
             // without duplicating the merged accessibility label.
             tooltip: '',
             initialValue: settings.verbosity,
-            color: LoungeTokens.coffeeCharcoal,
+            color: LoungeTokens.panel,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-              side: BorderSide(
-                color: LoungeTokens.sandLine.withValues(alpha: 0.32),
-              ),
+              side: const BorderSide(color: LoungeTokens.lineSoft),
             ),
             onSelected: (value) =>
                 onChanged(settings.copyWith(verbosity: value)),
@@ -322,13 +320,11 @@ class _VerbosityMenu extends StatelessWidget {
               child: Center(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.6),
+                    color: LoungeTokens.surface.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(
                       LoungeTokens.radiusPill,
                     ),
-                    border: Border.all(
-                      color: LoungeTokens.sandLine.withValues(alpha: 0.32),
-                    ),
+                    border: Border.all(color: LoungeTokens.lineSoft),
                   ),
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(
@@ -345,7 +341,7 @@ class _VerbosityMenu extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: LoungeTokens.bodyMuted.copyWith(
-                              color: LoungeTokens.offWhiteText,
+                              color: LoungeTokens.textPrimary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -353,7 +349,7 @@ class _VerbosityMenu extends StatelessWidget {
                         const Icon(
                           Icons.arrow_drop_down,
                           size: 24,
-                          color: LoungeTokens.goldAccent,
+                          color: LoungeTokens.accent,
                         ),
                       ],
                     ),

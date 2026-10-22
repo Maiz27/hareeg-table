@@ -144,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -173,7 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ? null
                                 : () => _finish(toPractice: false),
                             style: TextButton.styleFrom(
-                              foregroundColor: LoungeTokens.mutedText,
+                              foregroundColor: LoungeTokens.textMuted,
                               // The theme minimum is full-width; hug the label.
                               minimumSize: const Size(0, 40),
                             ),
@@ -213,9 +213,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 OutlinedButton(
                                   onPressed: () => _finish(toPractice: false),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: LoungeTokens.goldAccent,
+                                    foregroundColor: LoungeTokens.accent,
                                     side: BorderSide(
-                                      color: LoungeTokens.goldAccent.withValues(
+                                      color: LoungeTokens.accent.withValues(
                                         alpha: 0.6,
                                       ),
                                     ),
@@ -387,8 +387,8 @@ class _IconHero extends StatelessWidget {
   }
 }
 
-/// Where the player is in the intro: one numbered medallion per page, gold
-/// once passed, lit on the current page, joined by a sand hairline.
+/// Where the player is in the intro: one numbered medallion per page, filled
+/// with the accent once passed, lit on the current page, joined by a sand hairline.
 class _PageMarkers extends StatelessWidget {
   const _PageMarkers({required this.count, required this.activeIndex});
 
@@ -410,14 +410,14 @@ class _PageMarkers extends StatelessWidget {
                   horizontal: LoungeTokens.space1,
                 ),
                 color: i <= activeIndex
-                    ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
-                    : LoungeTokens.sandLine.withValues(alpha: 0.25),
+                    ? LoungeTokens.accent.withValues(alpha: 0.7)
+                    : LoungeTokens.lineSoft,
               ),
             LoungeMedallion.label(
               label: '${i + 1}',
               size: i == activeIndex ? 30 : 24,
               tone: i < activeIndex
-                  ? LoungeMedallionTone.gold
+                  ? LoungeMedallionTone.ember
                   : i == activeIndex
                   ? LoungeMedallionTone.lit
                   : LoungeMedallionTone.lacquer,

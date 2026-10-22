@@ -63,7 +63,7 @@ class PracticeCompletionOverlay extends StatelessWidget {
                   child: LoungeMedallion(
                     icon: Icons.check_rounded,
                     size: 56,
-                    tone: LoungeMedallionTone.gold,
+                    tone: LoungeMedallionTone.ember,
                   ),
                 ),
                 const SizedBox(height: LoungeTokens.space3),
@@ -72,7 +72,7 @@ class PracticeCompletionOverlay extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: LoungeTokens.display.copyWith(
                     fontSize: 26,
-                    color: LoungeTokens.goldAccent,
+                    color: LoungeTokens.accent,
                   ),
                 ),
                 const SizedBox(height: LoungeTokens.space2),
@@ -88,7 +88,7 @@ class PracticeCompletionOverlay extends StatelessWidget {
                     key: const ValueKey('practice-completion-note'),
                     textAlign: TextAlign.center,
                     style: LoungeTokens.bodyMuted.copyWith(
-                      color: LoungeTokens.goldAccent,
+                      color: LoungeTokens.accent,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -104,11 +104,9 @@ class PracticeCompletionOverlay extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: onReplay,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: LoungeTokens.goldAccent,
+                            foregroundColor: LoungeTokens.accent,
                             side: BorderSide(
-                              color: LoungeTokens.goldAccent.withValues(
-                                alpha: 0.6,
-                              ),
+                              color: LoungeTokens.accent.withValues(alpha: 0.6),
                             ),
                             // The theme's buttons stretch to infinite width;
                             // inside a Row the icon button must size itself.
@@ -141,9 +139,9 @@ class PracticeCompletionOverlay extends StatelessWidget {
                 OutlinedButton(
                   onPressed: onDone,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: LoungeTokens.goldAccent,
+                    foregroundColor: LoungeTokens.accent,
                     side: BorderSide(
-                      color: LoungeTokens.goldAccent.withValues(alpha: 0.6),
+                      color: LoungeTokens.accent.withValues(alpha: 0.6),
                     ),
                   ),
                   child: Text(strings.practiceBackToList),
