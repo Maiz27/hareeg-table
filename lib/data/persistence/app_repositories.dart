@@ -1,4 +1,8 @@
 import '../../domain/classic_hareeg/history/match_id.dart';
+import '../updates/installed_version_source.dart';
+import '../updates/update_cache_repository.dart';
+import '../updates/update_channel.dart';
+import '../updates/update_service.dart';
 import 'key_value_store.dart';
 import 'key_value_store_factory.dart';
 import 'learning_progress_repository.dart';
@@ -47,6 +51,16 @@ abstract final class AppRepositories {
     store: _store,
     replayFiles: replayFiles,
     matches: matches,
+  );
+
+  /// Release lookups for the "update available" prompt.
+  ///
+  /// The channel is fixed at compile time by `HAREEG_UPDATE_CHANNEL`; the
+  /// cache shares [_store] under its own key. A no-op on web.
+  static final UpdateService updates = UpdateService(
+    channel: createUpdateChannel(),
+    installedVersion: const PackageInfoInstalledVersionSource(),
+    cache: UpdateCacheRepository(store: _store),
   );
 
   /// Mints a match id, rejecting one already used by history or a replay file.
