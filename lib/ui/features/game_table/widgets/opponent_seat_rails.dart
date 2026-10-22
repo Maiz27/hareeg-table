@@ -320,12 +320,12 @@ class _TurnCueFrame extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: active
-            ? LoungeTokens.goldAccent.withValues(alpha: thinking ? 0.14 : 0.08)
+            ? LoungeTokens.accent.withValues(alpha: thinking ? 0.14 : 0.08)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         border: active
             ? Border.all(
-                color: LoungeTokens.goldAccent.withValues(
+                color: LoungeTokens.accent.withValues(
                   alpha: thinking ? 0.70 : 0.52,
                 ),
                 width: thinking ? 1.6 : 1.2,
@@ -334,7 +334,7 @@ class _TurnCueFrame extends StatelessWidget {
         boxShadow: active
             ? [
                 BoxShadow(
-                  color: LoungeTokens.goldAccent.withValues(
+                  color: LoungeTokens.accent.withValues(
                     alpha: thinking ? 0.26 : 0.18,
                   ),
                   blurRadius: thinking ? 20 : 14,

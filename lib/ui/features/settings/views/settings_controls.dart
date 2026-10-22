@@ -8,22 +8,22 @@ import '../../../core/theme/lounge_tokens.dart';
 import '../../replay/widgets/analysis_coach_panel.dart' show verbosityLabel;
 import 'settings_labels.dart';
 
-/// Gold-on-felt look shared by the segmented pickers.
+/// Ember-on-charcoal look shared by the segmented pickers.
 final ButtonStyle _segmentedStyle = ButtonStyle(
   backgroundColor: WidgetStateProperty.resolveWith((states) {
     if (states.contains(WidgetState.selected)) {
-      return LoungeTokens.goldAccent;
+      return LoungeTokens.accent;
     }
-    return LoungeTokens.coffeeCharcoal.withValues(alpha: 0.74);
+    return LoungeTokens.surface.withValues(alpha: 0.74);
   }),
   foregroundColor: WidgetStateProperty.resolveWith((states) {
     if (states.contains(WidgetState.selected)) {
-      return LoungeTokens.coffeeCharcoal;
+      return LoungeTokens.onAccent;
     }
-    return LoungeTokens.offWhiteText;
+    return LoungeTokens.textPrimary;
   }),
   side: WidgetStateProperty.all(
-    BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.42)),
+    BorderSide(color: LoungeTokens.line.withValues(alpha: 0.42)),
   ),
   textStyle: WidgetStateProperty.all(LoungeTokens.titleSmall),
 );
@@ -37,7 +37,7 @@ class SettingsDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Divider(
       height: LoungeTokens.space5,
-      color: LoungeTokens.sandLine.withValues(alpha: 0.14),
+      color: LoungeTokens.line.withValues(alpha: 0.14),
     );
   }
 }
@@ -66,7 +66,7 @@ class SettingsDropdown<T> extends StatelessWidget {
       initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(labelText: label),
-      dropdownColor: LoungeTokens.coffeeCharcoal,
+      dropdownColor: LoungeTokens.panel,
       items: [
         for (final item in values)
           DropdownMenuItem<T>(value: item, child: Text(labelFor(item))),
@@ -102,7 +102,7 @@ class SettingsSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      secondary: Icon(icon, color: LoungeTokens.goldAccent),
+      secondary: Icon(icon, color: LoungeTokens.accent),
       title: Text(title, style: LoungeTokens.titleSmall),
       subtitle: Text(subtitle, style: LoungeTokens.bodyMuted),
       value: value,
@@ -241,9 +241,7 @@ class _RadioRow<T> extends StatelessWidget {
             children: [
               Icon(
                 selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected
-                    ? LoungeTokens.goldAccent
-                    : LoungeTokens.mutedText,
+                color: selected ? LoungeTokens.accent : LoungeTokens.textMuted,
               ),
               const SizedBox(width: LoungeTokens.space3),
               Expanded(
@@ -252,7 +250,7 @@ class _RadioRow<T> extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(icon, size: 17, color: LoungeTokens.sandLine),
+                        Icon(icon, size: 17, color: LoungeTokens.line),
                         const SizedBox(width: LoungeTokens.space2),
                         Expanded(
                           child: Text(title, style: LoungeTokens.titleSmall),
@@ -291,11 +289,21 @@ class MotionSpeedPicker extends StatelessWidget {
     return SegmentedButton<MotionSpeed>(
       style: _segmentedStyle,
       segments: [
-        ButtonSegment(value: MotionSpeed.normal, label: Text(strings.normal)),
-        ButtonSegment(value: MotionSpeed.fast, label: Text(strings.fast)),
-        ButtonSegment(value: MotionSpeed.reduced, label: Text(strings.reduced)),
+        ButtonSegment(
+          value: MotionSpeed.normal,
+          label: _SegmentLabel(strings.normal),
+        ),
+        ButtonSegment(
+          value: MotionSpeed.fast,
+          label: _SegmentLabel(strings.fast),
+        ),
+        ButtonSegment(
+          value: MotionSpeed.reduced,
+          label: _SegmentLabel(strings.reduced),
+        ),
       ],
       selected: {value},
+      showSelectedIcon: false,
       onSelectionChanged: (selection) => onChanged(selection.first),
     );
   }
@@ -326,11 +334,31 @@ class VerbosityPicker extends StatelessWidget {
         for (final verbosity in AnalysisVerbosity.values)
           ButtonSegment(
             value: verbosity,
-            label: Text(verbosityLabel(strings, verbosity)),
+            label: _SegmentLabel(verbosityLabel(strings, verbosity)),
           ),
       ],
       selected: {value},
+      showSelectedIcon: false,
       onSelectionChanged: (selection) => onChanged(selection.first),
     );
+  }
+}
+
+/// Label for one segment of the settings pickers.
+///
+/// Three segments share the row, so each gets a third of the width and a
+/// two-word label has to wrap. Centred, it wraps at the space; the selected
+/// check icon the pickers used to show stole enough of that third for the
+/// label to break mid-word instead ("Key moment / s" on the release build),
+/// which is why the pickers no longer show it — the ember fill already marks
+/// the selection, as it does on the setup screen and the pause overlay.
+class _SegmentLabel extends StatelessWidget {
+  const _SegmentLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, textAlign: TextAlign.center);
   }
 }

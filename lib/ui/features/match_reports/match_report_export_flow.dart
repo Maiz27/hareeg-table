@@ -25,7 +25,7 @@ Future<MatchReportExportChoice?> showMatchReportConfirmation(
 }) {
   return showDialog<MatchReportExportChoice>(
     context: context,
-    barrierColor: LoungeTokens.overlayScrim,
+    barrierColor: LoungeTokens.scrim,
     builder: (context) => _MatchReportConfirmDialog(highContrast: highContrast),
   );
 }

@@ -22,13 +22,14 @@ enum TableStrictness {
   final String label;
   final String description;
 
-  static TableStrictness fromName(String? name) => /* falls back to coaching */;
+  static TableStrictness fromName(String? name) => /* falls back to standard */;
 }
 ```
 
-Default = `coaching` (resolved; see §9 Q1). It is the loudest teaching tier and
-the safest fresh-install starting point, and `fromName` falls back to it for
-missing or corrupted persisted values.
+Default = `standard` (resolved; see §9 Q1). Illegal moves are blocked and
+nothing is charged, and the table stays quiet: players opt into coaching from
+setup or settings. `fromName` falls back to `standard` for missing or
+corrupted persisted values.
 
 ## 2. Derived properties
 
@@ -170,11 +171,11 @@ timing/miss-chance — unrelated.
 
 ## 9. Open questions
 
-1. **Default tier on fresh install.** Resolved: `coaching`.
-   `ClassicHareegSetup.defaults()` ships `TableStrictness.coaching`, and
-   `TableStrictness.fromName` falls back to `coaching` for missing/unrecognized
-   persisted values — it is the most forgiving tier and the safest fresh-install
-   default.
+1. **Default tier on fresh install.** Resolved: `standard` (owner decision,
+   2026-10-22; it was `coaching` before). `ClassicHareegSetup.defaults()` ships
+   `TableStrictness.standard`, and `TableStrictness.fromName` falls back to
+   `standard` for missing/unrecognized persisted values. Legacy
+   assisted+guided saves still migrate to `coaching`.
 2. **`hardTable17` + `guided` aids legacy combo.** Silently normalize to
    `table` (recommended), one-time toast, or promote to `strict` to preserve
    guided affordances?

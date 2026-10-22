@@ -25,13 +25,13 @@ enum LoungeMotifVariant {
 ///
 /// Stroke-only and self-similar so it scales from a 12 dp corner glyph to a
 /// 200 dp splash medallion without losing readability. Always draws with the
-/// sand-line stroke colour at a low opacity; callers can override [opacity]
-/// to fade further behind menu content.
+/// sand [LoungeTokens.line] stroke at a low opacity; callers can override
+/// [opacity] to fade further behind menu content.
 class GeometricMotifPainter extends CustomPainter {
   /// Creates a motif painter.
   const GeometricMotifPainter({
     this.variant = LoungeMotifVariant.medallion,
-    this.color = LoungeTokens.sandLine,
+    this.color = LoungeTokens.line,
     this.opacity = 0.45,
     this.strokeWidth = 1.2,
     this.density = 3,
@@ -198,7 +198,7 @@ class LoungeMotif extends StatelessWidget {
   const LoungeMotif({
     super.key,
     this.variant = LoungeMotifVariant.medallion,
-    this.color = LoungeTokens.sandLine,
+    this.color = LoungeTokens.line,
     this.opacity = 0.45,
     this.strokeWidth = 1.2,
     this.density = 3,

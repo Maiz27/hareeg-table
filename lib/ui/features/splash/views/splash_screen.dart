@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final strings = context.strings;
     return Scaffold(
-      backgroundColor: LoungeTokens.coffeeCharcoal,
+      backgroundColor: LoungeTokens.surface,
       body: GestureDetector(
         onTap: _handOff,
         behavior: HitTestBehavior.opaque,
@@ -150,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Text(
                           strings.splashTapToContinue,
                           style: LoungeTokens.overline.copyWith(
-                            color: LoungeTokens.mutedText,
+                            color: LoungeTokens.textMuted,
                           ),
                         ),
                       ),
@@ -166,8 +166,8 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// The home stage's warm pool of lamp light, so the fan lands where the
-/// menu will show it.
+/// The home stage's warm ember pool on the charcoal ground, so the fan lands
+/// where the menu will show it.
 class _LampPool extends StatelessWidget {
   const _LampPool({required this.opacity});
 
@@ -184,9 +184,9 @@ class _LampPool extends StatelessWidget {
               center: const Alignment(0, -0.12),
               radius: 0.75,
               colors: [
-                LoungeTokens.goldAccent.withValues(alpha: 0.16),
-                LoungeTokens.goldAccent.withValues(alpha: 0.05),
-                LoungeTokens.goldAccent.withValues(alpha: 0),
+                LoungeTokens.surfaceSpotlight,
+                LoungeTokens.accent.withValues(alpha: 0.06),
+                LoungeTokens.accent.withValues(alpha: 0),
               ],
               stops: const [0, 0.5, 1],
             ),
@@ -209,7 +209,7 @@ class _CornerOrnaments extends StatelessWidget {
       child: CustomPaint(
         painter: GeometricMotifPainter(
           variant: LoungeMotifVariant.corner,
-          color: LoungeTokens.sandLine,
+          color: LoungeTokens.line,
           opacity: opacity * 0.7,
           strokeWidth: 1.0,
         ),
@@ -293,8 +293,8 @@ class _Wordmark extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  LoungeTokens.fiftyFlame.withValues(alpha: glowOpacity),
-                  LoungeTokens.fiftyFlame.withValues(alpha: 0),
+                  LoungeTokens.fiftyHeat.withValues(alpha: glowOpacity),
+                  LoungeTokens.fiftyHeat.withValues(alpha: 0),
                 ],
               ),
             ),

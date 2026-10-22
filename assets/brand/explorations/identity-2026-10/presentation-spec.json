@@ -1,0 +1,52 @@
+{
+  "brand": "Hareeg Table",
+  "tagline": "Classic Hareeg, offline and ad-free",
+  "brief": "An open-source Flutter card game for Classic Hareeg, the Sudanese rummy table: one player against three CPUs, offline, no ads, no interruptions. Hareeg means fire; the Fifty strike is the game's one dramatic moment. The identity must work in Arabic and Latin, on the Android launcher, in the browser tab, on the Play listing and in the README.",
+  "adjectives": ["warm", "honest", "fiery", "tableside", "handmade"],
+  "criteria": "Success: no fanned royal cards, chips or casino bevels; reads at 16 px; works in one colour; carries both scripts; seeds the in-game Fifty cue.",
+  "industry": "consumer-app",
+  "mockups": ["app-icon", "favicon-tab", "readme", "social", "website", "sticker"],
+  "nav": ["Play", "Learn", "History", "Settings"],
+  "brand_color": "#E4522B",
+  "greyscale": false,
+  "designer": "Hareeg Table identity round",
+  "round": 1,
+  "concepts": [
+    {
+      "name": "Lit card",
+      "symbol": "a-lit-card/lit-card-symbol.svg",
+      "lockup": "a-lit-card/lit-card-horizontal.svg",
+      "stacked": "a-lit-card/lit-card-stacked.svg",
+      "symbol_on_tile": "a-lit-card/lit-card-symbol-two-tone.svg",
+      "tile_color": "#15110E",
+      "idea": "The card itself is the fire: one silhouette, a flame for a top edge, a diamond pip cut from it.",
+      "rationale": [
+        "Says cards and Hareeg in one shape, with no fanned-hand cliché",
+        "Survives 16 px as a solid stepped flame; the pip is the ownable detail",
+        "Reads to any audience, Arabic or Latin",
+        "Two-colour version: ivory card, ember flame, the pip shows the ground"
+      ]
+    },
+    {
+      "name": "Fifty",
+      "symbol": "b-fifty/fifty-symbol.svg",
+      "lockup": "b-fifty/fifty-horizontal.svg",
+      "stacked": "b-fifty/fifty-stacked.svg",
+      "symbol_on_tile": "b-fifty/fifty-symbol-color.svg",
+      "tile_color": "#15110E",
+      "idea": "Arabic-Indic fifty, ٥٠, read right to left: a flame ring for the five and a spark for the zero.",
+      "rationale": [
+        "Bilingual by construction; Arabic readers see the number, everyone sees a flame and a spark",
+        "Names the game's one dramatic moment and doubles as the in-game Fifty cue",
+        "Nothing like it in the category",
+        "Risk: without colour it can read as a drop"
+      ]
+    }
+  ],
+  "recommendation": "Lit card as the primary mark; Fifty kept alive as the Fifty-strike cue and timer ring inside the identity system.",
+  "next_steps": [
+    "Pick the primary mark (or keep both roles as recommended)",
+    "Custom pass on the Latin wordmark letters for ownership",
+    "Cut the Android adaptive launcher, splash and store art from the chosen master"
+  ]
+}

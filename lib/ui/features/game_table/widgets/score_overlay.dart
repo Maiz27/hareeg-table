@@ -126,7 +126,7 @@ class _ScoreOverlayState extends State<ScoreOverlay> {
       child: ColoredBox(
         color: highContrast
             ? Colors.black.withValues(alpha: 0.72)
-            : LoungeTokens.overlayScrim,
+            : LoungeTokens.scrim,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -226,20 +226,20 @@ class _ScoreBook extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ruling = LoungeTokens.sandLine.withValues(alpha: 0.14);
+    final ruling = LoungeTokens.line.withValues(alpha: 0.14);
     return DecoratedBox(
       decoration: BoxDecoration(
-        // Paper of the book: warm ivory ink on a deep felt page.
+        // Paper of the book: warm ivory ink on a deep charcoal page.
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
-            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+            LoungeTokens.surfaceSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.surface.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.2)),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.2)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
@@ -257,11 +257,9 @@ class _ScoreBook extends StatelessWidget {
                 LoungeTokens.space2,
               ),
               decoration: BoxDecoration(
-                color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.35),
+                color: LoungeTokens.surface.withValues(alpha: 0.35),
                 border: Border(
-                  bottom: BorderSide(
-                    color: LoungeTokens.sandLine.withValues(alpha: 0.35),
-                  ),
+                  bottom: BorderSide(color: LoungeTokens.lineSoft),
                 ),
               ),
               child: Row(
@@ -354,8 +352,8 @@ class _SeatHeader extends StatelessWidget {
                 fontSize: 12,
                 letterSpacing: 0.2,
                 color: isCurrent
-                    ? LoungeTokens.goldAccent
-                    : LoungeTokens.offWhiteText,
+                    ? LoungeTokens.accent
+                    : LoungeTokens.textPrimary,
                 decoration: eliminated ? TextDecoration.lineThrough : null,
               ),
             ),
@@ -369,8 +367,8 @@ class _SeatHeader extends StatelessWidget {
                   eliminated ? Icons.block : Icons.flag_outlined,
                   size: 12,
                   color: eliminated
-                      ? LoungeTokens.invalidAction
-                      : LoungeTokens.sandLine,
+                      ? LoungeTokens.stateInvalid
+                      : LoungeTokens.line,
                 ),
               ),
             ),
@@ -394,8 +392,8 @@ class _SeatMedallion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ring = Color.lerp(
-      LoungeTokens.sandLine.withValues(alpha: 0.45),
-      LoungeTokens.fiftyFlame,
+      LoungeTokens.lineSoft,
+      LoungeTokens.fiftyHeat,
       ((danger - 0.3) / 0.7).clamp(0.0, 1.0),
     )!;
     return Container(
@@ -405,16 +403,16 @@ class _SeatMedallion extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: const RadialGradient(
           center: Alignment(-0.3, -0.45),
-          colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+          colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
         ),
         border: Border.all(
           width: 2,
-          color: active ? LoungeTokens.goldAccent : ring,
+          color: active ? LoungeTokens.accent : ring,
         ),
         boxShadow: [
           if (active)
             BoxShadow(
-              color: LoungeTokens.goldAccent.withValues(alpha: 0.4),
+              color: LoungeTokens.accent.withValues(alpha: 0.4),
               blurRadius: 12,
             ),
         ],
@@ -424,7 +422,7 @@ class _SeatMedallion extends StatelessWidget {
             ? Icons.person_outline
             : Icons.smart_toy_outlined,
         size: 18,
-        color: active ? LoungeTokens.goldAccent : LoungeTokens.sandLine,
+        color: active ? LoungeTokens.accent : LoungeTokens.line,
       ),
     );
   }
@@ -454,8 +452,8 @@ class _BookRow extends StatelessWidget {
         gradient: line.live
             ? LinearGradient(
                 colors: [
-                  LoungeTokens.goldAccent.withValues(alpha: 0.14),
-                  LoungeTokens.goldAccent.withValues(alpha: 0.04),
+                  LoungeTokens.accent.withValues(alpha: 0.14),
+                  LoungeTokens.accent.withValues(alpha: 0.04),
                 ],
               )
             : null,
@@ -474,8 +472,8 @@ class _BookRow extends StatelessWidget {
                   fontSize: line.live ? 10 : 11,
                   letterSpacing: line.live ? 0.6 : 1,
                   color: line.live
-                      ? LoungeTokens.goldAccent
-                      : LoungeTokens.mutedText,
+                      ? LoungeTokens.accent
+                      : LoungeTokens.textMuted,
                 ),
               ),
             ),
@@ -516,10 +514,10 @@ class _BookCell extends StatelessWidget {
         ? 0.0
         : (total / eliminationScore).clamp(0.0, 1.0);
     final totalColor = out
-        ? LoungeTokens.invalidAction
+        ? LoungeTokens.stateInvalid
         : Color.lerp(
-            LoungeTokens.offWhiteText,
-            const Color(0xFFFFB08A),
+            LoungeTokens.textPrimary,
+            LoungeTokens.fiftyHeat,
             ((danger - 0.6) / 0.4).clamp(0.0, 1.0),
           )!;
     final d = delta;
@@ -550,8 +548,8 @@ class _BookCell extends StatelessWidget {
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
                 color: d > 0
-                    ? LoungeTokens.sandLine.withValues(alpha: 0.85)
-                    : LoungeTokens.mutedText,
+                    ? LoungeTokens.line.withValues(alpha: 0.85)
+                    : LoungeTokens.textMuted,
               ),
             ),
         ],
@@ -609,16 +607,14 @@ class _LegendPill extends StatelessWidget {
         vertical: 5,
       ),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+        color: LoungeTokens.surface.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.28),
-        ),
+        border: Border.all(color: LoungeTokens.lineSoft),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: LoungeTokens.goldAccent),
+          Icon(icon, size: 14, color: LoungeTokens.accent),
           const SizedBox(width: 6),
           Text(label, style: LoungeTokens.bodyMuted.copyWith(fontSize: 12)),
         ],

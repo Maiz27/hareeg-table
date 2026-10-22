@@ -41,6 +41,8 @@ dependencies:
   # Browser localStorage interop for web persistence (prefs/matches/onboarding
   # survive a page refresh). Native builds don't reference it.
   web: ^1.1.1
+  package_info_plus: ^10.2.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -64,18 +66,19 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 # Native splash configuration applied by `dart run flutter_native_splash:create`.
-# Charcoal background + coloured icon stamp so the launch frame matches the
-# Warm Sudanese Lounge identity (no white flash before the Flutter shell).
+# Charcoal background + the Lit card stamp (ivory card, ember flame) so the
+# launch frame bridges the ember launcher tile and the app's dark surfaces
+# (no white flash before the Flutter shell).
 flutter_native_splash:
   color: "#15110E"
   color_dark: "#15110E"
-  image: assets/brand/launcher/sandline_joker_foreground.png
-  image_dark: assets/brand/launcher/sandline_joker_foreground.png
+  image: assets/brand/launcher/lit_card_splash.png
+  image_dark: assets/brand/launcher/lit_card_splash.png
   android_12:
     color: "#15110E"
     color_dark: "#15110E"
-    image: assets/brand/launcher/sandline_joker_foreground.png
-    image_dark: assets/brand/launcher/sandline_joker_foreground.png
+    image: assets/brand/launcher/lit_card_splash.png
+    image_dark: assets/brand/launcher/lit_card_splash.png
   android: true
   ios: true
   web: false
@@ -85,12 +88,14 @@ flutter_native_splash:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/brand/launcher/sandline_joker_composite.png
+  # Lit card on the ember tile; sources are rendered from the identity masters
+  # (assets/brand/explorations/identity-2026-10, make_launcher.py).
+  image_path: assets/brand/launcher/lit_card_composite.png
   remove_alpha_ios: true
-  adaptive_icon_background: assets/brand/launcher/sandline_joker_background.png
-  adaptive_icon_foreground: assets/brand/launcher/sandline_joker_foreground.png
+  adaptive_icon_background: "#E4522B"
+  adaptive_icon_foreground: assets/brand/launcher/lit_card_foreground.png
   adaptive_icon_foreground_inset: 0
-  adaptive_icon_monochrome: assets/brand/launcher/sandline_joker_monochrome.png
+  adaptive_icon_monochrome: assets/brand/launcher/lit_card_monochrome.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -108,7 +113,7 @@ flutter:
     - assets/cards/sandline_lounge/
     - assets/cards/iron_rose/
     - assets/cards/wikimedia_english/
-    - assets/brand/launcher/sandline_joker_composite.webp
+    - assets/brand/launcher/lit_card_composite.webp
     - assets/sounds/kenney_casino/
     - assets/table_surfaces/
     - assets/fonts/OFL-ReemKufi.txt

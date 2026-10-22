@@ -107,20 +107,18 @@ class MatchOverOverlay extends StatelessWidget {
                             radius: 1.3,
                             colors: [
                               Color.lerp(
-                                LoungeTokens.coffeeCharcoal,
-                                LoungeTokens.goldAccent,
+                                LoungeTokens.panel,
+                                LoungeTokens.accent,
                                 0.16,
                               )!.withValues(alpha: 0.98),
-                              LoungeTokens.coffeeCharcoal.withValues(
-                                alpha: 0.97,
-                              ),
+                              LoungeTokens.panel.withValues(alpha: 0.97),
                             ],
                           ),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: highContrast
-                          ? const Color(0xFFFFD400)
-                          : LoungeTokens.goldAccent.withValues(alpha: 0.40),
+                          ? LoungeTokens.highContrastSelected
+                          : LoungeTokens.lineSoft,
                       width: highContrast ? 2 : 1,
                     ),
                     boxShadow: [
@@ -160,7 +158,7 @@ class MatchOverOverlay extends StatelessWidget {
                                   strings.roundsPlayed(roundsPlayed),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: LoungeTokens.offWhiteText.withValues(
+                                    color: LoungeTokens.textPrimary.withValues(
                                       alpha: 0.66,
                                     ),
                                     fontSize: compact ? 11 : 13,
@@ -244,19 +242,19 @@ class _Header extends StatelessWidget {
             shape: BoxShape.circle,
             gradient: const RadialGradient(
               center: Alignment(-0.3, -0.45),
-              colors: [Color(0xFF4A3420), LoungeTokens.coffeeCharcoal],
+              colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
             ),
-            border: Border.all(color: LoungeTokens.goldAccent, width: 1.6),
+            border: Border.all(color: LoungeTokens.accent, width: 1.6),
             boxShadow: [
               BoxShadow(
-                color: LoungeTokens.goldAccent.withValues(alpha: 0.35),
+                color: LoungeTokens.accent.withValues(alpha: 0.35),
                 blurRadius: 18,
               ),
             ],
           ),
           child: Icon(
             Icons.emoji_events_outlined,
-            color: LoungeTokens.goldAccent,
+            color: LoungeTokens.accent,
             size: compact ? 22 : 28,
           ),
         ),
@@ -269,7 +267,7 @@ class _Header extends StatelessWidget {
               Text(
                 strings.matchOver.toUpperCase(),
                 style: LoungeTokens.overline.copyWith(
-                  color: LoungeTokens.goldAccent,
+                  color: LoungeTokens.accent,
                   fontSize: compact ? 10 : 11.5,
                 ),
               ),
@@ -277,7 +275,7 @@ class _Header extends StatelessWidget {
               Text(
                 headline,
                 style: LoungeTokens.display.copyWith(
-                  color: LoungeTokens.goldAccent,
+                  color: LoungeTokens.accent,
                   fontSize: compact ? 24 : 32,
                   height: 1.02,
                 ),
@@ -320,14 +318,12 @@ class _Standings extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
-            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+            LoungeTokens.surfaceSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.surface.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.20)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
@@ -347,7 +343,7 @@ class _Standings extends StatelessWidget {
               if (i < rows.length - 1)
                 Divider(
                   height: 1,
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.14),
+                  color: LoungeTokens.line.withValues(alpha: 0.14),
                 ),
             ],
           ],
@@ -383,13 +379,11 @@ class _StandingRow extends StatelessWidget {
     final footnote = eliminatedRound == null
         ? strings.eliminated
         : strings.eliminatedInRound(eliminatedRound!);
-    final accent = isWinner
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.offWhiteText;
+    final accent = isWinner ? LoungeTokens.accent : LoungeTokens.textPrimary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: isWinner
-            ? LoungeTokens.selectedGlow.withValues(alpha: 0.30)
+            ? LoungeTokens.stateSelectedGlow.withValues(alpha: 0.30)
             : Colors.transparent,
       ),
       child: Padding(
@@ -405,8 +399,8 @@ class _StandingRow extends StatelessWidget {
                 '$rank.',
                 style: TextStyle(
                   color: isWinner
-                      ? LoungeTokens.goldAccent
-                      : LoungeTokens.mutedText,
+                      ? LoungeTokens.accent
+                      : LoungeTokens.textMuted,
                   fontSize: compact ? 13 : 15,
                   fontWeight: FontWeight.w800,
                 ),
@@ -415,8 +409,8 @@ class _StandingRow extends StatelessWidget {
             Icon(
               isWinner ? Icons.emoji_events_outlined : Icons.person_outline,
               color: isWinner
-                  ? LoungeTokens.goldAccent
-                  : LoungeTokens.mutedText.withValues(alpha: 0.70),
+                  ? LoungeTokens.accent
+                  : LoungeTokens.textMuted.withValues(alpha: 0.70),
               size: compact ? 16 : 19,
             ),
             SizedBox(width: compact ? 8 : 10),
@@ -439,7 +433,7 @@ class _StandingRow extends StatelessWidget {
                       child: Text(
                         footnote,
                         style: TextStyle(
-                          color: LoungeTokens.offWhiteText.withValues(
+                          color: LoungeTokens.textPrimary.withValues(
                             alpha: 0.60,
                           ),
                           fontSize: compact ? 10 : 11,

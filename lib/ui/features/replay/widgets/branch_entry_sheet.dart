@@ -20,7 +20,7 @@ Future<BranchVisibility?> showBranchEntrySheet(
 }) {
   return showDialog<BranchVisibility>(
     context: context,
-    barrierColor: LoungeTokens.overlayScrim,
+    barrierColor: LoungeTokens.scrim,
     builder: (context) => _BranchEntryDialog(highContrast: highContrast),
   );
 }
@@ -139,16 +139,14 @@ class _VisibilityChoice extends StatelessWidget {
         button: true,
         enabled: true,
         label: '$title. $note',
-        // A lit lounge tile: felt-tinted tray, brass hairline, and the option's
-        // glyph on a medallion, like the setup screen's choices.
+        // A lit lounge tile: a lifted charcoal tray, sand hairline, and the
+        // option's glyph on a medallion, like the setup screen's choices.
         child: Material(
           key: choiceKey,
-          color: LoungeTokens.feltGreen.withValues(alpha: 0.45),
+          color: LoungeTokens.surfaceSpotlight.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-            side: BorderSide(
-              color: LoungeTokens.sandLine.withValues(alpha: 0.28),
-            ),
+            side: const BorderSide(color: LoungeTokens.lineSoft),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -184,7 +182,7 @@ class _VisibilityChoice extends StatelessWidget {
                       // table.
                       const Icon(
                         Icons.chevron_right_rounded,
-                        color: LoungeTokens.goldAccent,
+                        color: LoungeTokens.accent,
                         size: 22,
                       ),
                     ],

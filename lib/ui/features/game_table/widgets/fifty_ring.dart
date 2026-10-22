@@ -98,7 +98,7 @@ class _FiftyRingState extends State<FiftyRing>
               child: Text(
                 '$remaining',
                 style: const TextStyle(
-                  color: LoungeTokens.offWhiteText,
+                  color: LoungeTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                   fontSize: 22,
                   letterSpacing: 1,
@@ -118,13 +118,13 @@ class _FiftyRingPainter extends CustomPainter {
   final double progress;
   final double pulse;
 
-  // Fire palette: bright gold tip → orange body → deep-red base.
+  // Fire palette: ember tip → deep ember body → crimson base.
   static const _flameColors = [
-    LoungeTokens.goldAccent,
-    LoungeTokens.fiftyFlame,
-    LoungeTokens.deepRed,
-    LoungeTokens.fiftyFlame,
-    LoungeTokens.goldAccent,
+    LoungeTokens.fiftyHeat,
+    LoungeTokens.accentPressed,
+    LoungeTokens.danger,
+    LoungeTokens.accentPressed,
+    LoungeTokens.fiftyHeat,
   ];
   static const _flameStops = [0.0, 0.28, 0.5, 0.72, 1.0];
 
@@ -137,13 +137,13 @@ class _FiftyRingPainter extends CustomPainter {
     // Steady flame glow that gives the ring its "hot" read: a soft red outer
     // wash plus a brighter orange band hugging the ring.
     final outerGlow = Paint()
-      ..color = LoungeTokens.deepRed.withValues(alpha: 0.22)
+      ..color = LoungeTokens.danger.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 7
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
     canvas.drawCircle(center, radius + 5, outerGlow);
     final innerGlow = Paint()
-      ..color = LoungeTokens.fiftyFlame.withValues(alpha: 0.28)
+      ..color = LoungeTokens.fiftyHeat.withValues(alpha: 0.28)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
@@ -154,7 +154,7 @@ class _FiftyRingPainter extends CustomPainter {
       final flareRadius = radius + 8 + math.sin(pulse * math.pi) * 10;
       final flareAlpha = (math.sin(pulse * math.pi) * 0.6).clamp(0.0, 0.6);
       final flare = Paint()
-        ..color = LoungeTokens.goldAccent.withValues(alpha: flareAlpha)
+        ..color = LoungeTokens.fiftyHeat.withValues(alpha: flareAlpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -163,14 +163,14 @@ class _FiftyRingPainter extends CustomPainter {
 
     // Background ring.
     final bg = Paint()
-      ..color = LoungeTokens.sandLine.withValues(alpha: 0.22)
+      ..color = LoungeTokens.line.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, bg);
 
     // Progress arc, drawn with the fire gradient so the live countdown is the
-    // flame itself. The gradient is rotated so the bright gold tip rides the
+    // flame itself. The gradient is rotated so the bright ember tip rides the
     // leading (12 o'clock) edge.
     final arc = Paint()
       ..shader = const SweepGradient(
@@ -186,11 +186,11 @@ class _FiftyRingPainter extends CustomPainter {
 
     // Inner disc + a faint flame inner stroke.
     final disc = Paint()
-      ..color = LoungeTokens.coffeeCharcoal
+      ..color = LoungeTokens.surface
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius - 6, disc);
     final innerStroke = Paint()
-      ..color = LoungeTokens.fiftyFlame.withValues(alpha: 0.5)
+      ..color = LoungeTokens.fiftyHeat.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawCircle(center, radius - 6, innerStroke);

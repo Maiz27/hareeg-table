@@ -169,6 +169,7 @@ void main() {
       await _openTable(
         tester,
         southHand: [_card(CardRank.four, CardSuit.clubs, 123)],
+        setup: _coachingSetup,
         preferencesRepository: preferences,
       );
       await tester.tap(find.byTooltip('Pause'));
@@ -1216,6 +1217,68 @@ void main() {
       expect(find.byType(FiftyRing), findsOneWidget);
     });
 
+    testWidgets('a lapsed Fifty window with stock left settles quietly', (
+      tester,
+    ) async {
+      // Opened well past the timer and its grace: the ring is gone before the
+      // table is even built, and the player simply draws as usual.
+      final openedAt = DateTime.now().toUtc().subtract(
+        const Duration(seconds: 30),
+      );
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            _card(CardRank.two, CardSuit.clubs, 94),
+            _card(CardRank.five, CardSuit.diamonds, 94),
+            _card(CardRank.king, CardSuit.hearts, 94),
+          ],
+          discardPile: [_card(CardRank.nine, CardSuit.clubs, 94)],
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          savedAt: openedAt,
+          fiftyWindowOpenedAt: openedAt,
+          fiftyWindowDiscarder: PlayerSeat.south.previousAntiClockwise,
+        ),
+      );
+
+      expect(find.byType(FiftyRing), findsNothing);
+      expect(find.textContaining('Fifty window closed'), findsNothing);
+    });
+
+    testWidgets(
+      'a lapsed Fifty window with no stock explains the finishing take',
+      (tester) async {
+        // No stock and a take that would finish (7-8 in hand, 9 on the pile,
+        // the 2 left to discard): the engine keeps the round open on that
+        // finish alone, and the chip says so.
+        final openedAt = DateTime.now().toUtc().subtract(
+          const Duration(seconds: 30),
+        );
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            southHand: [
+              _card(CardRank.seven, CardSuit.clubs, 95),
+              _card(CardRank.eight, CardSuit.clubs, 95),
+              _card(CardRank.two, CardSuit.diamonds, 95),
+            ],
+            stock: const [],
+            discardPile: [_card(CardRank.nine, CardSuit.clubs, 95)],
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.draw,
+            openingState: _opened(PlayerSeat.south),
+            savedAt: openedAt,
+            fiftyWindowOpenedAt: openedAt,
+            fiftyWindowDiscarder: PlayerSeat.south.previousAntiClockwise,
+          ),
+        );
+
+        expect(find.byType(FiftyRing), findsNothing);
+        expect(find.textContaining('Fifty window closed'), findsOneWidget);
+      },
+    );
+
     testWidgets(
       'FiftyRing still shows the human claim window in blocking tiers',
       (tester) async {
@@ -1539,6 +1602,7 @@ void main() {
           _card(CardRank.three, CardSuit.spades, 95),
           _card(CardRank.four, CardSuit.spades, 95),
         ],
+        setup: _coachingSetup,
       );
 
       final target = find.bySemanticsLabel('Queen of Hearts').first;
@@ -1758,6 +1822,7 @@ void main() {
       await _openTable(
         tester,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           // A finished run plus a last card: the advisor's top insight is the
           // (priority 1000) finish.
           southHand: [
@@ -1816,6 +1881,7 @@ void main() {
         tester,
         preferencesRepository: preferences,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           southHand: [
             _card(CardRank.seven, CardSuit.clubs, 312),
             _card(CardRank.eight, CardSuit.clubs, 312),
@@ -1836,6 +1902,7 @@ void main() {
       await _openTable(
         tester,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           southHand: [
             pending,
             _card(CardRank.three, CardSuit.hearts, 313),
@@ -1861,7 +1928,7 @@ void main() {
     testWidgets('coaching tips toggle is available in the pause overlay', (
       tester,
     ) async {
-      await _openTable(tester);
+      await _openTable(tester, setup: _coachingSetup);
       await tester.tap(find.byTooltip('Pause'));
       await tester.pumpAndSettle();
       expect(find.text('Coaching tips'), findsOneWidget);
@@ -1869,14 +1936,22 @@ void main() {
   });
 }
 
+/// The coaching tier. A fresh install defaults to Standard, so tests that
+/// exercise coach-only surfaces (hints, guided inspect, the tips toggle) opt
+/// in here.
+final _coachingSetup = ClassicHareegSetup.defaults().copyWith(
+  tableStrictness: TableStrictness.coaching,
+);
+
 Future<MemoryMatchRepository> _openTable(
   WidgetTester tester, {
   List<HareegCard>? southHand,
+  ClassicHareegSetup? setup,
   ClassicHareegMatchSnapshot? savedSnapshot,
   MemoryPreferencesRepository? preferencesRepository,
 }) async {
   final repository = MemoryMatchRepository(
-    saved: savedSnapshot ?? _savedSnapshot(southHand: southHand),
+    saved: savedSnapshot ?? _savedSnapshot(southHand: southHand, setup: setup),
   );
   await tester.pumpWidget(
     HareegTableApp(
@@ -1993,6 +2068,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   ClassicHareegSetup? setup,
   PlayerSeat currentSeat = PlayerSeat.south,
   TurnPhase turnPhase = TurnPhase.action,
+  List<HareegCard>? stock,
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
@@ -2002,6 +2078,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
+  PlayerSeat? fiftyWindowDiscarder,
 }) {
   final resolvedSetup = setup ?? ClassicHareegSetup.defaults();
   final snapshot = ClassicHareegRound.deal(setup: resolvedSetup, seed: 3);
@@ -2013,7 +2090,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   return ClassicHareegMatchSnapshot(
     setup: resolvedSetup,
     hands: mergedHands,
-    stock: snapshot.stock,
+    stock: stock ?? snapshot.stock,
     discardPile: discardPile ?? snapshot.discardPile,
     starter: snapshot.starter,
     currentSeat: currentSeat,
@@ -2032,6 +2109,8 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     removedSeats: removedSeats,
     roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+    fiftyWindowDiscarder: fiftyWindowDiscarder,
+    previousDiscardSeat: fiftyWindowDiscarder,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
   );
 }

@@ -16,7 +16,7 @@ Future<bool?> showLeaveMatchConfirmation(
 }) {
   return showDialog<bool>(
     context: context,
-    barrierColor: LoungeTokens.overlayScrim,
+    barrierColor: LoungeTokens.scrim,
     builder: (context) => _LeaveMatchConfirmDialog(highContrast: highContrast),
   );
 }

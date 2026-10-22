@@ -78,7 +78,7 @@ class ReplayCard extends StatelessWidget {
   final Widget analysis;
 
   static TextStyle _overlineStyle() => LoungeTokens.overline.copyWith(
-    color: LoungeTokens.goldAccent,
+    color: LoungeTokens.accent,
     letterSpacing: 0.8,
     fontFeatures: const [FontFeature.tabularFigures()],
   );
@@ -254,7 +254,7 @@ class ReplayCard extends StatelessWidget {
   }
 }
 
-/// The stacked arrangement's transport: one row, the gold step pair centred
+/// The stacked arrangement's transport: one row, the ember step pair centred
 /// between the round jumps and the ends.
 class _StackedRow extends StatelessWidget {
   const _StackedRow({required this.buttons});
@@ -335,7 +335,7 @@ class _BandRow extends StatelessWidget {
   }
 }
 
-/// The analysis section: a brass hairline, then the analysis content, which
+/// The analysis section: a sand hairline, then the analysis content, which
 /// scrolls inside whatever room the card has left.
 class _AnalysisSection extends StatelessWidget {
   const _AnalysisSection({required this.child, super.key});
@@ -354,7 +354,7 @@ class _AnalysisSection extends StatelessWidget {
           margin: const EdgeInsets.symmetric(
             horizontal: ReplayCardMetrics.textPadding,
           ),
-          color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+          color: LoungeTokens.lineSoft,
         ),
         Flexible(child: SingleChildScrollView(child: child)),
       ],

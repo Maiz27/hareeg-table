@@ -38,11 +38,11 @@ class StrictnessScope extends InheritedWidget {
   /// Active strictness tier.
   final TableStrictness strictness;
 
-  /// Reads the nearest strictness tier; falls back to [TableStrictness.coaching]
+  /// Reads the nearest strictness tier; falls back to [TableStrictness.standard]
   /// if not wrapped (matches the fresh-install default).
   static TableStrictness of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<StrictnessScope>();
-    return scope?.strictness ?? TableStrictness.coaching;
+    return scope?.strictness ?? TableStrictness.standard;
   }
 
   @override

@@ -51,8 +51,8 @@ class PracticeStepBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
     final motion = MotionScope.of(context);
-    const accent = LoungeTokens.goldAccent;
-    final panelColor = LoungeTokens.coffeeCharcoal.withValues(
+    const accent = LoungeTokens.accent;
+    final panelColor = LoungeTokens.panel.withValues(
       alpha: highContrast ? 0.97 : 0.92,
     );
     final stepLabel = strings.practiceStepLabel(stepIndex + 1, stepCount);
@@ -108,7 +108,7 @@ class PracticeStepBanner extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: i <= stepIndex
                                 ? accent
-                                : LoungeTokens.sandLine.withValues(alpha: 0.22),
+                                : LoungeTokens.lineSoft,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),

@@ -11,7 +11,7 @@ import '../../../core/theme/lounge_tokens.dart';
 /// A medallion carrying the seat's running match score, ringed by an arc that
 /// fills toward the elimination score and warms from sand to flame as the
 /// seat nears it, plus a pill with the seat's current hand size. The plate
-/// echoes the seat's turn state (gold edge and glow while active) so whose
+/// echoes the seat's turn state (ember edge and glow while active) so whose
 /// turn it is reads at a glance even when the rail is busy.
 ///
 /// Every animation here is implicit and finite, so a table test can still
@@ -184,7 +184,7 @@ class _Medallion extends StatelessWidget {
           ...LoungeTokens.elevationL2,
           if (active)
             BoxShadow(
-              color: LoungeTokens.goldAccent.withValues(alpha: glow),
+              color: LoungeTokens.accent.withValues(alpha: glow),
               blurRadius: thinking ? 18 : 12,
               spreadRadius: thinking ? 2 : 0.5,
             ),
@@ -203,8 +203,8 @@ class _Medallion extends StatelessWidget {
                 fontSize:
                     diameter * (score != null && score! >= 10 ? 0.4 : 0.46),
                 color: Color.lerp(
-                  LoungeTokens.offWhiteText,
-                  const Color(0xFFFFB08A),
+                  LoungeTokens.textPrimary,
+                  LoungeTokens.fiftyHeat,
                   ((t - 0.6) / 0.4).clamp(0.0, 1.0),
                 ),
               ),
@@ -236,7 +236,7 @@ class _MedallionPainter extends CustomPainter {
         ..shader = const RadialGradient(
           center: Alignment(-0.25, -0.45),
           radius: 1.0,
-          colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+          colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
         ).createShader(rect),
     );
 
@@ -251,14 +251,14 @@ class _MedallionPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = ringWidth
-        ..color = LoungeTokens.sandLine.withValues(alpha: 0.16),
+        ..color = LoungeTokens.line.withValues(alpha: 0.16),
     );
 
     // Danger arc: how close the seat is to elimination.
     if (danger > 0) {
       final color = Color.lerp(
-        LoungeTokens.sandLine,
-        LoungeTokens.fiftyFlame,
+        LoungeTokens.line,
+        LoungeTokens.fiftyHeat,
         ((danger - 0.45) / 0.55).clamp(0.0, 1.0),
       )!;
       canvas.drawArc(
@@ -274,16 +274,14 @@ class _MedallionPainter extends CustomPainter {
       );
     }
 
-    // Outer edge: gold on the active seat, quiet sand otherwise.
+    // Outer edge: ember on the active seat, quiet sand otherwise.
     canvas.drawCircle(
       center,
       radius - 0.5,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = active ? 1.6 : 1
-        ..color = active
-            ? LoungeTokens.goldAccent
-            : LoungeTokens.sandLine.withValues(alpha: 0.35),
+        ..color = active ? LoungeTokens.accent : LoungeTokens.lineSoft,
     );
   }
 
@@ -312,12 +310,12 @@ class _CountPill extends StatelessWidget {
         vertical: compact ? 1.5 : 2.5,
       ),
       decoration: BoxDecoration(
-        color: LoungeTokens.surfaceL2,
+        color: LoungeTokens.panelTranslucent,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
         border: Border.all(
           color: active
-              ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
-              : LoungeTokens.edgeL2,
+              ? LoungeTokens.accent.withValues(alpha: 0.7)
+              : LoungeTokens.lineSoft,
         ),
       ),
       // Scaled down, never overflowed: a side seat's pill sits in the rail
@@ -334,7 +332,7 @@ class _CountPill extends StatelessWidget {
               height: iconSize,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(1.5),
-                border: Border.all(color: LoungeTokens.sandLine, width: 1),
+                border: Border.all(color: LoungeTokens.line, width: 1),
               ),
             ),
             SizedBox(width: compact ? 3 : 4),

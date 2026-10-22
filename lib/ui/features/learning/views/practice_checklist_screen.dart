@@ -122,7 +122,7 @@ class _PracticeChecklistScreenState extends State<PracticeChecklistScreen> {
     final completed = _progress.completedCount(lessonIds);
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.practiceTitle)),
       body: SafeArea(
         child: Stack(
@@ -198,7 +198,7 @@ class _PracticeHeader extends StatelessWidget {
     final strings = context.strings;
     final fraction = total == 0 ? 0.0 : completed / total;
 
-    // A progress card: the lessons done as a ring, lit like the table.
+    // A progress card: the lessons done as a ring, lit by the ember lamp.
     return Container(
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
@@ -206,14 +206,12 @@ class _PracticeHeader extends StatelessWidget {
           center: const Alignment(-0.8, -0.6),
           radius: 1.4,
           colors: [
-            LoungeTokens.goldAccent.withValues(alpha: 0.12),
-            LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
+            LoungeTokens.accentGlow.withValues(alpha: 0.12),
+            LoungeTokens.surfaceRaised.withValues(alpha: 0.55),
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: LoungeTokens.lineSoft),
         boxShadow: LoungeTokens.elevationL2,
       ),
       child: Column(
@@ -250,11 +248,11 @@ class _PracticeHeader extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: fraction,
                         minHeight: 4,
-                        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(
+                        backgroundColor: LoungeTokens.surface.withValues(
                           alpha: 0.5,
                         ),
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                          LoungeTokens.goldAccent,
+                          LoungeTokens.accent,
                         ),
                       ),
                     ),
@@ -272,7 +270,7 @@ class _PracticeHeader extends StatelessWidget {
               icon: const Icon(Icons.replay_outlined, size: 18),
               label: Text(strings.practiceReplayIntro),
               style: TextButton.styleFrom(
-                foregroundColor: LoungeTokens.goldAccent,
+                foregroundColor: LoungeTokens.accent,
                 // The theme minimum is full-width; shrink to row content.
                 minimumSize: const Size(0, 40),
               ),
@@ -300,7 +298,7 @@ class _ProgressRingPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5
-        ..color = LoungeTokens.sandLine.withValues(alpha: 0.16),
+        ..color = LoungeTokens.line.withValues(alpha: 0.16),
     );
     if (fraction > 0) {
       canvas.drawArc(
@@ -312,7 +310,7 @@ class _ProgressRingPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 5
           ..strokeCap = StrokeCap.round
-          ..color = LoungeTokens.goldAccent,
+          ..color = LoungeTokens.accent,
       );
     }
   }
@@ -339,20 +337,15 @@ class _PackHeader extends StatelessWidget {
       children: [
         Text(title, style: LoungeTokens.heading),
         const SizedBox(width: LoungeTokens.space3),
-        Expanded(
-          child: Container(
-            height: 1,
-            color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-          ),
-        ),
+        Expanded(child: Container(height: 1, color: LoungeTokens.lineSoft)),
         const SizedBox(width: LoungeTokens.space3),
         Text(
           '$completed/$total',
           style: LoungeTokens.numericChip.copyWith(
             fontSize: 12,
             color: completed == total && total > 0
-                ? LoungeTokens.goldAccent
-                : LoungeTokens.mutedText,
+                ? LoungeTokens.accent
+                : LoungeTokens.textMuted,
           ),
         ),
       ],
@@ -390,7 +383,7 @@ class _LessonTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: LoungeTokens.space3),
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: muted ? 0.3 : 0.5),
+        color: LoungeTokens.surfaceRaised.withValues(alpha: muted ? 0.3 : 0.5),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
         border: Border.all(color: look.borderColor),
         boxShadow: muted ? null : LoungeTokens.elevationL2,
@@ -416,8 +409,8 @@ class _LessonTile extends StatelessWidget {
                       style: LoungeTokens.body.copyWith(
                         fontWeight: FontWeight.w700,
                         color: muted
-                            ? LoungeTokens.mutedText
-                            : LoungeTokens.offWhiteText,
+                            ? LoungeTokens.textMuted
+                            : LoungeTokens.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -450,7 +443,7 @@ class _LessonTile extends StatelessWidget {
                 TextButton(
                   onPressed: skipped ? onUnskip : onSkip,
                   style: TextButton.styleFrom(
-                    foregroundColor: LoungeTokens.mutedText,
+                    foregroundColor: LoungeTokens.textMuted,
                     visualDensity: VisualDensity.compact,
                     // The theme minimum is full-width; shrink to row content.
                     minimumSize: const Size(0, 36),
@@ -465,9 +458,9 @@ class _LessonTile extends StatelessWidget {
                 icon: Icon(look.startIcon, size: 18),
                 label: Text(look.startLabel),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: LoungeTokens.goldAccent,
+                  foregroundColor: LoungeTokens.accent,
                   side: BorderSide(
-                    color: LoungeTokens.goldAccent.withValues(alpha: 0.5),
+                    color: LoungeTokens.accent.withValues(alpha: 0.5),
                   ),
                   visualDensity: VisualDensity.compact,
                   minimumSize: const Size(0, 36),
@@ -491,7 +484,7 @@ class _LessonTile extends StatelessWidget {
     String statusLabel,
   })
   _lookFor(AppStrings strings) {
-    final restingBorder = LoungeTokens.sandLine.withValues(alpha: 0.16);
+    final restingBorder = LoungeTokens.line.withValues(alpha: 0.16);
     return switch (status) {
       PracticeLessonStatus.notStarted => (
         muted: false,
@@ -512,7 +505,7 @@ class _LessonTile extends StatelessWidget {
       PracticeLessonStatus.completed => (
         muted: false,
         badgeIcon: Icons.check_circle,
-        borderColor: LoungeTokens.goldAccent.withValues(alpha: 0.45),
+        borderColor: LoungeTokens.accent.withValues(alpha: 0.45),
         startIcon: Icons.replay_outlined,
         startLabel: strings.practiceReplay,
         statusLabel: strings.practiceStatusCompleted,
@@ -521,7 +514,7 @@ class _LessonTile extends StatelessWidget {
   }
 }
 
-/// A lesson's number on a lacquered medallion; gold with a check once done,
+/// A lesson's number on a lacquered medallion; ember with a check once done,
 /// faded when skipped.
 class _LessonMedallion extends StatelessWidget {
   const _LessonMedallion({
@@ -548,27 +541,29 @@ class _LessonMedallion extends StatelessWidget {
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFE8B95A), LoungeTokens.goldAccent],
+                colors: [LoungeTokens.accent, LoungeTokens.accentPressed],
               )
             : const RadialGradient(
                 center: Alignment(-0.3, -0.4),
-                colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
               ),
         border: Border.all(
           color: done
-              ? LoungeTokens.goldAccent
-              : LoungeTokens.sandLine.withValues(alpha: skipped ? 0.18 : 0.4),
+              ? LoungeTokens.accent
+              : skipped
+              ? LoungeTokens.line.withValues(alpha: 0.18)
+              : LoungeTokens.lineSoft,
         ),
       ),
       child: done
-          ? Icon(icon, size: 18, color: LoungeTokens.coffeeCharcoal)
+          ? Icon(icon, size: 18, color: LoungeTokens.onAccent)
           : skipped
-          ? Icon(icon, size: 16, color: LoungeTokens.mutedText)
+          ? Icon(icon, size: 16, color: LoungeTokens.textMuted)
           : Text(
               '$number',
               style: LoungeTokens.numericChip.copyWith(
                 fontSize: 13,
-                color: LoungeTokens.sandLine,
+                color: LoungeTokens.line,
               ),
             ),
     );

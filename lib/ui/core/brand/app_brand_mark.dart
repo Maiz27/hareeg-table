@@ -4,9 +4,8 @@ import '../theme/lounge_tokens.dart';
 
 /// Brand artwork used where the app needs a compact identity mark.
 abstract final class AppBrandAssets {
-  /// Production launcher-icon composite.
-  static const launcherIcon =
-      'assets/brand/launcher/sandline_joker_composite.webp';
+  /// Production launcher-icon composite: the Lit card on its ember tile.
+  static const launcherIcon = 'assets/brand/launcher/lit_card_composite.webp';
 }
 
 /// Compact app icon mark for menu, help, and about surfaces.
@@ -26,9 +25,7 @@ class AppBrandMark extends StatelessWidget {
     final decorated = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        border: Border.all(
-          color: LoungeTokens.goldAccent.withValues(alpha: 0.34),
-        ),
+        border: Border.all(color: LoungeTokens.accent.withValues(alpha: 0.34)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.24),

@@ -19,7 +19,7 @@ void main() {
       final preferences = await repository.loadPreferences();
 
       expect(preferences.setup.cpuDifficulty, CpuDifficulty.casual);
-      expect(preferences.setup.tableStrictness, TableStrictness.coaching);
+      expect(preferences.setup.tableStrictness, TableStrictness.standard);
       expect(preferences.handSortMode, HandSortMode.byRank);
       expect(preferences.motionSpeed, MotionSpeed.normal);
       expect(preferences.fastCpuTurns, isTrue);
@@ -122,7 +122,7 @@ void main() {
 
       final preferences = await repository.loadPreferences();
 
-      expect(preferences.setup.tableStrictness, TableStrictness.coaching);
+      expect(preferences.setup.tableStrictness, TableStrictness.standard);
       expect(store.values.containsKey('preferences.v1'), isFalse);
     });
 

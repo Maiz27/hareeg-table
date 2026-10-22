@@ -7,11 +7,12 @@ enum LoungeMedallionTone {
   /// Lacquered charcoal with a sand ring: the resting state.
   lacquer,
 
-  /// Lacquered charcoal with a gold ring and glow: active or celebrated.
+  /// Lacquered charcoal with an ember accent ring and glow: active or
+  /// celebrated.
   lit,
 
-  /// Solid gold face: an achievement (a win, a completed lesson).
-  gold,
+  /// Solid ember accent face: an achievement (a win, a completed lesson).
+  ember,
 
   /// Lacquered charcoal with a warm red ring: something went wrong.
   alert,
@@ -50,24 +51,22 @@ class LoungeMedallion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gold = tone == LoungeMedallionTone.gold;
+    final solid = tone == LoungeMedallionTone.ember;
     final ring = switch (tone) {
-      LoungeMedallionTone.lacquer => LoungeTokens.sandLine.withValues(
-        alpha: 0.4,
-      ),
+      LoungeMedallionTone.lacquer => LoungeTokens.lineSoft,
       LoungeMedallionTone.lit ||
-      LoungeMedallionTone.gold => LoungeTokens.goldAccent,
-      LoungeMedallionTone.alert => LoungeTokens.invalidAction,
+      LoungeMedallionTone.ember => LoungeTokens.accent,
+      LoungeMedallionTone.alert => LoungeTokens.stateInvalid,
     };
     final ink = switch (tone) {
-      LoungeMedallionTone.gold => LoungeTokens.coffeeCharcoal,
-      LoungeMedallionTone.alert => LoungeTokens.invalidAction,
-      _ => LoungeTokens.goldAccent,
+      LoungeMedallionTone.ember => LoungeTokens.onAccent,
+      LoungeMedallionTone.alert => LoungeTokens.stateInvalid,
+      _ => LoungeTokens.accent,
     };
     final glow = switch (tone) {
       LoungeMedallionTone.lacquer => null,
-      LoungeMedallionTone.alert => LoungeTokens.invalidAction,
-      _ => LoungeTokens.goldAccent,
+      LoungeMedallionTone.alert => LoungeTokens.stateInvalid,
+      _ => LoungeTokens.accent,
     };
     return Container(
       width: size,
@@ -75,15 +74,15 @@ class LoungeMedallion extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: gold
+        gradient: solid
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFE8B95A), LoungeTokens.goldAccent],
+                colors: [LoungeTokens.accentBright, LoungeTokens.accentPressed],
               )
             : const RadialGradient(
                 center: Alignment(-0.3, -0.45),
-                colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
               ),
         border: Border.all(color: ring, width: size >= 40 ? 1.6 : 1.2),
         boxShadow: [
@@ -100,9 +99,7 @@ class LoungeMedallion extends StatelessWidget {
               label!,
               style: LoungeTokens.numericDisplay.copyWith(
                 fontSize: size * 0.4,
-                color: gold
-                    ? LoungeTokens.coffeeCharcoal
-                    : LoungeTokens.sandLine,
+                color: solid ? LoungeTokens.onAccent : LoungeTokens.line,
               ),
             ),
     );
@@ -110,9 +107,9 @@ class LoungeMedallion extends StatelessWidget {
 }
 
 /// Decoration for a lounge panel lit by a warm pool of light from its
-/// top-start corner, tinted by [glow] (gold by default).
+/// top-start corner, tinted by [glow] (the ember accent by default).
 BoxDecoration loungeLitPanel({
-  Color glow = LoungeTokens.goldAccent,
+  Color glow = LoungeTokens.accent,
   double strength = 0.14,
   Color? edge,
 }) {
@@ -121,12 +118,8 @@ BoxDecoration loungeLitPanel({
       center: const Alignment(-0.7, -1.1),
       radius: 1.4,
       colors: [
-        Color.lerp(
-          LoungeTokens.coffeeCharcoal,
-          glow,
-          strength,
-        )!.withValues(alpha: 0.98),
-        LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+        Color.lerp(LoungeTokens.panel, glow, strength)!.withValues(alpha: 0.98),
+        LoungeTokens.panel.withValues(alpha: 0.97),
       ],
     ),
     borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),

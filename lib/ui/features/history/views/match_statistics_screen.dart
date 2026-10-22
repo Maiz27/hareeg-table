@@ -70,9 +70,9 @@ class _MatchStatisticsScreenState extends State<MatchStatisticsScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(
-        foregroundColor: LoungeTokens.offWhiteText,
+        foregroundColor: LoungeTokens.textPrimary,
         title: Text(strings.statisticsTitle),
         actions: [
           IconButton(
@@ -80,7 +80,7 @@ class _MatchStatisticsScreenState extends State<MatchStatisticsScreen> {
                 Navigator.of(context).pushReplacementNamed(AppRoutes.history),
             icon: const Icon(Icons.history),
             tooltip: strings.historyMenuLabel,
-            color: LoungeTokens.sandLine,
+            color: LoungeTokens.line,
           ),
         ],
       ),
@@ -206,7 +206,7 @@ class _GroupSection extends StatelessWidget {
   }
 
   static const _groupingHeading = TextStyle(
-    color: LoungeTokens.sandLine,
+    color: LoungeTokens.line,
     fontSize: 12,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.0,
@@ -234,11 +234,9 @@ class _StatisticsSlice extends StatelessWidget {
       margin: const EdgeInsets.only(top: LoungeTokens.space3),
       padding: const EdgeInsets.all(LoungeTokens.space4),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.3),
+        color: LoungeTokens.panel,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +244,7 @@ class _StatisticsSlice extends StatelessWidget {
           Text(
             heading,
             style: TextStyle(
-              color: LoungeTokens.offWhiteText,
+              color: LoungeTokens.textPrimary,
               fontSize: compactHeading ? 15 : 18,
               fontWeight: FontWeight.w700,
             ),

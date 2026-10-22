@@ -62,10 +62,11 @@ class ClassicHareegSetup {
 
   /// Default first-run setup values.
   ///
-  /// `tableStrictness` defaults to [TableStrictness.coaching] — the loudest
-  /// tier, best fit for first-run players who need both rule blocking and
-  /// hint surfaces. Existing assisted+guided users land here through the
-  /// persistence migration in `preferences_repository.dart`.
+  /// `tableStrictness` defaults to [TableStrictness.standard]: illegal moves
+  /// are blocked, but the table does not coach. Players who want proactive
+  /// hints opt into coaching from setup or settings. Legacy assisted+guided
+  /// saves still land on coaching through the persistence migration in
+  /// `preferences_repository.dart`.
   factory ClassicHareegSetup.defaults() {
     return const ClassicHareegSetup(
       cpuDifficulty: CpuDifficulty.casual,
@@ -74,7 +75,7 @@ class ClassicHareegSetup {
       deckCount: 2,
       jokerCount: 2,
       fiftyTimerSeconds: 4,
-      tableStrictness: TableStrictness.coaching,
+      tableStrictness: TableStrictness.standard,
     );
   }
 

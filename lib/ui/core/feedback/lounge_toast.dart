@@ -77,7 +77,7 @@ class _LoungeToastOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = isError ? LoungeTokens.deepRed : LoungeTokens.goldAccent;
+    final accent = isError ? LoungeTokens.danger : LoungeTokens.accent;
     final top = MediaQuery.paddingOf(context).top + LoungeTokens.space4;
     return Positioned(
       top: top,
@@ -97,7 +97,7 @@ class _LoungeToastOverlay extends StatelessWidget {
                 vertical: 7,
               ),
               decoration: BoxDecoration(
-                color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                color: LoungeTokens.panel.withValues(alpha: 0.96),
                 borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
                 border: Border.all(color: accent.withValues(alpha: 0.78)),
                 boxShadow: [
@@ -126,7 +126,7 @@ class _LoungeToastOverlay extends StatelessWidget {
                     TextButton(
                       onPressed: onActionPressed,
                       style: TextButton.styleFrom(
-                        foregroundColor: LoungeTokens.goldAccent,
+                        foregroundColor: LoungeTokens.accent,
                         minimumSize: const Size(0, 32),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,

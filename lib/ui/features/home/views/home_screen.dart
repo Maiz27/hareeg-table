@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -8,6 +10,8 @@ import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../updates/update_offer.dart';
+import '../../updates/update_prompt_controller.dart';
 import 'home_hero_section.dart';
 
 /// Main menu and navigation shell.
@@ -16,8 +20,16 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.matchRepository,
     required this.historyRepository,
+    this.updates,
     super.key,
   });
+
+  /// The "update available" prompt state, or null for no update flow.
+  ///
+  /// The home screen starts the once-a-day automatic check after its first
+  /// frame, so the menu is never held back by the network, and shows the
+  /// offered release as a dialog over the menu when the check lands.
+  final UpdatePromptController? updates;
 
   /// Active match persistence.
   final MatchRepository matchRepository;
@@ -32,23 +44,76 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   MatchCheckpoint? _savedMatch;
   var _loadingSavedMatch = true;
   var _recoveryFailed = false;
   var _damagedSave = false;
+
+  /// The release tag the dialog is showing, so one notification per release
+  /// opens one dialog.
+  String? _promptedTag;
 
   @override
   void initState() {
     super.initState();
     AppOrientation.usePortrait();
     _loadSavedMatch();
+    final updates = widget.updates;
+    if (updates != null) {
+      updates.addListener(_onUpdatesChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // A release found before this screen existed (a rematch rebuilt the
+        // menu) is still waiting on the controller.
+        _onUpdatesChanged();
+        updates.runStartupCheck();
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null && widget.updates != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    widget.updates?.removeListener(_onUpdatesChanged);
+    super.dispose();
+  }
+
+  /// The menu is revealed again: a release that arrived while another screen
+  /// covered it was left unprompted, so offer it now.
+  @override
+  void didPopNext() => _onUpdatesChanged();
+
+  void _onUpdatesChanged() {
+    final updates = widget.updates;
+    final offer = updates?.prompt;
+    if (updates == null || offer == null) {
+      _promptedTag = null;
+      return;
+    }
+    if (offer.newest.tag == _promptedTag) return;
+    // Only the menu prompts from here. A check that lands while another
+    // screen is up stays quiet (a manual check offers the release where it
+    // was run) and is left unmarked, so [didPopNext] or the next notification
+    // here shows it.
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    _promptedTag = offer.newest.tag;
+    unawaited(offerUpdate(context, updates, offer));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -352,6 +417,7 @@ class _BrandHeader extends StatelessWidget {
               tooltip: strings.rulesHelp,
               onPressed: onRulesHelp,
             ),
+            const SizedBox(width: LoungeTokens.space2),
             _ChromeIconButton(
               icon: Icons.settings_outlined,
               tooltip: strings.settings,
@@ -365,7 +431,7 @@ class _BrandHeader extends StatelessWidget {
           child: Text(
             strings.classicModeDescription,
             style: const TextStyle(
-              color: LoungeTokens.mutedText,
+              color: LoungeTokens.textMuted,
               fontSize: 14.5,
               height: 1.45,
               letterSpacing: 0.1,
@@ -399,13 +465,13 @@ class _ChromeIconButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, size: 22),
       tooltip: tooltip,
-      color: LoungeTokens.mutedText,
+      color: LoungeTokens.textMuted,
       splashRadius: 22,
       visualDensity: VisualDensity.compact,
       style: IconButton.styleFrom(
-        foregroundColor: LoungeTokens.mutedText,
-        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.55),
-        side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.18)),
+        foregroundColor: LoungeTokens.textMuted,
+        backgroundColor: LoungeTokens.surfaceRaised,
+        side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.18)),
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(LoungeTokens.space2),
       ),

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../motif/geometric_motif_painter.dart';
 import '../theme/lounge_tokens.dart';
 
-/// Shared Sudanese Lounge modal panel.
+/// Shared lounge modal panel.
 ///
-/// Coffee-charcoal surface with sand-line border, drop shadow, and a quiet
+/// Charcoal panel fill with a sand hairline border, drop shadow, and a quiet
 /// corner medallion. Used by the table's pause, score, and similar overlays
 /// so every modal reads as the same product, not a stock dialog.
 ///
@@ -19,6 +19,7 @@ class LoungePanel extends StatelessWidget {
     required this.highContrast,
     required this.child,
     this.padding = const EdgeInsets.all(LoungeTokens.space5),
+    this.showMotif = true,
   });
 
   /// Whether the high-contrast accessibility surface is active.
@@ -30,6 +31,10 @@ class LoungePanel extends StatelessWidget {
   /// Inner padding around [child]. Defaults to symmetric `space5`.
   final EdgeInsetsGeometry padding;
 
+  /// Whether to draw the quiet corner medallion. Off for a panel that already
+  /// sits over the menu backdrop's motif, where a second one is only noise.
+  final bool showMotif;
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -38,19 +43,19 @@ class LoungePanel extends StatelessWidget {
         decoration: BoxDecoration(
           color: highContrast
               ? Colors.black.withValues(alpha: 0.98)
-              : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.97),
+              : LoungeTokens.panel.withValues(alpha: 0.97),
           borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
           border: Border.all(
             color: highContrast
-                ? const Color(0xFFFFD400)
-                : LoungeTokens.sandLine.withValues(alpha: 0.32),
+                ? LoungeTokens.highContrastSelected
+                : LoungeTokens.line.withValues(alpha: 0.32),
             width: highContrast ? 2 : 1,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x66000000),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 28,
-              offset: Offset(0, 14),
+              offset: const Offset(0, 14),
             ),
           ],
         ),
@@ -60,23 +65,24 @@ class LoungePanel extends StatelessWidget {
             children: [
               // Quiet corner medallion echoes the home menu backdrop so the
               // panel reads as the same product, not a stock dialog.
-              Positioned(
-                top: -34,
-                right: -42,
-                child: IgnorePointer(
-                  child: SizedBox.square(
-                    dimension: 168,
-                    child: CustomPaint(
-                      painter: const GeometricMotifPainter(
-                        variant: LoungeMotifVariant.medallion,
-                        opacity: 0.05,
-                        strokeWidth: 1.0,
-                        density: 4,
+              if (showMotif)
+                Positioned(
+                  top: -34,
+                  right: -42,
+                  child: IgnorePointer(
+                    child: SizedBox.square(
+                      dimension: 168,
+                      child: CustomPaint(
+                        painter: const GeometricMotifPainter(
+                          variant: LoungeMotifVariant.medallion,
+                          opacity: 0.05,
+                          strokeWidth: 1.0,
+                          density: 4,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               Padding(padding: padding, child: child),
             ],
           ),
@@ -86,7 +92,7 @@ class LoungePanel extends StatelessWidget {
   }
 }
 
-/// Standard header row for a [LoungePanel] — gold-accented badge, title +
+/// Standard header row for a [LoungePanel] — accent-lit badge, title +
 /// subtitle, and a close button.
 class LoungePanelHeader extends StatelessWidget {
   /// Creates a lounge panel header.
@@ -155,7 +161,7 @@ class LoungePanelHeader extends StatelessWidget {
                 child: IconButton(
                   onPressed: onClose,
                   icon: const Icon(Icons.close),
-                  color: LoungeTokens.mutedText,
+                  color: LoungeTokens.textMuted,
                 ),
               ),
             ),
@@ -176,25 +182,25 @@ class _HeaderBadge extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: LoungeTokens.feltRaised,
+        color: LoungeTokens.surfaceRaised,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
-        border: Border.all(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
+        border: Border.all(color: LoungeTokens.lineSoft),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, color: LoungeTokens.goldAccent, size: 22),
+      child: Icon(icon, color: LoungeTokens.accent, size: 22),
     );
   }
 }
 
 /// Visual tone for a [LoungePanelAction].
 enum LoungePanelActionTone {
-  /// Gold filled button — primary affordance.
+  /// Ember accent filled button — primary affordance.
   primary,
 
   /// Sand outlined button — neutral secondary affordance.
   neutral,
 
-  /// Deep-red outlined button — destructive secondary affordance.
+  /// Danger-red outlined button — destructive secondary affordance.
   danger,
 }
 
@@ -233,8 +239,8 @@ class LoungePanelAction {
 /// Standard two-button action row for a [LoungePanel].
 ///
 /// Each action is styled by its [LoungePanelAction.tone], whatever its slot:
-/// primary renders as a gold filled button, neutral and danger as outlined
-/// buttons tinted sand or deep red. [primary] sits first in the row and
+/// primary renders as an accent filled button, neutral and danger as outlined
+/// buttons tinted sand or danger red. [primary] sits first in the row and
 /// [secondary] second. When [tertiary] is supplied, it renders full width
 /// above the two-button row.
 class LoungePanelActions extends StatelessWidget {
@@ -296,8 +302,8 @@ class LoungePanelActions extends StatelessWidget {
       return FilledButton.icon(
         onPressed: action.onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: LoungeTokens.goldAccent,
-          foregroundColor: LoungeTokens.coffeeCharcoal,
+          backgroundColor: LoungeTokens.accent,
+          foregroundColor: LoungeTokens.onAccent,
           padding: const EdgeInsets.symmetric(
             horizontal: LoungeTokens.space4,
             vertical: LoungeTokens.space3,
@@ -316,11 +322,11 @@ class LoungePanelActions extends StatelessWidget {
       );
     }
     final isDanger = action.tone == LoungePanelActionTone.danger;
-    final accent = isDanger ? LoungeTokens.deepRed : LoungeTokens.sandLine;
+    final accent = isDanger ? LoungeTokens.danger : LoungeTokens.line;
     return OutlinedButton.icon(
       onPressed: action.onTap,
       style: OutlinedButton.styleFrom(
-        foregroundColor: LoungeTokens.offWhiteText,
+        foregroundColor: LoungeTokens.textPrimary,
         side: BorderSide(color: accent.withValues(alpha: 0.55)),
         padding: const EdgeInsets.symmetric(
           horizontal: LoungeTokens.space4,

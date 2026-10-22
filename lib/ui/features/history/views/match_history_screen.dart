@@ -83,10 +83,10 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: LoungeTokens.coffeeCharcoal,
+        backgroundColor: LoungeTokens.panel,
         title: Text(
           strings.historyDeleteConfirmTitle,
-          style: const TextStyle(color: LoungeTokens.offWhiteText),
+          style: const TextStyle(color: LoungeTokens.textPrimary),
         ),
         content: Text(
           strings.historyDeleteConfirmBody,
@@ -174,9 +174,9 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(
-        foregroundColor: LoungeTokens.offWhiteText,
+        foregroundColor: LoungeTokens.textPrimary,
         title: Text(strings.historyTitle),
         actions: [
           IconButton(
@@ -188,7 +188,7 @@ class _MatchHistoryScreenState extends State<MatchHistoryScreen> {
             ).pushReplacementNamed(AppRoutes.statistics),
             icon: const Icon(Icons.insights_outlined),
             tooltip: strings.statisticsMenuLabel,
-            color: LoungeTokens.sandLine,
+            color: LoungeTokens.line,
           ),
         ],
       ),

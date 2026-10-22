@@ -37,7 +37,7 @@ class ReplayTimelineGlyph extends StatelessWidget {
 /// Icon-only, which makes the tooltip and the semantics label load-bearing:
 /// without them the row is unreadable to a screen reader. [emphasized] marks
 /// the single-step pair, the moves a reviewer makes most — ringed and lit
-/// gold — while round and end jumps stay quiet sand outlines.
+/// ember — while round and end jumps stay quiet sand outlines.
 class ReplayTransportButton extends StatelessWidget {
   /// Creates a transport control.
   const ReplayTransportButton({
@@ -57,7 +57,7 @@ class ReplayTransportButton extends StatelessWidget {
   /// Null disables the action; it stays visible either way.
   final VoidCallback? onPressed;
 
-  /// Lights the control gold.
+  /// Lights the control in the accent.
   final bool emphasized;
 
   /// Side of the painted chrome: the target less the inset either side.
@@ -68,10 +68,10 @@ class ReplayTransportButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final glyphColor = !enabled
-        ? LoungeTokens.sandLine.withValues(alpha: 0.3)
+        ? LoungeTokens.line.withValues(alpha: 0.3)
         : emphasized
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.sandLine;
+        ? LoungeTokens.accent
+        : LoungeTokens.line;
     return SizedBox.square(
       dimension: ReplayCardMetrics.tapTarget,
       child: Tooltip(
@@ -116,7 +116,7 @@ class ReplayTransportButton extends StatelessWidget {
       return BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: enabled ? 0.22 : 0.1),
+          color: LoungeTokens.line.withValues(alpha: enabled ? 0.22 : 0.1),
         ),
       );
     }
@@ -127,17 +127,17 @@ class ReplayTransportButton extends StatelessWidget {
         end: Alignment.bottomCenter,
         colors: [
           Color.lerp(
-            LoungeTokens.coffeeCharcoal,
-            LoungeTokens.goldAccent,
+            LoungeTokens.panel,
+            LoungeTokens.accent,
             enabled ? 0.2 : 0.06,
           )!,
-          LoungeTokens.coffeeCharcoal,
+          LoungeTokens.panel,
         ],
       ),
       border: Border.all(
         color: enabled
-            ? LoungeTokens.goldAccent.withValues(alpha: 0.65)
-            : LoungeTokens.sandLine.withValues(alpha: 0.14),
+            ? LoungeTokens.accent.withValues(alpha: 0.65)
+            : LoungeTokens.line.withValues(alpha: 0.14),
       ),
       boxShadow: enabled ? LoungeTokens.elevationL2 : null,
     );
@@ -216,10 +216,10 @@ class ReplayScrubber extends StatelessWidget {
         child: SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 3,
-            activeTrackColor: LoungeTokens.goldAccent,
-            inactiveTrackColor: LoungeTokens.sandLine.withValues(alpha: 0.22),
-            thumbColor: LoungeTokens.goldAccent,
-            overlayColor: LoungeTokens.goldAccent.withValues(alpha: 0.14),
+            activeTrackColor: LoungeTokens.accent,
+            inactiveTrackColor: LoungeTokens.line.withValues(alpha: 0.22),
+            thumbColor: LoungeTokens.accent,
+            overlayColor: LoungeTokens.accent.withValues(alpha: 0.14),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
           ),

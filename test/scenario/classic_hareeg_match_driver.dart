@@ -294,8 +294,14 @@ class ClassicHareegMatchDriver {
 
     while (true) {
       if (roundCount >= roundLimit) {
-        return _report(MatchStopReason.roundLimit, null, rounds, totalActions,
-            setup, seed);
+        return _report(
+          MatchStopReason.roundLimit,
+          null,
+          rounds,
+          totalActions,
+          setup,
+          seed,
+        );
       }
       roundCount += 1;
 
@@ -304,9 +310,24 @@ class ClassicHareegMatchDriver {
       while (!controller.isRoundOver) {
         final seat = controller.currentSeat;
         var legalActionIds = controller.cpuActionIdsFor(seat);
+        if (legalActionIds.isEmpty && controller.settleLapsedFiftyWindow()) {
+          // Mirror the production CPU runner: a window that lapsed by the
+          // clock is settled before the seat is declared stranded, which may
+          // end a stock-exhausted round or free the normal draw options.
+          if (controller.isRoundOver) {
+            break;
+          }
+          legalActionIds = controller.cpuActionIdsFor(seat);
+        }
         if (legalActionIds.isEmpty) {
-          return _report(MatchStopReason.stuckNoLegalActions, null, rounds,
-              totalActions, setup, seed);
+          return _report(
+            MatchStopReason.stuckNoLegalActions,
+            null,
+            rounds,
+            totalActions,
+            setup,
+            seed,
+          );
         }
 
         if (onDecision != null) {
@@ -324,14 +345,30 @@ class ClassicHareegMatchDriver {
           if (!recoverStuckFiftyWindows) {
             // No-recovery mode mirrors production, which never jumps the clock
             // to expire a stalled window. Surface the stuck state instead.
-            return _report(MatchStopReason.cpuStrandedNoRecovery, null, rounds,
-                totalActions, setup, seed);
+            return _report(
+              MatchStopReason.cpuStrandedNoRecovery,
+              null,
+              rounds,
+              totalActions,
+              setup,
+              seed,
+            );
           }
           _expireFiftyWindow(controller);
+          if (controller.isRoundOver) {
+            // The lapse settled a stock-exhausted round as a draw.
+            break;
+          }
           legalActionIds = controller.cpuActionIdsFor(seat);
           if (legalActionIds.isEmpty) {
-            return _report(MatchStopReason.stuckNoLegalActions, null, rounds,
-                totalActions, setup, seed);
+            return _report(
+              MatchStopReason.stuckNoLegalActions,
+              null,
+              rounds,
+              totalActions,
+              setup,
+              seed,
+            );
           }
           intent = _tryChoose(controller, seat, legalActionIds);
           if (intent == null) {
@@ -358,12 +395,26 @@ class ClassicHareegMatchDriver {
 
         totalActions += 1;
         if (onStep != null) {
-          onStep(_captureStep(controller, seat, phaseBefore, intent.actionId,
-              legalActionIds, totalActions));
+          onStep(
+            _captureStep(
+              controller,
+              seat,
+              phaseBefore,
+              intent.actionId,
+              legalActionIds,
+              totalActions,
+            ),
+          );
         }
         if (totalActions >= actionLimit) {
-          return _report(MatchStopReason.actionLimit, null, rounds,
-              totalActions, setup, seed);
+          return _report(
+            MatchStopReason.actionLimit,
+            null,
+            rounds,
+            totalActions,
+            setup,
+            seed,
+          );
         }
         // Advance the clock once per applied action so Fifty windows age across
         // turns and eventually expire when no one claims.
@@ -384,9 +435,14 @@ class ClassicHareegMatchDriver {
 
       final next = controller.nextRoundSnapshot(savedAt: _now());
       if (next == null) {
-        return _report(MatchStopReason.matchWinner,
-            controller.roundProgress?.matchWinner, rounds, totalActions, setup,
-            seed);
+        return _report(
+          MatchStopReason.matchWinner,
+          controller.roundProgress?.matchWinner,
+          rounds,
+          totalActions,
+          setup,
+          seed,
+        );
       }
       controller = ClassicHareegGameController.fromSnapshot(
         next,
@@ -436,6 +492,9 @@ class ClassicHareegMatchDriver {
     _clock = _clock.add(
       Duration(seconds: controller.setup.fiftyTimerSeconds + 30),
     );
+    // Mirror production: the live table settles the lapsed window through the
+    // engine, which may end a stock-exhausted round as a draw.
+    controller.settleLapsedFiftyWindow();
   }
 
   Never _throwNoChoice(

@@ -56,7 +56,7 @@ class _CardInspectOverlay extends StatelessWidget {
                         key: const ValueKey('card-inspect-title'),
                         textAlign: compact ? TextAlign.center : TextAlign.start,
                         style: TextStyle(
-                          color: LoungeTokens.offWhiteText,
+                          color: LoungeTokens.textPrimary,
                           fontSize: compact ? 17 : 20,
                           fontWeight: FontWeight.w900,
                           height: 1.05,
@@ -71,7 +71,7 @@ class _CardInspectOverlay extends StatelessWidget {
                               ? TextAlign.center
                               : TextAlign.start,
                           style: TextStyle(
-                            color: LoungeTokens.offWhiteText.withValues(
+                            color: LoungeTokens.textPrimary.withValues(
                               alpha: 0.82,
                             ),
                             fontSize: compact ? 12 : 13,
@@ -128,14 +128,12 @@ class _CardInspectOverlay extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: highContrast
                             ? Colors.black.withValues(alpha: 0.98)
-                            : LoungeTokens.coffeeCharcoal.withValues(
-                                alpha: 0.96,
-                              ),
+                            : LoungeTokens.panel.withValues(alpha: 0.96),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: highContrast
-                              ? const Color(0xFFFFD400)
-                              : LoungeTokens.goldAccent.withValues(alpha: 0.36),
+                              ? LoungeTokens.highContrastSelected
+                              : LoungeTokens.lineSoft,
                           width: highContrast ? 2 : 1,
                         ),
                         boxShadow: [
@@ -164,7 +162,7 @@ class _CardInspectOverlay extends StatelessWidget {
                                 key: const ValueKey('card-inspect-close'),
                                 onPressed: onClose,
                                 icon: const Icon(Icons.close_rounded),
-                                color: LoungeTokens.offWhiteText,
+                                color: LoungeTokens.textPrimary,
                                 iconSize: 20,
                                 visualDensity: VisualDensity.compact,
                               ),

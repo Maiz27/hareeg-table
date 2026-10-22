@@ -233,7 +233,7 @@ class _OpeningDealFlightCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(LoungeTokens.radiusCard),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0x66000000),
+                    color: Colors.black.withValues(alpha: 0.4),
                     blurRadius: shadowBlur,
                     offset: shadowOffset,
                   ),

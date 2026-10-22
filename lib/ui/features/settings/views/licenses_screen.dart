@@ -7,15 +7,21 @@ import '../../../core/brand/app_brand_mark.dart';
 import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../shared/medallion_backdrop.dart';
+import '../../updates/update_prompt_controller.dart';
+import '../../updates/widgets/update_check_tile.dart';
 import 'meta_pill.dart';
 
 /// Attribution + license screen reached from Settings -> About.
 class LicensesScreen extends StatefulWidget {
   /// Creates the licenses screen.
-  const LicensesScreen({super.key, required this.themes});
+  const LicensesScreen({super.key, required this.themes, this.updates});
 
   /// Bundled card themes shown in the attribution list.
   final List<HareegCardTheme> themes;
+
+  /// The update flow behind the "Check for updates" row, or null to hide
+  /// the row (web, where the PWA updates itself).
+  final UpdatePromptController? updates;
 
   @override
   State<LicensesScreen> createState() => _LicensesScreenState();
@@ -33,7 +39,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.aboutLicenses)),
       body: SafeArea(
         child: Stack(
@@ -52,11 +58,13 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
-              // Each part of the page is a card on the felt: the intro lit
+              // Each part of the page is a card on the ground: the intro lit
               // as the hero, the story and each licence group on quieter
               // surfaces (design contract section 8).
               children: [
                 const _AboutCard(hero: true, child: _AboutIntro()),
+                if (widget.updates case final updates?)
+                  _AboutCard(child: UpdateCheckTile(controller: updates)),
                 const _AboutCard(child: _OriginStory()),
                 _AboutCard(child: _LicenseSection(themes: widget.themes)),
                 const _AboutCard(child: _SoundLicenseSection()),
@@ -91,7 +99,7 @@ class _AboutCard extends StatelessWidget {
           ? loungeLitPanel(strength: 0.16)
           : loungeLitPanel(
               strength: 0.04,
-              edge: LoungeTokens.sandLine.withValues(alpha: 0.18),
+              edge: LoungeTokens.line.withValues(alpha: 0.18),
             ).copyWith(boxShadow: const []),
       child: child,
     );
@@ -231,7 +239,7 @@ class _ThemeLicenseRow extends StatelessWidget {
               ? Icons.brush_outlined
               : Icons.collections_bookmark_outlined,
           size: 20,
-          color: LoungeTokens.goldAccent,
+          color: LoungeTokens.accent,
         ),
         const SizedBox(width: LoungeTokens.space3),
         Expanded(
@@ -289,7 +297,7 @@ class _SoundLicenseSection extends StatelessWidget {
             const Icon(
               Icons.volume_up_outlined,
               size: 20,
-              color: LoungeTokens.goldAccent,
+              color: LoungeTokens.accent,
             ),
             const SizedBox(width: LoungeTokens.space3),
             Expanded(
@@ -364,9 +372,6 @@ class _RuleDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      color: LoungeTokens.sandLine.withValues(alpha: 0.14),
-    );
+    return Divider(height: 1, color: LoungeTokens.line.withValues(alpha: 0.14));
   }
 }

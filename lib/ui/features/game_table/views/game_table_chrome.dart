@@ -118,7 +118,7 @@ class _FeedbackChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isError ? LoungeTokens.deepRed : LoungeTokens.goldAccent;
+    final color = isError ? LoungeTokens.danger : LoungeTokens.accent;
     return Container(
       constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.symmetric(
@@ -126,7 +126,7 @@ class _FeedbackChip extends StatelessWidget {
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.92),
+        color: LoungeTokens.panel.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
         border: Border.all(color: color),
       ),

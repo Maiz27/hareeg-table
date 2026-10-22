@@ -75,6 +75,15 @@ An `actionApplied` frame therefore records `effectivePreActionClock` — the
 instant actually in force immediately before the action landed — and it is null
 when no adjustment was needed, which is the ordinary case.
 
+The round crossing has the same retry in a second shape. A live round can end
+with no action at all: the stock is empty, a Fifty window was the only thing
+keeping the draw phase open, and it lapsed by wall clock, so the engine settled
+the round as a draw. The transcript then jumps straight to the next round while
+the synthetic window is still open. When the next-round snapshot is unavailable
+and a window is visible, the machine expires the window, asks the engine to
+settle it, and asks again — the same seam the live table uses when its Fifty
+ticker runs out.
+
 Anything reporting "how long was left on the window when this happened" must
 read that value, falling back to the previous frame's clock. Reading the
 previous frame's clock alone reports a time from *before* the jump that produced

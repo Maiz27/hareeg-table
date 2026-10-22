@@ -42,7 +42,7 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
     final strings = context.strings;
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.setupTitle)),
       body: SafeArea(
         child: Stack(
@@ -170,11 +170,9 @@ class _NewGameSetupScreenState extends State<NewGameSetupScreen> {
       // always one tap away however far the options scroll.
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
-          color: LoungeTokens.feltGreen,
+          color: LoungeTokens.surface,
           border: Border(
-            top: BorderSide(
-              color: LoungeTokens.sandLine.withValues(alpha: 0.14),
-            ),
+            top: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.14)),
           ),
           boxShadow: LoungeTokens.elevationL2,
         ),
@@ -256,14 +254,12 @@ class _StartChoice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // An option card (design contract section 8): the choice sits on a raised
-    // lounge surface with its title, rather than as a bare row on the felt.
+    // panel with its title, rather than as a bare row on the charcoal ground.
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.36),
+        color: LoungeTokens.panel,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.16)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(LoungeTokens.space4),
@@ -278,7 +274,7 @@ class _StartChoice<T> extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 18, color: LoungeTokens.goldAccent),
+            Icon(icon, size: 18, color: LoungeTokens.accent),
             const SizedBox(width: LoungeTokens.space2),
             Expanded(child: Text(title, style: LoungeTokens.title)),
           ],
@@ -290,20 +286,18 @@ class _StartChoice<T> extends StatelessWidget {
             style: ButtonStyle(
               backgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return LoungeTokens.goldAccent;
+                  return LoungeTokens.accent;
                 }
-                return LoungeTokens.coffeeCharcoal.withValues(alpha: 0.74);
+                return LoungeTokens.surface.withValues(alpha: 0.74);
               }),
               foregroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return LoungeTokens.coffeeCharcoal;
+                  return LoungeTokens.onAccent;
                 }
-                return LoungeTokens.offWhiteText;
+                return LoungeTokens.textPrimary;
               }),
               side: WidgetStateProperty.all(
-                BorderSide(
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.42),
-                ),
+                BorderSide(color: LoungeTokens.line.withValues(alpha: 0.42)),
               ),
               textStyle: WidgetStateProperty.all(
                 const TextStyle(
@@ -334,7 +328,7 @@ class _StartChoice<T> extends StatelessWidget {
               const Icon(
                 Icons.info_outline,
                 size: 14,
-                color: LoungeTokens.sandLine,
+                color: LoungeTokens.line,
               ),
               const SizedBox(width: LoungeTokens.space2),
               Expanded(child: Text(note!, style: LoungeTokens.bodyMuted)),
@@ -363,11 +357,9 @@ class _HouseRulesFooter extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.36),
+        color: LoungeTokens.panel,
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -411,13 +403,13 @@ class _HouseRulesFooter extends StatelessWidget {
                       const Icon(
                         Icons.tune,
                         size: 16,
-                        color: LoungeTokens.goldAccent,
+                        color: LoungeTokens.accent,
                       ),
                       const SizedBox(width: LoungeTokens.space2),
                       Text(
                         strings.edit,
                         style: const TextStyle(
-                          color: LoungeTokens.goldAccent,
+                          color: LoungeTokens.accent,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,

@@ -144,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -173,7 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ? null
                                 : () => _finish(toPractice: false),
                             style: TextButton.styleFrom(
-                              foregroundColor: LoungeTokens.mutedText,
+                              foregroundColor: LoungeTokens.textMuted,
                               // The theme minimum is full-width; hug the label.
                               minimumSize: const Size(0, 40),
                             ),
@@ -213,9 +213,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 OutlinedButton(
                                   onPressed: () => _finish(toPractice: false),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: LoungeTokens.goldAccent,
+                                    foregroundColor: LoungeTokens.accent,
                                     side: BorderSide(
-                                      color: LoungeTokens.goldAccent.withValues(
+                                      color: LoungeTokens.accent.withValues(
                                         alpha: 0.6,
                                       ),
                                     ),
@@ -346,19 +346,25 @@ class _FanHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The fan on the home stage's warm pool of lamp light.
+    // The fan on the home stage's warm pool of ember lamp light. The pool
+    // must reach zero inside its own box: a radial gradient is sized by the
+    // box's shorter side, so with the old 0.7 radius it was still lit at the
+    // top and bottom edges and cut off in a hard line above the fan.
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          radius: 0.7,
+          radius: 0.5,
           colors: [
-            LoungeTokens.goldAccent.withValues(alpha: 0.16),
-            LoungeTokens.goldAccent.withValues(alpha: 0),
+            LoungeTokens.accentGlow.withValues(alpha: 0.16),
+            LoungeTokens.accentGlow.withValues(alpha: 0),
           ],
         ),
       ),
       child: const Padding(
-        padding: EdgeInsets.all(LoungeTokens.space5),
+        padding: EdgeInsets.symmetric(
+          horizontal: LoungeTokens.space5,
+          vertical: LoungeTokens.space8,
+        ),
         child: ShowcaseCardFan(
           width: 232,
           height: 132,
@@ -387,8 +393,8 @@ class _IconHero extends StatelessWidget {
   }
 }
 
-/// Where the player is in the intro: one numbered medallion per page, gold
-/// once passed, lit on the current page, joined by a sand hairline.
+/// Where the player is in the intro: one numbered medallion per page, filled
+/// with the accent once passed, lit on the current page, joined by a sand hairline.
 class _PageMarkers extends StatelessWidget {
   const _PageMarkers({required this.count, required this.activeIndex});
 
@@ -410,14 +416,14 @@ class _PageMarkers extends StatelessWidget {
                   horizontal: LoungeTokens.space1,
                 ),
                 color: i <= activeIndex
-                    ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
-                    : LoungeTokens.sandLine.withValues(alpha: 0.25),
+                    ? LoungeTokens.accent.withValues(alpha: 0.7)
+                    : LoungeTokens.lineSoft,
               ),
             LoungeMedallion.label(
               label: '${i + 1}',
               size: i == activeIndex ? 30 : 24,
               tone: i < activeIndex
-                  ? LoungeMedallionTone.gold
+                  ? LoungeMedallionTone.ember
                   : i == activeIndex
                   ? LoungeMedallionTone.lit
                   : LoungeMedallionTone.lacquer,

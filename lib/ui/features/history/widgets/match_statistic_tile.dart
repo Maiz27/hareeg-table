@@ -34,17 +34,15 @@ class MatchStatisticTile extends StatelessWidget {
           radius: 1.6,
           colors: [
             Color.lerp(
-              LoungeTokens.coffeeCharcoal,
-              LoungeTokens.goldAccent,
+              LoungeTokens.surfaceSpotlight,
+              LoungeTokens.accent,
               0.07,
-            )!.withValues(alpha: 0.7),
-            LoungeTokens.coffeeCharcoal.withValues(alpha: 0.45),
+            )!,
+            LoungeTokens.panel,
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

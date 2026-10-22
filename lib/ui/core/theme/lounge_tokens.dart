@@ -1,79 +1,149 @@
 import 'package:flutter/material.dart';
 
-/// Warm Sudanese Lounge design tokens.
+import 'brand_palette.dart';
+
+/// Hareeg Table design tokens.
 ///
-/// One place for palette, spacing, touch targets, typography, and motion
-/// constants used across the table, menus, cards, overlays, and splash. The
-/// canonical palette source is `docs/design/direction.md`; new colours should
-/// be added to both this file and the design doc.
+/// One place for the colour roles, spacing, touch targets, typography and
+/// motion constants used across the table, menus, cards, overlays and splash.
+///
+/// Colours are **roles**, not hues: a widget asks for `accent`, `surface` or
+/// `stateSelected`, never for "ember" or "sand". The hues behind the roles
+/// live in [BrandPalette], the only file that holds a hex value, so a palette
+/// change is one edit there and a role that should move to a different hue is
+/// one line here. Feature code never references [BrandPalette] directly
+/// (`test/lint/design_token_ratchet_test.dart` enforces both rules).
+///
+/// The canonical description of each role is
+/// `docs/design/design-contract.md` section 3.
 abstract final class LoungeTokens {
-  // -- Palette --------------------------------------------------------------
+  // -- Surfaces -------------------------------------------------------------
 
-  /// Primary table surface colour.
-  static const feltGreen = Color(0xFF12382F);
+  /// The ground: scaffold, menus, screen headers, the splash.
+  static const surface = BrandPalette.charcoal;
 
-  /// Deeper edge tone used for table chrome and menu backgrounds.
-  static const coffeeCharcoal = Color(0xFF15110E);
+  /// Lifted one step: raised chips, banners, inset panels on [surface].
+  static const surfaceRaised = BrandPalette.charcoalRaised;
+
+  /// Lifted two steps: the pool behind cards and lit medallions on [surface].
+  static const surfaceSpotlight = BrandPalette.charcoalSpotlight;
+
+  /// Sunk one step: recessed fills, progress tracks, inset trays on [surface].
+  static const surfaceInset = BrandPalette.charcoalDeep;
+
+  /// L3 panel fill: sheets, pause, score, the coach card.
+  static const panel = BrandPalette.charcoalRaised;
+
+  /// L2 panel fill, slightly translucent over the table.
+  static const panelTranslucent = Color(0xE015110E);
+
+  /// Scrim behind sheets and overlays sitting above the table.
+  static const scrim = Color(0xCC0B0A08);
+
+  /// Light surface: paper panels, the light brand pairing.
+  static const paper = BrandPalette.ivory;
+
+  // -- The table ------------------------------------------------------------
+
+  /// The playing surface. Felt is for the table only; menus sit on [surface].
+  static const tableFelt = BrandPalette.felt;
+
+  /// Raised felt: meld lanes, inset panels on the table.
+  static const tableFeltRaised = BrandPalette.feltRaised;
+
+  /// Felt spotlight: the lighter pool behind on-table cards.
+  static const tableFeltSpotlight = BrandPalette.feltSpotlight;
 
   /// Default card face base.
-  static const cardIvory = Color(0xFFF8F0DD);
+  static const cardFace = BrandPalette.ivory;
 
-  /// Sand-coloured hairlines and motif strokes.
-  static const sandLine = Color(0xFFD7BD83);
+  // -- Accent ---------------------------------------------------------------
 
-  /// Primary accent for buttons, opening progress, and active controls.
-  static const goldAccent = Color(0xFFD69B35);
+  /// Primary action: filled buttons, active controls, progress, the lamp.
+  static const accent = BrandPalette.ember;
 
-  /// Fifty / Khamsin heat.
-  static const fiftyFlame = Color(0xFFEF5A24);
+  /// [accent] pressed or deepened; the dark end of a lit gradient.
+  static const accentPressed = BrandPalette.emberDeep;
 
-  /// Deep red used for warnings, illegal-action states, and the heart suit.
-  static const deepRed = Color(0xFFA92E24);
+  /// [accent] caught by the light; the bright end of a lit gradient.
+  static const accentBright = BrandPalette.emberBright;
 
-  /// Cool accent used sparingly for opponent badges and inactive seats.
-  static const indigoAccent = Color(0xFF23395B);
+  /// Text and icons on [accent].
+  static const onAccent = BrandPalette.charcoal;
 
-  /// Off-white body text on dark surfaces.
-  static const offWhiteText = Color(0xFFF5EFE3);
+  /// Soft outer glow for accent rings and lit medallions.
+  static const accentGlow = Color(0x66E4522B);
 
-  /// Muted text on dark surfaces.
-  static const mutedText = Color(0xFFB8AA91);
+  // -- Lines and text -------------------------------------------------------
 
-  // -- Derived surface tones ------------------------------------------------
+  /// Hairlines, motif strokes, secondary borders.
+  static const line = BrandPalette.sand;
 
-  /// Slightly raised felt for chips, banners, and inset panels.
-  static const feltRaised = Color(0xFF184235);
+  /// Hairline edge for L2 surfaces (25 % [line]).
+  static const lineSoft = Color(0x40D7BD83);
 
-  /// Felt tone used behind cards (a touch lighter for contrast).
-  static const feltSpotlight = Color(0xFF1B4A3C);
+  /// Primary text on dark surfaces.
+  static const textPrimary = BrandPalette.offWhite;
 
-  /// Background for sheets / overlays sitting above the table.
-  static const overlayScrim = Color(0xCC0B0A08);
+  /// Secondary text on dark surfaces.
+  static const textMuted = BrandPalette.stone;
+
+  /// Text on [paper] and [cardFace].
+  static const textOnPaper = BrandPalette.charcoal;
+
+  // -- States (reserved meanings; design contract section 3.3) --------------
+
+  /// The player picked this: hand cards, chosen controls, legal drop zones.
+  /// Quiet sand, so the flame stays reserved for fire.
+  static const stateSelected = BrandPalette.sand;
 
   /// Soft glow for selected card outlines.
-  static const selectedGlow = Color(0x66D69B35);
+  static const stateSelectedGlow = Color(0x66D7BD83);
 
-  /// Pending-discard amber border, slightly brighter than goldAccent.
-  static const pendingDiscard = Color(0xFFE0A848);
+  /// Will leave the hand on confirm.
+  static const statePending = BrandPalette.amber;
 
-  /// Invalid action red, tuned for ring/border use.
-  static const invalidAction = Color(0xFFE07466);
+  /// Rejected action, tuned for ring and border use.
+  static const stateInvalid = BrandPalette.rose;
+
+  /// Fifty / Khamsin heat. The brand flame: Fifty moments and danger scores.
+  static const fiftyHeat = BrandPalette.ember;
+
+  /// The white-hot core of the Fifty flame: the stamp's top edge, the first
+  /// shockwave ring, freshly thrown embers before they cool.
+  static const fiftyHeatCore = BrandPalette.flameCore;
+
+  /// A decorative cool spark for celebrations only. Not a state: the coach
+  /// hues are reserved and [seatCool] is too dark on [surface].
+  static const celebrationCool = BrandPalette.lagoon;
+
+  /// Danger: warnings, elimination, illegal-action copy.
+  static const danger = BrandPalette.crimson;
+
+  /// Hearts and diamonds on the default card faces.
+  static const suitRed = BrandPalette.crimson;
+
+  /// Cool accent for opponent badges and inactive seats; the west seat.
+  static const seatCool = BrandPalette.indigo;
+
+  /// The east seat's identity hue, a second cool told apart from [seatCool].
+  static const seatEast = BrandPalette.slate;
 
   /// Coach highlight ring — a reserved cool teal used only by the coaching
-  /// tier's proactive hints. Deliberately distinct from selection/cover
-  /// (gold), pending (amber), invalid (red), and Fifty (flame) so a coached
-  /// card never reads as any other state. Drawn as an outline + glow ring
-  /// (never a face tint) so it stays legible across every card theme.
-  static const coachHighlight = Color(0xFF2FB4A6);
+  /// tier's proactive hints. Deliberately distinct from selection (sand),
+  /// pending (amber), invalid (rose) and Fifty (ember) so a coached card never
+  /// reads as any other state. Drawn as an outline + glow ring (never a face
+  /// tint) so it stays legible across every card theme.
+  static const coachHighlight = BrandPalette.teal;
 
   /// Soft outer glow for the coach highlight ring.
   static const coachGlow = Color(0x662FB4A6);
 
   /// Secondary coach ring hues, used to tell apart the distinct melds a single
-  /// opening / finish hint points at. All cool and clearly separable from
-  /// gold / amber / red / flame, so each meld group reads as its own ring.
-  static const coachHighlightB = Color(0xFF4FA8E0);
-  static const coachHighlightC = Color(0xFFB07BE6);
+  /// opening / finish hint points at. All cool and clearly separable from the
+  /// warm states, so each meld group reads as its own ring.
+  static const coachHighlightB = BrandPalette.sky;
+  static const coachHighlightC = BrandPalette.violet;
 
   /// Coach ring palette indexed by meld-group. Group 0 is the reserved teal.
   static const coachRingPalette = [
@@ -82,11 +152,35 @@ abstract final class LoungeTokens {
     coachHighlightC,
   ];
 
-  /// Coach "let this go" ring — a warm rose used only to mark the single card a
-  /// proactive hint recommends discarding, so it reads as the opposite of the
-  /// cool teal/blue/violet "keep these" rings sharing the same hint. Distinct
-  /// from gold (selection), amber (pending), red (invalid), and flame (Fifty).
-  static const coachDiscard = Color(0xFFDC6FA0);
+  /// Coach "let this go" ring — a warm rose used only to mark the single card
+  /// a proactive hint recommends discarding, so it reads as the opposite of
+  /// the cool "keep these" rings sharing the same hint.
+  static const coachDiscard = BrandPalette.orchid;
+
+  // -- High-contrast states (the accessibility setting) ---------------------
+  // Overlay-only: they sit above the card theme and replace the brand states
+  // when "High-contrast cues" is on. Saturated by design.
+
+  /// Selected card outline, and the panel edge, under high contrast.
+  static const highContrastSelected = BrandPalette.signalYellow;
+  static const highContrastSelectedGlow = Color(0xCCFFD400);
+
+  /// Pending card under high contrast.
+  static const highContrastPending = BrandPalette.signalOrange;
+  static const highContrastPendingGlow = Color(0xCCFF6F00);
+  static const highContrastPendingTint = Color(0x33FF6F00);
+
+  /// Cover target under high contrast.
+  static const highContrastCover = BrandPalette.signalCyan;
+  static const highContrastCoverGlow = Color(0xCC00D9FF);
+  static const highContrastCoverTint = Color(0x3300D9FF);
+
+  /// Coach ring under high contrast (outline mint, glow the reserved teal).
+  static const highContrastCoach = BrandPalette.signalMint;
+  static const highContrastCoachGlow = Color(0xCC2FB4A6);
+
+  /// Invalid under high contrast.
+  static const highContrastInvalid = BrandPalette.signalRed;
 
   // -- Spacing scale --------------------------------------------------------
 
@@ -125,6 +219,9 @@ abstract final class LoungeTokens {
   /// Button corner radius.
   static const radiusButton = 12.0;
 
+  /// Pill radius for HUD chips and seat plates.
+  static const radiusPill = 999.0;
+
   // -- Touch targets --------------------------------------------------------
 
   /// Minimum tap target for primary buttons and icon-only buttons.
@@ -150,7 +247,7 @@ abstract final class LoungeTokens {
   /// Large display used for the home wordmark and match results.
   static final displayLarge = TextStyle(
     fontFamily: displayFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 40,
     fontWeight: FontWeight.w700,
     fontVariations: displayWeight(700),
@@ -161,7 +258,7 @@ abstract final class LoungeTokens {
   /// Display style used for the splash wordmark and major screen titles.
   static final display = TextStyle(
     fontFamily: displayFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 28,
     fontWeight: FontWeight.w700,
     fontVariations: displayWeight(700),
@@ -172,7 +269,7 @@ abstract final class LoungeTokens {
   /// Section heading on menus and panels.
   static const heading = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 18,
     fontWeight: FontWeight.w700,
     height: 1.25,
@@ -182,7 +279,7 @@ abstract final class LoungeTokens {
   /// List rows, seat names, and button labels.
   static const title = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 15,
     fontWeight: FontWeight.w600,
     height: 1.3,
@@ -192,7 +289,7 @@ abstract final class LoungeTokens {
   /// Title used in chips, banners, and seat labels.
   static const titleSmall = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 13,
     fontWeight: FontWeight.w700,
     height: 1.3,
@@ -202,7 +299,7 @@ abstract final class LoungeTokens {
   /// Small uppercase overline above a section or inside a seat plate.
   static const overline = TextStyle(
     fontFamily: uiFamily,
-    color: sandLine,
+    color: line,
     fontSize: 11,
     fontWeight: FontWeight.w700,
     height: 1.2,
@@ -212,7 +309,7 @@ abstract final class LoungeTokens {
   /// Body copy.
   static const body = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontSize: 14,
     height: 1.45,
   );
@@ -220,7 +317,7 @@ abstract final class LoungeTokens {
   /// Secondary / muted body copy.
   static const bodyMuted = TextStyle(
     fontFamily: uiFamily,
-    color: mutedText,
+    color: textMuted,
     fontSize: 13,
     height: 1.45,
   );
@@ -229,7 +326,7 @@ abstract final class LoungeTokens {
   /// Tabular figures keep counts and scores from jittering as they change.
   static const numericChip = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontWeight: FontWeight.w700,
     fontSize: 14,
     letterSpacing: 0.4,
@@ -240,7 +337,7 @@ abstract final class LoungeTokens {
   /// the UI face: Reem Kufi's round zero reads as the letter O at chip size.
   static const numericDisplay = TextStyle(
     fontFamily: uiFamily,
-    color: offWhiteText,
+    color: textPrimary,
     fontWeight: FontWeight.w700,
     fontSize: 24,
     height: 1.0,
@@ -258,15 +355,6 @@ abstract final class LoungeTokens {
   static const elevationL3 = [
     BoxShadow(color: Color(0x73000000), offset: Offset(0, 12), blurRadius: 32),
   ];
-
-  /// L2 surface fill (coffee charcoal, slightly translucent over felt).
-  static const surfaceL2 = Color(0xE015110E);
-
-  /// Hairline edge for L2 surfaces.
-  static const edgeL2 = Color(0x40D7BD83);
-
-  /// Pill radius for HUD chips and seat plates.
-  static const radiusPill = 999.0;
 
   // -- Motion (design contract section 6; scale with MotionScope) ------------
 

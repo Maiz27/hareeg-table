@@ -24,16 +24,16 @@ const HareegCardTheme sandlineLoungeCardTheme = HareegCardTheme(
       'Original generated artwork for Hareeg Table. Internal prototype asset set.',
   readableOnCompactLayouts: true,
   palette: CardThemePalette(
-    faceBackground: LoungeTokens.cardIvory,
-    faceBorder: LoungeTokens.sandLine,
+    faceBackground: LoungeTokens.cardFace,
+    faceBorder: LoungeTokens.line,
     faceShadow: Color(0x33000000),
-    redSuit: LoungeTokens.deepRed,
-    blackSuit: LoungeTokens.coffeeCharcoal,
-    jokerAccent: LoungeTokens.fiftyFlame,
-    backPrimary: LoungeTokens.coffeeCharcoal,
-    backSecondary: LoungeTokens.feltGreen,
-    backOrnament: LoungeTokens.sandLine,
-    faceText: LoungeTokens.coffeeCharcoal,
+    redSuit: LoungeTokens.suitRed,
+    blackSuit: LoungeTokens.textOnPaper,
+    jokerAccent: LoungeTokens.fiftyHeat,
+    backPrimary: LoungeTokens.surface,
+    backSecondary: LoungeTokens.surfaceRaised,
+    backOrnament: LoungeTokens.line,
+    faceText: LoungeTokens.textOnPaper,
   ),
   assetManifest: CardThemeAssetManifest(
     root: 'assets/cards/sandline_lounge',
@@ -83,16 +83,16 @@ const HareegCardTheme minimalSymbolsCardTheme = HareegCardTheme(
   sourceUrl: 'https://github.com/Maiz27/hareeg-table',
   readableOnCompactLayouts: true,
   palette: CardThemePalette(
-    faceBackground: LoungeTokens.cardIvory,
-    faceBorder: LoungeTokens.sandLine,
+    faceBackground: LoungeTokens.cardFace,
+    faceBorder: LoungeTokens.line,
     faceShadow: Color(0x33000000),
-    redSuit: LoungeTokens.deepRed,
-    blackSuit: LoungeTokens.coffeeCharcoal,
-    jokerAccent: LoungeTokens.fiftyFlame,
-    backPrimary: LoungeTokens.feltGreen,
-    backSecondary: LoungeTokens.coffeeCharcoal,
-    backOrnament: LoungeTokens.goldAccent,
-    faceText: LoungeTokens.coffeeCharcoal,
+    redSuit: LoungeTokens.suitRed,
+    blackSuit: LoungeTokens.textOnPaper,
+    jokerAccent: LoungeTokens.fiftyHeat,
+    backPrimary: LoungeTokens.surfaceRaised,
+    backSecondary: LoungeTokens.surface,
+    backOrnament: LoungeTokens.accent,
+    faceText: LoungeTokens.textOnPaper,
     minimalGlyph: true,
   ),
 );
@@ -177,7 +177,7 @@ const HareegCardTheme wikimediaPdCardTheme = HareegCardTheme(
 void _paintKenneyFlourish(Canvas canvas, CardRenderRequest request) {
   final size = request.size;
   final paint = Paint()
-    ..color = LoungeTokens.sandLine.withValues(alpha: 0.3)
+    ..color = LoungeTokens.line.withValues(alpha: 0.3)
     ..style = PaintingStyle.stroke
     ..strokeWidth = 0.8;
   canvas.drawLine(

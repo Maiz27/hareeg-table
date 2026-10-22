@@ -7,6 +7,8 @@ import 'package:hareeg_table/domain/classic_hareeg/game/classic_hareeg_round.dar
 import 'package:hareeg_table/domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/player_seat.dart';
 import 'package:hareeg_table/domain/classic_hareeg/models/playing_card.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/match_progression_rules.dart';
+import 'package:hareeg_table/domain/classic_hareeg/rules/opening_rules.dart';
 
 void main() {
   group('ClassicHareegCpuTurnRunner', () {
@@ -31,6 +33,67 @@ void main() {
       expect(result.appliedActionCount, 0);
       expect(result.didApplyAction, isFalse);
       expect(hookCalled, isFalse);
+    });
+
+    test('settles a Fifty window that lapsed with the stock empty instead of '
+        'reporting a stranded seat', () async {
+      final setup = ClassicHareegSetup.defaults();
+      final t0 = DateTime.utc(2026, 1, 1, 12);
+      var now = t0.add(const Duration(seconds: 1));
+      // East (unopened, the claimant) can only realise the thrown 7H as a
+      // cover of North's run, which the claim path could prove but the plain
+      // pickup cannot. While the window is live the round stays open on the
+      // claim; by the time the runner reads the surface (a read pause can
+      // outlast a short timer) the window has lapsed and nothing is legal.
+      final controller = ClassicHareegGameController.fromSnapshot(
+        ClassicHareegMatchSnapshot(
+          setup: setup,
+          hands: {
+            PlayerSeat.south: [_card(CardRank.three, CardSuit.spades)],
+            PlayerSeat.east: [
+              _card(CardRank.four, CardSuit.clubs),
+              _card(CardRank.five, CardSuit.clubs),
+              _card(CardRank.six, CardSuit.clubs),
+              _card(CardRank.two, CardSuit.diamonds),
+            ],
+            PlayerSeat.north: [_card(CardRank.king, CardSuit.spades)],
+            PlayerSeat.west: [_card(CardRank.four, CardSuit.spades)],
+          },
+          stock: const [],
+          discardPile: [_card(CardRank.seven, CardSuit.hearts)],
+          tableMelds: {
+            PlayerSeat.north: [
+              PlacedMeld.fromCards([
+                _card(CardRank.eight, CardSuit.hearts),
+                _card(CardRank.nine, CardSuit.hearts),
+                _card(CardRank.ten, CardSuit.hearts),
+              ]),
+            ],
+          },
+          starter: PlayerSeat.south,
+          currentSeat: PlayerSeat.east,
+          turnPhase: TurnPhase.draw,
+          openingState: OpeningState.initial(15),
+          roundNumber: 2,
+          savedAt: t0,
+          fiftyWindowOpenedAt: t0,
+          fiftyWindowDiscarder: PlayerSeat.east.previousAntiClockwise,
+          previousDiscardSeat: PlayerSeat.east.previousAntiClockwise,
+        ),
+        now: () => now,
+      );
+      expect(controller.isRoundOver, isFalse);
+      now = t0.add(Duration(seconds: setup.fiftyTimerSeconds + 5));
+
+      final result = await ClassicHareegCpuTurnRunner(
+        controller: controller,
+        strategy: _FirstLegalStrategy(),
+      ).run();
+
+      expect(result.stopReason, ClassicHareegCpuTurnStopReason.roundOver);
+      expect(result.appliedActionCount, 0);
+      expect(controller.isRoundOver, isTrue);
+      expect(controller.roundResult?.type, RoundOutcomeType.draw);
     });
 
     test('applies one CPU action then lets a hook stop the run', () async {
@@ -338,3 +401,6 @@ class _RecordingObservationStrategy implements CpuStrategy {
     return const CpuMoveIntent(actionId: ClassicHareegActionIds.drawStock);
   }
 }
+
+HareegCard _card(CardRank rank, CardSuit suit) =>
+    HareegCard.standard(rank: rank, suit: suit, deckIndex: 0);

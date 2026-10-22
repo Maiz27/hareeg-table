@@ -160,7 +160,7 @@ class TableDiscardPile extends StatelessWidget {
   final bool compact;
 
   /// True when the coaching tier is pointing at the top discard (pickup
-  /// hint). The teal coach ring takes precedence over the takeable gold tint.
+  /// hint). The teal coach ring takes precedence over the takeable sand tint.
   final bool coachHighlightTop;
 
   @override
@@ -205,18 +205,18 @@ class TableDiscardPile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: hot
-                      ? LoungeTokens.goldAccent.withValues(alpha: 0.12)
-                      : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.06),
+                      ? LoungeTokens.stateSelected.withValues(alpha: 0.12)
+                      : LoungeTokens.surface.withValues(alpha: 0.06),
                   border: Border.all(
                     color: hot
-                        ? LoungeTokens.goldAccent.withValues(alpha: 0.6)
+                        ? LoungeTokens.stateSelected.withValues(alpha: 0.6)
                         : Colors.transparent,
                     width: 1.4,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: hot
-                          ? LoungeTokens.goldAccent.withValues(alpha: 0.18)
+                          ? LoungeTokens.stateSelected.withValues(alpha: 0.18)
                           : Colors.black.withValues(alpha: 0.18),
                       blurRadius: hot ? 18 : 16,
                       offset: const Offset(0, 8),
@@ -349,7 +349,7 @@ class _EmptyDiscard extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.22),
+          color: LoungeTokens.surface.withValues(alpha: 0.22),
           width: 1.2,
         ),
       ),
@@ -371,13 +371,13 @@ class _CountBadge extends StatelessWidget {
         vertical: compact ? 2 : 3,
       ),
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.88),
+        color: LoungeTokens.panel.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         value,
         style: TextStyle(
-          color: LoungeTokens.offWhiteText,
+          color: LoungeTokens.textPrimary,
           fontSize: compact ? 10 : 12,
           fontWeight: FontWeight.w800,
           height: 1,

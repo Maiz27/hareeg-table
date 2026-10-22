@@ -55,6 +55,8 @@ class GamePreferences {
     required this.tableSurfaceTheme,
     required this.coachingTipsEnabled,
     required this.analysisCoach,
+    this.updateCheckEnabled = true,
+    this.skippedUpdateVersion,
   });
 
   /// Default first-run preferences.
@@ -72,6 +74,7 @@ class GamePreferences {
       tableSurfaceTheme: TableSurfaceTheme.sandline,
       coachingTipsEnabled: true,
       analysisCoach: AnalysisCoachSettings.defaults(),
+      updateCheckEnabled: true,
     );
   }
 
@@ -122,6 +125,9 @@ class GamePreferences {
       analysisCoach: AnalysisCoachSettings.fromJson(
         asJsonMap(json['analysisCoach']),
       ),
+      updateCheckEnabled:
+          asJsonBool(json['updateCheckEnabled']) ?? defaults.updateCheckEnabled,
+      skippedUpdateVersion: asJsonString(json['skippedUpdateVersion']),
     );
   }
 
@@ -172,6 +178,14 @@ class GamePreferences {
   /// coaching tier get help without an extra step.
   final bool coachingTipsEnabled;
 
+  /// Whether the app checks GitHub for a newer release on launch, at most
+  /// once a day. On by default; the manual check works either way.
+  final bool updateCheckEnabled;
+
+  /// The release version the player chose to skip, or null. The update
+  /// prompt stays hidden until a release newer than this one appears.
+  final String? skippedUpdateVersion;
+
   /// Creates modified preferences while preserving unspecified values.
   GamePreferences copyWith({
     ClassicHareegSetup? setup,
@@ -186,6 +200,8 @@ class GamePreferences {
     TableSurfaceTheme? tableSurfaceTheme,
     bool? coachingTipsEnabled,
     AnalysisCoachSettings? analysisCoach,
+    bool? updateCheckEnabled,
+    String? skippedUpdateVersion,
   }) {
     return GamePreferences(
       setup: setup ?? this.setup,
@@ -200,6 +216,8 @@ class GamePreferences {
       tableSurfaceTheme: tableSurfaceTheme ?? this.tableSurfaceTheme,
       coachingTipsEnabled: coachingTipsEnabled ?? this.coachingTipsEnabled,
       analysisCoach: analysisCoach ?? this.analysisCoach,
+      updateCheckEnabled: updateCheckEnabled ?? this.updateCheckEnabled,
+      skippedUpdateVersion: skippedUpdateVersion ?? this.skippedUpdateVersion,
     );
   }
 
@@ -219,6 +237,9 @@ class GamePreferences {
       'tableSurfaceTheme': tableSurfaceTheme.name,
       'coachingTipsEnabled': coachingTipsEnabled,
       'analysisCoach': analysisCoach.toJson(),
+      'updateCheckEnabled': updateCheckEnabled,
+      if (skippedUpdateVersion != null)
+        'skippedUpdateVersion': skippedUpdateVersion,
     };
   }
 }
@@ -316,7 +337,7 @@ TableStrictness _migrateStrictness({
       }
       return TableStrictness.coaching;
     default:
-      return TableStrictness.coaching;
+      return TableStrictness.standard;
   }
 }
 

@@ -54,7 +54,7 @@ class HomeHeroSection extends StatelessWidget {
     final hasSavedMatch = savedMatch != null;
 
     // Design contract 9.2: one primary action that adapts. A saved match
-    // makes Continue the gold call to action and New Game the alternative;
+    // makes Continue the ember call to action and New Game the alternative;
     // otherwise New Game leads and Continue waits, disabled, underneath.
     final newGame = hasSavedMatch
         ? _OutlinedAction(
@@ -182,7 +182,7 @@ class HomeHeroSection extends StatelessWidget {
                     icon: const Icon(Icons.delete_outline, size: 18),
                     label: Text(strings.abandonSavedMatch),
                     style: TextButton.styleFrom(
-                      foregroundColor: LoungeTokens.mutedText,
+                      foregroundColor: LoungeTokens.textMuted,
                       textStyle: LoungeTokens.titleSmall.copyWith(
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.2,
@@ -207,8 +207,8 @@ class HomeHeroSection extends StatelessWidget {
   }
 }
 
-/// The card fan resting on a pool of lamp light on the felt, with the faint
-/// outline of the table's edge beneath it.
+/// The card fan resting on a pool of warm ember light on the charcoal ground,
+/// with the faint outline of the table's edge beneath it.
 class _HeroStage extends StatelessWidget {
   const _HeroStage({required this.height});
 
@@ -255,8 +255,8 @@ class _HeroStagePainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: [
-            const Color(0xFFFFD99A).withValues(alpha: 0.16),
-            LoungeTokens.goldAccent.withValues(alpha: 0.05),
+            LoungeTokens.surfaceSpotlight,
+            LoungeTokens.accent.withValues(alpha: 0.06),
             Colors.transparent,
           ],
           stops: const [0, 0.5, 1],
@@ -273,7 +273,7 @@ class _HeroStagePainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = LoungeTokens.sandLine.withValues(alpha: 0.14),
+        ..color = LoungeTokens.line.withValues(alpha: 0.14),
     );
     canvas.drawOval(
       edge.inflate(7),
@@ -297,7 +297,7 @@ class _MotifDivider extends StatelessWidget {
     final line = Expanded(
       child: Container(
         height: 1,
-        color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        color: LoungeTokens.line.withValues(alpha: 0.18),
       ),
     );
     return Row(
@@ -312,7 +312,7 @@ class _MotifDivider extends StatelessWidget {
               height: 6,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.45),
+                  color: LoungeTokens.line.withValues(alpha: 0.45),
                 ),
               ),
             ),
@@ -343,9 +343,9 @@ class _OutlinedAction extends StatelessWidget {
       icon: Icon(icon, size: 20),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: LoungeTokens.offWhiteText,
-        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.35),
-        side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.4)),
+        foregroundColor: LoungeTokens.textPrimary,
+        backgroundColor: LoungeTokens.surfaceRaised.withValues(alpha: 0.6),
+        side: const BorderSide(color: LoungeTokens.lineSoft),
         minimumSize: const Size.fromHeight(LoungeTokens.tapTargetPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LoungeTokens.radiusButton),
@@ -373,9 +373,9 @@ class _MenuTile extends StatelessWidget {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: LoungeTokens.offWhiteText,
-        backgroundColor: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.42),
-        side: BorderSide(color: LoungeTokens.sandLine.withValues(alpha: 0.2)),
+        foregroundColor: LoungeTokens.textPrimary,
+        backgroundColor: LoungeTokens.surfaceRaised,
+        side: BorderSide(color: LoungeTokens.line.withValues(alpha: 0.2)),
         padding: const EdgeInsets.symmetric(
           horizontal: LoungeTokens.space2,
           vertical: LoungeTokens.space3,
@@ -388,7 +388,7 @@ class _MenuTile extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 22, color: LoungeTokens.goldAccent),
+          Icon(icon, size: 22, color: LoungeTokens.accent),
           const SizedBox(height: LoungeTokens.space2),
           Text(
             label,
@@ -397,7 +397,7 @@ class _MenuTile extends StatelessWidget {
             style: LoungeTokens.titleSmall.copyWith(
               fontWeight: FontWeight.w600,
               letterSpacing: 0.3,
-              color: LoungeTokens.offWhiteText.withValues(alpha: 0.92),
+              color: LoungeTokens.textPrimary.withValues(alpha: 0.92),
             ),
           ),
         ],
@@ -414,9 +414,9 @@ class _DisabledContinueButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    final borderColor = LoungeTokens.sandLine.withValues(alpha: 0.18);
+    final borderColor = LoungeTokens.line.withValues(alpha: 0.18);
     const backgroundColor = Colors.transparent;
-    final foregroundColor = LoungeTokens.mutedText.withValues(alpha: 0.55);
+    final foregroundColor = LoungeTokens.textMuted.withValues(alpha: 0.55);
 
     return OutlinedButton.icon(
       onPressed: null,

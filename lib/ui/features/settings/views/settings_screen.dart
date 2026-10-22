@@ -9,6 +9,8 @@ import '../../../core/motion/motion_speed.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../replay/widgets/analysis_coach_panel.dart' show verbosityLabel;
 import '../../shared/medallion_backdrop.dart';
+import '../../updates/update_prompt_controller.dart';
+import '../../updates/widgets/update_check_tile.dart';
 import '../models/settings_section.dart';
 import 'settings_accordion_section.dart';
 import 'settings_controls.dart';
@@ -30,7 +32,17 @@ class SettingsScreen extends StatefulWidget {
     required this.cardThemes,
     required this.isMatchActive,
     this.initialSection,
+    this.showUpdateSettings = true,
+    this.updates,
   });
+
+  /// Whether to show the Updates section. False on web, where the PWA
+  /// updates itself and there is nothing to switch.
+  final bool showUpdateSettings;
+
+  /// The update flow behind the manual "Check for updates" row in the
+  /// Updates section, or null to show the automatic-check switch alone.
+  final UpdatePromptController? updates;
 
   /// Current preferences (driven by the app shell).
   final GamePreferences preferences;
@@ -108,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       appBar: AppBar(title: Text(strings.settingsTitle)),
       body: SafeArea(
         child: Stack(
@@ -370,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   preview: [appLanguageLabel(_preferences.language, strings)],
                   expanded: _openSection == SettingsSection.language,
                   onToggle: () => _toggle(SettingsSection.language),
-                  isLast: true,
+                  isLast: !widget.showUpdateSettings,
                   child: SettingsDropdown<AppLanguage>(
                     label: strings.language,
                     value: _preferences.language,
@@ -380,6 +392,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _save(_preferences.copyWith(language: value)),
                   ),
                 ),
+                if (widget.showUpdateSettings)
+                  SettingsAccordionSection(
+                    key: _sectionKeys[SettingsSection.updates],
+                    icon: Icons.system_update_outlined,
+                    title: strings.updatesSectionTitle,
+                    description: strings.updatesSectionDescription,
+                    preview: [
+                      _preferences.updateCheckEnabled
+                          ? strings.updateAutoCheckOn
+                          : strings.updateAutoCheckOff,
+                    ],
+                    expanded: _openSection == SettingsSection.updates,
+                    onToggle: () => _toggle(SettingsSection.updates),
+                    isLast: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SettingsSwitch(
+                          icon: Icons.update_outlined,
+                          title: strings.updateCheckAutomatically,
+                          subtitle: strings.updateCheckAutomaticallyDescription,
+                          value: _preferences.updateCheckEnabled,
+                          onChanged: (value) => _save(
+                            _preferences.copyWith(updateCheckEnabled: value),
+                          ),
+                        ),
+                        if (widget.updates case final updates?) ...[
+                          const SettingsDivider(),
+                          UpdateCheckTile(controller: updates),
+                        ],
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: LoungeTokens.space5),
                 _AboutLink(
                   onTap: () =>
@@ -418,7 +463,7 @@ class _AboutLink extends StatelessWidget {
               const Icon(
                 Icons.article_outlined,
                 size: 18,
-                color: LoungeTokens.goldAccent,
+                color: LoungeTokens.accent,
               ),
               const SizedBox(width: LoungeTokens.space3),
               Expanded(
@@ -427,7 +472,7 @@ class _AboutLink extends StatelessWidget {
                   style: LoungeTokens.titleSmall,
                 ),
               ),
-              const Icon(Icons.chevron_right, color: LoungeTokens.sandLine),
+              const Icon(Icons.chevron_right, color: LoungeTokens.line),
             ],
           ),
         ),

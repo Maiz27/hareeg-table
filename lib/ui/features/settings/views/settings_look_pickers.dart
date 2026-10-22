@@ -29,10 +29,7 @@ class TableSurfacePicker extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
-          Icons.table_restaurant_outlined,
-          color: LoungeTokens.goldAccent,
-        ),
+        const Icon(Icons.table_restaurant_outlined, color: LoungeTokens.accent),
         const SizedBox(width: LoungeTokens.space3),
         Expanded(
           child: Column(
@@ -88,8 +85,8 @@ class _SurfaceTile extends StatelessWidget {
     final strings = context.strings;
     final surfaceLabel = tableSurfaceLabel(surface, strings);
     final borderColor = selected
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.sandLine.withValues(alpha: 0.28);
+        ? LoungeTokens.stateSelected
+        : LoungeTokens.line.withValues(alpha: 0.28);
     return Semantics(
       button: true,
       selected: selected,
@@ -117,11 +114,9 @@ class _SurfaceTile extends StatelessWidget {
                       width: selected ? 2 : 1,
                     ),
                     boxShadow: selected
-                        ? [
+                        ? const [
                             BoxShadow(
-                              color: LoungeTokens.goldAccent.withValues(
-                                alpha: 0.32,
-                              ),
+                              color: LoungeTokens.stateSelectedGlow,
                               blurRadius: 14,
                               spreadRadius: -2,
                             ),
@@ -155,8 +150,8 @@ class _SurfaceTile extends StatelessWidget {
                   surfaceLabel,
                   style: TextStyle(
                     color: selected
-                        ? LoungeTokens.goldAccent
-                        : LoungeTokens.offWhiteText,
+                        ? LoungeTokens.stateSelected
+                        : LoungeTokens.textPrimary,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3,
@@ -179,12 +174,12 @@ class _SelectedBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: const BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal,
+        color: LoungeTokens.panel,
         shape: BoxShape.circle,
       ),
       child: const Icon(
         Icons.check_circle,
-        color: LoungeTokens.goldAccent,
+        color: LoungeTokens.stateSelected,
         size: 18,
       ),
     );
@@ -303,7 +298,7 @@ class _CardThemeRow extends StatelessWidget {
                         Text(
                           theme.unavailableReason!,
                           style: const TextStyle(
-                            color: LoungeTokens.goldAccent,
+                            color: LoungeTokens.accent,
                             fontSize: 12,
                           ),
                         ),
@@ -317,8 +312,8 @@ class _CardThemeRow extends StatelessWidget {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
                   color: selected
-                      ? LoungeTokens.goldAccent
-                      : LoungeTokens.mutedText,
+                      ? LoungeTokens.accent
+                      : LoungeTokens.textMuted,
                 ),
               ],
             ),

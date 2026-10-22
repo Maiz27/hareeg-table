@@ -17,11 +17,9 @@ class MetaPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.52),
+        color: LoungeTokens.surface.withValues(alpha: 0.52),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.22)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -31,7 +29,7 @@ class MetaPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: LoungeTokens.goldAccent),
+            Icon(icon, size: 13, color: LoungeTokens.accent),
             const SizedBox(width: LoungeTokens.space1),
             Text(label, style: LoungeTokens.bodyMuted),
           ],

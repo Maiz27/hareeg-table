@@ -323,7 +323,20 @@ class ReplayReconstruction {
     // One round crossing per advance, so a multi-round gap still yields
     // control between deals.
     if (_controller.roundNumber < entry.roundNumber) {
-      final next = _controller.nextRoundSnapshot(savedAt: _clock);
+      // One round-crossing seam, like the one apply seam: the lapse retry
+      // below goes back through it rather than adding a second call site.
+      ClassicHareegMatchSnapshot? crossRound() =>
+          _controller.nextRoundSnapshot(savedAt: _clock);
+      var next = crossRound();
+      if (next == null && _controller.fiftyClaimant != null) {
+        // The lapse retry, the round-crossing twin of the Fifty retry below:
+        // the original round ended because a Fifty window lapsed by wall
+        // clock with the stock empty, while the synthetic window is still
+        // open. Expire it and let the engine settle the round.
+        _expireFiftyWindow();
+        _controller.settleLapsedFiftyWindow();
+        next = crossRound();
+      }
       if (next == null) {
         _fail(
           kind: ReplayTimelineFailureKind.roundUnavailable,
@@ -356,13 +369,7 @@ class ReplayReconstruction {
     DateTime? effectivePreActionClock;
     var result = _applyOnce(entry.actionId);
     if (!result.isSuccess && _controller.fiftyClaimant != null) {
-      _clock = _clock.add(
-        Duration(
-          seconds:
-              _controller.setup.fiftyTimerSeconds +
-              replayFiftyExpiryPaddingSeconds,
-        ),
-      );
+      _expireFiftyWindow();
       effectivePreActionClock = _clock;
       result = _applyOnce(entry.actionId);
     }
@@ -395,6 +402,26 @@ class ReplayReconstruction {
   /// one seam and a near-copy of it.
   ApplyActionResult _applyOnce(String actionId) =>
       _applyHook(_controller, actionId);
+
+  /// Moves the synthetic clock past the open Fifty window's expiry.
+  ///
+  /// Measured from the later of the current clock and the instant the window
+  /// opened: a resumed match carries a window stamped by the wall clock,
+  /// which can sit years after [replayClockEpoch], and an advance taken from
+  /// the clock alone would leave that window open forever.
+  void _expireFiftyWindow() {
+    final openedAt = _controller.fiftyWindowOpenedAt;
+    final base = openedAt != null && openedAt.isAfter(_clock)
+        ? openedAt
+        : _clock;
+    _clock = base.add(
+      Duration(
+        seconds:
+            _controller.setup.fiftyTimerSeconds +
+            replayFiftyExpiryPaddingSeconds,
+      ),
+    );
+  }
 
   /// Checks that an entry's metadata describes the state it is about to be
   /// applied to.

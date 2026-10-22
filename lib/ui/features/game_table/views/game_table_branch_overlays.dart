@@ -36,7 +36,7 @@ class _BranchPauseOverlay extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onResume,
       child: ColoredBox(
-        color: LoungeTokens.overlayScrim,
+        color: LoungeTokens.scrim,
         child: Center(
           child: GestureDetector(
             onTap: () {},
@@ -144,7 +144,7 @@ class _BranchCompletionOverlay extends StatelessWidget {
     final strings = context.strings;
     final winner = progress.matchWinner;
     return ColoredBox(
-      color: LoungeTokens.overlayScrim,
+      color: LoungeTokens.scrim,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -230,7 +230,7 @@ class _StudyHandOverlay extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onClose,
       child: ColoredBox(
-        color: LoungeTokens.overlayScrim,
+        color: LoungeTokens.scrim,
         child: Center(
           child: GestureDetector(
             onTap: () {},

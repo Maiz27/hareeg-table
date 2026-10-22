@@ -71,40 +71,41 @@ typedef CardStateOverlayMap = Map<CardVisualState, CardStateOverlayStyle>;
 /// override on a per-state basis.
 abstract final class DefaultCardStateOverlays {
   /// Default overlay map.
-  static const CardStateOverlayMap map = {
-    CardVisualState.normal: CardStateOverlayStyle(
+  static final CardStateOverlayMap map = {
+    CardVisualState.normal: const CardStateOverlayStyle(
       outline: Colors.transparent,
       outlineWidth: 0,
     ),
-    // Selected: a quiet gold ring with no halo glow. The card lift in
+    // Selected: a quiet sand ring with no halo glow. The card lift in
     // [_DraggableHandCard] does the heavy lifting for "selected" feedback;
     // the ring just confirms which cards are part of the current selection.
-    CardVisualState.selected: CardStateOverlayStyle(
-      outline: LoungeTokens.goldAccent,
+    CardVisualState.selected: const CardStateOverlayStyle(
+      outline: LoungeTokens.stateSelected,
       outlineWidth: 2.5,
     ),
     CardVisualState.pending: CardStateOverlayStyle(
-      outline: LoungeTokens.pendingDiscard,
+      outline: LoungeTokens.statePending,
       outlineWidth: 2.5,
-      tint: Color(0x22E0A848),
+      tint: LoungeTokens.statePending.withValues(alpha: 0.13),
     ),
+    // Cover target: a legal drop on the table, so it shares the selection hue.
     CardVisualState.coverTarget: CardStateOverlayStyle(
-      outline: LoungeTokens.goldAccent,
-      tint: Color(0x1AD69B35),
+      outline: LoungeTokens.stateSelected,
+      tint: LoungeTokens.stateSelected.withValues(alpha: 0.1),
       outlineWidth: 2,
     ),
     // Coach highlight: teal outline + soft glow, no face tint. The glow makes
     // the ring read as "look here" without recolouring the card itself, so it
     // stays legible over every deck art and table surface.
-    CardVisualState.coachHighlight: CardStateOverlayStyle(
+    CardVisualState.coachHighlight: const CardStateOverlayStyle(
       outline: LoungeTokens.coachHighlight,
       outlineWidth: 3,
       glow: LoungeTokens.coachGlow,
     ),
-    CardVisualState.invalid: CardStateOverlayStyle(
-      outline: LoungeTokens.invalidAction,
+    CardVisualState.invalid: const CardStateOverlayStyle(
+      outline: LoungeTokens.stateInvalid,
       outlineWidth: 3,
-      iconColor: LoungeTokens.invalidAction,
+      iconColor: LoungeTokens.stateInvalid,
     ),
   };
 }
@@ -121,30 +122,30 @@ abstract final class HighContrastCardStateOverlays {
       outlineWidth: 0,
     ),
     CardVisualState.selected: CardStateOverlayStyle(
-      outline: Color(0xFFFFD400),
+      outline: LoungeTokens.highContrastSelected,
       outlineWidth: 4,
-      glow: Color(0xCCFFD400),
+      glow: LoungeTokens.highContrastSelectedGlow,
     ),
     CardVisualState.pending: CardStateOverlayStyle(
-      outline: Color(0xFFFF6F00),
+      outline: LoungeTokens.highContrastPending,
       outlineWidth: 4,
-      glow: Color(0xCCFF6F00),
-      tint: Color(0x33FF6F00),
+      glow: LoungeTokens.highContrastPendingGlow,
+      tint: LoungeTokens.highContrastPendingTint,
     ),
     CardVisualState.coverTarget: CardStateOverlayStyle(
-      outline: Color(0xFF00D9FF),
+      outline: LoungeTokens.highContrastCover,
       outlineWidth: 3.5,
-      tint: Color(0x3300D9FF),
+      tint: LoungeTokens.highContrastCoverTint,
     ),
     CardVisualState.coachHighlight: CardStateOverlayStyle(
-      outline: Color(0xFF36F0DC),
+      outline: LoungeTokens.highContrastCoach,
       outlineWidth: 4,
-      glow: Color(0xCC2FB4A6),
+      glow: LoungeTokens.highContrastCoachGlow,
     ),
     CardVisualState.invalid: CardStateOverlayStyle(
-      outline: Color(0xFFFF2F2F),
+      outline: LoungeTokens.highContrastInvalid,
       outlineWidth: 4,
-      iconColor: Color(0xFFFF2F2F),
+      iconColor: LoungeTokens.highContrastInvalid,
     ),
   };
 
