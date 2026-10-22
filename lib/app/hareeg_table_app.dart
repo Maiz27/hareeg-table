@@ -8,6 +8,7 @@ import '../data/persistence/learning_progress_repository.dart';
 import '../data/persistence/match_history_repository.dart';
 import '../data/persistence/match_repository.dart';
 import '../data/persistence/preferences_repository.dart';
+import '../data/updates/update_service.dart';
 import '../domain/classic_hareeg/models/classic_hareeg_setup.dart';
 import '../l10n/app_strings.dart';
 import '../ui/core/audio/table_audio.dart';
@@ -37,6 +38,7 @@ import '../ui/features/settings/models/settings_section.dart';
 import '../ui/features/settings/views/licenses_screen.dart';
 import '../ui/features/settings/views/settings_screen.dart';
 import '../ui/features/splash/views/splash_screen.dart';
+import '../ui/features/updates/update_prompt_controller.dart';
 import 'app_routes.dart';
 
 /// Root Flutter application for Hareeg Table.
@@ -52,9 +54,13 @@ class HareegTableApp extends StatefulWidget {
     this.matchRepository,
     this.learningProgressRepository,
     this.historyRepository,
+    this.updateService,
     this.initialRouteOverride,
     super.key,
   });
+
+  /// Release lookup dependency for the "update available" prompt.
+  final UpdateService? updateService;
 
   /// Preferences storage dependency.
   final PreferencesRepository? preferencesRepository;
@@ -85,6 +91,8 @@ class _HareegTableAppState extends State<HareegTableApp> {
   late final Future<LearningProgress> _learningFuture;
   late final TableHaptics _haptics;
   late final TableAudio _audio;
+  late final Future<void> _preferencesLoaded;
+  late final UpdatePromptController _updates;
   GamePreferences _values = GamePreferences.defaults();
 
   @override
@@ -108,7 +116,22 @@ class _HareegTableAppState extends State<HareegTableApp> {
     });
     _haptics = TableHaptics(enabled: _values.hapticsEnabled);
     _audio = TableAudio(enabled: _values.soundEnabled);
-    _loadPreferences();
+    _preferencesLoaded = _loadPreferences();
+    // The automatic check reads the saved switch and skipped version, so it
+    // waits for the first preferences load; the home screen starts it.
+    _updates = UpdatePromptController(
+      service: widget.updateService ?? AppRepositories.updates,
+      preferences: () async {
+        await _preferencesLoaded;
+        return _values;
+      },
+      onSkip: (version) async {
+        if (!mounted) return;
+        await _updatePreferences(
+          _values.copyWith(skippedUpdateVersion: version),
+        );
+      },
+    );
   }
 
   /// Splash hand-off: first launch goes to onboarding, later launches go
@@ -197,6 +220,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
 
   @override
   void dispose() {
+    _updates.dispose();
     unawaited(
       _audio.dispose().catchError((Object error, StackTrace stackTrace) {
         debugPrint('Failed to dispose audio gateway: $error');
@@ -261,16 +285,21 @@ class _HareegTableAppState extends State<HareegTableApp> {
         AppRoutes.splash: (context) => SplashScreen(
           onContinue: () => unawaited(_continueFromSplash(context)),
         ),
-        AppRoutes.home: (context) =>
-            HomeScreen(matchRepository: _matches, historyRepository: _history),
+        AppRoutes.home: (context) => HomeScreen(
+          matchRepository: _matches,
+          historyRepository: _history,
+          updates: _updates.supported ? _updates : null,
+        ),
         AppRoutes.newGame: (context) =>
             NewGameSetupScreen(preferencesRepository: _preferences),
         AppRoutes.history: (context) =>
             MatchHistoryScreen(historyRepository: _history),
         AppRoutes.statistics: (context) =>
             MatchStatisticsScreen(historyRepository: _history),
-        AppRoutes.licenses: (context) =>
-            LicensesScreen(themes: CardThemeRegistry.all()),
+        AppRoutes.licenses: (context) => LicensesScreen(
+          themes: CardThemeRegistry.all(),
+          updates: _updates.supported ? _updates : null,
+        ),
         AppRoutes.rulesHelp: (context) => const RulesHelpScreen(),
         AppRoutes.onboarding: (context) =>
             OnboardingScreen(learningRepository: _learning),
@@ -303,6 +332,7 @@ class _HareegTableAppState extends State<HareegTableApp> {
         cardThemes: CardThemeRegistry.all(),
         isMatchActive: false,
         initialSection: initialSection,
+        showUpdateSettings: _updates.supported,
       ),
       settings: settings,
     );

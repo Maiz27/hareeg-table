@@ -27,6 +27,12 @@ enum SettingsSection {
 
   /// Language selection.
   language,
+
+  /// Whether the app checks for a newer release on launch.
+  ///
+  /// Last because it is about the app, not the table: nothing in it changes
+  /// how a match looks, feels or plays.
+  updates,
 }
 
 /// Navigation arguments accepted by the Settings route.

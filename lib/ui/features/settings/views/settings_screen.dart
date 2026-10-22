@@ -30,7 +30,12 @@ class SettingsScreen extends StatefulWidget {
     required this.cardThemes,
     required this.isMatchActive,
     this.initialSection,
+    this.showUpdateSettings = true,
   });
+
+  /// Whether to show the Updates section. False on web, where the PWA
+  /// updates itself and there is nothing to switch.
+  final bool showUpdateSettings;
 
   /// Current preferences (driven by the app shell).
   final GamePreferences preferences;
@@ -370,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   preview: [appLanguageLabel(_preferences.language, strings)],
                   expanded: _openSection == SettingsSection.language,
                   onToggle: () => _toggle(SettingsSection.language),
-                  isLast: true,
+                  isLast: !widget.showUpdateSettings,
                   child: SettingsDropdown<AppLanguage>(
                     label: strings.language,
                     value: _preferences.language,
@@ -380,6 +385,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _save(_preferences.copyWith(language: value)),
                   ),
                 ),
+                if (widget.showUpdateSettings)
+                  SettingsAccordionSection(
+                    key: _sectionKeys[SettingsSection.updates],
+                    icon: Icons.system_update_outlined,
+                    title: strings.updatesSectionTitle,
+                    description: strings.updatesSectionDescription,
+                    preview: [
+                      _preferences.updateCheckEnabled
+                          ? strings.updateAutoCheckOn
+                          : strings.updateAutoCheckOff,
+                    ],
+                    expanded: _openSection == SettingsSection.updates,
+                    onToggle: () => _toggle(SettingsSection.updates),
+                    isLast: true,
+                    child: SettingsSwitch(
+                      icon: Icons.update_outlined,
+                      title: strings.updateCheckAutomatically,
+                      subtitle: strings.updateCheckAutomaticallyDescription,
+                      value: _preferences.updateCheckEnabled,
+                      onChanged: (value) => _save(
+                        _preferences.copyWith(updateCheckEnabled: value),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: LoungeTokens.space5),
                 _AboutLink(
                   onTap: () =>

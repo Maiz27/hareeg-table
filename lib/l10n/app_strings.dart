@@ -140,6 +140,34 @@ class AppStrings {
   String get lookDescription => _v('lookDescription');
   String get feel => _v('feel');
   String get feelDescription => _v('feelDescription');
+
+  // Update availability (home prompt, Settings, About).
+  /// Home prompt title, e.g. "Version 1.0.0-alpha.13 is available".
+  String updateAvailableTitle(String version) =>
+      _v('updateAvailableTitle').replaceFirst('{version}', version);
+
+  /// Home prompt subtitle naming the installed version.
+  String updateInstalledVersion(String version) =>
+      _v('updateInstalledVersion').replaceFirst('{version}', version);
+  String get updateDownload => _v('updateDownload');
+  String get updateReleaseNotes => _v('updateReleaseNotes');
+  String get updateSkipVersion => _v('updateSkipVersion');
+  String get updateLater => _v('updateLater');
+  String get updateCouldNotOpenLink => _v('updateCouldNotOpenLink');
+  String get updatesSectionTitle => _v('updatesSectionTitle');
+  String get updatesSectionDescription => _v('updatesSectionDescription');
+  String get updateCheckAutomatically => _v('updateCheckAutomatically');
+  String get updateCheckAutomaticallyDescription =>
+      _v('updateCheckAutomaticallyDescription');
+  String get updateAutoCheckOn => _v('updateAutoCheckOn');
+  String get updateAutoCheckOff => _v('updateAutoCheckOff');
+  String get checkForUpdates => _v('checkForUpdates');
+  String get updateChecking => _v('updateChecking');
+  String get updateUpToDate => _v('updateUpToDate');
+  String get updateCheckFailed => _v('updateCheckFailed');
+  String get updateStoreManaged => _v('updateStoreManaged');
+  String get updateOpenStore => _v('updateOpenStore');
+  String get updateVersionUnknown => _v('updateVersionUnknown');
   String get language => _v('language');
   String get languageDescription => _v('languageDescription');
   String get englishLanguage => _v('englishLanguage');
@@ -2531,6 +2559,27 @@ const _englishValues = {
       'There it is — +17 and you are out of the round. The harshest table charges everything at once.',
   'practiceTablePenaltyCompletion':
       'On a Table table the same throw costs +17 and you are out of the round — the harshest table. The card leaves your hand for good and your seat sits out the rest of the round.',
+  'updateAvailableTitle': 'Version {version} is available',
+  'updateInstalledVersion': 'You have {version}.',
+  'updateDownload': 'Download',
+  'updateReleaseNotes': 'Release notes',
+  'updateSkipVersion': 'Skip this version',
+  'updateLater': 'Later',
+  'updateCouldNotOpenLink': 'Could not open the link.',
+  'updatesSectionTitle': 'Updates',
+  'updatesSectionDescription': 'How the app hears about new versions.',
+  'updateCheckAutomatically': 'Check for updates automatically',
+  'updateCheckAutomaticallyDescription':
+      'Asks GitHub for the latest release at most once a day. Nothing about you is sent.',
+  'updateAutoCheckOn': 'Automatic checks',
+  'updateAutoCheckOff': 'Manual checks only',
+  'checkForUpdates': 'Check for updates',
+  'updateChecking': 'Checking…',
+  'updateUpToDate': "You're up to date.",
+  'updateCheckFailed': 'Could not check. Try again when you are online.',
+  'updateStoreManaged': 'Updates come through Google Play.',
+  'updateOpenStore': 'Open Google Play',
+  'updateVersionUnknown': 'unknown',
 };
 
 const _arabicValues = {
@@ -3256,4 +3305,25 @@ const _arabicValues = {
       'هذا ما يحدث تماماً — تم تسجيل عقوبة ثقيلة بلغت +17 نقطة جزائية ضدك، وصدر قرار فوري باستبعاد مقعدك وطرد يدك من بقية الجولة الحالية!',
   'practiceTablePenaltyCompletion':
       'اكتمل الدرس بنجاح. تحت قوانين الطاولة الصارمة، رمية واحدة خاطئة وغير مدروسة كفيلة بتدمير ترتيبك واستبعادك بالكامل من المنافسة.',
+  'updateAvailableTitle': 'الإصدار {version} متاح الآن',
+  'updateInstalledVersion': 'الإصدار المثبّت لديك {version}.',
+  'updateDownload': 'تنزيل',
+  'updateReleaseNotes': 'ملاحظات الإصدار',
+  'updateSkipVersion': 'تخطَّ هذا الإصدار',
+  'updateLater': 'لاحقاً',
+  'updateCouldNotOpenLink': 'تعذّر فتح الرابط.',
+  'updatesSectionTitle': 'التحديثات',
+  'updatesSectionDescription': 'كيف يعرف التطبيق بصدور إصدارات جديدة.',
+  'updateCheckAutomatically': 'التحقق من التحديثات تلقائياً',
+  'updateCheckAutomaticallyDescription':
+      'يسأل GitHub عن أحدث إصدار مرة واحدة في اليوم على الأكثر، دون إرسال أي معلومات عنك.',
+  'updateAutoCheckOn': 'تحقق تلقائي',
+  'updateAutoCheckOff': 'تحقق يدوي فقط',
+  'checkForUpdates': 'التحقق من التحديثات',
+  'updateChecking': 'جارٍ التحقق…',
+  'updateUpToDate': 'لديك أحدث إصدار.',
+  'updateCheckFailed': 'تعذّر التحقق. حاول مجدداً عند اتصالك بالإنترنت.',
+  'updateStoreManaged': 'تصلك التحديثات عبر Google Play.',
+  'updateOpenStore': 'فتح Google Play',
+  'updateVersionUnknown': 'غير معروف',
 };

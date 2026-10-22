@@ -20,7 +20,7 @@ It had ads. I put up with them. Then one match, while I was offline, it threw a 
 
 That was the moment. If an app will break a game you're enjoying to show a loading screen for nothing, the bar is on the floor. So I wrote my own.
 
-Hareeg Table is offline-first and ad-free. It doesn't interrupt your hand to entertain itself. The only thing it ever sends is a bug report, and only if you tap the button or hit a crash. Never your name, never your data, never mid-game.
+Hareeg Table is offline-first and ad-free. It doesn't interrupt your hand to entertain itself. It sends a bug report only if you tap the button or hit a crash. The one other thing it does online is ask GitHub for the latest release, at most once a day, so it can tell you when an update is out; that request carries nothing about you beyond the request itself, and you can turn it off in Settings. Never your name, never your data, never mid-game.
 
 ## Product Direction
 

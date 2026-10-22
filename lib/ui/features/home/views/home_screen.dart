@@ -8,6 +8,8 @@ import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
+import '../../updates/update_prompt_controller.dart';
+import '../../updates/widgets/update_available_panel.dart';
 import 'home_hero_section.dart';
 
 /// Main menu and navigation shell.
@@ -16,8 +18,15 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.matchRepository,
     required this.historyRepository,
+    this.updates,
     super.key,
   });
+
+  /// The "update available" prompt state, or null for no update flow.
+  ///
+  /// The home screen starts the once-a-day automatic check after its first
+  /// frame, so the menu is never held back by the network.
+  final UpdatePromptController? updates;
 
   /// Active match persistence.
   final MatchRepository matchRepository;
@@ -43,12 +52,18 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     AppOrientation.usePortrait();
     _loadSavedMatch();
+    final updates = widget.updates;
+    if (updates != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) updates.runStartupCheck();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LoungeTokens.feltGreen,
+      backgroundColor: LoungeTokens.surface,
       body: SafeArea(
         child: Stack(
           fit: StackFit.expand,
@@ -112,6 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                         ).pushNamed(AppRoutes.rulesHelp),
                       ),
+                      if (widget.updates case final updates?)
+                        _UpdatePrompt(controller: updates),
                       if (shortViewport) ...[
                         const SizedBox(height: LoungeTokens.space6),
                         hero,
@@ -287,6 +304,45 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     if (mounted) await _loadSavedMatch();
+  }
+}
+
+/// The update panel below the brand header, present only while a newer,
+/// unskipped release is known and the player has not collapsed it.
+class _UpdatePrompt extends StatelessWidget {
+  const _UpdatePrompt({required this.controller});
+
+  final UpdatePromptController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final release = controller.prompt;
+        if (release == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: LoungeTokens.space5),
+          child: UpdateAvailablePanel(
+            release: release,
+            installedVersion: controller.installedVersion,
+            onDownload: () => _open(context, controller.download(release)),
+            onReleaseNotes: () =>
+                _open(context, controller.openReleaseNotes(release)),
+            onSkip: controller.skip,
+            onLater: controller.later,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _open(BuildContext context, Future<bool> opening) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = context.strings.updateCouldNotOpenLink;
+    if (!await opening) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
 

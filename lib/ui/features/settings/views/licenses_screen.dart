@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
+import '../../../../data/updates/update_service.dart';
 import '../../../../l10n/app_strings.dart';
 import '../../../core/cards/card_theme.dart';
 import '../../../core/brand/app_brand_mark.dart';
 import '../../../core/panels/lounge_medallion.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../shared/medallion_backdrop.dart';
+import '../../updates/update_prompt_controller.dart';
 import 'meta_pill.dart';
 
 /// Attribution + license screen reached from Settings -> About.
 class LicensesScreen extends StatefulWidget {
   /// Creates the licenses screen.
-  const LicensesScreen({super.key, required this.themes});
+  const LicensesScreen({super.key, required this.themes, this.updates});
 
   /// Bundled card themes shown in the attribution list.
   final List<HareegCardTheme> themes;
+
+  /// The update flow behind the "Check for updates" row, or null to hide
+  /// the row (web, where the PWA updates itself).
+  final UpdatePromptController? updates;
 
   @override
   State<LicensesScreen> createState() => _LicensesScreenState();
@@ -52,11 +58,13 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 LoungeTokens.space5,
                 LoungeTokens.space8,
               ),
-              // Each part of the page is a card on the felt: the intro lit
+              // Each part of the page is a card on the ground: the intro lit
               // as the hero, the story and each licence group on quieter
               // surfaces (design contract section 8).
               children: [
                 const _AboutCard(hero: true, child: _AboutIntro()),
+                if (widget.updates case final updates?)
+                  _AboutCard(child: _UpdateCheckSection(controller: updates)),
                 const _AboutCard(child: _OriginStory()),
                 _AboutCard(child: _LicenseSection(themes: widget.themes)),
                 const _AboutCard(child: _SoundLicenseSection()),
@@ -137,6 +145,169 @@ class _AboutIntro extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Installed version plus a manual "Check for updates" with its result
+/// shown inline: up to date, could not check, or the newer release.
+class _UpdateCheckSection extends StatefulWidget {
+  const _UpdateCheckSection({required this.controller});
+
+  final UpdatePromptController controller;
+
+  @override
+  State<_UpdateCheckSection> createState() => _UpdateCheckSectionState();
+}
+
+class _UpdateCheckSectionState extends State<_UpdateCheckSection> {
+  var _checking = false;
+  UpdateCheckResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.loadInstalledVersion();
+  }
+
+  Future<void> _check() async {
+    setState(() {
+      _checking = true;
+      _result = null;
+    });
+    final result = await widget.controller.checkNow();
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _result = result;
+    });
+  }
+
+  Future<void> _open(Future<bool> opening) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = context.strings.updateCouldNotOpenLink;
+    if (!await opening) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final installed = widget.controller.installedVersion;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const LoungeMedallion(
+                  icon: Icons.system_update_outlined,
+                  size: 34,
+                  tone: LoungeMedallionTone.lit,
+                ),
+                const SizedBox(width: LoungeTokens.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        strings.checkForUpdates,
+                        style: LoungeTokens.heading,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        strings.updateInstalledVersion(
+                          installed ?? strings.updateVersionUnknown,
+                        ),
+                        style: LoungeTokens.bodyMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: LoungeTokens.space4),
+            OutlinedButton.icon(
+              onPressed: _checking ? null : _check,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LoungeTokens.textPrimary,
+                side: BorderSide(
+                  color: LoungeTokens.line.withValues(alpha: 0.55),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    LoungeTokens.radiusButton,
+                  ),
+                ),
+              ),
+              icon: const Icon(
+                Icons.refresh,
+                size: 20,
+                color: LoungeTokens.line,
+              ),
+              label: Text(
+                _checking ? strings.updateChecking : strings.checkForUpdates,
+              ),
+            ),
+            if (_result case final result?) ...[
+              const SizedBox(height: LoungeTokens.space3),
+              _resultView(result, strings),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _resultView(UpdateCheckResult result, AppStrings strings) {
+    return switch (result) {
+      UpdateCheckUpToDate() => Text(
+        strings.updateUpToDate,
+        style: LoungeTokens.body,
+      ),
+      UpdateCheckFailed() => Text(
+        strings.updateCheckFailed,
+        style: LoungeTokens.bodyMuted,
+      ),
+      UpdateCheckStoreManaged(:final listingUrl) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.updateStoreManaged, style: LoungeTokens.body),
+          TextButton(
+            onPressed: () => _open(widget.controller.open(listingUrl)),
+            child: Text(strings.updateOpenStore),
+          ),
+        ],
+      ),
+      UpdateCheckAvailable(:final release) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            strings.updateAvailableTitle(release.version.toString()),
+            style: LoungeTokens.titleSmall,
+          ),
+          Wrap(
+            spacing: LoungeTokens.space2,
+            children: [
+              TextButton.icon(
+                onPressed: () => _open(widget.controller.download(release)),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: Text(strings.updateDownload),
+              ),
+              TextButton.icon(
+                onPressed: () =>
+                    _open(widget.controller.openReleaseNotes(release)),
+                icon: const Icon(Icons.article_outlined, size: 18),
+                label: Text(strings.updateReleaseNotes),
+              ),
+            ],
+          ),
+        ],
+      ),
+    };
   }
 }
 
