@@ -12,7 +12,8 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
-REPO = Path(r"E:\Work\Projects\Personal\hareeg-table")
+# assets/brand/explorations/identity-2026-10/make_kit.py -> repository root.
+REPO = Path(__file__).resolve().parents[4]
 OUT = REPO / "assets" / "brand" / "explorations" / "identity-2026-10"
 FONT = REPO / "assets" / "fonts" / "ReemKufi-Variable.ttf"
 

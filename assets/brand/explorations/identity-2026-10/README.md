@@ -2,8 +2,10 @@
 
 Two shortlisted logo directions for Hareeg Table, built with the logo-design
 skill's process (brief → clichés → concepts → black-first SVG → tests → kit).
-Nothing here is wired into the app yet; the launcher, splash, web manifest and
-store art still use the Sandline joker. Untracked until a direction is chosen.
+The Lit card (A) is the chosen direction and is what the app ships: the
+launcher sources under `assets/brand/launcher/lit_card_*` are rendered from
+these masters, and the Android adaptive icon, iOS icon, splash and web icons
+are generated from them. B is kept as the runner-up and a candidate Fifty cue.
 
 ## Start here
 
@@ -41,6 +43,5 @@ come from the skill's scripts (`export_variants.py`, `preview_sheet.py`,
   owed before it is final. Arabic wordmark is shaped Reem Kufi, outlined.
 - No trademark clearance has been done; run a search before launch.
 - B reads as a drop to non-Arabic readers in one colour; colour fixes it.
-- Chosen direction still has to be cut into the Android adaptive launcher
-  (foreground/background/monochrome), the splash, the web icons and the Play
-  listing art, replacing the Sandline joker set.
+- Play listing art (feature graphic, screenshots) is still to be made from
+  the kit.
