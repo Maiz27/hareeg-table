@@ -22,7 +22,7 @@ enum TableStrictness {
   final String label;
   final String description;
 
-  static TableStrictness fromName(String? name) => /* falls back to coaching */;
+  static TableStrictness fromName(String? name) => /* falls back to standard */;
 }
 ```
 

@@ -79,7 +79,7 @@ abstract final class LoungeTokens {
   /// Hairlines, motif strokes, secondary borders.
   static const line = BrandPalette.sand;
 
-  /// Hairline edge for L2 surfaces (40 % [line]).
+  /// Hairline edge for L2 surfaces (25 % [line]).
   static const lineSoft = Color(0x40D7BD83);
 
   /// Primary text on dark surfaces.
