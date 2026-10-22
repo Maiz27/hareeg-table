@@ -683,10 +683,12 @@ class _GameTableScreenState extends State<GameTableScreen>
     );
     final roundOver = _controller.isRoundOver;
     setState(() {
-      if (!roundOver) {
-        // The round stays open on a finishing take alone, which looks like
-        // nothing happened. Say what is left: take to finish, or take and
-        // return to end the round (the return is what draws it).
+      if (!roundOver && _controller.stockCount == 0) {
+        // With no stock, the round stays open on a finishing take alone,
+        // which looks like nothing happened. Say what is left: take to
+        // finish, or take and return to end the round (the return is what
+        // draws it). With stock left the lapse is the ordinary one: the ring
+        // goes and the player draws as usual, so nothing is said.
         _replaceHumanFeedback(
           context.strings.fiftyLapsedFinishOnly,
           isError: false,

@@ -1217,6 +1217,68 @@ void main() {
       expect(find.byType(FiftyRing), findsOneWidget);
     });
 
+    testWidgets('a lapsed Fifty window with stock left settles quietly', (
+      tester,
+    ) async {
+      // Opened well past the timer and its grace: the ring is gone before the
+      // table is even built, and the player simply draws as usual.
+      final openedAt = DateTime.now().toUtc().subtract(
+        const Duration(seconds: 30),
+      );
+      await _openTable(
+        tester,
+        savedSnapshot: _savedSnapshot(
+          southHand: [
+            _card(CardRank.two, CardSuit.clubs, 94),
+            _card(CardRank.five, CardSuit.diamonds, 94),
+            _card(CardRank.king, CardSuit.hearts, 94),
+          ],
+          discardPile: [_card(CardRank.nine, CardSuit.clubs, 94)],
+          currentSeat: PlayerSeat.south,
+          turnPhase: TurnPhase.draw,
+          savedAt: openedAt,
+          fiftyWindowOpenedAt: openedAt,
+          fiftyWindowDiscarder: PlayerSeat.south.previousAntiClockwise,
+        ),
+      );
+
+      expect(find.byType(FiftyRing), findsNothing);
+      expect(find.textContaining('Fifty window closed'), findsNothing);
+    });
+
+    testWidgets(
+      'a lapsed Fifty window with no stock explains the finishing take',
+      (tester) async {
+        // No stock and a take that would finish (7-8 in hand, 9 on the pile,
+        // the 2 left to discard): the engine keeps the round open on that
+        // finish alone, and the chip says so.
+        final openedAt = DateTime.now().toUtc().subtract(
+          const Duration(seconds: 30),
+        );
+        await _openTable(
+          tester,
+          savedSnapshot: _savedSnapshot(
+            southHand: [
+              _card(CardRank.seven, CardSuit.clubs, 95),
+              _card(CardRank.eight, CardSuit.clubs, 95),
+              _card(CardRank.two, CardSuit.diamonds, 95),
+            ],
+            stock: const [],
+            discardPile: [_card(CardRank.nine, CardSuit.clubs, 95)],
+            currentSeat: PlayerSeat.south,
+            turnPhase: TurnPhase.draw,
+            openingState: _opened(PlayerSeat.south),
+            savedAt: openedAt,
+            fiftyWindowOpenedAt: openedAt,
+            fiftyWindowDiscarder: PlayerSeat.south.previousAntiClockwise,
+          ),
+        );
+
+        expect(find.byType(FiftyRing), findsNothing);
+        expect(find.textContaining('Fifty window closed'), findsOneWidget);
+      },
+    );
+
     testWidgets(
       'FiftyRing still shows the human claim window in blocking tiers',
       (tester) async {
@@ -2006,6 +2068,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   ClassicHareegSetup? setup,
   PlayerSeat currentSeat = PlayerSeat.south,
   TurnPhase turnPhase = TurnPhase.action,
+  List<HareegCard>? stock,
   List<HareegCard>? discardPile,
   HareegCard? pendingDiscard,
   OpeningState? openingState,
@@ -2015,6 +2078,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   int roundNumber = 1,
   DateTime? savedAt,
   DateTime? fiftyWindowOpenedAt,
+  PlayerSeat? fiftyWindowDiscarder,
 }) {
   final resolvedSetup = setup ?? ClassicHareegSetup.defaults();
   final snapshot = ClassicHareegRound.deal(setup: resolvedSetup, seed: 3);
@@ -2026,7 +2090,7 @@ ClassicHareegMatchSnapshot _savedSnapshot({
   return ClassicHareegMatchSnapshot(
     setup: resolvedSetup,
     hands: mergedHands,
-    stock: snapshot.stock,
+    stock: stock ?? snapshot.stock,
     discardPile: discardPile ?? snapshot.discardPile,
     starter: snapshot.starter,
     currentSeat: currentSeat,
@@ -2045,6 +2109,8 @@ ClassicHareegMatchSnapshot _savedSnapshot({
     removedSeats: removedSeats,
     roundNumber: roundNumber,
     fiftyWindowOpenedAt: fiftyWindowOpenedAt,
+    fiftyWindowDiscarder: fiftyWindowDiscarder,
+    previousDiscardSeat: fiftyWindowDiscarder,
     savedAt: savedAt ?? DateTime.utc(2026, 5, 18),
   );
 }
