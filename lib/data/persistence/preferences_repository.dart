@@ -316,7 +316,7 @@ TableStrictness _migrateStrictness({
       }
       return TableStrictness.coaching;
     default:
-      return TableStrictness.coaching;
+      return TableStrictness.standard;
   }
 }
 

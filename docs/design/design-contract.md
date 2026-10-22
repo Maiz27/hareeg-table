@@ -325,7 +325,7 @@ standard Flutter so web and low-end Android keep working:
 
 ### 7.4 Coach UI
 
-The coach (Coaching strictness, the setup default) renders as an L3 **coach
+The coach (Coaching strictness, opted into from setup) renders as an L3 **coach
 card** docked in the top-start corner (the HUD capsule owns the other), clear of
 the west seat plate, sized to stop short of the north seat (rail centred,
 plate on its far side). Up to four body lines. Tables too narrow to dock it

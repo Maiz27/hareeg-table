@@ -169,6 +169,7 @@ void main() {
       await _openTable(
         tester,
         southHand: [_card(CardRank.four, CardSuit.clubs, 123)],
+        setup: _coachingSetup,
         preferencesRepository: preferences,
       );
       await tester.tap(find.byTooltip('Pause'));
@@ -1539,6 +1540,7 @@ void main() {
           _card(CardRank.three, CardSuit.spades, 95),
           _card(CardRank.four, CardSuit.spades, 95),
         ],
+        setup: _coachingSetup,
       );
 
       final target = find.bySemanticsLabel('Queen of Hearts').first;
@@ -1758,6 +1760,7 @@ void main() {
       await _openTable(
         tester,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           // A finished run plus a last card: the advisor's top insight is the
           // (priority 1000) finish.
           southHand: [
@@ -1816,6 +1819,7 @@ void main() {
         tester,
         preferencesRepository: preferences,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           southHand: [
             _card(CardRank.seven, CardSuit.clubs, 312),
             _card(CardRank.eight, CardSuit.clubs, 312),
@@ -1836,6 +1840,7 @@ void main() {
       await _openTable(
         tester,
         savedSnapshot: _savedSnapshot(
+          setup: _coachingSetup,
           southHand: [
             pending,
             _card(CardRank.three, CardSuit.hearts, 313),
@@ -1861,7 +1866,7 @@ void main() {
     testWidgets('coaching tips toggle is available in the pause overlay', (
       tester,
     ) async {
-      await _openTable(tester);
+      await _openTable(tester, setup: _coachingSetup);
       await tester.tap(find.byTooltip('Pause'));
       await tester.pumpAndSettle();
       expect(find.text('Coaching tips'), findsOneWidget);
@@ -1869,14 +1874,22 @@ void main() {
   });
 }
 
+/// The coaching tier. A fresh install defaults to Standard, so tests that
+/// exercise coach-only surfaces (hints, guided inspect, the tips toggle) opt
+/// in here.
+final _coachingSetup = ClassicHareegSetup.defaults().copyWith(
+  tableStrictness: TableStrictness.coaching,
+);
+
 Future<MemoryMatchRepository> _openTable(
   WidgetTester tester, {
   List<HareegCard>? southHand,
+  ClassicHareegSetup? setup,
   ClassicHareegMatchSnapshot? savedSnapshot,
   MemoryPreferencesRepository? preferencesRepository,
 }) async {
   final repository = MemoryMatchRepository(
-    saved: savedSnapshot ?? _savedSnapshot(southHand: southHand),
+    saved: savedSnapshot ?? _savedSnapshot(southHand: southHand, setup: setup),
   );
   await tester.pumpWidget(
     HareegTableApp(

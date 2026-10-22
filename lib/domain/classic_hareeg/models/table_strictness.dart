@@ -37,12 +37,13 @@ enum TableStrictness {
   /// Short setup description.
   final String description;
 
-  /// Parses a saved enum name, falling back to [coaching] when missing or
-  /// unrecognized. Coaching is the fresh-install default and the most
-  /// forgiving option, so it's the safest fallback for corrupted persistence.
+  /// Parses a saved enum name, falling back to [standard] when missing or
+  /// unrecognized. Standard is the fresh-install default: illegal moves stay
+  /// blocked and nothing is charged, so it is a safe fallback for corrupted
+  /// persistence.
   static TableStrictness fromName(String? name) {
     return _enumByName(TableStrictness.values, name) ??
-        TableStrictness.coaching;
+        TableStrictness.standard;
   }
 }
 

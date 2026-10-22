@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hareeg_table/app/app_routes.dart';
 import 'package:hareeg_table/ui/core/cards/showcase_card_fan.dart';
@@ -195,6 +198,33 @@ void main() {
   _coachAndRematchSeam();
 }
 
+/// The coaching tier: the coach flag is only ever set on a coached table, and
+/// a fresh install now defaults to Standard.
+final _coachingSetup = ClassicHareegSetup.defaults().copyWith(
+  tableStrictness: TableStrictness.coaching,
+);
+
+/// Opens a fresh coaching-tier table the way New Game does: the setup rides
+/// as the table route's argument (a bare table route deals from defaults).
+Future<void> _openCoachedTable(
+  WidgetTester tester, {
+  required MemoryMatchRepository matches,
+  required MemoryPreferencesRepository preferences,
+}) async {
+  await tester.pumpWidget(
+    HareegTableApp(
+      matchRepository: matches,
+      historyRepository: MemoryMatchHistoryRepository(matches: matches),
+      preferencesRepository: preferences,
+      initialRouteOverride: AppRoutes.home,
+    ),
+  );
+  await tester.pumpAndSettle();
+  final navigator = tester.state<NavigatorState>(find.byType(Navigator).first);
+  unawaited(navigator.pushNamed(AppRoutes.table, arguments: _coachingSetup));
+  await tester.pumpAndSettle(const Duration(seconds: 2));
+}
+
 /// Screen/checkpoint seam coverage for facts that only the table produces.
 void _coachAndRematchSeam() {
   group('Coach flag and rematch at the table seam', () {
@@ -204,18 +234,14 @@ void _coachAndRematchSeam() {
       // The recorded fact is that coaching was available and enabled, not that
       // a hint happened to be produced. A quiet turn is still a coached match.
       final matches = MemoryMatchRepository();
-      await tester.pumpWidget(
-        HareegTableApp(
-          matchRepository: matches,
-          historyRepository: MemoryMatchHistoryRepository(matches: matches),
-          preferencesRepository: MemoryPreferencesRepository()
-            ..preferences = GamePreferences.defaults().copyWith(
-              coachingTipsEnabled: true,
-            ),
-          initialRouteOverride: AppRoutes.table,
-        ),
+      await _openCoachedTable(
+        tester,
+        matches: matches,
+        preferences: MemoryPreferencesRepository()
+          ..preferences = GamePreferences.defaults().copyWith(
+            coachingTipsEnabled: true,
+          ),
       );
-      await tester.pumpAndSettle(const Duration(seconds: 2));
 
       expect(matches.savedCheckpoint, isNotNull);
       expect(matches.savedCheckpoint!.coachWasEnabled, isTrue);
@@ -230,15 +256,11 @@ void _coachAndRematchSeam() {
           coachingTipsEnabled: true,
         );
 
-      await tester.pumpWidget(
-        HareegTableApp(
-          matchRepository: matches,
-          historyRepository: MemoryMatchHistoryRepository(matches: matches),
-          preferencesRepository: preferences,
-          initialRouteOverride: AppRoutes.table,
-        ),
+      await _openCoachedTable(
+        tester,
+        matches: matches,
+        preferences: preferences,
       );
-      await tester.pumpAndSettle(const Duration(seconds: 2));
       expect(matches.savedCheckpoint!.coachWasEnabled, isTrue);
 
       // Turning the coach off mid-match must not erase having used it.

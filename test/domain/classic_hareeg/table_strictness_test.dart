@@ -27,17 +27,17 @@ void main() {
         expect(TableStrictness.fromName('table'), TableStrictness.table);
       });
 
-      test('falls back to coaching for null input', () {
-        expect(TableStrictness.fromName(null), TableStrictness.coaching);
+      test('falls back to standard for null input', () {
+        expect(TableStrictness.fromName(null), TableStrictness.standard);
       });
 
-      test('falls back to coaching for unknown names', () {
-        expect(TableStrictness.fromName(''), TableStrictness.coaching);
+      test('falls back to standard for unknown names', () {
+        expect(TableStrictness.fromName(''), TableStrictness.standard);
         expect(
           TableStrictness.fromName('hardTable17'),
-          TableStrictness.coaching,
+          TableStrictness.standard,
         );
-        expect(TableStrictness.fromName('???'), TableStrictness.coaching);
+        expect(TableStrictness.fromName('???'), TableStrictness.standard);
       });
 
       test('round-trips through enum name serialization', () {
