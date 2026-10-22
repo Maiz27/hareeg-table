@@ -342,10 +342,10 @@ class _FannedCardSlot extends StatelessWidget {
     final slot = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x66000000),
-            offset: Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.4),
+            offset: const Offset(0, 2),
             blurRadius: 3,
           ),
         ],

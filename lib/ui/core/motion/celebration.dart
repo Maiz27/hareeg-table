@@ -68,14 +68,19 @@ class _CelebrationFireworksState extends State<CelebrationFireworks>
   }
 }
 
+/// The white-hot core of the Fifty flame: the stamp's top edge, the
+/// shockwave's first ring and freshly thrown embers before they cool.
+const _heatCore = LoungeTokens.fiftyHeatCore;
+
 const _palette = <Color>[
-  LoungeTokens.goldAccent,
-  Color(0xFFFFD98A),
-  LoungeTokens.cardIvory,
-  LoungeTokens.fiftyFlame,
-  Color(0xFFE8B95A),
-  Color(0xFFD94B3B),
-  Color(0xFF5FA8D3),
+  LoungeTokens.accent,
+  LoungeTokens.line,
+  LoungeTokens.paper,
+  LoungeTokens.accentPressed,
+  _heatCore,
+  LoungeTokens.suitRed,
+  // A cool counter-spark so the burst is not one hue.
+  LoungeTokens.celebrationCool,
 ];
 
 class _Burst {
@@ -351,11 +356,7 @@ class _FiftyStrikeState extends State<FiftyStrike>
             shaderCallback: (rect) => const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFE3A0),
-                LoungeTokens.fiftyFlame,
-                Color(0xFFA92E24),
-              ],
+              colors: [_heatCore, LoungeTokens.fiftyHeat, LoungeTokens.danger],
             ).createShader(rect),
             child: Text(
               '50',
@@ -366,12 +367,12 @@ class _FiftyStrikeState extends State<FiftyStrike>
                 decoration: TextDecoration.none,
                 shadows: [
                   Shadow(
-                    color: LoungeTokens.fiftyFlame.withValues(alpha: 0.9),
+                    color: LoungeTokens.fiftyHeat.withValues(alpha: 0.9),
                     blurRadius: 30,
                   ),
-                  const Shadow(
-                    color: Color(0xAA000000),
-                    offset: Offset(0, 6),
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.67),
+                    offset: const Offset(0, 6),
                     blurRadius: 10,
                   ),
                 ],
@@ -404,8 +405,8 @@ class _StrikePainter extends CustomPainter {
         Paint()
           ..shader = RadialGradient(
             colors: [
-              LoungeTokens.fiftyFlame.withValues(alpha: 0.45 * flash),
-              LoungeTokens.deepRed.withValues(alpha: 0.22 * flash),
+              LoungeTokens.fiftyHeat.withValues(alpha: 0.45 * flash),
+              LoungeTokens.danger.withValues(alpha: 0.22 * flash),
               Colors.transparent,
             ],
             stops: const [0, 0.45, 1],
@@ -425,8 +426,8 @@ class _StrikePainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 10 * (1 - p) + 1
           ..color = Color.lerp(
-            const Color(0xFFFFD98A),
-            LoungeTokens.fiftyFlame,
+            _heatCore,
+            LoungeTokens.fiftyHeat,
             p,
           )!.withValues(alpha: 0.7 * (1 - p))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
@@ -443,8 +444,8 @@ class _StrikePainter extends CustomPainter {
       for (final ember in embers) {
         final p = center + ember * spread + Offset(0, fall);
         paint.color = Color.lerp(
-          const Color(0xFFFFE3A0),
-          LoungeTokens.deepRed,
+          _heatCore,
+          LoungeTokens.danger,
           e,
         )!.withValues(alpha: (1 - e) * 0.95);
         canvas.drawCircle(p, 2.6 * (1 - e * 0.5), paint);

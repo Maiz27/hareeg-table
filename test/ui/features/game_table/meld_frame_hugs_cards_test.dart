@@ -8,7 +8,7 @@ import 'package:hareeg_table/ui/features/game_table/widgets/physical_table_playf
 
 /// Regression test for the placed-meld frame's trailing dead space: the
 /// take-back ring around a retractable meld used to extend past the last
-/// card (the meld body reserved slack for the value badge), so the gold
+/// card (the meld body reserved slack for the value badge), so the sand
 /// frame showed empty space on the fan's high side — the same dead-space
 /// family as the suggestion rack's trailing separator, fixed in HT-46 but
 /// not carried to the placed-meld stack.

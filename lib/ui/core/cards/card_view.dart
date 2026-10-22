@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/classic_hareeg/models/playing_card.dart';
 import '../../../l10n/app_strings.dart';
 import '../motion/motion_speed.dart';
+import '../theme/lounge_tokens.dart';
 import 'card_painting.dart';
 import 'card_state.dart';
 import 'card_theme.dart';
@@ -209,15 +210,15 @@ class _HareegCardViewState extends State<HareegCardView>
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(widget.size.shortestSide * 0.1),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x4D000000),
-              offset: Offset(0, 1.5),
+              color: Colors.black.withValues(alpha: 0.3),
+              offset: const Offset(0, 1.5),
               blurRadius: 3,
             ),
             BoxShadow(
-              color: Color(0x29000000),
-              offset: Offset(0, 5),
+              color: Colors.black.withValues(alpha: 0.16),
+              offset: const Offset(0, 5),
               blurRadius: 10,
             ),
           ],
@@ -355,8 +356,8 @@ class _RepresentedJokerBadge extends StatelessWidget {
     final labelSize = (size.shortestSide * 0.22).clamp(8.0, 14.0);
     final glyphSize = (size.shortestSide * 0.18).clamp(7.0, 12.0);
     final suitColor = switch (identity.suit) {
-      CardSuit.hearts || CardSuit.diamonds => const Color(0xFFB84234),
-      CardSuit.spades || CardSuit.clubs => const Color(0xFFF8F1E4),
+      CardSuit.hearts || CardSuit.diamonds => LoungeTokens.suitRed,
+      CardSuit.spades || CardSuit.clubs => LoungeTokens.textPrimary,
     };
     return Align(
       alignment: Alignment.bottomCenter,
@@ -367,7 +368,7 @@ class _RepresentedJokerBadge extends StatelessWidget {
           vertical: size.height * 0.015,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xE61F1A14),
+          color: LoungeTokens.panelTranslucent,
           borderRadius: BorderRadius.circular(size.shortestSide * 0.12),
         ),
         child: FittedBox(
@@ -380,7 +381,7 @@ class _RepresentedJokerBadge extends StatelessWidget {
                 maxLines: 1,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: const Color(0xFFF8F1E4),
+                  color: LoungeTokens.textPrimary,
                   fontSize: labelSize,
                   height: 1,
                   fontWeight: FontWeight.w800,
