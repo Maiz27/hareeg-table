@@ -58,9 +58,12 @@ void main() {
         'https://github.com/Maiz27/hareeg-table/releases/tag/v1.0.0-alpha.13',
       );
       expect(release.publishedAt, DateTime.utc(2026, 10, 20, 9, 12, 30));
-      expect(release.notesSummary, startsWith('1.0.0-alpha.13 (2026-10-20)'));
-      expect(release.notesSummary, isNot(contains('**')));
-      expect(release.notesSummary, isNot(contains('](')));
+      final sections = release.noteSections;
+      expect(sections.map((s) => s.heading), ['Features', 'Bug Fixes']);
+      expect(sections[0].items, [
+        'updates: tell the player when a new release is out (#130)',
+      ]);
+      expect(sections[1].items, ['keep Fifty scoring honest']);
     });
 
     test('a release without an APK asset has no download url', () {

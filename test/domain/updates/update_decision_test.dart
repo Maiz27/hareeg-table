@@ -115,32 +115,38 @@ void main() {
     });
   });
 
-  group('summarizeReleaseNotes', () {
-    test('strips markdown markers and links to plain text', () {
-      final summary = summarizeReleaseNotes(
+  group('parseReleaseNotes', () {
+    test('turns headings and bullets into headed plain-text items', () {
+      final sections = parseReleaseNotes(
         '## [1.0.0-alpha.13](https://x.test) (2026-10-20)\n\n'
         '### Features\n\n'
-        '* **updates:** tell the player ([#130](https://x.test/130))\n'
+        '* **updates:** tell the player ([#130](https://x.test/130)) '
+        '([abc1234](https://x.test/commit/abc1234))\n'
         '- keep `Fifty` honest\n'
-        '<!-- hidden -->',
+        '<!-- hidden -->\n'
+        '### Bug Fixes\n\n'
+        '1. the round ends\n',
       );
+      expect(sections.map((s) => s.heading), ['Features', 'Bug Fixes']);
+      expect(sections[0].items, [
+        'updates: tell the player (#130)',
+        'keep Fifty honest',
+      ]);
+      expect(sections[1].items, ['the round ends']);
+    });
+
+    test('plain paragraphs are items without a heading', () {
+      final sections = parseReleaseNotes('Notes for the release.\n\n---\n');
+      expect(sections.single.heading, isNull);
+      expect(sections.single.items, ['Notes for the release.']);
+    });
+
+    test('empty notes and a lone version heading parse to nothing', () {
+      expect(parseReleaseNotes(''), isEmpty);
       expect(
-        summary,
-        '1.0.0-alpha.13 (2026-10-20) Features updates: tell the player '
-        '(#130) keep Fifty honest',
+        parseReleaseNotes('## [1.0.0](https://x.test) (2026-10-20)\n'),
+        isEmpty,
       );
-    });
-
-    test('trims to the limit at a word boundary with an ellipsis', () {
-      final long = List.filled(100, 'word').join(' ');
-      final summary = summarizeReleaseNotes(long, maxLength: 300);
-      expect(summary.length, lessThanOrEqualTo(301));
-      expect(summary.endsWith('word…'), isTrue);
-    });
-
-    test('empty notes summarize to empty', () {
-      expect(summarizeReleaseNotes(''), isEmpty);
-      expect(summarizeReleaseNotes('\n---\n'), isEmpty);
     });
   });
 

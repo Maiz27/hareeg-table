@@ -56,8 +56,8 @@ class AppRelease {
   /// When the release was published, when known.
   final DateTime? publishedAt;
 
-  /// A short plain-text digest of [notes] for the in-app prompt.
-  String get notesSummary => summarizeReleaseNotes(notes);
+  /// [notes] as headed lists of plain-text items for the in-app prompt.
+  List<ReleaseNoteSection> get noteSections => parseReleaseNotes(notes);
 
   /// JSON-compatible form for the update cache.
   Map<String, Object?> toJson() => {
@@ -69,37 +69,76 @@ class AppRelease {
   };
 }
 
-/// Reduces markdown release notes to plain text of at most [maxLength]
-/// characters, cut at a word boundary with an ellipsis when trimmed.
+/// One heading of release notes and the items listed under it.
+class ReleaseNoteSection {
+  /// Creates a section.
+  const ReleaseNoteSection({this.heading, required this.items});
+
+  /// The section heading, or null for items that precede any heading.
+  final String? heading;
+
+  /// Plain-text items, one per bullet or paragraph line.
+  final List<String> items;
+}
+
+/// Reads markdown release notes into headed lists of plain-text items.
 ///
-/// Strips the markers a release body actually carries (headings, list
-/// bullets, emphasis, inline code, links, images, HTML comments) and folds
-/// the lines into one paragraph. It is a digest for a prompt, not a renderer.
-String summarizeReleaseNotes(String markdown, {int maxLength = 300}) {
+/// A release body (release-please output) is a version heading, then
+/// `### Features` / `### Bug Fixes` headings with one bullet per change.
+/// Headings become sections; bullets and plain paragraphs become items.
+/// Links, images, emphasis, inline code, HTML comments, fenced code, rules
+/// and the trailing commit hash are stripped. The version heading is
+/// dropped because the prompt title already names the version. It is a
+/// digest for a prompt, not a renderer.
+List<ReleaseNoteSection> parseReleaseNotes(String markdown) {
   var text = markdown.replaceAll('\r\n', '\n');
   text = text.replaceAll(RegExp(r'<!--[\s\S]*?-->'), ' ');
   text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
-  text = text.replaceAll(RegExp(r'!\[([^\]]*)\]\([^)]*\)'), r'$1');
+  final sections = <ReleaseNoteSection>[];
+  String? heading;
+  var items = <String>[];
+  void flush() {
+    if (items.isNotEmpty) {
+      sections.add(ReleaseNoteSection(heading: heading, items: items));
+    }
+    items = <String>[];
+  }
+
+  for (final raw in text.split('\n')) {
+    var line = raw.trim();
+    if (line.isEmpty) continue;
+    if (RegExp(r'^([-*_]\s*){3,}$').hasMatch(line)) continue;
+    final headingMatch = RegExp(r'^#{1,6}\s*(.*)$').firstMatch(line);
+    if (headingMatch != null) {
+      flush();
+      final title = _plainNoteText(headingMatch.group(1)!);
+      heading = title.isEmpty || _versionHeading.hasMatch(title) ? null : title;
+      continue;
+    }
+    line = line.replaceFirst(RegExp(r'^>\s*'), '');
+    line = line.replaceFirst(RegExp(r'^([-*+]|\d+[.)])\s+'), '');
+    final item = _plainNoteText(line);
+    if (item.isNotEmpty) items.add(item);
+  }
+  flush();
+  return sections;
+}
+
+final _versionHeading = RegExp(r'^[vV]?\d+\.\d+\.\d+');
+
+String _plainNoteText(String line) {
+  var text = line.replaceAllMapped(
+    RegExp(r'!\[([^\]]*)\]\([^)]*\)'),
+    (match) => match.group(1)!,
+  );
   text = text.replaceAllMapped(
     RegExp(r'\[([^\]]*)\]\([^)]*\)'),
     (match) => match.group(1)!,
   );
-  final lines = <String>[];
-  for (var line in text.split('\n')) {
-    line = line.trim();
-    line = line.replaceFirst(RegExp(r'^#{1,6}\s*'), '');
-    line = line.replaceFirst(RegExp(r'^>\s*'), '');
-    line = line.replaceFirst(RegExp(r'^([-*+]|\d+[.)])\s+'), '');
-    if (RegExp(r'^([-*_]\s*){3,}$').hasMatch(line)) continue;
-    line = line.replaceAll(RegExp(r'(\*\*|__|\*|`|~~)'), '');
-    line = line.replaceAll(RegExp(r'<[^>]+>'), '');
-    line = line.trim();
-    if (line.isNotEmpty) lines.add(line);
-  }
-  final joined = lines.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (joined.length <= maxLength) return joined;
-  var cut = joined.substring(0, maxLength);
-  final lastSpace = cut.lastIndexOf(' ');
-  if (lastSpace > maxLength * 0.6) cut = cut.substring(0, lastSpace);
-  return '${cut.trimRight()}…';
+  text = text.replaceAll(RegExp(r'(\*\*|__|\*|`|~~)'), '');
+  text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+  // release-please ends each item with its commit: "… ([abc1234](url))",
+  // which is "(abc1234)" once the link is gone and says nothing to a player.
+  text = text.replaceAll(RegExp(r'\s*\(\s*[0-9a-f]{7,40}\s*\)\s*$'), '');
+  return text.replaceAll(RegExp(r'\s+'), ' ').trim();
 }

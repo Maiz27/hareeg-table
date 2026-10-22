@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/app_orientation.dart';
@@ -5,11 +7,13 @@ import '../../../../app/app_routes.dart';
 import '../../../../data/persistence/match_history_repository.dart';
 import '../../../../data/persistence/match_repository.dart';
 import '../../../../domain/classic_hareeg/history/match_history_outcomes.dart';
+import '../../../../domain/updates/app_release.dart';
 import '../../../../l10n/app_strings.dart';
+import '../../../core/cards/card_theme.dart';
 import '../../../core/motif/geometric_motif_painter.dart';
 import '../../../core/theme/lounge_tokens.dart';
 import '../../updates/update_prompt_controller.dart';
-import '../../updates/widgets/update_available_panel.dart';
+import '../../updates/widgets/update_available_dialog.dart';
 import 'home_hero_section.dart';
 
 /// Main menu and navigation shell.
@@ -25,7 +29,8 @@ class HomeScreen extends StatefulWidget {
   /// The "update available" prompt state, or null for no update flow.
   ///
   /// The home screen starts the once-a-day automatic check after its first
-  /// frame, so the menu is never held back by the network.
+  /// frame, so the menu is never held back by the network, and shows the
+  /// offered release as a dialog over the menu when the check lands.
   final UpdatePromptController? updates;
 
   /// Active match persistence.
@@ -47,6 +52,10 @@ class _HomeScreenState extends State<HomeScreen> {
   var _recoveryFailed = false;
   var _damagedSave = false;
 
+  /// The release tag the dialog is showing, so one notification per release
+  /// opens one dialog.
+  String? _promptedTag;
+
   @override
   void initState() {
     super.initState();
@@ -54,9 +63,68 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadSavedMatch();
     final updates = widget.updates;
     if (updates != null) {
+      updates.addListener(_onUpdatesChanged);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) updates.runStartupCheck();
+        if (!mounted) return;
+        // A release found before this screen existed (a rematch rebuilt the
+        // menu) is still waiting on the controller.
+        _onUpdatesChanged();
+        updates.runStartupCheck();
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.updates?.removeListener(_onUpdatesChanged);
+    super.dispose();
+  }
+
+  void _onUpdatesChanged() {
+    final updates = widget.updates;
+    final release = updates?.prompt;
+    if (updates == null || release == null) {
+      _promptedTag = null;
+      return;
+    }
+    if (release.tag == _promptedTag) return;
+    _promptedTag = release.tag;
+    // Only the menu prompts. A check that lands while another screen is up
+    // (About shows a manual check's answer inline) stays quiet; the cached
+    // release offers itself again on the next launch.
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    unawaited(_showUpdatePrompt(updates, release));
+  }
+
+  Future<void> _showUpdatePrompt(
+    UpdatePromptController updates,
+    AppRelease release,
+  ) async {
+    final choice = await showUpdateAvailableDialog(
+      context,
+      release: release,
+      installedVersion: updates.installedVersion,
+      highContrast: CardContrastScope.enabledOf(context),
+      onDownload: () => _openUpdateLink(updates.download(release)),
+      onReleaseNotes: () => _openUpdateLink(updates.openReleaseNotes(release)),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case UpdateDialogChoice.skip:
+        await updates.skip();
+      case UpdateDialogChoice.download:
+      case UpdateDialogChoice.later:
+        // Closed, or the download is on its way: do not ask again this
+        // session.
+        updates.later();
+    }
+  }
+
+  Future<void> _openUpdateLink(Future<bool> opening) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = context.strings.updateCouldNotOpenLink;
+    if (!await opening) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -127,8 +195,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                         ).pushNamed(AppRoutes.rulesHelp),
                       ),
-                      if (widget.updates case final updates?)
-                        _UpdatePrompt(controller: updates),
                       if (shortViewport) ...[
                         const SizedBox(height: LoungeTokens.space6),
                         hero,
@@ -304,45 +370,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     if (mounted) await _loadSavedMatch();
-  }
-}
-
-/// The update panel below the brand header, present only while a newer,
-/// unskipped release is known and the player has not collapsed it.
-class _UpdatePrompt extends StatelessWidget {
-  const _UpdatePrompt({required this.controller});
-
-  final UpdatePromptController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final release = controller.prompt;
-        if (release == null) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: LoungeTokens.space5),
-          child: UpdateAvailablePanel(
-            release: release,
-            installedVersion: controller.installedVersion,
-            onDownload: () => _open(context, controller.download(release)),
-            onReleaseNotes: () =>
-                _open(context, controller.openReleaseNotes(release)),
-            onSkip: controller.skip,
-            onLater: controller.later,
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _open(BuildContext context, Future<bool> opening) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final message = context.strings.updateCouldNotOpenLink;
-    if (!await opening) {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
-    }
   }
 }
 
