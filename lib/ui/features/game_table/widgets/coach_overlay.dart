@@ -15,7 +15,7 @@ import '../coach/coach_hint.dart';
 /// - [CoachIntensity.quiet]: a compact callout docked in the relevant zone
 ///   (above the hand, or below the chrome for discard hints).
 /// - [CoachIntensity.popIn]: an urgent finish/Fifty banner that scales into
-///   the top of the table. Finish uses gold, Fifty uses the reserved flame.
+///   the top of the table. Finish uses the accent, Fifty the reserved Fifty heat.
 ///
 /// The overlay is entirely pointer-transparent ([IgnorePointer]): the coach
 /// must never intercept a tap, drag, or long-press meant for the table, so it
@@ -183,8 +183,9 @@ class CoachOverlay extends StatelessWidget {
   static Color _accentColor(CoachAccent accent) {
     return switch (accent) {
       CoachAccent.coach => LoungeTokens.coachHighlight,
-      CoachAccent.finish => LoungeTokens.goldAccent,
-      CoachAccent.fifty => LoungeTokens.fiftyFlame,
+      // Sand for a finish, ember for Fifty: the two banners share no hue.
+      CoachAccent.finish => LoungeTokens.stateSelected,
+      CoachAccent.fifty => LoungeTokens.fiftyHeat,
     };
   }
 }
@@ -207,7 +208,7 @@ class _CoachCallout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPopIn = hint.intensity == CoachIntensity.popIn;
-    final panelColor = LoungeTokens.coffeeCharcoal.withValues(
+    final panelColor = LoungeTokens.panel.withValues(
       alpha: highContrast ? 0.97 : 0.92,
     );
     final note = stageHint;
@@ -251,7 +252,7 @@ class _CoachCallout extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: LoungeTokens.offWhiteText,
+                        color: LoungeTokens.textPrimary,
                         fontSize: isPopIn ? 16 : 14.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.2,
@@ -279,7 +280,7 @@ class _CoachCallout extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 1),
                       child: Icon(
                         note.icon,
-                        color: LoungeTokens.goldAccent.withValues(alpha: 0.9),
+                        color: LoungeTokens.accent.withValues(alpha: 0.9),
                         size: 12,
                       ),
                     ),
@@ -291,9 +292,7 @@ class _CoachCallout extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: LoungeTokens.bodyMuted.copyWith(
                           fontSize: 11,
-                          color: LoungeTokens.goldAccent.withValues(
-                            alpha: 0.92,
-                          ),
+                          color: LoungeTokens.accent.withValues(alpha: 0.92),
                         ),
                       ),
                     ),

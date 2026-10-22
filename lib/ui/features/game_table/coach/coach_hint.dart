@@ -30,7 +30,7 @@ enum CoachIntensity {
 }
 
 /// Accent palette a callout uses. Teal is the default coach colour; finish is
-/// a celebratory gold; Fifty is the reserved flame (the one heat exception).
+/// the ember accent; Fifty is the reserved Fifty heat.
 enum CoachAccent { coach, finish, fifty }
 
 /// A fully localized, presentation-ready coaching hint derived from one

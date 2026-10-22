@@ -49,12 +49,12 @@ class _RoundResultOverlay extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: highContrast
                           ? Colors.black.withValues(alpha: 0.98)
-                          : LoungeTokens.coffeeCharcoal.withValues(alpha: 0.96),
+                          : LoungeTokens.panel.withValues(alpha: 0.96),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: highContrast
-                            ? const Color(0xFFFFD400)
-                            : LoungeTokens.goldAccent.withValues(alpha: 0.34),
+                            ? LoungeTokens.highContrastSelected
+                            : LoungeTokens.lineSoft,
                         width: highContrast ? 2 : 1,
                       ),
                       boxShadow: [
@@ -140,19 +140,19 @@ class _RoundResultHeader extends StatelessWidget {
             shape: BoxShape.circle,
             gradient: const RadialGradient(
               center: Alignment(-0.3, -0.45),
-              colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+              colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
             ),
-            border: Border.all(color: LoungeTokens.goldAccent),
+            border: Border.all(color: LoungeTokens.accent),
             boxShadow: [
               BoxShadow(
-                color: LoungeTokens.goldAccent.withValues(alpha: 0.3),
+                color: LoungeTokens.accent.withValues(alpha: 0.3),
                 blurRadius: 12,
               ),
             ],
           ),
           child: Icon(
             Icons.menu_book_outlined,
-            color: LoungeTokens.goldAccent,
+            color: LoungeTokens.accent,
             size: compact ? 18 : 22,
           ),
         ),
@@ -165,7 +165,7 @@ class _RoundResultHeader extends StatelessWidget {
               Text(
                 context.strings.roundScore,
                 style: LoungeTokens.overline.copyWith(
-                  color: LoungeTokens.goldAccent,
+                  color: LoungeTokens.accent,
                   fontSize: compact ? 9.5 : 10.5,
                 ),
               ),
@@ -214,14 +214,12 @@ class _RoundScoreBreakdown extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            LoungeTokens.feltSpotlight.withValues(alpha: 0.55),
-            LoungeTokens.feltGreen.withValues(alpha: 0.45),
+            LoungeTokens.surfaceSpotlight.withValues(alpha: 0.55),
+            LoungeTokens.surface.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.20)),
       ),
       child: Column(
         children: [
@@ -240,7 +238,7 @@ class _RoundScoreBreakdown extends StatelessWidget {
             if (index < seats.length - 1)
               Divider(
                 height: 1,
-                color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+                color: LoungeTokens.line.withValues(alpha: 0.16),
               ),
           ],
         ],
@@ -292,13 +290,13 @@ class _RoundScoreRow extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: const RadialGradient(
                   center: Alignment(-0.3, -0.45),
-                  colors: [Color(0xFF3A2A1C), LoungeTokens.coffeeCharcoal],
+                  colors: [LoungeTokens.surfaceSpotlight, LoungeTokens.surface],
                 ),
                 border: Border.all(
                   width: 2,
                   color: Color.lerp(
-                    LoungeTokens.sandLine.withValues(alpha: 0.4),
-                    LoungeTokens.fiftyFlame,
+                    LoungeTokens.lineSoft,
+                    LoungeTokens.fiftyHeat,
                     eliminationScore <= 0
                         ? 0
                         : (after / eliminationScore).clamp(0.0, 1.0),
@@ -310,7 +308,7 @@ class _RoundScoreRow extends StatelessWidget {
                     ? Icons.person_outline
                     : Icons.smart_toy_outlined,
                 size: compact ? 14 : 17,
-                color: LoungeTokens.sandLine,
+                color: LoungeTokens.line,
               ),
             ),
           ),
@@ -325,8 +323,8 @@ class _RoundScoreRow extends StatelessWidget {
                   strings.seatLabel(seat),
                   style: TextStyle(
                     color: eliminated
-                        ? LoungeTokens.mutedText
-                        : LoungeTokens.offWhiteText,
+                        ? LoungeTokens.textMuted
+                        : LoungeTokens.textPrimary,
                     fontSize: compact ? 12 : 14,
                     fontWeight: FontWeight.w800,
                     decoration: eliminated ? TextDecoration.lineThrough : null,
@@ -348,19 +346,16 @@ class _RoundScoreRow extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color:
-                    (delta <= 0
-                            ? LoungeTokens.goldAccent
-                            : LoungeTokens.fiftyFlame)
-                        .withValues(alpha: 0.14),
+                color: (delta <= 0 ? LoungeTokens.line : LoungeTokens.fiftyHeat)
+                    .withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
               ),
               child: Text(
                 delta == 0 ? '+0' : deltaText,
                 style: LoungeTokens.numericChip.copyWith(
                   color: delta <= 0
-                      ? LoungeTokens.goldAccent
-                      : LoungeTokens.fiftyFlame,
+                      ? LoungeTokens.line
+                      : LoungeTokens.fiftyHeat,
                   fontSize: compact ? 12 : 14,
                 ),
               ),
@@ -370,8 +365,8 @@ class _RoundScoreRow extends StatelessWidget {
             '$after',
             style: _scoreNumberStyle(compact).copyWith(
               color: eliminated
-                  ? LoungeTokens.mutedText
-                  : LoungeTokens.goldAccent,
+                  ? LoungeTokens.textMuted
+                  : LoungeTokens.textPrimary,
             ),
           ),
         ],
@@ -390,18 +385,16 @@ class _MiniResultTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.58),
+        color: LoungeTokens.surface.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: LoungeTokens.line.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 7, vertical: 2),
         child: Text(
           label,
           style: TextStyle(
-            color: LoungeTokens.offWhiteText.withValues(alpha: 0.72),
+            color: LoungeTokens.textPrimary.withValues(alpha: 0.72),
             fontSize: compact ? 9 : 10,
             fontWeight: FontWeight.w700,
             height: 1,
@@ -432,7 +425,7 @@ class _RoundAdvanceLine extends StatelessWidget {
           child: Text(
             strings.nextRoundStartsWith(nextStarter),
             style: TextStyle(
-              color: LoungeTokens.offWhiteText.withValues(alpha: 0.76),
+              color: LoungeTokens.textPrimary.withValues(alpha: 0.76),
               fontSize: compact ? 11 : 13,
               fontWeight: FontWeight.w700,
             ),
@@ -468,7 +461,7 @@ class _MatchWinnerLine extends StatelessWidget {
           child: Text(
             strings.playerWinsMatch(winner),
             style: TextStyle(
-              color: LoungeTokens.goldAccent,
+              color: LoungeTokens.accent,
               fontSize: compact ? 12 : 14,
               fontWeight: FontWeight.w900,
             ),
@@ -496,7 +489,7 @@ ButtonStyle _roundResultActionStyle(bool compact) {
 
 TextStyle _scoreNumberStyle(bool compact) {
   return TextStyle(
-    color: LoungeTokens.offWhiteText,
+    color: LoungeTokens.textPrimary,
     fontSize: compact ? 14 : 17,
     fontWeight: FontWeight.w900,
   );

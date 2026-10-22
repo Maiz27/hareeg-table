@@ -117,11 +117,11 @@ class TableChromeButton extends StatelessWidget {
   final String? semanticsLabel;
 
   /// Whether the segment is a switch, and if so whether it is on. Null for a
-  /// plain action. A toggled-on segment lights gold.
+  /// plain action. A toggled-on segment lights in the accent.
   final bool? toggled;
 
-  /// Lights the glyph gold: the segment leads off the surface rather than
-  /// adjusting it.
+  /// Lights the glyph in the accent: the segment leads off the surface rather
+  /// than adjusting it.
   final bool emphasized;
 
   @override
@@ -130,10 +130,10 @@ class TableChromeButton extends StatelessWidget {
     final enabled = onPressed != null;
     final lit = emphasized || (toggled ?? false);
     final color = !enabled
-        ? LoungeTokens.sandLine.withValues(alpha: 0.32)
+        ? LoungeTokens.line.withValues(alpha: 0.32)
         : lit
-        ? LoungeTokens.goldAccent
-        : LoungeTokens.sandLine;
+        ? LoungeTokens.accent
+        : LoungeTokens.line;
     // The label wraps the tooltip rather than sitting inside it: `Tooltip`
     // publishes its own semantics node, so a label added underneath would
     // arrive as a *second* node and the outer one — the one a hit test and
@@ -163,13 +163,9 @@ class TableChromeButton extends StatelessWidget {
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: LoungeTokens.goldAccent.withValues(
-                            alpha: 0.16,
-                          ),
+                          color: LoungeTokens.accent.withValues(alpha: 0.16),
                           border: Border.all(
-                            color: LoungeTokens.goldAccent.withValues(
-                              alpha: 0.55,
-                            ),
+                            color: LoungeTokens.accent.withValues(alpha: 0.55),
                           ),
                         ),
                         child: SizedBox.square(
@@ -200,15 +196,16 @@ class TableHudCapsule extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xF2241A12), Color(0xF2140F0B)],
+          colors: [
+            LoungeTokens.surfaceRaised.withValues(alpha: 0.95),
+            LoungeTokens.surface.withValues(alpha: 0.95),
+          ],
         ),
         borderRadius: BorderRadius.circular(LoungeTokens.radiusPill),
-        border: Border.all(
-          color: LoungeTokens.sandLine.withValues(alpha: 0.32),
-        ),
+        border: Border.all(color: LoungeTokens.lineSoft),
         boxShadow: LoungeTokens.elevationL2,
       ),
       child: Padding(
@@ -223,7 +220,7 @@ class TableHudCapsule extends StatelessWidget {
                 Container(
                   width: TableHudMetrics.dividerWidth,
                   height: 14,
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.22),
+                  color: LoungeTokens.line.withValues(alpha: 0.22),
                 ),
               children[i],
             ],

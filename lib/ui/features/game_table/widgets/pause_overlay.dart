@@ -13,7 +13,7 @@ import 'seat_plate.dart';
 /// Table-safe ergonomic controls only (motion speed, CPU pace, card contrast,
 /// haptics, sound, resume, leave). Strictness and Opponents are locked at
 /// match start — to change them, leave the table and start a new game.
-/// Visually anchored to the home menu's coffee-charcoal panel + sand-line
+/// Visually anchored to the home menu's charcoal panel + sand hairline
 /// border language so pausing reads as the same product, not a stock dialog.
 ///
 /// Because the table is landscape-locked, the panel spreads into the width:
@@ -104,7 +104,7 @@ class PauseOverlay extends StatelessWidget {
       child: ColoredBox(
         color: highContrastCards
             ? Colors.black.withValues(alpha: 0.72)
-            : LoungeTokens.overlayScrim,
+            : LoungeTokens.scrim,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -286,7 +286,7 @@ class _TwoColumnBody extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(right: LoungeTokens.space5),
-            // The in-match settings sit in an inset felt tray, set apart from
+            // The in-match settings sit in an inset tray, set apart from
             // the actions like a drawer pulled from the table.
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -294,13 +294,13 @@ class _TwoColumnBody extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    LoungeTokens.feltSpotlight.withValues(alpha: 0.45),
-                    LoungeTokens.feltGreen.withValues(alpha: 0.35),
+                    LoungeTokens.surfaceSpotlight.withValues(alpha: 0.45),
+                    LoungeTokens.surface.withValues(alpha: 0.35),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(LoungeTokens.radiusPanel),
                 border: Border.all(
-                  color: LoungeTokens.sandLine.withValues(alpha: 0.16),
+                  color: LoungeTokens.line.withValues(alpha: 0.16),
                 ),
               ),
               child: SingleChildScrollView(
@@ -312,7 +312,7 @@ class _TwoColumnBody extends StatelessWidget {
         ),
         Container(
           width: 1,
-          color: LoungeTokens.sandLine.withValues(
+          color: LoungeTokens.line.withValues(
             alpha: highContrast ? 0.45 : 0.18,
           ),
         ),
@@ -329,7 +329,7 @@ class _TwoColumnBody extends StatelessWidget {
 }
 
 /// Pinned vertical action rail used in the two-column layout. Resume is the
-/// gold hero; Report and Leave sit beneath it as quieter outlined actions.
+/// accent hero; Report and Leave sit beneath it as quieter outlined actions.
 class _ActionRail extends StatelessWidget {
   const _ActionRail({
     required this.scores,
@@ -378,7 +378,7 @@ class _ActionRail extends StatelessWidget {
                             ? Icons.person_outline
                             : Icons.smart_toy_outlined,
                         size: 13,
-                        color: LoungeTokens.sandLine,
+                        color: LoungeTokens.line,
                       ),
                     ],
                   ),
@@ -413,7 +413,7 @@ class _ActionRail extends StatelessWidget {
 }
 
 /// Full-width rail button. Mirrors the [LoungePanelActions] tone language
-/// (gold-filled primary, sand-outlined neutral, deep-red-outlined danger) but
+/// (accent-filled primary, sand-outlined neutral, crimson-outlined danger) but
 /// stacks vertically for the rail.
 class _RailButton extends StatelessWidget {
   const _RailButton({
@@ -434,8 +434,8 @@ class _RailButton extends StatelessWidget {
       return FilledButton.icon(
         onPressed: onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: LoungeTokens.goldAccent,
-          foregroundColor: LoungeTokens.coffeeCharcoal,
+          backgroundColor: LoungeTokens.accent,
+          foregroundColor: LoungeTokens.onAccent,
           padding: const EdgeInsets.symmetric(
             horizontal: LoungeTokens.space4,
             vertical: LoungeTokens.space4,
@@ -454,11 +454,11 @@ class _RailButton extends StatelessWidget {
       );
     }
     final isDanger = tone == LoungePanelActionTone.danger;
-    final accent = isDanger ? LoungeTokens.deepRed : LoungeTokens.sandLine;
+    final accent = isDanger ? LoungeTokens.danger : LoungeTokens.line;
     return OutlinedButton.icon(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
-        foregroundColor: LoungeTokens.offWhiteText,
+        foregroundColor: LoungeTokens.textPrimary,
         side: BorderSide(color: accent.withValues(alpha: 0.55)),
         padding: const EdgeInsets.symmetric(
           horizontal: LoungeTokens.space4,
@@ -550,7 +550,7 @@ class _OverlaySection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, color: LoungeTokens.goldAccent, size: 18),
+            Icon(icon, color: LoungeTokens.accent, size: 18),
             const SizedBox(width: LoungeTokens.space2),
             Text(title, style: LoungeTokens.titleSmall),
           ],
@@ -582,7 +582,7 @@ class _OverlayToggle extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, color: LoungeTokens.goldAccent, size: 18),
+        Icon(icon, color: LoungeTokens.accent, size: 18),
         const SizedBox(width: LoungeTokens.space2),
         Expanded(
           child: Column(
@@ -599,10 +599,10 @@ class _OverlayToggle extends StatelessWidget {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeThumbColor: LoungeTokens.goldAccent,
-          activeTrackColor: LoungeTokens.goldAccent.withValues(alpha: 0.45),
-          inactiveThumbColor: LoungeTokens.mutedText,
-          inactiveTrackColor: LoungeTokens.feltRaised,
+          activeThumbColor: LoungeTokens.accent,
+          activeTrackColor: LoungeTokens.accent.withValues(alpha: 0.45),
+          inactiveThumbColor: LoungeTokens.textMuted,
+          inactiveTrackColor: LoungeTokens.surfaceRaised,
         ),
       ],
     );
@@ -621,7 +621,7 @@ class _SettingsRule extends StatelessWidget {
       child: Divider(
         height: 1,
         thickness: 1,
-        color: LoungeTokens.sandLine.withValues(alpha: 0.18),
+        color: LoungeTokens.line.withValues(alpha: 0.18),
       ),
     );
   }

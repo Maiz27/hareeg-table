@@ -46,7 +46,7 @@ class MeldSuggestionRack extends StatelessWidget {
         key: ValueKey(suggestions.map((s) => s.actionId).join('|')),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
-          color: LoungeTokens.coffeeCharcoal.withValues(alpha: 0.90),
+          color: LoungeTokens.panel.withValues(alpha: 0.90),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
           boxShadow: [
@@ -250,9 +250,9 @@ class _TablePill extends StatelessWidget {
         ],
       ),
       child: IconTheme(
-        data: const IconThemeData(color: LoungeTokens.coffeeCharcoal),
+        data: const IconThemeData(color: LoungeTokens.onAccent),
         child: DefaultTextStyle(
-          style: const TextStyle(color: LoungeTokens.coffeeCharcoal),
+          style: const TextStyle(color: LoungeTokens.onAccent),
           child: child,
         ),
       ),
@@ -316,11 +316,9 @@ class _MeldCtaButton extends StatelessWidget {
         ? (hasOpened ? strings.playMeld : strings.openMeld)
         : (hasOpened ? strings.meld : strings.openNeed);
     final background = isCta
-        ? LoungeTokens.goldAccent
-        : const Color(0xF21C140E);
-    final foreground = isCta
-        ? LoungeTokens.coffeeCharcoal
-        : LoungeTokens.offWhiteText;
+        ? LoungeTokens.accent
+        : LoungeTokens.panel.withValues(alpha: 0.95);
+    final foreground = isCta ? LoungeTokens.onAccent : LoungeTokens.textPrimary;
 
     final body = AnimatedContainer(
       duration: const Duration(milliseconds: 160),
@@ -334,12 +332,12 @@ class _MeldCtaButton extends StatelessWidget {
         border: Border.all(
           color: isCta
               ? Colors.white.withValues(alpha: 0.32)
-              : LoungeTokens.sandLine.withValues(alpha: 0.32),
+              : LoungeTokens.lineSoft,
         ),
         boxShadow: [
           BoxShadow(
             color: isCta
-                ? LoungeTokens.goldAccent.withValues(alpha: 0.22)
+                ? LoungeTokens.accent.withValues(alpha: 0.22)
                 : Colors.black.withValues(alpha: 0.16),
             blurRadius: isCta ? 12 : 8,
             offset: const Offset(0, 4),
@@ -354,7 +352,7 @@ class _MeldCtaButton extends StatelessWidget {
             Text(
               isCta ? caption : caption.toUpperCase(),
               style: LoungeTokens.overline.copyWith(
-                color: isCta ? foreground : LoungeTokens.sandLine,
+                color: isCta ? foreground : LoungeTokens.line,
                 fontSize: compact ? 7.5 : 8.5,
                 height: 1,
                 letterSpacing: isCta ? 0.3 : 1.1,

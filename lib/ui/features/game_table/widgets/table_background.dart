@@ -66,7 +66,9 @@ class TableBackground extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(child: ColoredBox(color: Color(0xFF0E0A07))),
+            const Positioned.fill(
+              child: ColoredBox(color: LoungeTokens.surface),
+            ),
             // The surface, foreshortened: the far side recedes, so the
             // medallion and weave read as a plane seen from the chair.
             Positioned.fill(
@@ -144,26 +146,28 @@ class _PerspectiveSurface extends StatelessWidget {
   }
 }
 
-/// A warm pool of lamp light on the centre of the table, falling off to the
-/// edges. Painted on the surface so it shares the surface's perspective.
+/// A warm pool of ember lamp light on the centre of the table, falling off to
+/// the edges. Painted on the surface so it shares the surface's perspective.
 class _LampLight extends StatelessWidget {
   const _LampLight();
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
+    return IgnorePointer(
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: RadialGradient(
-            center: Alignment(0, 0.15),
+            center: const Alignment(0, 0.15),
             radius: 0.85,
             colors: [
-              Color(0x24FFD9A0),
-              Color(0x0AFFD9A0),
-              Color(0x00000000),
-              Color(0x47000000),
+              // Lamp light is warm sand, not ember: a red pool over the felt
+              // would read as heat on every table.
+              LoungeTokens.line.withValues(alpha: 0.14),
+              LoungeTokens.line.withValues(alpha: 0.04),
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.28),
             ],
-            stops: [0, 0.35, 0.68, 1],
+            stops: const [0, 0.35, 0.68, 1],
           ),
         ),
       ),
@@ -172,6 +176,7 @@ class _LampLight extends StatelessWidget {
 }
 
 /// Rail material painted around the table surface.
+// TODO(tokens): rail materials are surface-theme artwork with no role yet.
 enum _TableRail {
   /// Dark walnut leather rail with a brass inlay (lounge default).
   walnut(Color(0xFF1C120B), Color(0xFF4A2F1B), Color(0xFFC9A15A)),
@@ -362,7 +367,7 @@ class _SandlineSurface extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: LoungeTokens.feltGreen),
+        const ColoredBox(color: LoungeTokens.tableFelt),
         Image.asset(
           _assetPath,
           fit: BoxFit.cover,
@@ -386,7 +391,7 @@ class _FeltSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DecoratedBox(
-      decoration: BoxDecoration(color: LoungeTokens.feltGreen),
+      decoration: BoxDecoration(color: LoungeTokens.tableFelt),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -409,12 +414,13 @@ class _FeltGradient extends StatelessWidget {
         gradient: RadialGradient(
           center: Alignment(0, -0.12),
           radius: 1.0,
+          // TODO(tokens): felt highlight and edge shades beyond tableFelt*.
           colors: [
             Color(0xFF22564A),
-            LoungeTokens.feltSpotlight,
-            LoungeTokens.feltGreen,
+            LoungeTokens.tableFeltSpotlight,
+            LoungeTokens.tableFelt,
             Color(0xFF0B221C),
-            LoungeTokens.coffeeCharcoal,
+            LoungeTokens.surface,
           ],
           stops: [0, 0.22, 0.62, 0.9, 1],
         ),
@@ -434,8 +440,8 @@ class _FeltCenterHalo extends StatelessWidget {
           center: const Alignment(0, -0.05),
           radius: 0.46,
           colors: [
-            LoungeTokens.sandLine.withValues(alpha: 0.05),
-            LoungeTokens.sandLine.withValues(alpha: 0.015),
+            LoungeTokens.line.withValues(alpha: 0.05),
+            LoungeTokens.line.withValues(alpha: 0.015),
             Colors.transparent,
           ],
           stops: const [0, 0.5, 1],
@@ -489,6 +495,8 @@ class _FeltFibers extends CustomPainter {
 // ---------------------------------------------------------------------------
 // 2. Light wood — physical tabletop with overhead light + herbal accent.
 // ---------------------------------------------------------------------------
+// TODO(tokens): wood, sapphire and clay surfaces are theme artwork; their
+// literals below have no role yet.
 
 class _WoodSurface extends StatelessWidget {
   const _WoodSurface();

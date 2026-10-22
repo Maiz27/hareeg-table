@@ -163,12 +163,12 @@ class _SeatMeldLaneState extends State<SeatMeldLane> {
           padding: EdgeInsets.all(widget.compact ? 3 : 5),
           decoration: BoxDecoration(
             color: hot
-                ? LoungeTokens.goldAccent.withValues(alpha: 0.10)
+                ? LoungeTokens.stateSelected.withValues(alpha: 0.10)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: hot
-                  ? LoungeTokens.goldAccent.withValues(alpha: 0.46)
+                  ? LoungeTokens.stateSelected.withValues(alpha: 0.46)
                   : Colors.transparent,
             ),
           ),
@@ -468,8 +468,8 @@ class _TableMeldStackState extends State<_TableMeldStack> {
         final bodyHeight = height;
         final hoverPlacement = _hoverPlacement;
         final hoverColor = _hoverAccepts
-            ? LoungeTokens.goldAccent
-            : LoungeTokens.deepRed;
+            ? LoungeTokens.stateSelected
+            : LoungeTokens.stateInvalid;
         final body = AnimatedScale(
           duration: LoungeTokens.motionInstant,
           curve: Curves.easeOutCubic,
@@ -490,13 +490,19 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: hot
-                            ? LoungeTokens.goldAccent.withValues(alpha: 0.18)
-                            : LoungeTokens.goldAccent.withValues(alpha: 0.05),
+                            ? LoungeTokens.stateSelected.withValues(alpha: 0.18)
+                            : LoungeTokens.stateSelected.withValues(
+                                alpha: 0.05,
+                              ),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: hot
-                              ? LoungeTokens.goldAccent.withValues(alpha: 0.7)
-                              : LoungeTokens.goldAccent.withValues(alpha: 0.4),
+                              ? LoungeTokens.stateSelected.withValues(
+                                  alpha: 0.7,
+                                )
+                              : LoungeTokens.stateSelected.withValues(
+                                  alpha: 0.4,
+                                ),
                           width: 1.4,
                         ),
                       ),
@@ -551,8 +557,8 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                       '${meld.totalValue}',
                       style: TextStyle(
                         color: owner == PlayerSeat.south
-                            ? LoungeTokens.coffeeCharcoal
-                            : LoungeTokens.offWhiteText,
+                            ? LoungeTokens.onAccent
+                            : LoungeTokens.textPrimary,
                         fontSize: compact ? 9 : 10,
                         height: 1,
                         fontWeight: FontWeight.w800,
@@ -575,12 +581,12 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: LoungeTokens.coffeeCharcoal.withValues(
+                                color: LoungeTokens.panel.withValues(
                                   alpha: 0.90,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: LoungeTokens.goldAccent.withValues(
+                                  color: LoungeTokens.accent.withValues(
                                     alpha: 0.44,
                                   ),
                                 ),
@@ -588,7 +594,7 @@ class _TableMeldStackState extends State<_TableMeldStack> {
                               child: Icon(
                                 Icons.undo_rounded,
                                 size: compact ? 11 : 12,
-                                color: LoungeTokens.goldAccent,
+                                color: LoungeTokens.accent,
                               ),
                             ),
                           ),
@@ -631,10 +637,10 @@ class _TableMeldStackState extends State<_TableMeldStack> {
 
 Color _seatAccent(PlayerSeat seat) {
   return switch (seat) {
-    PlayerSeat.south => LoungeTokens.goldAccent,
-    PlayerSeat.east => const Color(0xFF2F5F6D),
-    PlayerSeat.north => LoungeTokens.coffeeCharcoal,
-    PlayerSeat.west => LoungeTokens.indigoAccent,
+    PlayerSeat.south => LoungeTokens.accent,
+    PlayerSeat.east => LoungeTokens.seatEast,
+    PlayerSeat.north => LoungeTokens.panel,
+    PlayerSeat.west => LoungeTokens.seatCool,
   };
 }
 
