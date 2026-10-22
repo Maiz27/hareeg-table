@@ -188,7 +188,10 @@ def build(direction, name, symbol_fn, two_tone_fn):
     ar_s, ar_sw = wordmark(shape_arabic("حريق"), 58, rtl=True)
     width = max(256, lat_sw, ar_sw) + 32
     cx = width / 2
-    body = (f'<g id="symbol" transform="translate({cx - 128:.1f} 0) scale(0.78)">{symbol_fn(BLACK)}</g>\n'
+    # The symbol's 256 canvas is 199.7 wide after scale(0.78); translate by
+    # half of that so its centre (x=128 on its own canvas) lands on cx.
+    symbol_scale = 0.78
+    body = (f'<g id="symbol" transform="translate({cx - 128 * symbol_scale:.1f} 0) scale({symbol_scale})">{symbol_fn(BLACK)}</g>\n'
             f'<g id="wordmark-latin" transform="translate({cx - lat_sw / 2:.1f} 224)"><path fill="{BLACK}" d="{lat_s}"/></g>\n'
             f'<g id="wordmark-arabic" transform="translate({cx - ar_sw / 2:.1f} 296)"><path fill="{BLACK}" d="{ar_s}"/></g>\n')
     write(d / f"{name}-stacked.svg", svg(f"Hareeg Table {name} stacked", body, w=int(width), h=360))
